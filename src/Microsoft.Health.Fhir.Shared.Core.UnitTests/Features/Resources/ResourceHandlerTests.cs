@@ -12,12 +12,14 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
@@ -25,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
@@ -53,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
+        private readonly DataResourceFilter _dataResourceFilter = new DataResourceFilter(MissingDataFilterCriteria.Default);
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private IAuthorizationService<DataActions> _authorizationService;
 
@@ -98,6 +102,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
@@ -106,11 +112,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, _authorizationService, contextAccessor, _searchService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
-            _mediator = new Mediator(type => provider.GetService(type));
+            _mediator = new Mediator(provider);
 
             _deserializer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
@@ -124,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperOperation>().Wrapper, SaveOutcomeType.Created));
 
             var rawResource = await _mediator.CreateResourceAsync(resource);
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -139,8 +145,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(null);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
             var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -157,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperOperation>().Wrapper, SaveOutcomeType.Created));
 
             var rawResource = await _mediator.CreateResourceAsync(resource);
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -175,8 +181,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
-                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
+                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
                 var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
                 var deserializedResource = rawResource.ToResourceElement(_deserializer);
@@ -198,8 +204,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapperOperation>(0).Wrapper), SaveOutcomeType.Created));
 
             var outcome = await _mediator.UpsertResourceAsync(resource);
             var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
@@ -222,8 +228,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 return CreateResourceWrapper(newResource.ToResourceElement(), false);
             }
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
-                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapperOperation>(0).Wrapper), SaveOutcomeType.Updated));
 
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
             var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
@@ -267,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Fact]
         public async Task GivenAFhirMediator_WhenDeletingAResourceThatIsAlreadyDeleted_ThenDoNothing()
         {
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), null, true, true, Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
 
             var resourceKey = new ResourceKey<Observation>("id1");
             ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete)).ResourceKey;
@@ -401,7 +407,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 null,
-                null);
+                null,
+                0);
         }
 
         private ResourceWrapper CreateMockResourceWrapper(ResourceElement resource, bool isDeleted)
@@ -414,7 +421,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 null,
                 null,
                 null,
-                null);
+                null,
+                0);
         }
     }
 }

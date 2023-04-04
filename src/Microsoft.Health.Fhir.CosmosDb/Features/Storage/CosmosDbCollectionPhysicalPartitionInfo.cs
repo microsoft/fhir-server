@@ -59,14 +59,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _backgroundLoopTask = BackgroundLoop(_backgroundLoopCancellationTokenSource.Token);
         }
 
-        public async Task BackgroundLoop(CancellationToken cancellationToken)
+        private async Task BackgroundLoop(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
                     await Task.Delay(TimeSpan.FromMinutes(10), cancellationToken);
-                    PhysicalPartitionCount = await GetPhysicalPartitionCount(cancellationToken);
+                    int newPartitionCount = await GetPhysicalPartitionCount(cancellationToken);
+
+                    if (newPartitionCount != PhysicalPartitionCount)
+                    {
+                        _logger.LogInformation("Physical partition count changed from {OldPhysicalPartitionCount} to {NewPhysicalPartitionCount}.", PhysicalPartitionCount, newPartitionCount);
+                    }
+
+                    PhysicalPartitionCount = newPartitionCount;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -129,7 +136,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 },
             };
 
-            HttpResponseMessage httpResponseMessage = await client.SendAsync(httpRequestMessage, cancellationToken);
+            using HttpResponseMessage httpResponseMessage = await client.SendAsync(httpRequestMessage, cancellationToken);
             if (httpResponseMessage.IsSuccessStatusCode)
             {
                 var partitionKeyRangesResponse = await httpResponseMessage.Content.ReadFromJsonAsync<PartitionKeyRangesResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true }, cancellationToken);

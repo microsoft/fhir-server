@@ -17,9 +17,9 @@ using Azure.Storage.Blobs.Models;
 
 namespace FHIRDataSynth
 {
-    internal class ServerImport
+    internal sealed class ServerImport
     {
-        private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult)
+        private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult, string bearerToken)
         {
             using (HttpRequestMessage request = new HttpRequestMessage()
             {
@@ -30,6 +30,11 @@ namespace FHIRDataSynth
             {
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/fhir+json"));
                 request.Headers.Add("Prefer", "respond-async");
+                if (bearerToken != null)
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+                }
+
                 using (HttpResponseMessage response = await client.SendAsync(request))
                 {
                     currentResult.responseStatusCode = (int)response.StatusCode;
@@ -64,7 +69,7 @@ namespace FHIRDataSynth
             return false;
         }
 
-        private static async Task ImportSingleBlobPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
+        private static async Task ImportSingleBlobPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString, string bearerToken)
         {
             if (inputUrl.EndsWith('/'))
             {
@@ -142,7 +147,7 @@ namespace FHIRDataSynth
 
                             // Make server call using import parameter.
                             Console.WriteLine($"  Importing {currentResult.importParameters}");
-                            while (await ImportSingle(uri, importParametersJsonString, client, currentResult))
+                            while (await ImportSingle(uri, importParametersJsonString, client, currentResult, bearerToken))
                             {
                                 await Task.Delay(500); // Server busy, retry later.
                             }
@@ -171,7 +176,7 @@ namespace FHIRDataSynth
             }
         }
 
-        private static async Task ImportMultipleBlobsPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
+        private static async Task ImportMultipleBlobsPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString, string bearerToken)
         {
             if (inputUrl.EndsWith('/'))
             {
@@ -258,7 +263,7 @@ namespace FHIRDataSynth
                     Console.WriteLine($"  Server import call...");
                     try // Main reason for this try block is to capture SendAsync exceptions.
                     {
-                        while (await ImportSingle(uri, importParametersJsonString, client, currentResult))
+                        while (await ImportSingle(uri, importParametersJsonString, client, currentResult, bearerToken))
                         {
                             await Task.Delay(500); // Server busy, retry later.
                         }
@@ -286,13 +291,13 @@ namespace FHIRDataSynth
             }
         }
 
-        public static async Task Import(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
+        public static async Task Import(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString, string bearerToken)
         {
-            // await ImportSingleBlobPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
-            await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
+            // await ImportSingleBlobPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString, bearerToken);
+            await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString, bearerToken);
         }
 
-        public static async Task<bool> IsImportFinished(string importResultFileName)
+        public static async Task<bool> IsImportFinished(string importResultFileName, string bearerToken)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -303,22 +308,34 @@ namespace FHIRDataSynth
                 foreach (ImportResult importResult in resultCollection.importResult)
                 {
                     Uri uri = new Uri(importResult.importResultUrl);
-                    using (HttpResponseMessage response = await client.GetAsync(uri))
+                    using (HttpRequestMessage request = new HttpRequestMessage()
                     {
-                        response.EnsureSuccessStatusCode();
-                        string responseBody = await response.Content.ReadAsStringAsync();
-                        responseBody = responseBody.Trim();
-                        if (responseBody == null || responseBody.Length == 0)
+                        RequestUri = uri,
+                        Method = HttpMethod.Get,
+                    })
+                    {
+                        if (bearerToken != null)
                         {
-                            resultNotReady = true;
-                            continue;
+                            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
                         }
 
-                        ServerImportResult serverImportResult = JsonSerializer.Deserialize<ServerImportResult>(responseBody);
-                        if (serverImportResult.error != null && serverImportResult.error.Length != 0)
+                        using (HttpResponseMessage response = await client.SendAsync(request))
                         {
-                            error = true;
-                            continue;
+                            response.EnsureSuccessStatusCode();
+                            string responseBody = await response.Content.ReadAsStringAsync();
+                            responseBody = responseBody.Trim();
+                            if (responseBody == null || responseBody.Length == 0)
+                            {
+                                resultNotReady = true;
+                                continue;
+                            }
+
+                            ServerImportResult serverImportResult = JsonSerializer.Deserialize<ServerImportResult>(responseBody);
+                            if (serverImportResult.error != null && serverImportResult.error.Length != 0)
+                            {
+                                error = true;
+                                continue;
+                            }
                         }
                     }
                 }
@@ -340,14 +357,14 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public class ImportParameters
+        public sealed class ImportParameters
         {
             public string resourceType { get; set; }
 
             public List<Parameter> parameter { get; set; }
         }
 
-        public class Parameter
+        public sealed class Parameter
         {
             public string name { get; set; }
 
@@ -356,7 +373,7 @@ namespace FHIRDataSynth
             public Part[] part { get; set; }
         }
 
-        public class Part
+        public sealed class Part
         {
             public string name { get; set; }
 
@@ -365,7 +382,7 @@ namespace FHIRDataSynth
             public string valueUri { get; set; }
         }
 
-        public class ImportResult
+        public sealed class ImportResult
         {
             public ImportParameters importParameters { get; set; }
 
@@ -382,13 +399,13 @@ namespace FHIRDataSynth
             public string importResultUrl { get; set; }
         }
 
-        public class ImportResultCollection
+        public sealed class ImportResultCollection
         {
             public List<ImportResult> importResult { get; set; }
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class ServerImportResult
+        public sealed class ServerImportResult
 #pragma warning restore CA1812
         {
             public DateTime transactionTime { get; set; }
@@ -401,7 +418,7 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Output
+        public sealed class Output
 #pragma warning restore CA1812
         {
             public string type { get; set; }
@@ -412,7 +429,7 @@ namespace FHIRDataSynth
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Error
+        public sealed class Error
 #pragma warning restore CA1812
         {
             public string type { get; set; }

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -41,6 +42,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
+
         /// <summary>
         /// The fraction of <see cref="QueryRequestOptions.MaxItemCount"/> to attempt to fill before giving up.
         /// </summary>
@@ -106,7 +109,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        {
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
+            if (resources == null || resources.Count == 0)
+            {
+                return results;
+            }
+
+            foreach (var resource in resources)
+            {
+                results.Add(resource.Wrapper.ToResourceKey(), await UpsertAsync(resource, cancellationToken));
+            }
+
+            return results;
+        }
+
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
+        {
+            var results = new List<ResourceWrapper>();
+            if (keys == null || keys.Count == 0)
+            {
+                return results;
+            }
+
+            results.AddRange(await Task.WhenAll(keys.Select(async key => await GetAsync(key, cancellationToken))));
+
+            return results;
+        }
+
+        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
+        {
+            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+        }
+
+        private async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
@@ -118,6 +155,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
+
+            if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
+            {
+                throw new MissingSearchIndicesException(string.Format(Core.Resources.MissingSearchIndices, resource.ResourceTypeName));
+            }
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
@@ -233,8 +275,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     // If the format is not XML, IsMetaSet will remain false and we will update the version when the resource is read.
 
-                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream();
+                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream(tag: nameof(CosmosFhirDataStore));
                     await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
+
+                    if (memoryStream.Length >= BlobSizeThresholdWarningInBytes)
+                    {
+                        _logger.LogInformation(
+                            "{Origin} - MemoryWatch - Heavy serialization in memory. Stream size: {StreamSize}. Current memory in use: {MemoryInUse}.",
+                            nameof(CosmosFhirDataStore),
+                            memoryStream.Length,
+                            GC.GetTotalMemory(forceFullCollection: false));
+                    }
+
                     memoryStream.Position = 0;
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);
                     cosmosWrapper.RawResource = new RawResource(await reader.ReadToEndAsync(), FhirResourceFormat.Json, isMetaSet: true);
@@ -533,9 +585,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
         {
-            IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value
-                .GetSearchParameters(cosmosWrapper.ResourceTypeName)
-                .Where(x => x.SortStatus != SortParameterStatus.Disabled);
+            List<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Where(x => x.SortStatus != SortParameterStatus.Disabled).ToList();
 
             if (searchParameters.Any())
             {
@@ -581,14 +631,69 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.PopulateDefaultResourceInteractions()
-                .SyncSearchParameters()
-                .AddGlobalSearchParameters()
-                .SyncProfiles();
+            _logger.LogInformation("CosmosFhirDataStore. Building Capability Statement.");
+
+            Stopwatch watch = Stopwatch.StartNew();
+            try
+            {
+                builder = builder.PopulateDefaultResourceInteractions();
+                _logger.LogInformation("CosmosFhirDataStore. 'Default Resource Interactions' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Default Resource Interactions' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                throw;
+            }
+
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.SyncSearchParameters();
+                _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Search Parameters' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                throw;
+            }
+
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.AddGlobalSearchParameters();
+                _logger.LogInformation("CosmosFhirDataStore. 'Global Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Global Search Parameters' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                throw;
+            }
+
+            try
+            {
+                watch = Stopwatch.StartNew();
+                builder = builder.SyncProfiles();
+                _logger.LogInformation("CosmosFhirDataStore. 'Sync Profiles' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "CosmosFhirDataStore. 'Sync Profiles' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                throw;
+            }
 
             if (_coreFeatures.SupportsBatch)
             {
-                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
+                try
+                {
+                    watch = Stopwatch.StartNew();
+                    builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
+                    _logger.LogInformation("CosmosFhirDataStore. 'Global Interaction' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "CosmosFhirDataStore. 'Global Interaction' failed. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
+                    throw;
+                }
             }
         }
 

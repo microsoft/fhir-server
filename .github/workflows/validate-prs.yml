@@ -1,0 +1,62 @@
+name: Validate Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - labeled
+      - unlabeled
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - milestoned
+      - demilestoned
+
+env:
+  LABELS: ${{ join( github.event.pull_request.labels.*.name, ' ' ) }}
+  TITLE: ${{ github.event.pull_request.title }}
+  NO_MILESTONE: ${{ github.event.pull_request.milestone == null }}
+
+jobs:
+  js-title:
+    name: Check Metadata
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            var errors = "";
+            const title = "${{env.TITLE}}";
+            const labels = "${{env.LABELS}}";
+            
+            if(title.toLowerCase().includes('personal') || (title.length > 65)) {
+              errors += '- Title of the PR to be succinct and less than 65 characters. \n';
+            }
+
+            if(${{env.NO_MILESTONE}}) {
+              errors += '- Add a milestone to the PR for the sprint that it is merged (i.e. add S47). \n';
+            }
+
+            if(labels.includes("Build") == false && 
+               labels.includes("Documentation") == false && 
+               labels.includes("Bug") == false &&
+               labels.includes("Dependencies") == false && 
+               labels.includes("Enhancement") == false &&
+               labels.includes("New-Feature") == false) {
+              errors += '- Tag the PR with the type of update: **Bug**, **Build**, **Dependencies**, **Enhancement**, **New-Feature** or **Documentation**. \n';
+            }
+
+            if(labels.includes("Open source") == false &&
+               labels.includes("Azure API for FHIR") == false &&
+               labels.includes("Azure Healthcare APIs") == false &&
+               labels.includes("Dependencies") == false &&
+               labels.includes("Build") == false &&
+               labels.includes("Documentation") == false) {
+              errors += '- Tag the PR with **Open source only**, **Azure API for FHIR** (CosmosDB or common code) or **Azure Healthcare APIs** (SQL or common code) to specify where this change is intended to be released. ';
+            }
+
+            if(errors != "") {
+              core.setFailed(errors)
+            }

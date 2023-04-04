@@ -48,7 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.EndTime, new FhirDateTime(job.EndTime.Value));
             }
 
-            decimal progress;
+            parametersResource.Add(JobRecordProperties.LastModified, new FhirDateTime(job.LastModified));
+
+            decimal progress = 0;
             if (job.Count > 0 && job.Progress > 0)
             {
                 progress = (decimal)job.Progress / job.Count * 100;
@@ -78,6 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             if (!string.IsNullOrEmpty(job.TargetResourceTypeList))
             {
                 parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
+            }
+
+            if (!string.IsNullOrEmpty(job.TargetSearchParameterTypeList))
+            {
+                parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
             }
 
             if (!string.IsNullOrEmpty(job.TargetDataStoreUsagePercentage.ToString()))

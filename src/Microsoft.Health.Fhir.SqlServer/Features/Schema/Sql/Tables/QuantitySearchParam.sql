@@ -11,6 +11,8 @@
     IsHistory bit NOT NULL
 )
 
+ALTER TABLE dbo.QuantitySearchParam ADD CONSTRAINT DF_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory
+
 ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_QuantitySearchParam
@@ -71,3 +73,4 @@ INCLUDE
 )
 WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+

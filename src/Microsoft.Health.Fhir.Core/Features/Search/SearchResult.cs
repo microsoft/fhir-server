@@ -23,11 +23,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="continuationToken">The continuation token.</param>
         /// <param name="sortOrder">The parameters the results are sorted by</param>
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
+        /// <param name="searchIssues">List of search issues found.</param>
         public SearchResult(
             IEnumerable<SearchResultEntry> results,
             string continuationToken,
             IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortOrder,
-            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
+            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
+            IReadOnlyList<OperationOutcomeIssue> searchIssues = null)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
@@ -36,15 +38,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             UnsupportedSearchParameters = unsupportedSearchParameters;
             ContinuationToken = continuationToken;
             SortOrder = sortOrder;
+            SearchIssues = searchIssues ?? Array.Empty<OperationOutcomeIssue>();
         }
 
         public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
         {
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
-            Results = Enumerable.Empty<SearchResultEntry>();
             UnsupportedSearchParameters = unsupportedSearchParameters;
             TotalCount = totalCount;
+            Results = Enumerable.Empty<SearchResultEntry>();
+            SearchIssues = Array.Empty<OperationOutcomeIssue>();
         }
 
         /// <summary>
@@ -58,14 +62,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParameters { get; }
 
         /// <summary>
-        /// Gets total number of documents
+        /// Gets total number of documents.
         /// </summary>
         public int? TotalCount { get; set; }
+
+        /// <summary>
+        /// The highest resource surrogateid in the results set
+        /// </summary>
+        public long MaxResourceSurrogateId { get; set; }
+
+        /// <summary>
+        /// The reindex specific information
+        /// </summary>
+        public SearchResultReindex ReindexResult { get; set; }
 
         /// <summary>
         /// Gets the continuation token.
         /// </summary>
         public string ContinuationToken { get; }
+
+        /// <summary>
+        /// A list of issues that will be returned inside a search result.
+        /// </summary>
+        public IReadOnlyList<OperationOutcomeIssue> SearchIssues { get; }
 
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> SortOrder { get; }
 

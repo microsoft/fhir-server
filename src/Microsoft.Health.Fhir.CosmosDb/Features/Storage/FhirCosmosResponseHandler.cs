@@ -46,13 +46,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             UpdateOptions(request);
 
-            ResponseMessage response = await base.SendAsync(request, cancellationToken);
-
-            await _cosmosResponseProcessor.ProcessResponse(response);
-
-            if (!response.IsSuccessStatusCode)
+            ResponseMessage response = null;
+            try
             {
-                await _cosmosResponseProcessor.ProcessErrorResponse(response);
+                response = await base.SendAsync(request, cancellationToken);
+
+                await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(response));
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
+                }
+            }
+            finally
+            {
+                request.Dispose();
             }
 
             return response;
@@ -60,7 +68,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateOptions(RequestMessage options)
         {
-            if (_cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb != null)
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+            if (fhirRequestContext == null)
+            {
+                return;
+            }
+
+            if (fhirRequestContext.RequestHeaders.TryGetValue(CosmosDbHeaders.CosmosContinuationTokenSize, out var tokenSize))
+            {
+                var intTokenSize = int.TryParse(tokenSize, out var count) ? count : 0;
+                if (intTokenSize != 0 && intTokenSize >= Constants.ContinuationTokenMinLimit && intTokenSize <= Constants.ContinuationTokenMaxLimit)
+                {
+                    options.Headers[_continuationTokenLimitHeaderName] = intTokenSize.ToString();
+                }
+                else
+                {
+                    throw new BadRequestException(string.Format(Resources.InvalidCosmosContinuationTokenSize, tokenSize));
+                }
+            }
+            else if (_cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb != null)
             {
                 options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb.ToString();
             }

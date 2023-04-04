@@ -173,6 +173,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                 };
 
+                if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, _exportJobRecord.GlobalEndSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.EndSurrogateId, _exportJobRecord.EndSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.GlobalStartSurrogateId, _exportJobRecord.GlobalStartSurrogateId));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.StartSurrogateId, _exportJobRecord.StartSurrogateId));
+                }
+
                 if (_exportJobRecord.Since != null)
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
@@ -198,14 +206,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
+                _logger.LogInformation(dce, "Can't connect to destination. The job will be marked as failed.");
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (ResourceNotFoundException rnfe)
             {
-                _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                if (rnfe.ResourceKey?.ResourceType == KnownResourceTypes.Group)
+                {
+                    _logger.LogInformation(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                }
+                else
+                {
+                    _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
+                }
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
@@ -254,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError, string.Concat(ex.Message + "\n\r" + ex.StackTrace));
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             finally
@@ -625,7 +640,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         resourceType: resourceType,
                         queryParametersList,
                         cancellationToken,
-                        true);
+                        true,
+                        _exportJobRecord.SmartRequest);
                 }
 
                 ProcessSearchResults(searchResult.Results, anonymizer);

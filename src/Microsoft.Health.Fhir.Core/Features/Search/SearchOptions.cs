@@ -46,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 IncludeCount = other.IncludeCount;
             }
+
+            QueryHints = other.QueryHints;
         }
 
         /// <summary>
@@ -57,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets a value indicating whether to only return the record count
         /// </summary>
         public bool CountOnly { get; internal set; }
+
+        /// <summary>
+        /// This is used for sql force reindex where we need to ignore the Resource SearchParamHash field when searching
+        /// </summary>
+        public bool IgnoreSearchParamHash { get; set; }
 
         /// <summary>
         /// Indicates if the total number of resources that match the search parameters should be calculated.
@@ -118,6 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of sorting parameters.
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
+
+        public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance

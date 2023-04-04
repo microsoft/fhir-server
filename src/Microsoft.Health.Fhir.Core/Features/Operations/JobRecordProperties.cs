@@ -71,6 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string FailureCount = "failureCount";
 
+        public const string EndResourceSurrogateId = "endResourceSurrogateId";
+
         public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
 
         public const string StorageAccountUri = "storageAccountUri";
@@ -127,14 +129,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string TargetResourceTypes = "targetResourceTypes";
 
+        public const string TargetSearchParameterTypes = "targetSearchParameterTypes";
+
+        public const string SearchParameterResourceTypes = "searchParameterResourceTypes";
+
         public const string CreatedChild = "createdChild";
 
         public const string Till = "till";
+
+        public const string StartSurrogateId = "startSurrogateId";
+
+        public const string EndSurrogateId = "endSurrogateId";
+
+        public const string MaxResourceSurrogateId = "maxResourceSurrogateId";
+
+        public const string GlobalStartSurrogateId = "globalStartSurrogateId";
+
+        public const string GlobalEndSurrogateId = "globalEndSurrogateId";
 
         public const string RestartCount = "restartCount";
 
         public const string TypeId = "typeId";
 
-        public const string Parallel = "parallel";
+        public const string IsParallel = "isParallel";
+
+        public const string SmartRequest = "smartRequest";
     }
 }

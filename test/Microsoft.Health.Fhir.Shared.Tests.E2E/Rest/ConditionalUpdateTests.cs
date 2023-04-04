@@ -32,6 +32,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenABundledResourceTypeWithMissingId_WhenCreatingConditionally_TheServerRespondsWithCorrectMessage()
+        {
+            Bundle bundle = Samples.GetJsonSample("Bundle-MissingIdentifier").ToPoco<Bundle>();
+            FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(bundle, string.Empty));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+            Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName)));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenUpsertingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
@@ -55,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation,
                 string.Empty));
 
@@ -92,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
 
             var weakETag = "W/\"Jibberish\"";
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation,
                 null,
                 weakETag));
@@ -189,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = Guid.NewGuid().ToString();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={identifier}"));
 
@@ -214,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = null;
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+            var exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
                 observation2,
                 $"identifier={identifier}"));
 

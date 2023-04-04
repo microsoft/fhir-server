@@ -14,6 +14,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
+using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -325,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenEmptyTypeOfResource_WhenSearching_ThenBadRequestShouldBeReturned()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type="));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"?_type="));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -385,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingNonCommonSearchParameter_ThenExceptionShouldBeThrown()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type=Encounter,Procedure&subject=Patient/123"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"?_type=Encounter,Procedure&subject=Patient/123"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -570,7 +571,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectFormatParams_ThenExceptionShouldBeThrown(string key, string val)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -611,7 +612,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotSetToFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
 
             const HttpStatusCode expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -792,7 +793,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var totalType = TotalType.Estimate.ToString();
 
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
 
             var expectedStatusCode = HttpStatusCode.Forbidden;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -809,7 +810,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             var expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -931,7 +932,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -954,7 +955,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -984,23 +985,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            List<int> values = new();
-            int count = 0;
-            string nextLink = $"Observation?_count=20&_tag={tag}";
-            do
+            await this.RetryAsync(new Func<Task>(async () =>
             {
-                Bundle firstBundle = await Client.SearchAsync(nextLink);
-                foreach (var entity in firstBundle.Entry)
+                List<int> values = new();
+                int count = 0;
+                string nextLink = $"Observation?_count=20&_tag={tag}";
+                do
                 {
-                    values.Add((int)((Quantity)((Observation)entity.Resource).Value).Value);
-                }
+                    Bundle firstBundle = await Client.SearchAsync(nextLink);
+                    foreach (var entity in firstBundle.Entry)
+                    {
+                        values.Add((int)((Quantity)((Observation)entity.Resource).Value).Value);
+                    }
 
-                count += firstBundle.Entry.Count;
-                nextLink = firstBundle.NextLink?.ToString();
-            }
-            while (nextLink != null);
-            Assert.Equal(n, count);
-            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+                    count += firstBundle.Entry.Count;
+                    nextLink = firstBundle.NextLink?.ToString();
+                }
+                while (nextLink != null);
+                Assert.Equal(n, count);
+                Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+            }));
         }
 
         [Fact]
@@ -1026,23 +1030,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            List<int> values = new();
-            int count = 0;
-            string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
-            do
+            await this.RetryAsync(new Func<Task>(async () =>
             {
-                Bundle firstBundle = await Client.SearchAsync(nextLink);
-                foreach (var entity in firstBundle.Entry)
+                List<int> values = new();
+                int count = 0;
+                string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
+                do
                 {
-                    values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
-                }
+                    Bundle firstBundle = await Client.SearchAsync(nextLink);
+                    foreach (var entity in firstBundle.Entry)
+                    {
+                        values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
+                    }
 
-                count += firstBundle.Entry.Count;
-                nextLink = firstBundle.NextLink?.ToString();
-            }
-            while (nextLink != null);
-            Assert.Equal(n, count);
-            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+                    count += firstBundle.Entry.Count;
+                    nextLink = firstBundle.NextLink?.ToString();
+                }
+                while (nextLink != null);
+                Assert.Equal(n, count);
+                Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+            }));
         }
 
         [Fact]
@@ -1078,7 +1085,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithParameterTextAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
                 Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(progress, nameof(progress));
 
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
+            record.Id = jobInfo.Id.ToString();
             IExportJobTask exportJobTask = _exportJobTaskFactory();
 
             // The ExportJobTask was used to handling the database updates and etags itself, but the new job hosting flow manages it in a central location.
@@ -37,15 +39,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // The etag passed to the ExportJobTask is unused, the actual etag is managed in the JobHosting class.
             exportJobTask.UpdateExportJob = UpdateExportJob;
             Task exportTask = exportJobTask.ExecuteAsync(record, WeakETag.FromVersionId("0"), cancellationToken);
-            return exportTask.ContinueWith<string>(
+            return exportTask.ContinueWith(
                 (Task parent) =>
                 {
                     switch (record.Status)
                     {
                         case OperationStatus.Completed:
+                            record.Id = string.Empty;
+                            record.StartTime = null;
+                            record.EndTime = null;
+                            if (record.Output != null)
+                            {
+                                jobInfo.Data = record.Output.Values.Sum(infos => infos.Sum(info => info.Count));
+                            }
+
                             return JsonConvert.SerializeObject(record);
                         case OperationStatus.Failed:
-                            throw new JobExecutionException(record.FailureDetails.FailureReason, record);
+                            var exception = new JobExecutionException(record.FailureDetails.FailureReason, record);
+                            exception.RequestCancellationOnFailure = true;
+                            throw exception;
                         case OperationStatus.Canceled:
                             // This throws a RetriableJobException so the job handler doesn't change the job status. The job will not be retried as cancelled jobs are ignored.
                             throw new RetriableJobException("Export job cancelled.");

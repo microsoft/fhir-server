@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             int? queryDelay,
             ushort? targetDataStoreResourcePercentage,
             string targetResourceTypesString,
+            string targetSearchParamTypesString,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -43,7 +44,19 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
             }
 
-            var request = new CreateReindexRequest(targetResourceTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
+            var targetSearchParamTypes = new List<string>();
+
+            if (!string.IsNullOrEmpty(targetSearchParamTypesString))
+            {
+                targetSearchParamTypes.AddRange(targetSearchParamTypesString.Split(",").Select(s => s.Trim()));
+            }
+
+            if (targetResourceTypes.Count > 0 && targetSearchParamTypes.Count > 0)
+            {
+                throw new RequestNotValidException(Resources.ReindexMultipleTargetsNotSupported);
+            }
+
+            var request = new CreateReindexRequest(targetResourceTypes, targetSearchParamTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
             return response.Job.ToParametersResourceElement();

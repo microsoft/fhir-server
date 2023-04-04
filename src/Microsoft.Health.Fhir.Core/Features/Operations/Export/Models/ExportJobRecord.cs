@@ -29,6 +29,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
             PartialDateTime till = null,
+            string startSurrogateId = null,
+            string endSurrogateId = null,
+            string globalStartSurrogateId = null,
+            string globalEndSurrogateId = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -38,9 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
-            int parallel = 0,
+            bool isParallel = true,
             int schemaVersion = 2,
-            int typeId = (int)JobType.ExportOrchestrator)
+            int typeId = (int)JobType.ExportOrchestrator,
+            bool smartRequest = false)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -63,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RollingFileSizeInMB = rollingFileSizeInMB;
             RestartCount = 0;
             TypeId = typeId;
-            Parallel = parallel;
+            IsParallel = isParallel;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -76,6 +81,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
             Till = till ?? new PartialDateTime(Clock.UtcNow);
+            StartSurrogateId = startSurrogateId;
+            EndSurrogateId = endSurrogateId;
+            GlobalStartSurrogateId = globalStartSurrogateId;
+            GlobalEndSurrogateId = globalEndSurrogateId;
+
+            SmartRequest = smartRequest;
 
             if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
@@ -140,6 +151,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.GroupId)]
         public string GroupId { get; private set; }
 
+        [JsonProperty(JobRecordProperties.StartSurrogateId)]
+        public string StartSurrogateId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.EndSurrogateId)]
+        public string EndSurrogateId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.GlobalEndSurrogateId)]
+        public string GlobalEndSurrogateId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.GlobalStartSurrogateId)]
+        public string GlobalStartSurrogateId { get; private set; }
+
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }
 
@@ -174,8 +197,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.RestartCount)]
         public uint RestartCount { get; set; }
 
-        [JsonProperty(JobRecordProperties.Parallel)]
-        public int Parallel { get; private set; }
+        [JsonProperty(JobRecordProperties.IsParallel)]
+        public bool IsParallel { get; private set; }
+
+        [JsonProperty(JobRecordProperties.SmartRequest)]
+        public bool SmartRequest { get; private set; }
 
         internal ExportJobRecord Clone()
         {

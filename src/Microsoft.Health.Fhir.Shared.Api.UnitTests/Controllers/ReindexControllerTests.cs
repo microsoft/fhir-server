@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
-            Assert.Equal("Queued", parametersResource.Parameter[5].Value.ToString());
+            Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
         }
 
         [Theory]
@@ -117,13 +117,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
-            Assert.Equal("Queued", parametersResource.Parameter[5].Value.ToString());
-            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "Resources"));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "SearchParams"));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "TargetResourceTypes"));
-            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "TargetDataStoreUsagePercentage"));
-            Assert.Equal("500", parametersResource.Parameter[7].Value.ToString());
-            Assert.Equal("100", parametersResource.Parameter[8].Value.ToString());
+            Assert.Equal(OperationStatus.Queued.ToString(), parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Status).First().Value.ToString());
+            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.Resources));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.SearchParams));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetResourceTypes));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetDataStoreUsagePercentage));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.TargetSearchParameterTypes));
+            Assert.Equal("500", parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.QueryDelayIntervalInMilliseconds).First().Value.ToString());
+            Assert.Equal("100", parametersResource.Parameter.Where(x => x.Name == JobRecordProperties.MaximumNumberOfResourcesPerQuery).First().Value.ToString());
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), 5);
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), new List<string>(), new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent()
-                { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(maxConcurrency ?? _reindexJobConfig.DefaultMaximumThreadsPerReindexJob) });
+            { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(maxConcurrency ?? _reindexJobConfig.DefaultMaximumThreadsPerReindexJob) });
 
             return parametersResource;
         }

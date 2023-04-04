@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -60,6 +61,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, "100"),
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
+                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in the same hash value
@@ -91,6 +95,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, "100"),
                     Tuple.Create(KnownQueryParameterNames.Type, "Patient"),
+                    Tuple.Create(KnownQueryParameterNames.EndSurrogateId, long.MaxValue.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, "0"),
+                    Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 };
 
                 // Pass in a different hash value
@@ -115,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var resourceElement = Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
-            var searchIndices = _searchIndexer.Extract(resourceElement);
+            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name")) { SortStatus = SortParameterStatus.Enabled }, new StringSearchValue("alpha")) };
 
             var wrapper = new ResourceWrapper(
                 resourceElement,
@@ -128,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 
-            return await _scopedDataStore.Value.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false), CancellationToken.None);
         }
     }
 }

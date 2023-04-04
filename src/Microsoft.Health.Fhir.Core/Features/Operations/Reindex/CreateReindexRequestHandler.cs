@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -16,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -69,13 +72,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // not detect the resources that need to be reindexed.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
+            // What this handles is the scenario where a user is effectively forcing a reindex to run by passing
+            // in a parameter of targetSearchParameterTypes. From those we can identify the base resource types.
+            var searchParameterResourceTypes = new HashSet<string>();
+            if (request.TargetSearchParameterTypes.Any())
+            {
+                foreach (var searchParameterUrl in request.TargetSearchParameterTypes)
+                {
+                    SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
+                    if (searchParameterInfo == null)
+                    {
+                        throw new RequestNotValidException(Core.Resources.SearchParameterByDefinitionUriNotSupported, searchParameterUrl);
+                    }
+
+                    searchParameterResourceTypes.UnionWith(searchParameterInfo.BaseResourceTypes);
+                }
+            }
+
             var jobRecord = new ReindexJobRecord(
-                _searchParameterDefinitionManager.SearchParameterHashMap,
-                request.TargetResourceTypes,
-                request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
-                request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,
-                request.TargetDataStoreUsagePercentage);
+            _searchParameterDefinitionManager.SearchParameterHashMap,
+            request.TargetResourceTypes,
+            request.TargetSearchParameterTypes,
+            searchParameterResourceTypes,
+            request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
+            request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,
+            request.TargetDataStoreUsagePercentage);
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 
             return new CreateReindexResponse(outcome);

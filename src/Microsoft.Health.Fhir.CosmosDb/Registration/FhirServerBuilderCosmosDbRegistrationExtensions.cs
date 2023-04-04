@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
@@ -27,9 +26,12 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.JobManagement;
+using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
@@ -226,6 +228,16 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CompartmentSearchRewriter>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<SmartCompartmentSearchRewriter>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<CosmosQueueClient>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces()
+                .AsFactory<IScoped<IQueueClient>>();
 
             return fhirServerBuilder;
         }

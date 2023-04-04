@@ -29,6 +29,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToNumberSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToQuantitySearchValueConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\DataResourceFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToNumberSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToDateTimeSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToQuantitySearchValueConverterTests.cs" />
@@ -36,8 +37,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToTokenSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToUriSearchValueConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Filters\MissingDataFilterCriteriaTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\TypedElementSearchIndexerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />
@@ -116,5 +120,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchMoveTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchReplaceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchTypeTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonNonCompliantSamples.json" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonCompliantSamples.json" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlNonCompliantSamples.xml" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlCompliantSamples.xml" />
   </ItemGroup>
 </Project>

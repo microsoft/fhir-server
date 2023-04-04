@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    await (context.Object as RawResourceElement).SerializeToStreamAsUtf8Json(context.HttpContext.Response.Body);
+                    await (context.Object as RawResourceElement).SerializeToStreamAsUtf8Json(context.HttpContext.Response.Body, pretty);
                     return;
                 }
             }

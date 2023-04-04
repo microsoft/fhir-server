@@ -237,6 +237,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenALoginFailedForUserException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new LoginFailedForUserException(Core.Resources.InternalServerError), HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
         public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new Exception()), HttpStatusCode.InternalServerError);
@@ -246,6 +252,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestRateExceededExceptionAsAnInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new Exception(null, new RequestRateExceededException(null)), HttpStatusCode.TooManyRequests);
+        }
+
+        [Fact]
+        public void GivenATransactionDeadlockException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new TransactionDeadlockException(Core.Resources.TransactionDeadlock), HttpStatusCode.Conflict);
         }
 
         [Fact]

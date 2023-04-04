@@ -8,6 +8,8 @@ using Azure.Identity;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Health.Fhir.Api.Features.Binders;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -19,6 +21,8 @@ namespace Microsoft.Health.Fhir.Web
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
                 {
+                    builder.Sources.Add(new GenericConfigurationSource(() => new DictionaryExpansionConfigurationProvider(new EnvironmentVariablesConfigurationProvider())));
+
                     var builtConfig = builder.Build();
 
                     var keyVaultEndpoint = builtConfig["KeyVault:Endpoint"];

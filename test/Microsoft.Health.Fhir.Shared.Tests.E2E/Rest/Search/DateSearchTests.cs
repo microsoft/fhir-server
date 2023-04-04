@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using IdentityServer4.Models;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -150,11 +152,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb1981-01-01T00:00:00.0000001", 0, 1, 2, 3, 4, 5)] // Only dates with end time earlier than 1981-01-01T00:00:00.0000001 would match.
         public async Task GivenADateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"date={queryValue}&code={Fixture.Coding.Code}");
+            try
+            {
+                Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"date={queryValue}&code={Fixture.Coding.Code}");
 
-            Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
+                Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 
-            ValidateBundle(bundle, expected);
+                ValidateBundle(bundle, expected);
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"A non-expected '{e.GetType()}' was raised. Url: {Client.HttpClient.BaseAddress}. No Activity Id present. Error: {e.Message}");
+            }
         }
 
         [Theory]
@@ -162,9 +175,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("!")]
         public async Task GivenAnInvalidDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
         {
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
+            using var fce = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
 
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.True(
+                fce.StatusCode == HttpStatusCode.BadRequest,
+                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a' {nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
         }
 
         [Theory]
@@ -172,9 +187,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("1973-02-28T01:01:09.999999999999999999")]
         public async Task GivenAnOutOfRangeDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
         {
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
+            using var fce = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
 
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.True(
+                fce.StatusCode == HttpStatusCode.BadRequest,
+                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a '{nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
         }
     }
 }

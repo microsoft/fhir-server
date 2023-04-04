@@ -7,7 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceAllergyIntoleranceAdapter : ResourceAdapterBase<AllergyIntolerance.Rootobject, ResourceAllergyIntoleranceAdapter.AllergyIntoleranceSibling>
+    internal sealed class ResourceAllergyIntoleranceAdapter : ResourceAdapterBase<AllergyIntolerance.Rootobject, ResourceAllergyIntoleranceAdapter.AllergyIntoleranceSibling>
     {
         public override AllergyIntoleranceSibling CreateOriginal(ResourceGroupProcessor processor, AllergyIntolerance.Rootobject json)
         {

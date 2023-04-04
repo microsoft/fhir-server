@@ -62,14 +62,15 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
-        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 3
+        $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
+        $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}-${{ parameters.version }}"
-            appServicePlanSku = "B2"
+            appServicePlanName = "${{ parameters.appServicePlanName }}"
+            appServicePlanSku = "B3"
             numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
@@ -103,7 +104,14 @@ jobs:
         Write-Host "Provisioning Resource Group"
         Write-Host $webAppName
         Write-Host "${{ parameters.resourceGroup }}"
+        try {
         New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        }catch {
+          if("${{ parameters.sql }}" -eq "true"){
+            $templateParameters["sqlServerNewOrExisting"] = "new"
+            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+          }
+        }
         
         Write-Host "Setting Key Vault access"
         Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId b542f965-4eec-4682-8999-78dd501df864 -PermissionsToSecrets list,get

@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationToken = _cancellationTokenSource.Token;
 
             var resourceWrapper = new ResourceWrapper("test", "test", "test", new RawResource("test", FhirResourceFormat.Json, isMetaSet: false), null, DateTimeOffset.Now, false, null, null, null);
-            _fhirDataStore.GetAsync(default, default).ReturnsForAnyArgs(x =>
+            _fhirDataStore.GetAsync((ResourceKey)null, default).ReturnsForAnyArgs(x =>
             {
                 return System.Threading.Tasks.Task.FromResult(resourceWrapper);
             });

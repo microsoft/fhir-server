@@ -79,8 +79,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_selfUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='self').url"));
         }
 
-        [Fact]
-        public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned(bool pretty)
         {
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
@@ -116,10 +118,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 var raw = actualEntry as RawBundleEntryComponent;
 
+                Assert.NotNull(raw);
+                Assert.NotNull(raw.ResourceElement);
+
                 using (var ms = new MemoryStream())
                 using (var sr = new StreamReader(ms))
                 {
-                    await raw?.ResourceElement?.SerializeToStreamAsUtf8Json(ms);
+                    await raw.ResourceElement.SerializeToStreamAsUtf8Json(ms, pretty);
                     ms.Seek(0, SeekOrigin.Begin);
                     var resourceData = await sr.ReadToEndAsync();
                     Assert.NotNull(resourceData);

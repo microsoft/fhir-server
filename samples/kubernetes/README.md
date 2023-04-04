@@ -246,6 +246,17 @@ which should have something like:
 
 to work with the settings above.
 
+## Enabling `$convert-data`
+
+To use the `$convert-data` operation, you can simply enable the feature with the `convertData.enabled` parameter by switching the value of it to `true` in `values.yaml`.
+
+```yaml
+convertData:
+  enabled: true
+```
+
+For more detailed usages of `$convert-data`, you can refer to [this document](https://github.com/microsoft/fhir-server/blob/main/docs/ConvertDataOperation.md).
+
 ## Enabling `$export`
 
 To use the `$export` operation, the FHIR server must be configured with a [pod identity](https://github.com/Azure/aad-pod-identity) and the identity of the FHIR server must have access to an existing storage account.

@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 
             if (applySMARTAccess)
             {
-                return new ValueTask<DataActions>(dataActions & permittedDataActions & SMARTScopeFhirAuthorizationService.CheckSMARTScopeAccess(_requestContextAccessor, dataActions));
+                return new ValueTask<DataActions>(dataActions & permittedDataActions & SmartScopeFhirAuthorizationService.CheckSMARTScopeAccess(_requestContextAccessor, dataActions));
             }
 
             return new ValueTask<DataActions>(dataActions & permittedDataActions);

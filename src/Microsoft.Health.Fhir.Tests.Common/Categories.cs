@@ -21,6 +21,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string ConditionalOperations = nameof(ConditionalOperations);
 
+        /// <summary>
+        /// Set of tests validating FHIR domain related logic.
+        /// </summary>
+        public const string Conformance = nameof(Conformance);
+
         public const string ConvertData = nameof(ConvertData);
 
         public const string Cors = nameof(Cors);
@@ -40,11 +45,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         public const string DataSourceValidation = nameof(DataSourceValidation);
 
-        /// <summary>
-        /// Set of tests validating FHIR domain related logic.
-        /// </summary>
-        public const string Conformance = nameof(Conformance);
-
         public const string DomainLogicValidation = nameof(DomainLogicValidation);
 
         public const string Export = nameof(Export);
@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string ExportDataValidation = nameof(ExportDataValidation);
 
         public const string ExportLongRunning = nameof(ExportLongRunning);
+
+        public const string History = nameof(History);
 
         public const string Import = nameof(Import);
 
@@ -62,6 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Operations = nameof(Operations);
 
         public const string Patch = nameof(Patch);
+
+        public const string PatientEverything = nameof(PatientEverything);
 
         public const string Schema = nameof(Schema);
 
@@ -75,6 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Serialization = nameof(Serialization);
 
         public const string SmartOnFhir = nameof(SmartOnFhir);
+
+        public const string Sort = nameof(Sort);
 
         public const string Transaction = nameof(Transaction);
 

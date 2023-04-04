@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -34,10 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly IExpressionParser _expressionParser;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
+        private readonly ExpressionAccessControl _expressionAccess;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
+        private readonly List<string> _timeTravelParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -45,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
+            ExpressionAccessControl expressionAccess,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
@@ -52,11 +56,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
+            EnsureArg.IsNotNull(expressionAccess, nameof(expressionAccess));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
             _sortingValidator = sortingValidator;
+            _expressionAccess = expressionAccess;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -66,27 +72,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
         {
-            if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-            {
-                if (_contextAccessor.RequestContext?.AccessControlContext.CompartmentResourceType != null &&
-                    _contextAccessor.RequestContext?.AccessControlContext.CompartmentId != null)
-                {
-                    return Create(
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType,
-                        _contextAccessor.RequestContext.AccessControlContext.CompartmentId,
-                        resourceType,
-                        queryParameters,
-                        isAsyncOperation);
-                }
-            }
-
             return Create(null, null, resourceType, queryParameters, isAsyncOperation);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public SearchOptions Create(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
             var searchOptions = new SearchOptions();
+
+            if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
+            {
+                var queryHint = new List<(string param, string value)>();
+                foreach (var par in queryParameters.Where(_ => _.Item1 == KnownQueryParameterNames.Type || _timeTravelParameterNames.Contains(_.Item1)))
+                {
+                    queryHint.Add((par.Item1, par.Item2));
+                }
+
+                searchOptions.QueryHints = queryHint;
+            }
+
+            searchOptions.IgnoreSearchParamHash = queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IgnoreSearchParamHash && _.Item2 != null);
 
             string continuationToken = null;
 
@@ -95,7 +106,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool setDefaultBundleTotal = true;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
-            foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
+            // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
+            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_timeTravelParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
@@ -257,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         return parsedType;
                     })
-                    .Distinct();
+                    .Distinct().ToList();
 
                 if (resourceTypes.Any())
                 {
@@ -309,11 +321,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    if (useSmartCompartmentDefinition)
+                    {
+                        searchExpressions.Add(Expression.SmartCompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
+                    else
+                    {
+                        searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, resourceTypesString));
+                    }
                 }
                 else
                 {
                     throw new InvalidSearchOperationException(string.Format(Core.Resources.CompartmentTypeIsInvalid, compartmentType));
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType))
+            {
+                var smartCompartmentType = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType;
+                var smartCompartmentId = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentId;
+
+                if (Enum.TryParse(smartCompartmentType, out CompartmentType parsedCompartmentType))
+                {
+                    if (string.IsNullOrWhiteSpace(smartCompartmentId))
+                    {
+                        throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
+                    }
+
+                    searchExpressions.Add(Expression.SmartCompartmentSearch(smartCompartmentType, smartCompartmentId, null));
+                }
+                else
+                {
+                    throw new InvalidSearchOperationException(
+                            string.Format(Core.Resources.FhirUserClaimIsNotAValidResource, _contextAccessor.RequestContext?.AccessControlContext.FhirUserClaim));
                 }
             }
 
@@ -407,6 +448,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
+
             return searchOptions;
 
             IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
@@ -428,7 +471,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         includeResourceTypeList = new[] { includeResourceType };
                     }
 
-                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
+                    IEnumerable<string> allowedResourceTypesByScope = null;
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    {
+                        allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                    }
+
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                     if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
@@ -462,12 +511,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
                     {
-                        var allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                        if (!allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                        if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
                         {
                             _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                            return null;
+                        }
+
+                        if (!expression.Produces.Any())
+                        {
                             return null;
                         }
                     }

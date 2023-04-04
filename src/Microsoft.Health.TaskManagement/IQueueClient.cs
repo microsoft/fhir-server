@@ -26,7 +26,7 @@ namespace Microsoft.Health.JobManagement
         /// <param name="isCompleted">Enqueue completed jobs.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Job ids for all jobs, include existed jobs.</returns>
-        public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
+        public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken);
 
         /// <summary>
         /// Dequeue multiple jobs
@@ -45,7 +45,8 @@ namespace Microsoft.Health.JobManagement
         /// <param name="worker">Current worker name</param>
         /// <param name="heartbeatTimeoutSec">Heartbeat timeout for retry</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken);
+        /// <param name="jobId">Requested job id for dequeue</param>
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null);
 
         /// <summary>
         /// Get job by id
@@ -63,7 +64,7 @@ namespace Microsoft.Health.JobManagement
         /// <param name="jobIds">Job ids list</param>
         /// <param name="returnDefinition">Return definition</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken);
+        public Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
         /// Get jobs by group id
@@ -72,15 +73,15 @@ namespace Microsoft.Health.JobManagement
         /// <param name="groupId">Job group id</param>
         /// <param name="returnDefinition">Return definition</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
+        public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Send heart beat to keep alive job
+        /// Sends heartbeat to keep job alive
         /// </summary>
-        /// <param name="jobInfo">Job Info to keep alive</param>
+        /// <param name="jobInfo">Job Info</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>CancelRequested</returns>
-        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken);
+        public Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken);
 
         /// <summary>
         /// Cancel jobs by group id

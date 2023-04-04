@@ -59,9 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            bool useSmartCompartmentDefinition = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -212,21 +213,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        public virtual Task<SearchResult> SearchByDateTimeRange(
+        public virtual Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
             string resourceType,
-            DateTime startTime,
-            DateTime endTime,
+            long startId,
+            long endId,
+            int rangeSize,
+            int numberOfRanges,
+            bool up,
             CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
-        public virtual Task<IReadOnlyList<Tuple<DateTime, DateTime>>> GetDateTimeRange(
-            string resourceType,
-            DateTime startTime,
-            DateTime endTime,
-            int numberOfRanges,
-            CancellationToken cancellationToken)
+        public virtual long GetSurrogateId(DateTime dateTime)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
@@ -244,5 +248,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-    }
+     }
 }

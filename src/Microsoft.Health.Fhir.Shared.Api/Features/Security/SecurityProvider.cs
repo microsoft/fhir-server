@@ -51,17 +51,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             if (_securityConfiguration.Enabled)
             {
-                builder.Apply(statement =>
+                try
                 {
-                    if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                    builder.Apply(statement =>
                     {
-                        AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
-                    }
-                    else
-                    {
-                        AddOAuthSecurityService(statement);
-                    }
-                });
+                        if (_securityConfiguration.EnableAadSmartOnFhirProxy)
+                        {
+                            AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
+                        }
+                        else
+                        {
+                            AddOAuthSecurityService(statement);
+                        }
+                    });
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "SecurityProvider failed creating a new Capability Statement.");
+                    throw;
+                }
             }
         }
 
@@ -150,6 +158,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     _logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
+                finally
+                {
+                    openIdConfigurationResponse.Dispose();
+                }
 
                 var smartExtension = new
                 {
@@ -174,6 +186,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             else
             {
                 _logger.LogWarning("The OpenId Configuration request from \"{OpenIdConfigurationUrl}\" returned an {StatusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
+                openIdConfigurationResponse.Dispose();
                 throw new OpenIdConfigurationException();
             }
 

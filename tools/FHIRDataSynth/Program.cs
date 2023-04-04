@@ -11,7 +11,7 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class Program
+    internal sealed class Program
     {
         private static void ValidateTaskCount(string s, out int tasksCount)
         {
@@ -86,8 +86,8 @@ namespace FHIRDataSynth
                     Console.WriteLine("example:");
                     Console.WriteLine(" FHIRDataSynth.exe verifyfile ..\\out-dir 1 ..\\tr.json");
                     Console.WriteLine();
-                    Console.WriteLine("To import blend to server:");
-                    Console.WriteLine(" FHIRDataSynth.exe 'import' ServerUrl ResourceGroupCount InputStrorageUrl import-blob-container importResultFileName InputConnectionString");
+                    Console.WriteLine("To import blend to server. If server uses authentication use optional BearerAuthenticationToken parameter:");
+                    Console.WriteLine(" FHIRDataSynth.exe 'import' ServerUrl ResourceGroupCount InputStrorageUrl import-blob-container importResultFileName InputConnectionString [BearerAuthenticationToken]");
                     Console.WriteLine("example:");
                     Console.WriteLine(" FHIRDataSynth.exe import http://svr.azurewebsites.net 4 https://syntheadatastore.blob.core.windows.net out-container ..\\importresult.json \"Storage Account Connection String\"");
                     Console.WriteLine();
@@ -287,7 +287,7 @@ namespace FHIRDataSynth
                             break;
                         case importCommand:
                             {
-                                if (args.Length != 7)
+                                if (args.Length != 7 && args.Length != 8)
                                 {
                                     throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
@@ -298,20 +298,32 @@ namespace FHIRDataSynth
                                 string inputBlobContainerName = args[4];
                                 string importResultFileName = args[5];
                                 string inputConnectionString = args[6];
-                                ServerImport.Import(serverUrl, resourceGroupCount, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString).Wait();
+                                string bearerToken = null;
+                                if (args.Length == 8)
+                                {
+                                    bearerToken = args[7];
+                                }
+
+                                ServerImport.Import(serverUrl, resourceGroupCount, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString, bearerToken).Wait();
                                 ret = 0;
                             }
 
                             break;
                         case isFinishedCommand:
                             {
-                                if (args.Length != 2)
+                                if (args.Length != 2 && args.Length != 3)
                                 {
                                     throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 string importResultFileName = args[1];
-                                Task<bool> t = ServerImport.IsImportFinished(importResultFileName);
+                                string bearerToken = null;
+                                if (args.Length == 3)
+                                {
+                                    bearerToken = args[2];
+                                }
+
+                                Task<bool> t = ServerImport.IsImportFinished(importResultFileName, bearerToken);
                                 t.Wait();
                                 if (t.Result)
                                 {

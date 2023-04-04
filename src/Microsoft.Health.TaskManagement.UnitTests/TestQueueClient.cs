@@ -24,7 +24,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
-        public Func<TestQueueClient, long, CancellationToken, IEnumerable<JobInfo>> GetJobByGroupIdFunc { get; set; }
+        public Func<TestQueueClient, long, CancellationToken, IReadOnlyList<JobInfo>> GetJobByGroupIdFunc { get; set; }
 
         public List<JobInfo> JobInfos
         {
@@ -103,24 +103,27 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return dequeuedJobs;
         }
 
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             DequeueFaultAction?.Invoke();
-
-            JobInfo job = jobInfos.FirstOrDefault(t =>
-                t.QueueType == queueType &&
-                (t.Status == JobStatus.Created ||
-                (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec))));
-            if (job != null)
+            JobInfo job = null;
+            lock (jobInfos)
             {
-                job.Status = JobStatus.Running;
-                job.HeartbeatDateTime = DateTime.Now;
+                job = jobInfos.FirstOrDefault(t =>
+                    t.QueueType == queueType &&
+                    (t.Status == JobStatus.Created ||
+                    (t.Status == JobStatus.Running && (DateTime.Now - t.HeartbeatDateTime) > TimeSpan.FromSeconds(heartbeatTimeoutSec))));
+                if (job != null)
+                {
+                    job.Status = JobStatus.Running;
+                    job.HeartbeatDateTime = DateTime.Now;
+                }
             }
 
             return Task.FromResult(job);
         }
 
-        public Task<IEnumerable<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
             List<JobInfo> result = new List<JobInfo>();
 
@@ -146,18 +149,18 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             jobInfos.AddRange(result);
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
-        public Task<IEnumerable<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
             if (GetJobByGroupIdFunc != null)
             {
                 return Task.FromResult(GetJobByGroupIdFunc(this, groupId, cancellationToken));
             }
 
-            IEnumerable<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId);
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            IReadOnlyList<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId).ToList();
+            return Task.FromResult(result);
         }
 
         public Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
@@ -171,15 +174,15 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return Task.FromResult(result);
         }
 
-        public Task<IEnumerable<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
             if (GetJobByIdFunc != null)
             {
-                return Task.FromResult(jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)));
+                return Task.FromResult((IReadOnlyList<JobInfo>)jobIds.Select(jobId => GetJobByIdFunc(this, jobId, cancellationToken)).ToList());
             }
 
-            IEnumerable<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id));
-            return Task.FromResult<IEnumerable<JobInfo>>(result);
+            IReadOnlyList<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id)).ToList();
+            return Task.FromResult(result);
         }
 
         public bool IsInitialized()
@@ -187,20 +190,30 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return true;
         }
 
-        public Task<bool> KeepAliveJobAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
-            HeartbeatFaultAction?.Invoke();
-
-            JobInfo job = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
-            if (job == null)
+            var cancel = false;
+            try
             {
-                throw new JobNotExistException("not exist");
+                HeartbeatFaultAction?.Invoke();
+
+                JobInfo job = jobInfos.FirstOrDefault(t => t.Id == jobInfo.Id);
+                if (job == null)
+                {
+                    throw new JobNotExistException("not exist");
+                }
+
+                job.HeartbeatDateTime = DateTime.Now;
+                job.Result = jobInfo.Result;
+
+                cancel = job.CancelRequested;
+            }
+            catch
+            {
+                // do nothing
             }
 
-            job.HeartbeatDateTime = DateTime.Now;
-            job.Result = jobInfo.Result;
-
-            return Task.FromResult(job.CancelRequested);
+            return Task.FromResult(cancel);
         }
     }
 }

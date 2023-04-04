@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdatedNotification>, INotificationHandler<StorageInitializedNotification>
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, INotificationHandler<SearchParametersUpdatedNotification>, INotificationHandler<StorageInitializedNotification>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IMediator _mediator;
@@ -57,6 +56,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
+
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
+
+            SearchParameterDefinitionBuilder.Build(
+                bundle.Entries.Select(e => e.Resource).ToList(),
+                UrlLookup,
+                TypeLookup,
+                _modelInfoProvider,
+                _logger);
         }
 
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
@@ -70,21 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)); }
         }
-
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
-
-            SearchParameterDefinitionBuilder.Build(
-                bundle.Entries.Select(e => e.Resource).ToList(),
-                UrlLookup,
-                TypeLookup,
-                _modelInfoProvider);
-
-            return Task.CompletedTask;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
@@ -168,7 +161,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters,
                 UrlLookup,
                 TypeLookup,
-                _modelInfoProvider);
+                _modelInfoProvider,
+                _logger);
 
             if (calculateHash)
             {
@@ -261,7 +255,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 new List<ITypedElement>() { searchParam },
                                 UrlLookup,
                                 TypeLookup,
-                                _modelInfoProvider);
+                                _modelInfoProvider,
+                                _logger);
                         }
                         catch (SearchParameterNotSupportedException ex)
                         {

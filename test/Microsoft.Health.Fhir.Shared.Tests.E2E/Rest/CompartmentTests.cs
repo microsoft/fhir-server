@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/foo";
 
-            FhirException exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(searchUrl));
+            FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(searchUrl));
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
@@ -154,6 +154,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(bundle1.Entry[i].FullUrl, bundle2.Entry[i].FullUrl);
                 Assert.Equal(bundle1.Entry[i].FullUrlElement, bundle2.Entry[i].FullUrlElement);
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatientCompartment_WhenSearchingForAResourceTypeUsingInclude_ThenResourcesShouldBeReturned()
+        {
+            string searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_include=Observation:performer:Practitioner&performer=Practitioner/f005";
+
+            Bundle bundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(bundle, searchUrl, Fixture.Observation);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_union=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
+
+            searchUrl = $"Patient/{Fixture.Patient.Id}/Observation?_includeunionall=Observation:performer:Practitioner";
+
+            bundle = await Client.SearchAsync(searchUrl);
+            Assert.NotEmpty(bundle.Entry);
         }
 
         [Fact]

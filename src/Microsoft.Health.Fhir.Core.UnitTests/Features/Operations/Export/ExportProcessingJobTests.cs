@@ -99,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 record.FailureDetails = new JobFailureDetails(failureReason, HttpStatusCode.InternalServerError);
             }
 
+            record.Id = string.Empty;
             return JsonConvert.SerializeObject(record);
         }
 

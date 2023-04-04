@@ -13,7 +13,7 @@ CREATE TABLE dbo.Parameters
     ,UpdatedDate datetime         NULL
     ,UpdatedBy   nvarchar(255)    NULL
     
-     CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id)
+     CONSTRAINT PKC_Parameters_Id PRIMARY KEY CLUSTERED (Id) WITH (IGNORE_DUP_KEY = ON)
   )
 GO
 CREATE TABLE dbo.ParametersHistory 

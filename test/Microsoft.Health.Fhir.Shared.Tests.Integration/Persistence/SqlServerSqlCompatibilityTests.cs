@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
             try
             {
-                for (int i = SchemaVersionConstants.Max - 5; i <= SchemaVersionConstants.Max; i++)
+                for (int i = Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
                 {
                     try
                     {
@@ -72,7 +73,62 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgradedAndMergeDisabled_WhenUpsertingAfter_OperationSucceeds()
+        {
+            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            var insertedElements = new List<string>();
+
+            FhirStorageTestsFixture fhirStorageTestsFixture = null;
+            try
+            {
+                for (int i = Math.Max(SchemaVersionConstants.Merge, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
+                {
+                    try
+                    {
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                        await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
+
+                        await fhirStorageTestsFixture.SqlHelper.ExecuteSqlCmd($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{SqlServerFhirDataStore.MergeResourcesDisabledFlagId}', 1");
+
+                        Mediator mediator = fhirStorageTestsFixture.Mediator;
+
+                        foreach (string id in insertedElements)
+                        {
+                            // verify that we can read entries from previous versions
+                            var readResult = (await mediator.GetResourceAsync(new ResourceKey("Observation", id))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+                            Assert.Equal(id, readResult.Id);
+                        }
+
+                        // add a new entry
+
+                        var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                        var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+                        var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+
+                        Assert.NotNull(result);
+                        Assert.Equal(deserialized.Id, result.Id);
+                        insertedElements.Add(result.Id);
+                    }
+                    catch (Exception e)
+                    {
+                        throw new InvalidOperationException($"Failure using schema version {i}", e);
+                    }
+                }
+            }
+            finally
+            {
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
             }
         }
 
@@ -81,18 +137,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
         [Fact]
-        public void GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
+            // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();
             var versions = Enum.GetValues(typeof(SchemaVersion)).OfType<object>().ToList().Select(x => Convert.ToInt32(x)).ToList();
-            Parallel.ForEach(versions, new ParallelOptions() { MaxDegreeOfParallelism = 2 }, async version =>
+            await Parallel.ForEachAsync(versions, new ParallelOptions { MaxDegreeOfParallelism = 2}, async (version, cancel) =>
             {
-                if (version >= SchemaVersionConstants.Max - 5 && version <= SchemaVersionConstants.Max)
+                if (version >= Math.Max(SchemaVersionConstants.Min, SchemaVersionConstants.Max - 5) && version <= SchemaVersionConstants.Max)
                 {
                     string databaseName = $"FHIRCOMPATIBILITYTEST_V{version}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-
-                    var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
+                    FhirStorageTestsFixture fhirStorageTestsFixture = null;
                     try
                     {
+                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(version, databaseName));
                         await fhirStorageTestsFixture.InitializeAsync();
 
                         Mediator mediator = fhirStorageTestsFixture.Mediator;
@@ -110,7 +167,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                     finally
                     {
-                        await fhirStorageTestsFixture?.DisposeAsync();
+                        if (fhirStorageTestsFixture != null)
+                        {
+                            await fhirStorageTestsFixture.DisposeAsync();
+                        }
                     }
                 }
             });
@@ -122,9 +182,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// version has not been upgraded. This test does a sanity check to make sure "old" _sort
         /// still works in such a scenario.
         /// </summary>
-        [Fact]
+        [SkippableFact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenSearchingWithSort_SearchIsSuccessful()
         {
+            Skip.If(SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion < SchemaVersionConstants.Min, "Schema version required for this test is not supported");
+
             string databaseName = $"FHIRCOMPATIBILITYTEST_SORT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
             int schemaVersion = SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion - 1;
             var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(
@@ -155,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await fhirStorageTestsFixture?.DisposeAsync();
+                fhirStorageTestsFixture.Dispose();
             }
         }
     }

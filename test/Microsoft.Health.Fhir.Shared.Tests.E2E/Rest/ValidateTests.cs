@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async void GivenUnpresentIdRequest_WhenValidateIt_ThenAnErrorShouldBeReturned()
         {
-            var exception = await Assert.ThrowsAsync<FhirException>(async () =>
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () =>
             await _client.ValidateByIdAsync(ResourceType.Patient, "-1", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"));
 
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patient = Samples.GetJson("Patient");
             var profile = "abc";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", patient, profile));
+            var exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ValidateAsync("Patient/$validate", patient, profile));
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
 
             Parameters parameters = new Parameters();
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var parser = new FhirJsonParser();
             parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = Samples.GetDefaultPatient().ToPoco<Patient>() });
 
-            exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", parameters.ToJson()));
+            exception = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ValidateAsync("Patient/$validate", parameters.ToJson()));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }

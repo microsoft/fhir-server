@@ -6,7 +6,14 @@
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
+  </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
@@ -28,8 +35,10 @@
     <EmbeddedResource Include="TestFiles\Normative\Appointment.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithInvalidEleEnums.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-FhirPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-MissingIdentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
@@ -37,8 +46,10 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
+    <EmbeddedResource Include="TestFiles\Normative\PatientWithUnknownElements.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noidentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore-noGender.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchDataBatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />

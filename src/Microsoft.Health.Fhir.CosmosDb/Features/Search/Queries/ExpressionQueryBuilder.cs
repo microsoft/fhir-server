@@ -347,6 +347,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        public object VisitSmartCompartment(SmartCompartmentSearchExpression expression, Context context)
+        {
+            AppendArrayContainsFilter(GetCompartmentIndicesParamName(expression.CompartmentType), expression.CompartmentId);
+            return null;
+        }
+
         public object VisitInclude(IncludeExpression expression, Context context)
         {
             throw new InvalidOperationException($"Include expression should have been removed before reaching {nameof(ExpressionQueryBuilder)}.");

@@ -8,9 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -31,7 +29,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private ISearchService _mockSearchService = Substitute.For<ISearchService>();
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
-        private ILoggerFactory _loggerFactory = new NullLoggerFactory();
 
         [Theory]
         [InlineData(ExportJobType.Patient)]
@@ -43,96 +40,71 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, exportJobType: exportJobType).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
+            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, numExpectedJobs);
+
+            CheckJobsQueued(1, numExpectedJobs);
         }
 
         [Fact]
-        public async Task GivenAnExportJobWithParallelSetToOne_WhenRun_ThenOneProcessingJobShouldBeCreated()
+        public async Task GivenAnExportJobWithIsParallelSetToFalse_WhenRun_ThenOneProcessingJobShouldBeCreated()
         {
             int numExpectedJobs = 1;
             long orchestratorJobId = 10000;
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: false).First();
+            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, numExpectedJobs);
+            Assert.Equal(OperationStatus.Completed, jobResult.Status);
+
+            CheckJobsQueued(1, numExpectedJobs);
         }
 
         [Fact]
         public async Task GivenAnExportJobWithNoTypeRestriction_WhenRun_ThenMultipleProcessingJobsShouldBeCreated()
         {
-            int numExpectedJobs = 10;
+            int numExpectedJobsPerResourceType = 100;
+            long orchestratorJobId = 10000;
+
+            SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId);
+
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true).First();
+            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
+            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            Assert.Equal(OperationStatus.Completed, jobResult.Status);
+
+            CheckJobsQueued(3, numExpectedJobsPerResourceType * 3);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobsShouldBeCreatedPerResourceType()
+        {
+            int numExpectedJobs = 100;
             long orchestratorJobId = 10000;
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
+            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
+            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, numExpectedJobs);
+            Assert.Equal(OperationStatus.Completed, jobResult.Status);
+
+            CheckJobsQueued(2, numExpectedJobs * 2);
         }
 
-        [Fact]
-        public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenTenProcessingJobsShouldBeCreatedPerResourceType()
-        {
-            int numExpectedJobs = 10;
-            long orchestratorJobId = 10000;
-
-            SetupMockQueue(numExpectedJobs * 2, orchestratorJobId);
-
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs, typeFilter: "Patient,Observation").First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, numExpectedJobs * 2);
-        }
-
-        [Fact]
-        public async Task GivenAnExportJobThatFails_WhenRun_ThenFailureReasonsAreInTheJobRecord()
-        {
-            int numExpectedJobs = 10;
-            long orchestratorJobId = 10000;
-            string expectedMessage = "Job failed.";
-
-            SetupMockQueue(numExpectedJobs, orchestratorJobId, failure: true);
-
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            var exception = await Assert.ThrowsAsync<JobExecutionException>(() => exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None));
-            Assert.Equal(expectedMessage, exception.Message);
-            Assert.Equal(expectedMessage, ((ExportJobRecord)exception.Error).FailureDetails.FailureReason);
-            Assert.Equal(System.Net.HttpStatusCode.UnavailableForLegalReasons, ((ExportJobRecord)exception.Error).FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenAnExportJobThatIsRestarted_WhenRun_ThenNewProcessingJobsAreNotMade()
-        {
-            int numExpectedJobs = 10;
-            long orchestratorJobId = 10000;
-
-            SetupMockQueue(numExpectedJobs, orchestratorJobId, firstRun: false);
-
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, numExpectedJobs).First();
-            var exportOrchestratorJob = new ExportOrchestratorJob(_mockQueueClient, _mockSearchService, _loggerFactory);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-            CountOutputFiles(jobResult, 10);
-        }
-
-        private IEnumerable<JobInfo> GetJobInfoArray(
+        private IReadOnlyList<JobInfo> GetJobInfoArray(
             int numJobInfos,
             long groupId,
             bool areAllCompleted,
             long orchestratorJobId = -1,
-            int parallelNum = 1,
+            bool isParallel = false,
             string typeFilter = null,
             ExportJobType exportJobType = ExportJobType.All,
             bool failure = false)
@@ -150,8 +122,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 "hash",
                                 0,
                                 groupId: $"{groupId}",
-                                parallel: parallelNum,
-                                since: new PartialDateTime(Clock.UtcNow))
+                                isParallel: isParallel,
+                                since: new PartialDateTime(new DateTimeOffset(2020, 1, 1, 1, 1, 1, TimeSpan.Zero)),
+                                till: new PartialDateTime(new DateTimeOffset(2021, 1, 1, 1, 1, 1, TimeSpan.Zero)))
                 {
                     Id = $"{orchestratorJobId}",
                 };
@@ -181,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 "hash",
                                 0,
                                 groupId: $"{groupId}",
-                                parallel: parallelNum,
+                                isParallel: isParallel,
                                 typeId: (int)JobType.ExportProcessing)
                 {
                     Id = $"{i}",
@@ -210,54 +183,72 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return jobInfoArray;
         }
 
-        private void CountOutputFiles(ExportJobRecord record, int expectedCount)
+        private void SetupMockQueue(int numExpectedJobsPerResourceType, long orchestratorJobId, bool failure = false)
         {
-            int fileCount = 0;
-            foreach (var output in record.Output)
+            _mockSearchService.GetSurrogateId(Arg.Any<DateTime>()).Returns(x =>
             {
-                foreach (var key in output.Value)
-                {
-                    fileCount++;
-                }
-            }
+                return long.MaxValue - 1;
+            });
 
-            Assert.Equal(expectedCount, fileCount);
-            Assert.Equal(OperationStatus.Completed, record.Status);
-        }
-
-        private void SetupMockQueue(int numExpectedJobs, long orchestratorJobId, bool firstRun = true, bool failure = false)
-        {
-            _mockSearchService.GetDateTimeRange(Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x =>
+            _mockSearchService.GetSurrogateIdRanges(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
-                int numRanges = x.ArgAt<int>(3);
-                var ranges = new List<Tuple<DateTime, DateTime>>();
-                for (int i = 0; i < numRanges; i++)
+                int numRanges = x.ArgAt<int>(4);
+                var ranges = new List<(long StartId, long EndId)>();
+                if (x.ArgAt<long>(1) <= x.ArgAt<long>(2)) // start <= end to break internal loop
                 {
-                    ranges.Add(new Tuple<DateTime, DateTime>(new DateTime(10000), new DateTime(20000)));
+                    for (int i = 0; i < numRanges; i++)
+                    {
+                        ranges.Add((long.MaxValue - 1, long.MaxValue - 1));
+                    }
                 }
 
-                return Task.FromResult<IReadOnlyList<Tuple<DateTime, DateTime>>>(ranges);
+                return Task.FromResult<IReadOnlyList<(long StartId, long EndId)>>(ranges);
+            });
+
+            _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var list = new List<(short resourceTypeId, string name)>();
+                list.Add((0, "Patient"));
+                list.Add((1, "Observation"));
+                list.Add((2, "Encounter"));
+
+                return list;
+            });
+
+            _mockSearchService.GetSurrogateId(Arg.Any<DateTime>()).Returns(x =>
+            {
+                DateTime dateTime = x.ArgAt<DateTime>(0);
+                long id = dateTime.TruncateToMillisecond().Ticks << 3;
+                return id;
             });
 
             _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>
             {
                 string[] definitions = x.ArgAt<string[]>(1);
-                Assert.Equal(numExpectedJobs, definitions.Length);
-                return GetJobInfoArray(numExpectedJobs, orchestratorJobId, false, failure: failure);
+                Assert.Equal(numExpectedJobsPerResourceType, definitions.Length);
+                return GetJobInfoArray(numExpectedJobsPerResourceType, orchestratorJobId, false, failure: failure);
             });
 
-            _mockQueueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), orchestratorJobId, false, Arg.Any<CancellationToken>()).Returns(x =>
+            _mockQueueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), orchestratorJobId, Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
-                if (firstRun)
-                {
-                    firstRun = false;
-                    return GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, failure: failure);
-                }
-                else
-                {
-                    return GetJobInfoArray(numExpectedJobs, orchestratorJobId, true, orchestratorJobId, failure: failure);
-                }
+                return GetJobInfoArray(0, orchestratorJobId, true, orchestratorJobId, failure: failure);
             });
+        }
+
+        private void CheckJobsQueued(int expectedCalls, int expectedQueuedJobs)
+        {
+            var calls = _mockQueueClient.ReceivedCalls().Where(call =>
+            {
+                return call.GetMethodInfo().Name.Equals("EnqueueAsync");
+            });
+
+            Assert.Equal(expectedCalls, calls.Count());
+            var numJobsMade = calls.Aggregate(0, (sum, call) =>
+            {
+                return sum + ((string[])call.GetOriginalArguments()[1]).Length;
+            });
+
+            Assert.Equal(expectedQueuedJobs, numJobsMade);
         }
     }
 }

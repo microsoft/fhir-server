@@ -1,0 +1,34 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "MedicationRequest",
+                "id": "smartMedicationRequest1",
+                "status": "active",
+                "intent": "plan",
+                "medicationCodeableConcept": {
+                    "coding": [
+                        {
+                            "code": "test"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/searchpatient1"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationRequest/smartMedicationRequest1"
+            }
+        },
+        {
+            "request": {
+                "method": "GET",
+                "url": "Patient"
+            }
+        }
+    ]
+}

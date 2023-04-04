@@ -21,7 +21,7 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// The custom <see cref="XunitTestFrameworkExecutor"/> that has special handling for test classes that use fixtures with parameterized constructor arguments.
     /// </summary>
-    internal class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
+    internal sealed class CustomXunitTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
         public CustomXunitTestFrameworkExecutor(AssemblyName assemblyName, ISourceInformationProvider sourceInformationProvider, IMessageSink diagnosticMessageSink)
             : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Extensions.Xunit
             }
         }
 
-        private class AssemblyRunner : XunitTestAssemblyRunner
+        private sealed class AssemblyRunner : XunitTestAssemblyRunner
         {
             private readonly Dictionary<Type, object> _assemblyFixtureMappings = new Dictionary<Type, object>();
             private ExecutionContext _context;
@@ -95,9 +95,15 @@ namespace Microsoft.Health.Extensions.Xunit
                 ExecutionContext.Run(_context, state => result = new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync(), state: null);
                 return result;
             }
+
+            public override void Dispose()
+            {
+                _context?.Dispose();
+                base.Dispose();
+            }
         }
 
-        private class CollectionRunner : XunitTestCollectionRunner
+        private sealed class CollectionRunner : XunitTestCollectionRunner
         {
             private readonly Dictionary<Type, object> _assemblyFixtureMappings;
 
@@ -153,7 +159,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// An <see cref="XunitTestClassRunner"/> that runs tests in the same <see cref="ExecutionContext"/> as when all fixture constructors ran.
         /// This means that <see cref="AsyncLocal{T}"/>s set during a fixture constructor can be read during test method execution.
         /// </summary>
-        private class ExecutionContextFlowingClassRunner : XunitTestClassRunner
+        private sealed class ExecutionContextFlowingClassRunner : XunitTestClassRunner
         {
             private ExecutionContext _context;
 
@@ -188,7 +194,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// the synthetic classes that we created of the form Namespace.Class(Arg1, Arg2). For these, we want to create a
         /// <see cref="TestClassWithFixtureArgumentsTypeInfo"/> with Arg1 and Arg2 as the fixture arguments
         /// </summary>
-        private class CustomAssemblyInfo : IAssemblyInfo
+        private sealed class CustomAssemblyInfo : IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
             private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");

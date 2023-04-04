@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
+        ///   Looks up a localized string similar to Conditional operation on {0} was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {
             get {
@@ -458,6 +458,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Provided fhirUser claim {0} is not a valid resource in this fhir server..
+        /// </summary>
+        internal static string FhirUserClaimIsNotAValidResource {
+            get {
+                return ResourceManager.GetString("FhirUserClaimIsNotAValidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The given fhirUser claim:{0} is not valid.  It must have a resource type of Patient or Practicioner and a resource id..
         /// </summary>
         internal static string FhirUserClaimMustHaveResourceTypeAndId {
@@ -616,6 +625,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeRevIncludeInvalidTargetResourceType {
             get {
                 return ResourceManager.GetString("IncludeRevIncludeInvalidTargetResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An internal error has occurred. If this problem persists, please contact Customer Support..
+        /// </summary>
+        internal static string InternalServerError {
+            get {
+                return ResourceManager.GetString("InternalServerError", resourceCulture);
             }
         }
         
@@ -796,6 +814,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string Meta {
             get {
                 return ResourceManager.GetString("Meta", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Missing search indices for resource type &apos;{0}&apos;..
+        /// </summary>
+        internal static string MissingSearchIndices {
+            get {
+                return ResourceManager.GetString("MissingSearchIndices", resourceCulture);
             }
         }
         
@@ -1057,6 +1084,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReindexJobInCompletedState {
             get {
                 return ResourceManager.GetString("ReindexJobInCompletedState", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex targets are mutually exclusive. Please only use one at a time..
+        /// </summary>
+        internal static string ReindexMultipleTargetsNotSupported {
+            get {
+                return ResourceManager.GetString("ReindexMultipleTargetsNotSupported", resourceCulture);
             }
         }
         
@@ -1367,6 +1403,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A search parameter is too complex..
+        /// </summary>
+        internal static string SearchParameterTooComplex {
+            get {
+                return ResourceManager.GetString("SearchParameterTooComplex", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A search parameter is no longer supported..
         /// </summary>
         internal static string SearchParameterUnknownNotSupported {
@@ -1426,6 +1471,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SqlQueryProcessorRanOutOfInternalResourcesException {
             get {
                 return ResourceManager.GetString("SqlQueryProcessorRanOutOfInternalResourcesException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was resource contention with another process in the datastore. Please retry this transaction..
+        /// </summary>
+        internal static string TransactionDeadlock {
+            get {
+                return ResourceManager.GetString("TransactionDeadlock", resourceCulture);
             }
         }
         
@@ -1534,6 +1588,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error deserializing resource &apos;{0}/{1}&apos; for validation: {2}.
+        /// </summary>
+        internal static string USCoreDeserializationError {
+            get {
+                return ResourceManager.GetString("USCoreDeserializationError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Status code is missing for the resource &apos;{0}/{1}&apos;..
+        /// </summary>
+        internal static string USCoreMissingDataRequirement {
+            get {
+                return ResourceManager.GetString("USCoreMissingDataRequirement", resourceCulture);
             }
         }
         

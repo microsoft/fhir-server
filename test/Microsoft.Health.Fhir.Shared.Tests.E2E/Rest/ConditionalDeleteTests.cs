@@ -37,6 +37,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnIncompleteSearchParam_WhenDeletingConditionally_TheServerRespondsWithCorrectMessage()
+        {
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier=", CancellationToken.None));
+            Assert.Equal(HttpStatusCode.PreconditionFailed, fhirException.StatusCode);
+            Assert.True(fhirException.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType)));
+        }
+
         [InlineData(1)]
         [InlineData(100)]
         [Theory]
@@ -77,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 2);
 
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
         }
 
         [InlineData(-1)]
@@ -88,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
         }
 
         [InlineData(true)]
@@ -120,8 +129,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var identifier = Guid.NewGuid().ToString();
 
             await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithIdentifier(identifier)));
-
-            await GetResourceCount(identifier);
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
 
@@ -158,8 +165,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task<int?> GetResourceCount(string identifier)
         {
-            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
-            return result.Resource.Total;
+            try
+            {
+                FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
+
+                return result.Resource.Total;
+            }
+            catch (FhirClientException fce)
+            {
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"A non-expected '{ex.GetType()}' was raised. Url: {_client.HttpClient.BaseAddress}. No Activity Id present. Error: {ex.Message}");
+            }
+
+            throw new NotImplementedException("Unreachable part of the code. The method should fail before reaching this part of the code.");
         }
     }
 }

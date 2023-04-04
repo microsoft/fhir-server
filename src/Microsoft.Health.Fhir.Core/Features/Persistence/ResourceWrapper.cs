@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
-            string searchParameterHash = null)
+            string searchParameterHash = null,
+            long resourceSurrogateId = 0)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
@@ -35,7 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  searchIndices,
                  compartmentIndices,
                  lastModifiedClaims,
-                 searchParameterHash)
+                 searchParameterHash,
+                 resourceSurrogateId)
         {
         }
 
@@ -50,7 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
-            string searchParameterHash = null)
+            string searchParameterHash = null,
+            long resourceSurrogateId = 0)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -67,6 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
             SearchParameterHash = searchParameterHash;
+            ResourceSurrogateId = resourceSurrogateId;
         }
 
         [JsonConstructor]
@@ -74,11 +78,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
         }
 
+        [JsonIgnore]
+        public long ResourceSurrogateId { get; internal set; }
+
         [JsonProperty(KnownResourceWrapperProperties.LastModified)]
-        public DateTimeOffset LastModified { get; protected set; }
+        public DateTimeOffset LastModified { get; internal set; }
 
         [JsonProperty(KnownResourceWrapperProperties.RawResource)]
-        public RawResource RawResource { get; set; }
+        public RawResource RawResource { get; internal set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Request)]
         public ResourceRequest Request { get; protected set; }
@@ -110,9 +117,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
         public string SearchParameterHash { get; set; }
 
-        public ResourceKey ToResourceKey()
+        public ResourceKey ToResourceKey(bool ignoreVersion = false)
         {
-            return new ResourceKey(ResourceTypeName, ResourceId, Version);
+            return new ResourceKey(ResourceTypeName, ResourceId, ignoreVersion ? null : Version);
         }
 
         public virtual void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)

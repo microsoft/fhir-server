@@ -50,6 +50,8 @@ namespace Microsoft.Health.Fhir.Web
 
             if (developmentIdentityProviderConfiguration.Enabled)
             {
+                var host = configuration["ASPNETCORE_URLS"];
+
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
                     .AddInMemoryApiScopes(new[]
@@ -76,7 +78,7 @@ namespace Microsoft.Health.Fhir.Web
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select((user) =>
                         {
                             var userClaims = user.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).ToList();
-                            userClaims.Add(new Claim("fhirUser", "https://localhost:44348/Patient/" + user.Id));
+                            userClaims.Add(new Claim("fhirUser", host + "Patient/" + user.Id));
                             return new TestUser
                             {
                                 Username = user.Id,
@@ -100,20 +102,17 @@ namespace Microsoft.Health.Fhir.Web
                                     ClientSecrets = { new Secret(applicationConfiguration.Id.Sha256()) },
 
                                     // scopes that client has access to
-                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser"}.Concat(smartScopes.Select(s => s.Name)).ToList(),
+                                    AllowedScopes = new[] { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient, "fhirUser" }.Concat(smartScopes.Select(s => s.Name)).ToList(),
 
                                     // app roles that the client app may have
                                     Claims = applicationConfiguration.Roles.Select(
                                         r => new ClientClaim(authorizationConfiguration.RolesClaim, r))
-                                            .Concat(new[]
-                                                    {
-                                                        new ClientClaim("appid", applicationConfiguration.Id),
-                                                        new ClientClaim("fhirUser", "https://localhost:44348/Patient/" + applicationConfiguration.Id),
-                                                    })
+                                            .Concat(CreateFhirUserClaims(applicationConfiguration.Id, host))
                                             .ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
-                                }));
+                                }))
+                ;
             }
 
             return services;
@@ -188,7 +187,31 @@ namespace Microsoft.Health.Fhir.Web
             return scopes;
         }
 
-        private class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
+        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId, string host)
+        {
+            string userType = null;
+
+            if (userId.Contains("patient", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Patient";
+            }
+            else if (userId.Contains("practitioner", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "Practitioner";
+            }
+            else if (userId.Contains("system", StringComparison.OrdinalIgnoreCase))
+            {
+                userType = "System";
+            }
+
+            return new ClientClaim[]
+            {
+                new ClientClaim("appid", userId),
+                new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
+            };
+        }
+
+        private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
         {
             private readonly string _filePath;
             private readonly IConfigurationRoot _existingConfiguration;
@@ -212,7 +235,7 @@ namespace Microsoft.Health.Fhir.Web
                 return new Provider(jsonConfigurationSource, _existingConfiguration);
             }
 
-            private class Provider : JsonConfigurationProvider
+            private sealed class Provider : JsonConfigurationProvider
             {
                 private const string AuthorityKey = "FhirServer:Security:Authentication:Authority";
                 private const string AudienceKey = "FhirServer:Security:Authentication:Audience";

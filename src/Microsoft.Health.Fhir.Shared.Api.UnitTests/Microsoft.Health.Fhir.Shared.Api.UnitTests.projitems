@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Binders\DictionaryExpansionConfigurationProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
@@ -46,6 +47,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlOutputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatterConfigurationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HttpContextExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\JsonArrayPoolTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ImportResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ExportResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
