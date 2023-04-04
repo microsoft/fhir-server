@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
         private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Resources.TooManyConcurrentRequests);
 
-        private IConfiguration _baseConfiguration;
+        private IConfiguration _baseConfiguration = null;
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
@@ -72,7 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
 
-            _baseConfiguration = EnsureArg.IsNotNull(baseConfiguration, nameof(baseConfiguration));
             _throttlingEnabled = throttlingConfiguration.Value.Enabled;
 
             _securityEnabled = securityConfiguration.Value.Enabled;
@@ -89,11 +88,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             // snapshot the configuration values to reduce the number of instructions that need to execute in the lock.
             _concurrentRequestLimit = configuration.ConcurrentRequestLimit;
-            if (_baseConfiguration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
+            if (_baseConfiguration != null && _baseConfiguration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
                 _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen1);
             }
-            else if (_baseConfiguration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            else if (_baseConfiguration != null && _baseConfiguration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen2);
             }
