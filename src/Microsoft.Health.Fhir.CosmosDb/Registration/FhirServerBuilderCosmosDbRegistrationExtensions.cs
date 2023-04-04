@@ -7,18 +7,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -255,13 +252,6 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 job.AsDelegate<Func<IJob>>();
             }
-
-            services
-                .RemoveServiceTypeExact<LegacyExportJobWorker, INotificationHandler<StorageInitializedNotification>>()
-                .Add<LegacyExportJobWorker>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             return fhirServerBuilder;
         }
