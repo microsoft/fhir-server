@@ -96,14 +96,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Search for multiple Search Parameter Status using POST.
         /// </summary>
-        /// <param name="inputParams">Parameters resource containing the search parameters needing a status looked up.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Parameters resource containing Search Parameters with Status.</returns>
         [HttpPost]
         [Route(KnownRoutes.SearchParameters + KnownRoutes.SearchParametersStatusPostQuery, Name = RouteNames.PostSearchParameterState)]
         [ValidateParametersResource]
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
-        public async Task<IActionResult> PostSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
+        public async Task<IActionResult> PostSearchParametersStatus(CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
 
