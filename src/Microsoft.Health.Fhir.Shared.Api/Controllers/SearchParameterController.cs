@@ -104,13 +104,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> PostSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
-            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
 
-            // add input params
+            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
 
-            // return parameters object type
-            return FhirResult.Create(result.SearchParameters);
+            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
+
+            return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
         /// <summary>
