@@ -116,6 +116,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
+        /// Updates SearchParameters to either supported or disabled state.
+        /// </summary>
+        /// <param name="inputParams">SearchParameters to update the status of.</param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        /// <returns>Returns operation outcome with the updates status of each search parameter in request.</returns>
+        [HttpPut]
+        [Route(KnownRoutes.SearchParameters, Name = RouteNames.UpdateSearchParameterState)]
+        [AuditEventType(AuditEventSubType.SearchParameterStatus)]
+        public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
+        {
+            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
+            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
+            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
+            return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
+        }
+
+        /// <summary>
         /// Provide appropriate response if Search Parameter Status feature is not enabled
         /// </summary>
         private void CheckIfSearchParameterStatusIsEnabledAndRespond()
