@@ -65,6 +65,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /*
+         * 
+         * TODO: Implement this if there is a need. WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/102282
         /// <summary>
         /// Gets search parameter with current state by resource id.
         /// </summary>
