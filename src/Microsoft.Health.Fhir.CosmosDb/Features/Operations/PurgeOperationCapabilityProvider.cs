@@ -5,6 +5,7 @@
 
 using System;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -16,12 +17,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
     public class PurgeOperationCapabilityProvider : IProvideCapability
     {
         private readonly IUrlResolver _resolver;
+        private readonly ILogger<PurgeOperationCapabilityProvider> _logger;
 
-        public PurgeOperationCapabilityProvider(IUrlResolver resolver)
+        public PurgeOperationCapabilityProvider(
+            IUrlResolver resolver,
+            ILogger<PurgeOperationCapabilityProvider> logger)
         {
             EnsureArg.IsNotNull(resolver, nameof(resolver));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _resolver = resolver;
+            _logger = logger;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
@@ -30,15 +36,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
 
             builder.Apply(capabilityStatement =>
             {
-                Uri operationDefinitionUri = _resolver.ResolveOperationDefinitionUrl(OperationsConstants.PurgeHistory);
-                capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
+                try
                 {
-                    Name = OperationsConstants.PurgeHistory,
-                    Definition = new ReferenceComponent
+                    Uri operationDefinitionUri = _resolver.ResolveOperationDefinitionUrl(OperationsConstants.PurgeHistory);
+                    capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
                     {
-                        Reference = operationDefinitionUri.ToString(),
-                    },
-                });
+                        Name = OperationsConstants.PurgeHistory,
+                        Definition = new ReferenceComponent
+                        {
+                            Reference = operationDefinitionUri.ToString(),
+                        },
+                    });
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "PurgeOperationCapabilityProvider failed creating a new Capability Statement.");
+                    throw;
+                }
             });
         }
     }

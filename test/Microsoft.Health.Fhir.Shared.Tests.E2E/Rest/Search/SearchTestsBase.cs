@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 allResourcesReturned.AddRange(fhirBundleResponse.Resource.Entry.Select(e => e.Resource));
                 queryUrl = fhirBundleResponse.Resource.NextLink?.ToString();
             }
-            while (queryUrl != null);
+            while (!string.IsNullOrWhiteSpace(queryUrl));
 
             if (numberOfResourcesIsGreaterThanExpected)
             {

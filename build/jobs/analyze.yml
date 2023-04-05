@@ -67,7 +67,7 @@ steps:
 - task: CredScan@3
   inputs:
     scanFolder: ${{ parameters.credScanDirectory }}
-    outputFormat: 'sarif'
+    outputFormat: 'pre'
     suppressionsFile: 'CredScanSuppressions.json'
     verboseOutput: true
 
@@ -92,6 +92,8 @@ steps:
     GdnExportAllTools: false
     GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnExportGdnToolCredScan: true
+    GdnExportGdnToolCSRF: true
+    GdnExportGdnToolRoslynAnalyzers: true
 
 - task: PublishSecurityAnalysisLogs@3
   inputs:
@@ -128,3 +130,13 @@ steps:
     GdnBreakGdnToolCredScan: true
     GdnBreakGdnToolCSRF: true
     GdnBreakGdnToolRoslynAnalyzers: true
+
+- task: TSAUpload@2
+  condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
+  displayName: 'TSA upload'
+  inputs:
+    tsaVersion: 'TsaV2' 
+    codebase: 'NewOrUpdate'
+    GdnPublishTsaOnboard: false
+    GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
+    GdnPublishTsaExportedResultsPublishable: true

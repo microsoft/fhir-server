@@ -76,16 +76,42 @@ namespace Microsoft.Health.Fhir.Client
                 message.Append(": ").Append(diagnostic);
             }
 
+            string responseInfo = "NO_RESPONSEINFO";
+            try
+            {
+                if (Response.Content != null)
+                {
+                    responseInfo = Response.Content.ReadAsStringAsync().Result;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                responseInfo = "RESPONSEINFO_ALREADY_DISPOSED";
+            }
+
+            string requestInfo = "NO_REQUESTINFO";
+            try
+            {
+                if (Response.Response.RequestMessage.Content != null)
+                {
+                    requestInfo = Response.Response.RequestMessage.Content.ReadAsStringAsync().Result;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                requestInfo = "REQUESTINFO_ALREADY_DISPOSED";
+            }
+
             message.Append(" (").Append(operationId).AppendLine(")");
 
             message.AppendLine("==============================================");
             message.Append("Url: (").Append(Response.Response.RequestMessage?.Method.Method ?? "NO_HTTP_METHOD_AVAILABLE").Append(") ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
             message.Append("Response code: ").Append(Response.Response.StatusCode.ToString()).Append('(').Append((int)Response.Response.StatusCode).AppendLine(")");
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
-            message.Append("Content: ").AppendLine(Response.Content?.ToString() ?? "NO_CONTENT");
-            message.Append("Request: ").AppendLine(Response.Response.RequestMessage.Content?.ToString() ?? "NO_REQUEST");
             message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.Append("Health Check Result: ").Append(HealthCheckResult.ToString()).Append('(').Append((int)HealthCheckResult).AppendLine(")");
+            message.Append("Response Info: ").AppendLine(responseInfo);
+            message.Append("Request Info: ").AppendLine(requestInfo);
             message.AppendLine("==============================================");
 
             return message.ToString();

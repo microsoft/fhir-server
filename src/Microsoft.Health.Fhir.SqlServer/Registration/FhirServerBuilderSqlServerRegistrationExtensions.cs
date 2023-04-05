@@ -248,6 +248,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddHostedService<WatchdogsBackgroundService>();
 
+            // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
+            services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
+            services.AddSingleton<ISqlRetryService, SqlRetryService>();
+
             return fhirServerBuilder;
         }
 
