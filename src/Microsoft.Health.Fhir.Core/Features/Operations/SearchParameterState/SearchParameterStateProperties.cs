@@ -11,7 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
     public static class SearchParameterStateProperties
     {
         public const string ResourceType = "resourcetype";
-        public const string SearchParameterId = "id";
         public const string Code = "code";
         public const string Url = "url";
         public const string Status = "status";

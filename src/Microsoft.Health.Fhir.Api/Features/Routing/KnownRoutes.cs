@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string HealthCheck = "/health/check";
         public const string CustomError = "/CustomError";
 
-        public const string SearchParameters = "SearchParameters/";
+        public const string SearchParameters = "SearchParameter/";
         public const string Status = "$status";
         public const string SearchParametersStatusQuery = SearchParameters + Status;
         public const string SearchParametersStatusById = SearchParameters + IdRouteSegment + "/" + Status;

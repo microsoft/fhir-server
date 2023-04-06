@@ -69,8 +69,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string PostSearchParameterState = "PostSearchParameterState";
 
-        internal const string SearchParameterStateById = "SearchParameterStateById";
-
         internal const string UpdateSearchParameterState = "UpdateSearchParameterState";
     }
 }

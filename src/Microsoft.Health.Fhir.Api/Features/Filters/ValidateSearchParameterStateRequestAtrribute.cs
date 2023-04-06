@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 SearchParameterStateProperties.Code,
                 SearchParameterStateProperties.Url,
                 SearchParameterStateProperties.ResourceType,
-                SearchParameterStateProperties.SearchParameterId,
             };
             var postParams = new HashSet<string>()
             {
