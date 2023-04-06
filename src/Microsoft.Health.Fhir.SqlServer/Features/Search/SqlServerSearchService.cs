@@ -18,6 +18,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -346,6 +347,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+
+                            var queryText = stringBuilder.ToString();
+                            var queryHash = RemoveParamHash(queryText).ComputeHash();
+                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+
+                            if (!string.IsNullOrEmpty(customQuery))
+                            {
+                                _logger.LogInformation("SQl Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
+                                queryText = customQuery;
+                                sqlCommand.CommandType = CommandType.StoredProcedure;
+                            }
 
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
@@ -1060,6 +1073,19 @@ WHERE ResourceTypeId = @p0
             }
 
             return resourceType;
+        }
+
+        private static string RemoveParamHash(string queryText)
+        {
+            var lines = queryText.Split('\n');
+            if (lines[lines.Length - 2].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Join('\n', lines.Take(lines.Length - 2));
+            }
+            else
+            {
+                return queryText;
+            }
         }
 
         // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
