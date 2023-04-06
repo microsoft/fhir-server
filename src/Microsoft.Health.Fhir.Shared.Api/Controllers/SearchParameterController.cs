@@ -64,35 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
-        /*
-         *
-         * TODO: Implement this if there is a need. WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/102282
-        /// <summary>
-        /// Gets search parameter with current state by resource id.
-        /// </summary>
-        /// <param name="idParameter">SearchParameter resource id</param>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        /// <returns>Parameters resource containing search parameter matching id with Status.</returns>
-        [HttpGet]
-        [Route(KnownRoutes.SearchParametersStatusById, Name = RouteNames.SearchParameterStateById)]
-        [AuditEventType(AuditEventSubType.SearchParameterStatus)]
-        [ValidateSearchParameterStateRequestAtrribute]
-        public async Task<IActionResult> GetSearchParametersStatusById(string idParameter, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(idParameter, nameof(idParameter));
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
-
-            var request = new SearchParameterStateRequest(searchParameterId: new List<string>() { idParameter });
-            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
-
-            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
-
-            // p2 call regular search by id to get full resource back
-            // make sure it doesn't reset on FHIR server restart.
-            return FhirResult.Create(result.SearchParameters);
-        }
-        */
-
         /// <summary>
         /// Search for multiple Search Parameter Status using POST.
         /// </summary>
