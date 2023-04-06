@@ -41,5 +41,10 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// elapses before the request is picked up, the server responds with a 429.
         /// </summary>
         public int MaxMillisecondsInQueue { get; set; }
+
+        /// <summary>
+        /// a known datastore
+        /// </summary>
+        public string DataStore { get; set; } = string.Empty;
     }
 }

@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.SearchParameters + KnownRoutes.SearchParametersStatusPostQuery, Name = RouteNames.PostSearchParameterState)]
         [ValidateParametersResource]
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
-        public async Task<IActionResult> PostSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
+        public async Task<IActionResult> PostSearchParametersStatus(CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
 
