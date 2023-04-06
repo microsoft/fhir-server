@@ -637,6 +637,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No Search Parameters found. .
+        /// </summary>
+        public static string SearchParameterStatusNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Toggle navigation.
         /// </summary>
         public static string ToggleNavigation {

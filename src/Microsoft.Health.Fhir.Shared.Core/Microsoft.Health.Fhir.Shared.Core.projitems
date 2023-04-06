@@ -30,6 +30,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterInfoEqualityComparer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalResourceHandler.cs" />
