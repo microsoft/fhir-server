@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>50</LatestSchemaVersion>
+    <LatestSchemaVersion>51</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -64,6 +64,11 @@
     <Compile Remove="**\*.generated.cs" />
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Features\Schema\Sql\Sprocs\AcquireWatchdogLease.sql" />
+    <None Remove="Features\Schema\Sql\Sprocs\CleanupLogEvent.sql" />
+    <None Remove="Features\Schema\Sql\Tables\WatchdogLeases.sql" />
   </ItemGroup>
 
   <ItemGroup>

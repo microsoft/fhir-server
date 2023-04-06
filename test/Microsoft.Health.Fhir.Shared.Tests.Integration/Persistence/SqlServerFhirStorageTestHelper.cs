@@ -109,28 +109,43 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task InitWatchdogsParameters()
         {
             await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await conn.OpenAsync(CancellationToken.None);
             using var cmd = new SqlCommand(
                 @"
-IF object_id('dbo.Parameters') IS NOT NULL -- still need exists check for earlier versions than 43
-BEGIN
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @IsEnabledId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @ThreadsId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @PeriodSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatPeriodSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @HeartbeatTimeoutSecId)
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinFragPct')
-  INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01 WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'Defrag.MinSizeGB')
-END
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
+INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 10
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinFragPct', 0
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'Defrag.MinSizeGB', 0.01
                 ",
                 conn);
-            await conn.OpenAsync(CancellationToken.None);
             var defragWatchdog = new DefragWatchdog();
             cmd.Parameters.AddWithValue("@IsEnabledId", defragWatchdog.IsEnabledId);
             cmd.Parameters.AddWithValue("@ThreadsId", defragWatchdog.ThreadsId);
             cmd.Parameters.AddWithValue("@PeriodSecId", defragWatchdog.PeriodSecId);
+            cmd.Parameters.AddWithValue("@LeasePeriodSecId", defragWatchdog.LeasePeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", defragWatchdog.HeartbeatPeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", defragWatchdog.HeartbeatTimeoutSecId);
             await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+
+            using var cmd2 = new SqlCommand(
+                @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.DeleteBatchSize', 1000
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.AllowedRows', 1000
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.RetentionPeriodDay', 1.0/24/3600
+INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
+                ",
+                conn);
+            var cleanupWatchdog = new CleanupEventLogWatchdog();
+            cmd2.Parameters.AddWithValue("@PeriodSecId", cleanupWatchdog.PeriodSecId);
+            cmd2.Parameters.AddWithValue("@LeasePeriodSecId", cleanupWatchdog.LeasePeriodSecId);
+            await cmd2.ExecuteNonQueryAsync(CancellationToken.None);
+
             await conn.CloseAsync();
         }
 

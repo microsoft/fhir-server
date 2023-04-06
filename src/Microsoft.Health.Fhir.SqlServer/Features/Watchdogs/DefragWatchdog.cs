@@ -12,35 +12,31 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Client;
-using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWatchdog : WatchdogToBeDeprecated<DefragWatchdog>
+    internal sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
+        private CancellationToken _cancellationToken;
 
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
-        private readonly SchemaInformation _schemaInformation;
         private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
         private readonly ILogger<DefragWatchdog> _logger;
 
-        public DefragWatchdog(
+        internal DefragWatchdog(
             Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
-            SchemaInformation schemaInformation,
             Func<IScoped<SqlQueueClient>> sqlQueueClient,
             ILogger<DefragWatchdog> logger)
-            : base(SchemaVersionConstants.Defrag, sqlConnectionWrapperFactory, schemaInformation, logger)
+            : base(sqlConnectionWrapperFactory, logger)
         {
-            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -58,16 +54,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string ThreadsId => $"{Name}.Threads";
 
-        public async Task InitializeAsync(CancellationToken cancellationToken)
+        internal string IsEnabledId => $"{Name}.IsEnabled";
+
+        internal async Task StartAsync(CancellationToken cancellationToken)
         {
-            await InitializeAsync(false, 24 * 3600, cancellationToken);
+            _cancellationToken = cancellationToken;
+            await StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken);
             await InitDefragParamsAsync();
         }
 
-        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync()
         {
-            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var job = await GetCoordinatorJobAsync(cancellationToken);
+            if (!(await IsEnabledAsync(_cancellationToken)))
+            {
+                _logger.LogInformation("Watchdog is not enabled. Exiting...");
+                await Task.CompletedTask;
+                return;
+            }
+
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+            var job = await GetCoordinatorJobAsync(_cancellationToken);
 
             if (job.jobId == -1)
             {
@@ -121,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 TimeSpan.FromSeconds(_heartbeatPeriodSec),
                 cancellationTokenSource);
 
-            await CompleteJobAsync(job.jobId, job.version, false, cancellationToken);
+            await CompleteJobAsync(job.jobId, job.version, false, _cancellationToken);
         }
 
         private async Task ChangeDatabaseSettingsAsync(bool isOn, CancellationToken cancellationToken)
@@ -329,6 +335,12 @@ INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WH
             _heartbeatTimeoutSec = await GetHeartbeatTimeoutAsync(CancellationToken.None);
 
             _logger.LogInformation("InitDefragParamsAsync completed.");
+        }
+
+        private async Task<bool> IsEnabledAsync(CancellationToken cancellationToken)
+        {
+            var value = await GetNumberParameterByIdAsync(IsEnabledId, cancellationToken);
+            return value == 1;
         }
     }
 }

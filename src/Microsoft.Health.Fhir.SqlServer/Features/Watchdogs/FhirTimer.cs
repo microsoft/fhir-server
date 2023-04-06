@@ -6,35 +6,30 @@
 using System;
 using System.Security.Cryptography;
 using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal abstract class ApiTimer : IDisposable
+    internal abstract class FhirTimer<T> : IDisposable
     {
         private Timer _timer;
+        private bool _isRunning;
+        private bool _isFailing;
+        private bool _isStarted;
+        private string _lastException;
+        private readonly ILogger<T> _logger;
+        private CancellationToken _cancellationToken;
 
-        private const double ZeroPeriod = 0.05;
-
-        private volatile bool _isRunning;
-
-        private volatile bool _isFailing;
-
-        private volatile bool _isStarted;
-
-        private volatile string _lastException;
-
-        protected ApiTimer(int periodSec)
+        protected FhirTimer(ILogger<T> logger = null)
         {
-            PeriodSec = periodSec;
-            TruePeriodSec = PeriodSec == 0 ? ZeroPeriod : PeriodSec;
+            _logger = logger;
             _isFailing = false;
             _lastException = null;
             LastRunDateTime = DateTime.Parse("2017-12-01");
         }
 
-        internal int PeriodSec { get; set; }
-
-        internal double TruePeriodSec { get; set; }
+        internal double PeriodSec { get; set; }
 
         internal DateTime LastRunDateTime { get; private set; }
 
@@ -46,43 +41,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string LastException => _lastException;
 
-        protected internal virtual void Start()
-        {
-            Start(PeriodSec);
-        }
-
-        protected internal void Start(int periodSec)
+        protected internal async Task StartAsync(double periodSec, CancellationToken cancellationToken)
         {
             PeriodSec = periodSec;
-            TruePeriodSec = PeriodSec == 0 ? ZeroPeriod : PeriodSec;
-            _timer = new Timer(_ => RunInternal(), null, TimeSpan.FromSeconds(GetDueTime()), TimeSpan.FromSeconds(TruePeriodSec));
+            _cancellationToken = cancellationToken;
+            _timer = new Timer(async _ => await RunInternalAsync(), null, TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), TimeSpan.FromSeconds(PeriodSec));
             _isStarted = true;
+            await Task.CompletedTask;
         }
 
-        private double GetDueTime()
-        {
-            return TruePeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000;
-        }
+        protected abstract Task RunAsync();
 
-        protected abstract void Run();
-
-        internal void RunInternal()
+        private async Task RunInternalAsync()
         {
+            _cancellationToken.ThrowIfCancellationRequested();
+
             if (_isRunning)
             {
-                return;
+                await Task.CompletedTask;
             }
 
             try
             {
                 _isRunning = true;
-                Run();
+                await RunAsync();
                 _isFailing = false;
                 _lastException = null;
                 LastRunDateTime = DateTime.UtcNow;
             }
             catch (Exception e)
             {
+                try
+                {
+                    _logger.LogWarning(e.ToString()); // exceptions in logger should never bubble up
+                }
+                catch
+                {
+                }
+
                 _isFailing = true;
                 _lastException = e.ToString();
             }
@@ -92,15 +88,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
         }
 
-        protected internal virtual void Abort()
-        {
-            Dispose();
-        }
-
-        // TODO: Fix Dspose
         public virtual void Dispose()
         {
-            _timer.Dispose();
+            _timer?.Dispose();
             _timer = null;
         }
     }
