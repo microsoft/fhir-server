@@ -722,4 +722,11 @@
     <value>Search parameter matching the url '{0}' does not exist in datastore. The $status operation cannot be used to add a search parameter.</value>
     <comment>{NumberedPlaceHolder="$status"}. '{0}' Is the Uri Identifying the SearchParameter</comment>
   </data>
+  <data name="SearchParameterRequestNotValid" xml:space="preserve">
+    <value>Update request is invalid. Requires a 'url' and 'status' for each search parameter to be updated.</value>
+  </data>
+  <data name="SearchParameterStatusNotValid" xml:space="preserve">
+    <value>Search Parameter status '{0}' for url '{1}' is invalid. Only 'supported' or 'disabled' are allowed.</value>
+    <comment>'{0}' the status of the search paramter.'{1}' the uri identifying the search parameter.</comment>
+  </data>
 </root>

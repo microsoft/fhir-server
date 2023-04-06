@@ -42,27 +42,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Read)
+            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
             _resourceSearchParameterStatus = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            IReadOnlyCollection<ResourceSearchParameterStatus> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
-            await _searchParameterStatusManager.ApplySearchParameterStatus(searchParametersToUpdate, cancellationToken);
+            Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate = ParseRequestForUpdate(request, out List<OperationOutcomeIssue> invalidSearchParameters);
+            foreach (var statusGroup in searchParametersToUpdate)
+            {
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(statusGroup.Value, statusGroup.Key, cancellationToken);
+            }
+
             return CreateBundleResponse(searchParametersToUpdate, invalidSearchParameters);
         }
 
-        private IReadOnlyCollection<ResourceSearchParameterStatus> ParseRequestForUpdate(SearchParameterStateUpdateRequest request, out List<OperationOutcomeIssue> invalidSearchParameters)
+        private Dictionary<SearchParameterStatus, List<string>> ParseRequestForUpdate(SearchParameterStateUpdateRequest request, out List<OperationOutcomeIssue> invalidSearchParameters)
         {
-            var searchParametersToUpdate = new List<ResourceSearchParameterStatus>();
+            var searchParametersToUpdate = new Dictionary<SearchParameterStatus, List<string>>();
             invalidSearchParameters = new List<OperationOutcomeIssue>();
 
             foreach (var searchParameter in request.SearchParameters)
             {
-                var uri = searchParameter.Item1;
-                var status = searchParameter.Item2;
-                var searchParameterInfo = _resourceSearchParameterStatus.Where(sp => sp.Uri.Equals(uri)).FirstOrDefault();
+                System.Uri uri = searchParameter.Item1;
+                SearchParameterStatus status = searchParameter.Item2;
+                ResourceSearchParameterStatus searchParameterInfo = _resourceSearchParameterStatus.FirstOrDefault(sp => sp.Uri.Equals(uri));
                 if (searchParameterInfo == null)
                 {
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
@@ -86,21 +90,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                 }
                 else
                 {
-                    searchParametersToUpdate.Add(new ResourceSearchParameterStatus
+                    if (searchParametersToUpdate.TryGetValue(status, out List<string> value))
                     {
-                        Uri = uri,
-                        Status = status,
-                        LastUpdated = Clock.UtcNow,
-                        IsPartiallySupported = searchParameterInfo.IsPartiallySupported,
-                        SortStatus = searchParameterInfo.SortStatus,
-                    });
+                        value.Add(uri.ToString());
+                    }
+                    else
+                    {
+                        if (status == SearchParameterStatus.Disabled)
+                        {
+                            searchParametersToUpdate.Add(SearchParameterStatus.PendingDisable, new List<string>() { uri.ToString() });
+                        }
+                        else
+                        {
+                            searchParametersToUpdate.Add(status, new List<string>() { uri.ToString() });
+                        }
+                    }
                 }
             }
 
             return searchParametersToUpdate;
         }
 
-        private static SearchParameterStateUpdateResponse CreateBundleResponse(IReadOnlyCollection<ResourceSearchParameterStatus> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters)
+        private static SearchParameterStateUpdateResponse CreateBundleResponse(Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -124,26 +135,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             {
                 Parameters succeededResults = new Parameters();
 
-                foreach (var searchParameter in searchParametersToUpdate)
+                foreach (var searchParameterGroup in searchParametersToUpdate)
                 {
-                    List<ParameterComponent> parts = new List<ParameterComponent>
+                    foreach (string uri in searchParameterGroup.Value)
                     {
-                        new ParameterComponent()
+                        List<ParameterComponent> parts = new List<ParameterComponent>
                         {
-                            Name = SearchParameterStateProperties.Url,
-                            Value = new FhirUrl(searchParameter.Uri),
-                        },
-                        new ParameterComponent()
+                            new ParameterComponent()
+                            {
+                                Name = SearchParameterStateProperties.Url,
+                                Value = new FhirUrl(uri),
+                            },
+                            new ParameterComponent()
+                            {
+                                Name = SearchParameterStateProperties.Status,
+                                Value = new FhirString(searchParameterGroup.Key.ToString()),
+                            },
+                        };
+                        succeededResults.Parameter.Add(new Parameters.ParameterComponent()
                         {
-                            Name = SearchParameterStateProperties.Status,
-                            Value = new FhirString(searchParameter.Status.ToString()),
-                        },
-                    };
-                    succeededResults.Parameter.Add(new Parameters.ParameterComponent()
-                    {
-                        Name = SearchParameterStateProperties.Name,
-                        Part = parts,
-                    });
+                            Name = SearchParameterStateProperties.Name,
+                            Part = parts,
+                        });
+                    }
                 }
 
                 bundle.Entry.Add(

@@ -1430,6 +1430,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Update request is invalid. Requires a &apos;url&apos; and &apos;status&apos; for each search parameter to be updated..
+        /// </summary>
+        internal static string SearchParameterRequestNotValid {
+            get {
+                return ResourceManager.GetString("SearchParameterRequestNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search Parameter status &apos;{0}&apos; for url &apos;{1}&apos; is invalid. Only &apos;supported&apos; or &apos;disabled&apos; are allowed..
+        /// </summary>
+        internal static string SearchParameterStatusNotValid {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to A search parameter is too complex..
         /// </summary>
         internal static string SearchParameterTooComplex {

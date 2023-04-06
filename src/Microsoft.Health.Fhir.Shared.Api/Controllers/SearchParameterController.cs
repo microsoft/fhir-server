@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
-            SearchParameterStateUpdateRequest updateRequest = ParseRequestBody(inputParams);
+            SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
             SearchParameterStateUpdateResponse result = await _mediator.Send<SearchParameterStateUpdateResponse>(updateRequest, cancellationToken);
 
             _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
@@ -127,16 +127,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return Request.GetQueriesForSearch();
         }
 
-        private static SearchParameterStateUpdateRequest ParseRequestBody(Parameters inputParams)
+        private static SearchParameterStateUpdateRequest ParseUpdateRequestBody(Parameters inputParams)
         {
             List<Tuple<Uri, SearchParameterStatus>> paramsToUpdate = new List<Tuple<Uri, SearchParameterStatus>>();
 
             foreach (var parameter in inputParams.Parameter)
             {
-                FhirUri url = (FhirUri)parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Url, StringComparison.OrdinalIgnoreCase)).Value;
-                FhirString fhirStringStatus = (FhirString)parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Status, StringComparison.OrdinalIgnoreCase)).Value;
-                _ = Enum.TryParse(fhirStringStatus.Value, out SearchParameterStatus status);
-                paramsToUpdate.Add(new Tuple<Uri, SearchParameterStatus>(new Uri(url.Value), status));
+                var url = parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Url, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
+                var stringStatus = parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Status, StringComparison.OrdinalIgnoreCase))?.Value.ToString();
+                var isValidStatus = Enum.TryParse(stringStatus, out SearchParameterStatus status);
+
+                if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(stringStatus))
+                {
+                    throw new RequestNotValidException(Core.Resources.SearchParameterRequestNotValid);
+                }
+                else if (isValidStatus)
+                {
+                    paramsToUpdate.Add(new Tuple<Uri, SearchParameterStatus>(new Uri(url), status));
+                }
+                else
+                {
+                    throw new RequestNotValidException(string.Format(Core.Resources.SearchParameterStatusNotValid, stringStatus, url));
+                }
             }
 
             return new SearchParameterStateUpdateRequest(paramsToUpdate);
