@@ -755,6 +755,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The provided status of &apos;{0}&apos; for url &apos;{1}&apos; is invalid. It can be either &apos;supported or &apos;disabled&apos;.
+        /// </summary>
+        internal static string InvalidUpdateStatus {
+            get {
+                return ResourceManager.GetString("InvalidUpdateStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid value for :missing modifier. Valid values are: true, false..
         /// </summary>
         internal static string InvalidValueTypeForMissingModifier {
@@ -1376,6 +1385,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; is deleted and cannot be updated. .
+        /// </summary>
+        internal static string SearchParameterDeleted {
+            get {
+                return ResourceManager.GetString("SearchParameterDeleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search parameter &apos;{0}&apos; is not common for &apos;{1}&apos; and &apos;{2}&apos;..
         /// </summary>
         internal static string SearchParameterMustBeCommon {
@@ -1390,6 +1408,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNoLongerSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; does not exist in datastore. The $status operation cannot be used to add a search parameter..
+        /// </summary>
+        internal static string SearchParameterNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterNotFound", resourceCulture);
             }
         }
         

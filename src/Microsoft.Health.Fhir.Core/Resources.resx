@@ -710,4 +710,16 @@
     <value>Only Code, ResourceType, and Url are supported as query parameters for $status</value>
     <comment>{NumberedPlaceHolder="$status"}</comment>
   </data>
+  <data name="InvalidUpdateStatus" xml:space="preserve">
+    <value>The provided status of '{0}' for url '{1}' is invalid. It can be either 'supported or 'disabled'</value>
+    <comment>'{0}' Is the status of the SearchParameter. '{1}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
+  <data name="SearchParameterDeleted" xml:space="preserve">
+    <value>Search parameter matching the url '{0}' is deleted and cannot be updated. </value>
+    <comment>'{0}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
+  <data name="SearchParameterNotFound" xml:space="preserve">
+    <value>Search parameter matching the url '{0}' does not exist in datastore. The $status operation cannot be used to add a search parameter.</value>
+    <comment>{NumberedPlaceHolder="$status"}. '{0}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
 </root>

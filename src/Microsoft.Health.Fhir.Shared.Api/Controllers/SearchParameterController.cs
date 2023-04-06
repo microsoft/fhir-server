@@ -20,6 +20,8 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -122,15 +124,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="cancellationToken">Cancellation Token.</param>
         /// <returns>Returns operation outcome with the updates status of each search parameter in request.</returns>
         [HttpPut]
-        [Route(KnownRoutes.SearchParameters, Name = RouteNames.UpdateSearchParameterState)]
+        [Route(KnownRoutes.SearchParametersStatusQuery, Name = RouteNames.UpdateSearchParameterState)]
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
-            SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
-            SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
+            SearchParameterStateUpdateRequest updateRequest = ParseRequestBody(inputParams);
+            SearchParameterStateUpdateResponse result = await _mediator.Send<SearchParameterStateUpdateResponse>(updateRequest, cancellationToken);
+
             _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
-            return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
+            return FhirResult.Create(result.UpdateStatus, System.Net.HttpStatusCode.OK);
         }
 
         /// <summary>
@@ -151,6 +154,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private IReadOnlyList<Tuple<string, string>> GetQueriesForSearch()
         {
             return Request.GetQueriesForSearch();
+        }
+
+        private static SearchParameterStateUpdateRequest ParseRequestBody(Parameters inputParams)
+        {
+            List<Tuple<Uri, SearchParameterStatus>> paramsToUpdate = new List<Tuple<Uri, SearchParameterStatus>>();
+
+            foreach (var parameter in inputParams.Parameter)
+            {
+                FhirUri url = (FhirUri)parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Url, StringComparison.OrdinalIgnoreCase)).Value;
+                FhirString fhirStringStatus = (FhirString)parameter.Part.Find(p => p.Name.Equals(SearchParameterStateProperties.Status, StringComparison.OrdinalIgnoreCase)).Value;
+                _ = Enum.TryParse(fhirStringStatus.Value, out SearchParameterStatus status);
+                paramsToUpdate.Add(new Tuple<Uri, SearchParameterStatus>(new Uri(url.Value), status));
+            }
+
+            return new SearchParameterStateUpdateRequest(paramsToUpdate);
         }
     }
 }
