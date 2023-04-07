@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public SearchParameterControllerTests()
         {
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
-            _coreFeaturesConfiguration.SupportsSelectiveSearchParameters = true;
+            _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration));
@@ -47,10 +47,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectiveSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
+        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
-            coreFeaturesConfiguration.SupportsSelectiveSearchParameters = false;
+            coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
             SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration));
 
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectiveSearchParametersFlagIsTrue_ThenMediatorShouldBeCalled()
+        public async void GivenASearchParameterStatusRequest_WhenSupportsSelectableSearchParametersFlagIsTrue_ThenMediatorShouldBeCalled()
         {
             try
             {

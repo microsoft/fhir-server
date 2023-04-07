@@ -69,7 +69,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Search for multiple Search Parameter Status using POST.
         /// </summary>
-        /// <param name="inputParams">Parameters resource containing the search parameters needing a status looked up.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Parameters resource containing Search Parameters with Status.</returns>
         [HttpPost]
@@ -112,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         private void CheckIfSearchParameterStatusIsEnabledAndRespond()
         {
-            if (!_coreFeaturesConfig.SupportsSelectiveSearchParameters)
+            if (!_coreFeaturesConfig.SupportsSelectableSearchParameters)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.SearchParameterStatus));
             }
