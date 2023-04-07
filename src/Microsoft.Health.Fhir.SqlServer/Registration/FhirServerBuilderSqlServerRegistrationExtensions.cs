@@ -240,11 +240,15 @@ namespace Microsoft.Extensions.DependencyInjection
                             .AsSelf();
 
             services
-                .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
-                .Add<DefragWatchdog>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+                 .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
+                 .Add<DefragWatchdog>()
+                 .Singleton()
+                 .AsSelf()
+                 .AsService<INotificationHandler<StorageInitializedNotification>>();
+
+            services.Add<CleanupEventLogWatchdog>()
+                    .Singleton()
+                    .AsSelf();
 
             services.AddHostedService<WatchdogsBackgroundService>();
 

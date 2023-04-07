@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class WatchdogsBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
     {
-        private bool _storageReady;
+        private bool _storageReady = true;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
 
@@ -33,8 +33,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
 
-            await _defragWatchdog.StartAsync(stoppingToken);
-            await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
+            ////await _defragWatchdog.StartAsync(stoppingToken);
+            ////await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
 
             while (true)
             {

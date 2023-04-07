@@ -14,11 +14,12 @@ using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal abstract class Watchdog<T> : FhirTimer<T>
+    public abstract class Watchdog<T> : FhirTimer<T>
     {
         private Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
+        private bool _disposed = false;
         private double _periodSec;
         private double _leasePeriodSec;
 
@@ -129,10 +130,26 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             return (double)value;
         }
 
-        public override void Dispose()
+        public new void Dispose()
         {
-            _watchdogLease.Dispose();
-            base.Dispose();
+            Dispose(true);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                _watchdogLease?.Dispose();
+            }
+
+            base.Dispose(disposing);
+
+            _disposed = true;
         }
     }
 }

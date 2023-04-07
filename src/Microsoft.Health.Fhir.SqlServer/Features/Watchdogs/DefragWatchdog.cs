@@ -19,7 +19,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal sealed class DefragWatchdog : Watchdog<DefragWatchdog>
+    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
         private readonly ILogger<DefragWatchdog> _logger;
 
-        internal DefragWatchdog(
+        public DefragWatchdog(
             Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
             Func<IScoped<SqlQueueClient>> sqlQueueClient,
             ILogger<DefragWatchdog> logger)

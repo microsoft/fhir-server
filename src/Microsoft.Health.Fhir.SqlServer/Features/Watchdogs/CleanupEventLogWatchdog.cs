@@ -14,7 +14,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
+    public class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
     {
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private const double _periodSec = 12 * 3600;
         private const double _leasePeriodSec = 3600;
 
-        internal CleanupEventLogWatchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<CleanupEventLogWatchdog> logger)
+        public CleanupEventLogWatchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));

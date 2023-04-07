@@ -11,9 +11,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal abstract class FhirTimer<T> : IDisposable
+    public abstract class FhirTimer<T> : IDisposable
     {
         private Timer _timer;
+        private bool _disposed = false;
         private bool _isRunning;
         private bool _isFailing;
         private bool _isStarted;
@@ -88,10 +89,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
         }
 
-        public virtual void Dispose()
+        public void Dispose()
         {
-            _timer?.Dispose();
-            _timer = null;
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                _timer?.Dispose();
+            }
+
+            _disposed = true;
         }
     }
 }
