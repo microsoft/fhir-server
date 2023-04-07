@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
@@ -18,14 +19,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
     {
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly IEnumerable<IStoredProcedure> _storedProcedures;
+        private readonly ILogger<StoredProcedureInstaller> _logger;
 
-        public StoredProcedureInstaller(CosmosDataStoreConfiguration configuration, IEnumerable<IStoredProcedure> storedProcedures)
+        public StoredProcedureInstaller(CosmosDataStoreConfiguration configuration, IEnumerable<IStoredProcedure> storedProcedures, ILogger<StoredProcedureInstaller> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
             _storedProcedures = storedProcedures;
+            _logger = logger;
         }
 
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
@@ -33,6 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             if (_configuration.UseManagedIdentity)
             {
                 // Managed Identity does not support read/write stored procedures
+                _logger.LogInformation("Skipping stored procedure installation because managed identity is enabled");
                 return;
             }
 

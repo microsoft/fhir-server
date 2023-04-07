@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var updaters = new ICollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
-                new StoredProcedureInstaller(_cosmosDataStoreConfiguration, fhirStoredProcs),
+                new StoredProcedureInstaller(_cosmosDataStoreConfiguration, fhirStoredProcs, NullLogger<StoredProcedureInstaller>.Instance),
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(

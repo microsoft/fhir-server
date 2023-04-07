@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             if (_configuration.UseManagedIdentity)
             {
                 // Managed Identity does not support updating these settings
+                _logger.LogInformation("Skipping modifying collection settings because managed identity is enabled");
                 return;
             }
 
