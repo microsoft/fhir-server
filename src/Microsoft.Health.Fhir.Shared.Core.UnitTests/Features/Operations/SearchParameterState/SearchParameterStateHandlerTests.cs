@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly SearchParameterStateHandler _searchParameterHandler;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly CancellationToken _cancellationToken;
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         public SearchParameterStateHandlerTests()
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
-            _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>();
             _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
