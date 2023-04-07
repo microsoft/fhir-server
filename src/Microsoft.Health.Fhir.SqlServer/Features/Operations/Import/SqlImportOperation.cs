@@ -159,8 +159,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkCopyDataAsync failed.");
+                if (ex.IsRetriable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
 
-                throw new RetriableJobException(ex.Message, ex);
+                throw;
             }
         }
 
