@@ -9,7 +9,6 @@ using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -239,18 +238,13 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services
-                 .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
-                 .Add<DefragWatchdog>()
-                 .Singleton()
-                 .AsSelf()
-                 .AsService<INotificationHandler<StorageInitializedNotification>>();
+            services.Add<DefragWatchdog>().Singleton().AsSelf();
 
-            services.Add<CleanupEventLogWatchdog>()
-                    .Singleton()
-                    .AsSelf();
+            services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
 
-            services.AddHostedService<WatchdogsBackgroundService>();
+            services.AddSingleton<WatchdogsBackgroundService>();
+            services.AddHostedService(isp => isp.GetRequiredService<WatchdogsBackgroundService>());
+            services.AddSingleton<INotificationHandler<StorageInitializedNotification>>(isp => isp.GetRequiredService<WatchdogsBackgroundService>());
 
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
