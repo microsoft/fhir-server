@@ -26,6 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\SqlServerFhirDataBulkOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Smart\SmartSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlCustomQueryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\FhirStorageVersioningPolicyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlRetryServiceTests.cs" />

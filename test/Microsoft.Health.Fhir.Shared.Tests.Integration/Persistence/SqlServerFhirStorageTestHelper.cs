@@ -290,6 +290,11 @@ END
             return new SchemaInitializer(serviceProvider, config, schemaInformation, Substitute.For<IMediator>(), NullLogger<SchemaInitializer>.Instance);
         }
 
+        public async Task<SqlConnection> GetSqlConnectionAsync()
+        {
+            return await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+        }
+
         protected SqlConnection GetSqlConnection(string connectionString)
         {
             var connectionBuilder = new SqlConnectionStringBuilder(connectionString);

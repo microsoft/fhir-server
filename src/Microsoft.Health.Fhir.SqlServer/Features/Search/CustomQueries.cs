@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -16,19 +17,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static DateTimeOffset _lastUpdatedQueryCache = DateTimeOffset.MinValue;
         public static readonly Dictionary<string, string> QueryStore = new Dictionary<string, string>();
 
-        public static string CheckQueryHash(SqlConnection connection, string hash, ILogger<SqlServerSearchService> logger)
+        public static int WaitTime { get; set; } = 60;
+
+        public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
             var now = Clock.UtcNow;
-            if (now > _lastUpdatedQueryCache.AddMinutes(1))
+            if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
             {
-                using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                using (IDbCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                 {
                     try
                     {
                         sqlCommand.CommandText = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' AND ROUTINE_NAME like 'CustomQuery_%'";
-                        using (SqlDataReader reader = sqlCommand.ExecuteReader())
+                        using (IDataReader reader = sqlCommand.ExecuteReader())
                         {
-                            if (reader.Read())
+                            while (reader.Read())
                             {
                                 string sprocName = reader.GetString(0);
                                 var tokens = sprocName.Split('_');

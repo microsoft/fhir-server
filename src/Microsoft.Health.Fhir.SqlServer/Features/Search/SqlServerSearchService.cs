@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
-                            sqlCommand.CommandText = stringBuilder.ToString();
+                            sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
