@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 
@@ -15,20 +15,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal static class CustomQueries
     {
         private static DateTimeOffset _lastUpdatedQueryCache = DateTimeOffset.MinValue;
-        public static readonly Dictionary<string, string> QueryStore = new Dictionary<string, string>();
+        public static readonly ConcurrentDictionary<string, string> QueryStore = new ConcurrentDictionary<string, string>();
 
         public static int WaitTime { get; set; } = 60;
 
         public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
             var now = Clock.UtcNow;
+
             if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
             {
                 using (IDbCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                 {
                     try
                     {
-                        sqlCommand.CommandText = "SELECT ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_TYPE = 'PROCEDURE' AND ROUTINE_NAME like 'CustomQuery_%'";
+                        var tempQueryStore = new Dictionary<string, string>();
+                        sqlCommand.CommandText = "SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'";
                         using (IDataReader reader = sqlCommand.ExecuteReader())
                         {
                             while (reader.Read())
@@ -37,9 +39,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 var tokens = sprocName.Split('_');
                                 if (tokens.Length == 2)
                                 {
-                                    QueryStore.Add(tokens[1], sprocName);
+                                    tempQueryStore.TryAdd(tokens[1], sprocName);
                                 }
                             }
+                        }
+
+                        QueryStore.Clear();
+                        foreach (var item in tempQueryStore)
+                        {
+                            QueryStore.TryAdd(item.Key, item.Value);
                         }
 
                         _lastUpdatedQueryCache = now;
