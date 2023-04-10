@@ -10,7 +10,9 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -21,6 +23,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     /// SQL query based on hash
     /// </summary>
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Search)]
     public class SqlCustomQueryTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
