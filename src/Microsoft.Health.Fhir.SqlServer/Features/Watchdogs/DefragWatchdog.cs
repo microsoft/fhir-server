@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (!await IsEnabledAsync(_cancellationToken))
             {
                 _logger.LogInformation("Watchdog is not enabled. Exiting...");
-                await Task.CompletedTask;
                 return;
             }
 
@@ -78,7 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (job.jobId == -1)
             {
                 _logger.LogInformation("Coordinator job was not found.");
-                await Task.CompletedTask;
                 return;
             }
 
