@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal static class CustomQueries
     {
         private static DateTimeOffset _lastUpdatedQueryCache = DateTimeOffset.MinValue;
+        private static object lockObject = new object();
         public static readonly ConcurrentDictionary<string, string> QueryStore = new ConcurrentDictionary<string, string>();
 
         public static int WaitTime { get; set; } = 60;
@@ -22,39 +23,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
             var now = Clock.UtcNow;
-
             if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
             {
-                using (IDbCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                lock (lockObject)
                 {
-                    try
+                    if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
                     {
-                        var tempQueryStore = new Dictionary<string, string>();
-                        sqlCommand.CommandText = "SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'";
-                        using (IDataReader reader = sqlCommand.ExecuteReader())
+                        using (IDbCommand sqlCommand = connection.CreateCommand())
                         {
-                            while (reader.Read())
+                            try
                             {
-                                string sprocName = reader.GetString(0);
-                                var tokens = sprocName.Split('_');
-                                if (tokens.Length == 2)
+                                var tempQueryStore = new Dictionary<string, string>();
+                                sqlCommand.CommandText = "SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE 'CustomQuery[_]%'";
+                                using (IDataReader reader = sqlCommand.ExecuteReader())
                                 {
-                                    tempQueryStore.TryAdd(tokens[1], sprocName);
+                                    while (reader.Read())
+                                    {
+                                        string sprocName = reader.GetString(0);
+                                        var tokens = sprocName.Split('_');
+                                        if (tokens.Length == 2)
+                                        {
+                                            tempQueryStore.TryAdd(tokens[1], sprocName);
+                                        }
+                                    }
                                 }
+
+                                QueryStore.Clear();
+                                foreach (var item in tempQueryStore)
+                                {
+                                    QueryStore.TryAdd(item.Key, item.Value);
+                                }
+
+                                _lastUpdatedQueryCache = now;
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogWarning("Error refreshing CustomQuery cache.  This will try again on next search execution.  Error: {ExceptionMessage}", ex.Message);
                             }
                         }
-
-                        QueryStore.Clear();
-                        foreach (var item in tempQueryStore)
-                        {
-                            QueryStore.TryAdd(item.Key, item.Value);
-                        }
-
-                        _lastUpdatedQueryCache = now;
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning("Error refreshing CustomQuery cache.  This will try again on next search execution.  Error: {ExceptionMessage}", ex.Message);
                     }
                 }
             }
