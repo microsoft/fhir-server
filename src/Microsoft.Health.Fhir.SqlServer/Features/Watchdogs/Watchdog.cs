@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 _logger.LogInformation($"Watchdog.RunAsync: Skipping because watchdog is not a lease holder.");
                 await Task.CompletedTask;
+                return;
             }
 
             _logger.LogInformation($"Watchdog.RunAsync: Starting...");

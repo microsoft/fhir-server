@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             if (_isRunning)
             {
                 await Task.CompletedTask;
+                return;
             }
 
             try

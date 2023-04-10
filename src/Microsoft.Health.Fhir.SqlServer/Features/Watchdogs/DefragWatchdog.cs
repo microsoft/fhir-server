@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected override async Task ExecuteAsync()
         {
-            if (!(await IsEnabledAsync(_cancellationToken)))
+            if (!await IsEnabledAsync(_cancellationToken))
             {
                 _logger.LogInformation("Watchdog is not enabled. Exiting...");
                 await Task.CompletedTask;
