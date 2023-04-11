@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     else if (attempt >= maxNumberAttempts)
                     {
                         _logger.LogWarning(coce, "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
-                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. CosmosOperationCanceledException.");
+                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. Operation canceled.");
                     }
                     else
                     {
