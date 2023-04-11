@@ -1078,14 +1078,19 @@ WHERE ResourceTypeId = @p0
         private static string RemoveParamHash(string queryText)
         {
             var lines = queryText.Split('\n');
-            if (lines[lines.Length - 2].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+            for (var i = lines.Length - 1; i >= 0; i--)
             {
-                return string.Join('\n', lines.Take(lines.Length - 2));
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    continue;
+                }
+                else if (lines[i].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Join('\n', lines.Take(i));
+                }
             }
-            else
-            {
-                return queryText;
-            }
+
+            return queryText;
         }
 
         // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .

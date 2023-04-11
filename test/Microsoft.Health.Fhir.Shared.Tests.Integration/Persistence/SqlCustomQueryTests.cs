@@ -86,8 +86,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     "FROM sys.dm_exec_procedure_stats stats\r\n" +
                     "INNER JOIN sys.objects sysobject ON sysobject.object_id = stats.object_id\r\n" +
                     "WHERE  sysobject.type = 'P'\r\n" +
-                    "and (sysobject.object_id = object_id('dbo.CustomQuery_C95055F62FB607F23A74902A21645D523475218EF4330D77F69F4CB1938A83E8') \r\n" +
-                    "OR sysobject.name = 'CustomQuery_C95055F62FB607F23A74902A21645D523475218EF4330D77F69F4CB1938A83E8')\r\n" +
+                    "and (sysobject.object_id = object_id('dbo.CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB') \r\n" +
+                    "OR sysobject.name = 'CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB')\r\n" +
                     "ORDER BY stats.last_execution_time DESC  ";
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private void AddSproc()
         {
             _fixture.SqlHelper.ExecuteSqlCmd(
-                "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_C95055F62FB607F23A74902A21645D523475218EF4330D77F69F4CB1938A83E8]\r\n" +
+                "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB]\r\n" +
                 "(@p0 SmallInt, @p1 SmallInt, @p2 SmallInt, @p3 SmallInt, @p4 NVarChar(256), @p5 SmallInt, @p6 VarChar(256), @p7 Int, @p8 SmallInt, @p9 Int)\r\n" +
                 "AS\r\n" +
                 "BEGIN\r\n" +
