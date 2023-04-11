@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -28,10 +29,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlCustomQueryTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
+        private readonly ITestOutputHelper _output;
 
-        public SqlCustomQueryTests(FhirStorageTestsFixture fixture)
+        public SqlCustomQueryTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
+            _output = output;
         }
 
         [SkippableFact]
@@ -39,8 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             Skip.If(
-                ModelInfoProvider.Instance.Version != FhirSpecification.R4B,
-                "This test is only valid for R4B");
+                ModelInfoProvider.Instance.Version != FhirSpecification.R4,
+                "This test is only valid for R4");
 
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
@@ -60,6 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.False(await CheckIfSprocUsed());
 
             // add the sproc
+            _output.WriteLine("Adding new sproc to database.");
             AddSproc();
 
             await Task.Delay(1100);
@@ -75,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             using (SqlConnection conn = await _fixture.SqlHelper.GetSqlConnectionAsync())
             {
+                _output.WriteLine("Checking database for sproc being run.");
                 conn.Open();
                 var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT SCHEMA_NAME(sysobject.schema_id), OBJECT_NAME(stats.object_id),  stats.last_execution_time\r\n" +
@@ -94,6 +99,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 }
             }
+
+            _output.WriteLine("No evidence found of sproc being run.");
 
             return false;
         }
