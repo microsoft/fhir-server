@@ -16,7 +16,7 @@
 --     The IDs and URIs of the search parameters that were inserted (not updated).
 --
 CREATE PROCEDURE dbo.UpsertSearchParams
-    @searchParams dbo.SearchParamTableType_2 READONLY
+    @searchParams dbo.SearchParamTableType_1 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

@@ -395,7 +395,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlDbType = SqlDbType.Structured,
                     Value = collection,
                     Direction = ParameterDirection.Input,
-                    TypeName = "dbo.SearchParamTableType_2",
+                    TypeName = "dbo.SearchParamTableType_1",
                 };
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);

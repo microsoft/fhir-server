@@ -447,11 +447,6 @@ CREATE TYPE dbo.SearchParamTableType_1 AS TABLE (
     Status               VARCHAR (10)  NOT NULL,
     IsPartiallySupported BIT           NOT NULL);
 
-CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
-    Uri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (20)  NOT NULL,
-    IsPartiallySupported BIT           NOT NULL);
-
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE (
     Offset          INT          NOT NULL,
     ResourceTypeId  SMALLINT     NOT NULL,
@@ -944,7 +939,7 @@ CREATE TABLE dbo.SchemaMigrationProgress (
 CREATE TABLE dbo.SearchParam (
     SearchParamId        SMALLINT           IDENTITY (1, 1) NOT NULL,
     Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (20)       NULL,
+    Status               VARCHAR (10)       NULL,
     LastUpdated          DATETIMEOFFSET (7) NULL,
     IsPartiallySupported BIT                NULL,
     CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
@@ -5379,7 +5374,7 @@ IF @InitialTranCount = 0
 
 GO
 CREATE PROCEDURE dbo.UpsertSearchParams
-@searchParams dbo.SearchParamTableType_2 READONLY
+@searchParams dbo.SearchParamTableType_1 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
