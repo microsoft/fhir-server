@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
 
-                    if (result.Status == SearchParameterStatus.Disabled)
+                    if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
                         (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);

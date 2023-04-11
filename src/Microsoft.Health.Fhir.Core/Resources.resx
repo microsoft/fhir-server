@@ -715,7 +715,7 @@
     <comment>'{0}' Is the status of the SearchParameter. '{1}' Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDeleted" xml:space="preserve">
-    <value>Search parameter matching the url '{0}' is deleted and cannot be updated. </value>
+    <value>Search parameter matching the url '{0}' is deleted or unsupported and cannot be updated. </value>
     <comment>'{0}' Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterNotFound" xml:space="preserve">

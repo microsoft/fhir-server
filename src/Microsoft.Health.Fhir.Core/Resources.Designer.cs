@@ -1385,7 +1385,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; is deleted and cannot be updated. .
+        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; is deleted or unsupported and cannot be updated. .
         /// </summary>
         internal static string SearchParameterDeleted {
             get {

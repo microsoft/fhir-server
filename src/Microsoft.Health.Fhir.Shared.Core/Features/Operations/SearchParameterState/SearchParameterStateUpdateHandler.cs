@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                         OperationOutcomeConstants.IssueType.Invalid,
                         string.Format(Core.Resources.InvalidUpdateStatus, uri)));
                 }
-                else if (searchParameterInfo.Status.Equals(SearchParameterStatus.Deleted))
+                else if (searchParameterInfo.Status.Equals(SearchParameterStatus.Deleted) || searchParameterInfo.Status.Equals(SearchParameterStatus.Unsupported))
                 {
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
