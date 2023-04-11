@@ -47,5 +47,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSqlCompatibilityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\QueueClientTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Persistence\TestSqlHashCalculator.cs" />
   </ItemGroup>
 </Project>

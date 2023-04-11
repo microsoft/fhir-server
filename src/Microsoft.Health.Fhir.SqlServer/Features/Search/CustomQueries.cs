@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using Microsoft.Extensions.Logging;
@@ -16,7 +15,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private static DateTimeOffset _lastUpdatedQueryCache = DateTimeOffset.MinValue;
         private static object lockObject = new object();
-        public static readonly ConcurrentDictionary<string, string> QueryStore = new ConcurrentDictionary<string, string>();
+
+        public static Dictionary<string, string> QueryStore { get; set; } = new Dictionary<string, string>();
 
         public static int WaitTime { get; set; } = 60;
 
@@ -48,11 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     }
                                 }
 
-                                QueryStore.Clear();
-                                foreach (var item in tempQueryStore)
-                                {
-                                    QueryStore.TryAdd(item.Key, item.Value);
-                                }
+                                QueryStore = tempQueryStore;
 
                                 _lastUpdatedQueryCache = now;
                             }

@@ -59,23 +59,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
 
+            var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
+
             // assert an sproc was not used
-            Assert.False(await CheckIfSprocUsed());
+            Assert.False(await CheckIfSprocUsed(hash));
 
             // add the sproc
             _output.WriteLine("Adding new sproc to database.");
-            AddSproc();
+            AddSproc(hash);
 
             await Task.Delay(1100);
 
             // Query after adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
 
+            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
+
             // assert an sproc was not used
-            Assert.True(await CheckIfSprocUsed());
+            Assert.True(await CheckIfSprocUsed(hash));
         }
 
-        private async Task<bool> CheckIfSprocUsed()
+        private async Task<bool> CheckIfSprocUsed(string hash)
         {
             using (SqlConnection conn = await _fixture.SqlHelper.GetSqlConnectionAsync())
             {
@@ -86,8 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     "FROM sys.dm_exec_procedure_stats stats\r\n" +
                     "INNER JOIN sys.objects sysobject ON sysobject.object_id = stats.object_id\r\n" +
                     "WHERE  sysobject.type = 'P'\r\n" +
-                    "and (sysobject.object_id = object_id('dbo.CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB') \r\n" +
-                    "OR sysobject.name = 'CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB')\r\n" +
+                    "and (sysobject.object_id = object_id('dbo.CustomQuery_" + hash + "') \r\n" +
+                    "OR sysobject.name = 'CustomQuery_" + hash + "')\r\n" +
                     "ORDER BY stats.last_execution_time DESC  ";
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
@@ -105,10 +109,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return false;
         }
 
-        private void AddSproc()
+        private void AddSproc(string hash)
         {
             _fixture.SqlHelper.ExecuteSqlCmd(
-                "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_B007D1A9282416ACD224E136F2B6E65BC26867FAA5AAC6D62D7AE3E54CD376EB]\r\n" +
+                "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_" + hash + "]\r\n" +
                 "(@p0 SmallInt, @p1 SmallInt, @p2 SmallInt, @p3 SmallInt, @p4 NVarChar(256), @p5 SmallInt, @p6 VarChar(256), @p7 Int, @p8 SmallInt, @p9 Int)\r\n" +
                 "AS\r\n" +
                 "BEGIN\r\n" +
@@ -137,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 "FROM cte4\r\n    UNION ALL\r\n    SELECT T1, Sid1, IsMatch, IsPartial\r\n    FROM cte6 WHERE NOT EXISTS (SELECT * FROM cte4 WHERE cte4.Sid1 = cte6.Sid1 AND cte4.T1 = cte6.T1)\r\n" +
                 ")\r\nSELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource\r\n" +
                 "FROM dbo.Resource r\r\n\r\nINNER JOIN cte7\r\nON r.ResourceTypeId = cte7.T1 AND \r\nr.ResourceSurrogateId = cte7.Sid1\r\n" +
-                "ORDER BY IsMatch DESC, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC\r\n OPTION (OPTIMIZE FOR UNKNOWN)\r\n/* HASH yWa2X9xny4iE6Z6Qe/XNkbgqhUX+qwWjXLgRz9r7E0I= */" +
+                "ORDER BY IsMatch DESC, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC\r\n OPTION (OPTIMIZE FOR UNKNOWN)\r\n" +
                 "END");
         }
     }

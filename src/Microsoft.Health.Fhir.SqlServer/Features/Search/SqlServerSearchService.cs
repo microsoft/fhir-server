@@ -18,7 +18,6 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -69,6 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly ISqlQueryHashCalculator _queryHashCalculator;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -87,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
+            ISqlQueryHashCalculator queryHashCalculator,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -113,6 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
+            _queryHashCalculator = queryHashCalculator;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -349,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = RemoveParamHash(queryText).ComputeHash();
+                            var queryHash = _queryHashCalculator.CalculateHash(RemoveParamHash(queryText));
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
