@@ -227,12 +227,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+
             if (updatedSearchParameterStatus.Any())
             {
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
             }
-
-            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
