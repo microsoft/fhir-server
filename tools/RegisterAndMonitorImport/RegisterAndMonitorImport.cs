@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -22,43 +21,39 @@ using Azure.Storage.Blobs.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
+namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
 {
-    internal static class RegisterAndMonitorImport
+    internal sealed class RegisterAndMonitorImport
     {
-        private static readonly string TokenEndpoint = ConfigurationManager.AppSettings["TokenEndpoint"] ?? string.Empty;
-        private static readonly string TokenGrantType = ConfigurationManager.AppSettings["grant_type"] ?? string.Empty;
-        private static readonly string TokenClientId = ConfigurationManager.AppSettings["client_id"] ?? string.Empty;
-        private static readonly string TokenClientSecret = ConfigurationManager.AppSettings["client_secret"] ?? string.Empty;
-        private static readonly string TokenResource = ConfigurationManager.AppSettings["FhirEndpoint"] ?? string.Empty;
-        private static readonly string ResourceType = ConfigurationManager.AppSettings["ResourceType"] ?? string.Empty;
-        private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"] ?? string.Empty;
-        private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"] ?? string.Empty;
-        private static readonly string FhirEndpoint = TokenResource;
-        private static readonly int NumberOfBlobsForImport = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsForImport"] ?? "1");
-        private static readonly TimeSpan ImportStatusDelay = TimeSpan.Parse(ConfigurationManager.AppSettings["ImportStatusDelay"]);
+        private readonly RegisterAndMonitorConfiguration monitorConfiguration;
         private static readonly HttpClient HttpClient = new();
         private static BlobContainerClient s_blobContainerClientSource;
         private static List<BlobItem> s_blobItems;
         private static HashSet<string> s_importedBlobNames = new();
         private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "importResults");
+
+        // this is a list of all the ndjson file names that have been imported from your blob container
+        // thereby helping eliminate duplicate imports of the same blob
         private static readonly string OutputFileName = Path.Combine(OutputDirectory, "importer.txt");
+
+        // this is a list of all urls that were used to get the import status
         private static readonly string LocationUrlFileName = Path.Combine(OutputDirectory, "locationUrls.txt");
-        private static readonly string MonitorImportStatusEndpoint = ConfigurationManager.AppSettings["MonitorImportStatusEndpoint"] ?? string.Empty;
-        private static readonly bool UseBearerToken = bool.Parse(ConfigurationManager.AppSettings["UseBearerToken"]);
 
-        private static bool IsMonitorImportStatusEndpoint => !string.IsNullOrWhiteSpace(MonitorImportStatusEndpoint);
+        public RegisterAndMonitorImport(RegisterAndMonitorConfiguration configuration)
+        {
+            monitorConfiguration = configuration;
+        }
 
-        internal static async Task Run()
+        internal async Task Run()
         {
             try
             {
-                if (IsMonitorImportStatusEndpoint)
+                if (monitorConfiguration.IsMonitorImportStatusEndpoint)
                 {
-                    Console.WriteLine($"Getting the import status for {MonitorImportStatusEndpoint}{Environment.NewLine}");
+                    Console.WriteLine($"Getting the import status for {monitorConfiguration.MonitorImportStatusEndpoint}{Environment.NewLine}");
 
                     // all attempted Urls for GetImportStatus are appended to the LocationUrlFileName file
-                    await GetImportStatus(MonitorImportStatusEndpoint);
+                    await GetImportStatus(monitorConfiguration.MonitorImportStatusEndpoint);
                 }
                 else
                 {
@@ -81,14 +76,14 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             }
         }
 
-        private static async Task Init()
+        private async Task Init()
         {
             if (!Directory.Exists(OutputDirectory))
             {
                 Directory.CreateDirectory(OutputDirectory);
             }
 
-            s_blobContainerClientSource = GetContainerClient(ContainerName);
+            s_blobContainerClientSource = GetContainerClient(monitorConfiguration.ContainerName);
             await LoadImportedBlobItems();
             GetBlobItems();
         }
@@ -118,27 +113,27 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             Console.WriteLine($"Found {s_importedBlobNames.Count} blobs already processed.");
         }
 
-        private static async Task WriteImportedBlobNames()
+        private async Task WriteImportedBlobNames()
         {
             if (File.Exists(OutputFileName))
             {
                 File.Delete(OutputFileName);
             }
 
-            if (s_importedBlobNames != null && !IsMonitorImportStatusEndpoint)
+            if (s_importedBlobNames != null && !monitorConfiguration.IsMonitorImportStatusEndpoint)
             {
                 await File.WriteAllTextAsync(OutputFileName, string.Join(Environment.NewLine, s_importedBlobNames));
                 Console.WriteLine($"Saved file: {OutputFileName}");
             }
         }
 
-        private static void GetBlobItems()
+        private void GetBlobItems()
         {
             if (s_blobContainerClientSource != null)
             {
                 try
                 {
-                    s_blobItems = s_blobContainerClientSource.GetBlobs().Where(_ => _.Name.EndsWith($"{ResourceType}.ndjson", true, CultureInfo.CurrentCulture)).ToList();
+                    s_blobItems = s_blobContainerClientSource.GetBlobs().Where(_ => _.Name.EndsWith($"{monitorConfiguration.ResourceType}.ndjson", true, CultureInfo.CurrentCulture)).ToList();
                     Console.WriteLine($"Total container BlobItems count = {s_blobItems.Count}");
 
                     foreach (string item in s_importedBlobNames)
@@ -150,7 +145,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
                         }
                     }
 
-                    s_blobItems = s_blobItems.Take(NumberOfBlobsForImport).ToList();
+                    s_blobItems = s_blobItems.Take(monitorConfiguration.NumberOfBlobsForImport).ToList();
 
                     Console.WriteLine($"Working set of BlobItems count = {s_blobItems.Count}");
                 }
@@ -158,7 +153,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
                 {
                     if (e.Status == (int)HttpStatusCode.Forbidden)
                     {
-                        Console.WriteLine($"Your connection string {ConnectionString} is invalid. Please verify and try again.{Environment.NewLine}");
+                        Console.WriteLine($"Your connection string {monitorConfiguration.ConnectionString} is invalid. Please verify and try again.{Environment.NewLine}");
                     }
 
                     throw;
@@ -166,7 +161,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             }
         }
 
-        private static async Task RunImport()
+        private async Task RunImport()
         {
             if (s_blobContainerClientSource == null || s_blobItems == null || s_blobItems.Count == 0)
             {
@@ -195,7 +190,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
                 sb.AppendLine("\"");
                 sb.AppendLine(" },{\"name\": \"url\",\"valueUri\": ");
                 sb.Append('"');
-                sb.Append($"{s_blobContainerClientSource.Uri}/{blob.Name}");
+                sb.Append(CultureInfo.CurrentCulture, $"{s_blobContainerClientSource.Uri}/{blob.Name}");
                 sb.AppendLine("\"");
                 sb.AppendLine("}]},");
             }
@@ -206,7 +201,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
 
             var json = sb.ToString();
             var data = new StringContent(json, Encoding.UTF8, "application/fhir+json");
-            var url = $"{FhirEndpoint}/$import";
+            var url = $"{monitorConfiguration.FhirEndpoint}/$import";
             using var requestMessage = new HttpRequestMessage()
             {
                 RequestUri = new Uri(url),
@@ -229,9 +224,9 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             }
         }
 
-        private static async Task<HttpResponseMessage> GetHttpResponseMessageAsync(HttpRequestMessage request)
+        private async Task<HttpResponseMessage> GetHttpResponseMessageAsync(HttpRequestMessage request)
         {
-            if (UseBearerToken)
+            if (monitorConfiguration.UseBearerToken)
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetToken());
             }
@@ -239,7 +234,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             return await HttpClient.SendAsync(request, CancellationToken.None).ConfigureAwait(false);
         }
 
-        private static async Task GetImportStatus(string url)
+        private async Task GetImportStatus(string url)
         {
             await WriteLocationUrls(url);
 
@@ -280,8 +275,8 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
                 }
                 else if (response.StatusCode == HttpStatusCode.Accepted)
                 {
-                    Console.WriteLine($"Total running time: {swTotalTime.Elapsed.Duration()} - awaiting {ImportStatusDelay} before retry");
-                    await Task.Delay(ImportStatusDelay);
+                    Console.WriteLine($"Total running time: {swTotalTime.Elapsed.Duration()} - awaiting {monitorConfiguration.ImportStatusDelay} before retry");
+                    await Task.Delay(monitorConfiguration.ImportStatusDelay);
                     continue;
                 }
                 else
@@ -348,7 +343,7 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
         {
             foreach (ImportResponse.Json item in response)
             {
-                Console.WriteLine($"{string.Format("{0, 3}", response.IndexOf(item) + 1)} {string.Format("{0, 10}", item.Count.ToString("N0"))}   {item.InputUrl}");
+                Console.WriteLine($"{string.Format(CultureInfo.CurrentCulture, "{0, 3}", response.IndexOf(item) + 1)} {string.Format(CultureInfo.CurrentCulture, "{0, 10}", item.Count.ToString("N0", CultureInfo.CurrentCulture))}   {item.InputUrl}");
             }
         }
 
@@ -378,13 +373,13 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             return parsedJson;
         }
 
-        private static async Task<int> GetCurrentResourceCount()
+        private async Task<int> GetCurrentResourceCount()
         {
             int total = 0;
             try
             {
                 HttpClient.Timeout = TimeSpan.FromMinutes(5);
-                using var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{FhirEndpoint}/{ResourceType}?_summary=count");
+                using var requestMessage = new HttpRequestMessage(HttpMethod.Get, $"{monitorConfiguration.FhirEndpoint}/{monitorConfiguration.ResourceType}?_summary=count");
                 using HttpResponseMessage response = await GetHttpResponseMessageAsync(requestMessage);
 
                 string content = await response.Content.ReadAsStringAsync();
@@ -409,18 +404,18 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             return total;
         }
 
-        private static async Task<string> GetToken()
+        private async Task<string> GetToken()
         {
             string accessToken = string.Empty;
             var parameters = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>("grant_type", TokenGrantType),
-                new KeyValuePair<string, string>("resource", TokenResource),
-                new KeyValuePair<string, string>("client_id", TokenClientId),
-                new KeyValuePair<string, string>("client_secret", TokenClientSecret),
+                new KeyValuePair<string, string>("grant_type", monitorConfiguration.TokenGrantType),
+                new KeyValuePair<string, string>("resource", monitorConfiguration.FhirEndpoint),
+                new KeyValuePair<string, string>("client_id", monitorConfiguration.TokenClientId),
+                new KeyValuePair<string, string>("client_secret", monitorConfiguration.TokenClientSecret),
             };
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, TokenEndpoint)
+            using var request = new HttpRequestMessage(HttpMethod.Post, monitorConfiguration.FhirEndpoint)
             {
                 Content = new FormUrlEncodedContent(parameters),
             };
@@ -440,11 +435,11 @@ namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
             return accessToken;
         }
 
-        private static BlobContainerClient GetContainerClient(string containerName)
+        private BlobContainerClient GetContainerClient(string containerName)
         {
             try
             {
-                return new BlobServiceClient(ConnectionString).GetBlobContainerClient(containerName);
+                return new BlobServiceClient(monitorConfiguration.ConnectionString).GetBlobContainerClient(containerName);
             }
             catch
             {

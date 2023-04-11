@@ -4,14 +4,24 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
+namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
 {
     public static class Program
     {
         public static async Task Main()
         {
-            await RegisterAndMonitorImport.Run();
+            IConfigurationRoot configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            RegisterAndMonitorConfiguration registerAndMonitorConfiguration = new();
+            configuration.GetSection(RegisterAndMonitorConfiguration.SectionName).Bind(registerAndMonitorConfiguration);
+
+            var import = new RegisterAndMonitorImport(registerAndMonitorConfiguration);
+            await import.Run();
         }
     }
 }

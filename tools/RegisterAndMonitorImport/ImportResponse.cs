@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Health.Fhir.RegisterAndMonitorImport
+namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
 {
 #pragma warning disable CA1812 // Avoid uninstantiated internal classes
     internal sealed class ImportResponse
