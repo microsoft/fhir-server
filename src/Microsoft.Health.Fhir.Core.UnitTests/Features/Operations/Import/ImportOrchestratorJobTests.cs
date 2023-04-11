@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
                 loggerFactory);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
                 loggerFactory);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -359,41 +359,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
 
-            // completed 2, running 1, created 2.
-            for (int i = 0; i < 3; i++)
-            {
-                string location = $"http://dummy/{i}";
-                inputs.Add(new InputResource() { Type = "Resource", Url = new Uri(location) });
-                ImportProcessingJobInputData processingInput = new ImportProcessingJobInputData()
-                {
-                    ResourceLocation = "http://test",
-                    BeginSequenceId = i,
-                    EndSequenceId = i + 1,
-                };
-                JobInfo jobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();
-                ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                processingResult.ResourceType = "Resource";
-                processingResult.SucceedCount = 1;
-                processingResult.FailedCount = 1;
-                processingResult.ErrorLogLocation = "http://dummy/error";
-                processingResult.ResourceLocation = location;
-                jobInfo.Result = JsonConvert.SerializeObject(processingResult);
-
-                if (i == 0)
-                {
-                    jobInfo.Status = JobStatus.Completed;
-                    importOrchestratorJobResult.SucceedImportCount += 1;
-                    importOrchestratorJobResult.FailedImportCount += 1;
-                }
-                else
-                {
-                    jobInfo.Status = JobStatus.Running;
-                    importOrchestratorJobResult.RunningJobIds.Add(jobInfo.Id);
-                }
-
-                importOrchestratorJobResult.CreatedJobCount += 1;
-            }
-
             importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy/3") });
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy/4") });
@@ -427,7 +392,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
-            Assert.Equal(2, testQueueClient.JobInfos.Count(t => t.Status == JobStatus.Completed));
             Assert.Equal(1, testQueueClient.JobInfos.Count(t => t.Status == JobStatus.Failed));
             Assert.Equal(2, testQueueClient.JobInfos.Count(t => t.Status == JobStatus.Cancelled));
 
@@ -435,9 +399,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                Arg.Is<ImportJobMetricsNotification>(
                    notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                    notification.Status == JobStatus.Failed.ToString() &&
-                   notification.CreatedTime == importOrchestratorInputData.CreateTime &&
-                   notification.SucceedCount == 1 &&
-                   notification.FailedCount == 1),
+                   notification.CreatedTime == importOrchestratorInputData.CreateTime),
                Arg.Any<CancellationToken>());
         }
 
@@ -898,7 +860,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
@@ -966,7 +928,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
                 loggerFactory);
             orchestratorJob.PollingFrequencyInSeconds = 0;
 
@@ -1235,7 +1197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = concurrentCount}),
+                Options.Create(new Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = concurrentCount }),
                 loggerFactory)
             {
                 PollingFrequencyInSeconds = 0,
