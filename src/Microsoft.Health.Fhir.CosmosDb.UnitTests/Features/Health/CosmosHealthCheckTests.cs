@@ -10,7 +10,6 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using AngleSharp.Common;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -57,6 +56,50 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Healthy, result.Status);
+        }
+
+        [Fact]
+        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsAlwaysThrown_ThenUnhealthyStateShouldBeReturned()
+        {
+            // This test simulates that all Health Check calls result in OperationCanceledExceptions.
+            // And all retries should fail.
+
+            var diagnostics = Substitute.For<CosmosDiagnostics>();
+            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+
+            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs(coce);
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Unhealthy, result.Status);
+            _testProvider.ReceivedWithAnyArgs(3);
+        }
+
+        [Fact]
+        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsOnceThrown_ThenUnhealthyStateShouldBeReturned()
+        {
+            // This test simulates that the first call to Health Check results in an OperationCanceledException.
+            // The first attempt should fail, but the next ones should pass.
+
+            var diagnostics = Substitute.For<CosmosDiagnostics>();
+            var coce = new CosmosOperationCanceledException(originalException: new OperationCanceledException(), diagnostics);
+
+            int runs = 0;
+            Func<Task> fakeRetry = () =>
+            {
+                runs++;
+                if (runs == 1)
+                {
+                    throw coce;
+                }
+
+                return Task.CompletedTask;
+            };
+
+            _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ReturnsForAnyArgs(x => fakeRetry());
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Healthy, result.Status);
+            _testProvider.ReceivedWithAnyArgs(2);
         }
 
         [Fact]

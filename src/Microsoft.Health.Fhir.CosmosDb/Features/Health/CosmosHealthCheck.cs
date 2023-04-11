@@ -57,31 +57,62 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
         public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
         {
-            try
+            const int maxExecutionTimeInSeconds = 30;
+            const int maxNumberAttempts = 3;
+            int attempt = 0;
+            do
             {
-                // Make a non-invasive query to make sure we can reach the data store.
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    using (CancellationTokenSource timeBasedTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(maxExecutionTimeInSeconds)))
+                    using (CancellationTokenSource operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token))
+                    {
+                        await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, operationTokenSource.Token);
+                        return HealthCheckResult.Healthy("Successfully connected to the data store.");
+                    }
+                }
+                catch (CosmosOperationCanceledException coce)
+                {
+                    // CosmosOperationCanceledException are "safe to retry on and can be treated as timeouts from the retrying perspective.".
+                    // Reference: https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/troubleshoot-dotnet-sdk-request-timeout?tabs=cpu-new
+                    attempt++;
 
-                await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, cancellationToken);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogWarning(coce, "Failed to connect to the data store. External cancellation requested.");
+                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. External cancellation requested.");
+                    }
+                    else if (attempt >= maxNumberAttempts)
+                    {
+                        _logger.LogWarning(coce, "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
+                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. CosmosOperationCanceledException.");
+                    }
+                    else
+                    {
+                        // Number of attempts not reached. Allow retry.
+                        _logger.LogWarning(coce, "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
+                    }
+                }
+                catch (CosmosException ex) when (ex.IsCmkClientError())
+                {
+                    return HealthCheckResult.Unhealthy(
+                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
+                        exception: ex,
+                        new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
+                }
+                catch (Exception ex) when (ex.IsRequestRateExceeded())
+                {
+                    return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to connect to the data store.");
 
-                return HealthCheckResult.Healthy("Successfully connected to the data store.");
+                    return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
+                }
             }
-            catch (CosmosException ex) when (ex.IsCmkClientError())
-            {
-                return HealthCheckResult.Unhealthy(
-                    "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
-                    exception: ex,
-                    new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
-            }
-            catch (Exception ex) when (ex.IsRequestRateExceeded())
-            {
-                return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to connect to the data store.");
-
-                return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
-            }
+            while (true);
         }
     }
 }
