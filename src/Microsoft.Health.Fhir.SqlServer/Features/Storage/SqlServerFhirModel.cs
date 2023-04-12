@@ -194,24 +194,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                  _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
             }
 
-            // If we are applying a full snap shot schema file, or if the server is just starting up
-            if (runAllInitialization || _highestInitializedVersion == 0)
-            {
-                // Run the schema initialization required for all schema versions, from the minimum version to the current version.
-                await InitializeBase(cancellationToken);
+            // Run the schema initialization required for all schema versions, from the minimum version to the current version.
+            await InitializeBase(cancellationToken);
 
-                if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
-                {
-                    await InitializeSearchParameterStatuses(cancellationToken);
-                }
-            }
-            else
+            // If we are applying a full snap shot schema file, or if the server is just starting up
+            if (runAllInitialization)
             {
-                // Only run the schema initialization required for the current version
-                if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
-                {
-                    await InitializeSearchParameterStatuses(cancellationToken);
-                }
+                await InitializeSearchParameterStatuses(cancellationToken);
             }
 
             _highestInitializedVersion = version;
