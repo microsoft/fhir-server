@@ -154,6 +154,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             long cleanStart = -1;
             long cleanEnd = -1;
+            long beginSequenceId = inputData.BeginSequenceId;
+            long endSequenceId = inputData.EndSequenceId;
+            long endIndex = currentResult.CurrentIndex;
+            cleanStart = beginSequenceId + endIndex;
+            cleanEnd = endSequenceId;
             ////importer.CleanResourceAsync(Arg.Any<ImportProcessingJobInputData>(), Arg.Any<ImportProcessingJobResult>(), Arg.Any<CancellationToken>())
             ////    .Returns(callInfo =>
             ////    {
