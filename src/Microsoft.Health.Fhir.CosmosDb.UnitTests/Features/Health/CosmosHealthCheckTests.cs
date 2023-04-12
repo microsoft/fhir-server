@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         }
 
         [Fact]
-        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsOnceThrown_ThenUnhealthyStateShouldBeReturned()
+        public async Task GivenCosmosDb_WhenCosmosOperationCanceledExceptionIsOnceThrown_ThenHealthyStateShouldBeReturned()
         {
             // This test simulates that the first call to Health Check results in an OperationCanceledException.
             // The first attempt should fail, but the next ones should pass.
