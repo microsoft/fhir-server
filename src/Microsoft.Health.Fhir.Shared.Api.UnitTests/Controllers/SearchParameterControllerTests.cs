@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -35,11 +36,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly SearchParameterController _controller;
         private HttpContext _httpContext = new DefaultHttpContext();
+        private static readonly string DummyUrl = "http://someresouce";
+        private static readonly string InvalidStatus = "invalidStatus";
 
         public SearchParameterControllerTests()
         {
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
+            _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
+            _mediator.Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration));
@@ -74,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAnInvalidRequestBody_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
+        public async void GivenAnInvalidUpdateRequestBody_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
         {
             var requestBody = CreateInvalidRequestBody();
 
@@ -84,33 +89,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async void GivenAnInvalidStatusInRequest_WhenParsingRequestBody_RequestNotValidExceptionIsThrown()
+        public async void GivenAValidSearchParameterStatusUpdateRequest_WhenSupportsSelectableSearchParametersFlagIsFalse_ThenRequestNotValidExceptionShouldBeReturned()
         {
-            Parameters requestBody = new Parameters();
-            string invalidStatus = "inValideStatus";
-            string url = "http://someresouce";
-            List<ParameterComponent> parts = new List<ParameterComponent>
-                {
-                    new ParameterComponent()
-                    {
-                        Name = SearchParameterStateProperties.Url,
-                        Value = new FhirUrl(new Uri(url)),
-                    },
-                    new ParameterComponent()
-                    {
-                        Name = SearchParameterStateProperties.Status,
-                        Value = new FhirString(invalidStatus),
-                    },
-                };
-            requestBody.Parameter.Add(new Parameters.ParameterComponent()
-            {
-                Name = SearchParameterStateProperties.Name,
-                Part = parts,
-            });
+            CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
+            coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
-            Func<System.Threading.Tasks.Task> act = () => _controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration));
+            var requestBody = CreateValidRequestBody();
+            Func<System.Threading.Tasks.Task> act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
+
             var exception = await Assert.ThrowsAsync<RequestNotValidException>(act);
-            Assert.Equal(string.Format(Core.Resources.SearchParameterStatusNotValid, invalidStatus, url), exception.Message);
+        }
+
+        [Fact]
+        public async void GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalled()
+        {
+            var requestBody = CreateValidRequestBody();
+
+            try
+            {
+                await _controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
+            }
+            catch
+            {
+            }
+
+            await _mediator.Received(1).Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken));
+        }
+
+        [Fact]
+        public async void GivenAValidRequestBody_WhenParsingRequestBody_MediatorShouldBeCalledWithCorrectParameters()
+        {
+            var requestBody = CreateValidRequestBody();
+            try
+            {
+                await _controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
+            }
+            catch
+            {
+            }
+
+            await _mediator.Received(1).Send(Arg.Is<SearchParameterStateUpdateRequest>(x => x.SearchParameters.Any(sp => sp.Item1 == new Uri(DummyUrl) && sp.Item2 == SearchParameterStatus.Disabled)), default(CancellationToken));
         }
 
         private Parameters CreateInvalidRequestBody()
@@ -121,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     new ParameterComponent()
                     {
                         Name = "invalid",
-                        Value = new FhirUrl(new Uri("http://someresouce")),
+                        Value = new FhirUrl(new Uri(DummyUrl)),
                     },
                     new ParameterComponent()
                     {
@@ -129,7 +148,32 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         Value = new FhirString(SearchParameterStatus.Disabled.ToString()),
                     },
                 };
-            parameters.Parameter.Add(new Parameters.ParameterComponent()
+            parameters.Parameter.Add(new ParameterComponent()
+            {
+                Name = SearchParameterStateProperties.Name,
+                Part = parts,
+            });
+
+            return parameters;
+        }
+
+        private Parameters CreateValidRequestBodyWithInvalidStatus()
+        {
+            Parameters parameters = new Parameters();
+            List<ParameterComponent> parts = new List<ParameterComponent>
+                {
+                    new ParameterComponent()
+                    {
+                        Name = SearchParameterStateProperties.Url,
+                        Value = new FhirUrl(new Uri(DummyUrl)),
+                    },
+                    new ParameterComponent()
+                    {
+                        Name = SearchParameterStateProperties.Status,
+                        Value = new FhirString(InvalidStatus),
+                    },
+                };
+            parameters.Parameter.Add(new ParameterComponent()
             {
                 Name = SearchParameterStateProperties.Name,
                 Part = parts,
@@ -146,7 +190,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                     new ParameterComponent()
                     {
                         Name = SearchParameterStateProperties.Url,
-                        Value = new FhirUrl(new Uri("http://someresouce")),
+                        Value = new FhirUrl(new Uri(DummyUrl)),
                     },
                     new ParameterComponent()
                     {
@@ -154,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                         Value = new FhirString(SearchParameterStatus.Disabled.ToString()),
                     },
                 };
-            parameters.Parameter.Add(new Parameters.ParameterComponent()
+            parameters.Parameter.Add(new ParameterComponent()
             {
                 Name = SearchParameterStateProperties.Name,
                 Part = parts,

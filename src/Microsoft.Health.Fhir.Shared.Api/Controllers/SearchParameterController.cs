@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfSearchParameterStatusIsEnabledAndRespond();
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
-            SearchParameterStateUpdateResponse result = await _mediator.Send<SearchParameterStateUpdateResponse>(updateRequest, cancellationToken);
+            SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
 
             _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
             return FhirResult.Create(result.UpdateStatus, System.Net.HttpStatusCode.OK);

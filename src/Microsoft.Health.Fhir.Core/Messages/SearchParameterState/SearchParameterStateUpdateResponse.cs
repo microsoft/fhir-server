@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.SearchParameterState
 {
     public class SearchParameterStateUpdateResponse
     {
-        public SearchParameterStateUpdateResponse(ResourceElement updateStatus)
+        public SearchParameterStateUpdateResponse(ResourceElement updateStatus = null)
         {
             UpdateStatus = updateStatus;
         }
