@@ -7,19 +7,20 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public interface ISqlImportOperation
     {
-        /// <summary>
-        /// Clean resources and params by resource type and sequence id range.
-        /// </summary>
-        /// <param name="resourceType">FHIR Resource Type</param>
-        /// <param name="beginSequenceId">Begin sequence id. </param>
-        /// <param name="endSequenceId">End sequence id. </param>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        public Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken);
+        /////// <summary>
+        /////// Clean resources and params by resource type and sequence id range.
+        /////// </summary>
+        /////// <param name="resourceType">FHIR Resource Type</param>
+        /////// <param name="beginSequenceId">Begin sequence id. </param>
+        /////// <param name="endSequenceId">End sequence id. </param>
+        /////// <param name="cancellationToken">Cancellation Token</param>
+        ////public Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Copy table to data store.
@@ -34,5 +35,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         /// <param name="resources">Input resources content.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         public Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Merge resources to all table.
+        /// </summary>
+        /// <param name="resources">Input resources content.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task<IEnumerable<ImportResource>> TrueMergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken);
     }
 }

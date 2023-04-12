@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -33,9 +34,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
+        private IFhirDataStore _store;
 
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            IFhirDataStore store,
             ISqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _store = EnsureArg.IsNotNull(store, nameof(store));
             _model = model;
             _importTaskConfiguration = operationsConfig.Value.Import;
             _schemaInformation = schemaInformation;
@@ -164,6 +168,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<IEnumerable<ImportResource>> TrueMergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.Resource, true, true, null, false)).ToList();
+                var result = await _store.MergeAsync(input, cancellationToken);
+                return resources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "TrueMergeResourceAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+        }
+
         public async Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken)
         {
             try
@@ -198,31 +217,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                short resourceTypeId = _model.GetResourceTypeId(resourceType);
+        ////public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
+        ////{
+        ////    try
+        ////    {
+        ////        short resourceTypeId = _model.GetResourceTypeId(resourceType);
 
-                await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-                await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+        ////        await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+        ////        await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
 
-                foreach (var tableName in SearchParameterTables.ToArray())
-                {
-                    await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
-                if (ex.IsRetriable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
+        ////        foreach (var tableName in SearchParameterTables.ToArray())
+        ////        {
+        ////            await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+        ////        }
+        ////    }
+        ////    catch (Exception ex)
+        ////    {
+        ////        _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
+        ////        if (ex.IsRetriable())
+        ////        {
+        ////            throw new RetriableJobException(ex.Message, ex);
+        ////        }
 
-                throw;
-            }
-        }
+        ////        throw;
+        ////    }
+        ////}
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {

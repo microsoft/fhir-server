@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -70,6 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
         {
             SqlServerFhirStorageTestHelper helper = null;
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory = null;
+            IFhirDataStore store = null;
             SqlServerFhirModel sqlServerFhirModel = null;
             SchemaInformation schemaInformation = null;
 
@@ -84,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 },
             });
 
-            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerFhirModel, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, store, sqlServerFhirModel, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
 
             var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
 

@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 Func<long, long> sequenceIdGenerator = (index) => inputData.BeginSequenceId + index;
 
                 // Clean resources before import start
-                await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
+                ////await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData), cancellationToken);
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, CancelledErrorMessage);
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
+                ////await CleanResourceForFailureAsync(inputData, currentResult);
 
                 ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
                 {
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
+                ////await CleanResourceForFailureAsync(inputData, currentResult);
 
                 ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
                 {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(retriableEx, "Error in data processing job.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
+                ////await CleanResourceForFailureAsync(inputData, currentResult);
 
                 throw;
             }
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(ex, "Critical error in data processing job.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
+                ////await CleanResourceForFailureAsync(inputData, currentResult);
 
                 ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
                 {
@@ -197,20 +197,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        /// <summary>
-        /// Try best to clean failure data.
-        /// </summary>
-        private async Task CleanResourceForFailureAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult currentResult)
-        {
-            try
-            {
-                await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Data processing job is canceled. Failed to clean resource.");
-            }
-        }
+        /////// <summary>
+        /////// Try best to clean failure data.
+        /////// </summary>
+        ////private async Task CleanResourceForFailureAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult currentResult)
+        ////{
+        ////    try
+        ////    {
+        ////        await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, CancellationToken.None);
+        ////    }
+        ////    catch (Exception ex)
+        ////    {
+        ////        _logger.LogInformation(ex, "Data processing job is canceled. Failed to clean resource.");
+        ////    }
+        ////}
 
         private static string GetErrorFileName(ImportProcessingJobInputData inputData)
         {
