@@ -618,7 +618,18 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   TODO
+        /// </summary>
+        internal static string IncludeParameterTypeIsInvalid
+        {
+            get
+            {
+                return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The target resource type cannot be empty..
         /// </summary>
