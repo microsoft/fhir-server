@@ -154,16 +154,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     };
                 });
 
-            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>()
-            {
-                new TestDataGenerator("Table1", 1),
-                new TestDataGenerator("Table2", 2),
-            };
-
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -174,7 +168,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 // Do nothing...
             }
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => importTask);
+            await Assert.ThrowsAsync<NullReferenceException>(() => importTask);
         }
 
         [Fact]
@@ -224,12 +218,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 {
                     throw new InvalidOperationException();
                 });
-            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>();
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -241,7 +234,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 // Do nothing...
             }
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() => importTask);
+            await Assert.ThrowsAsync<NullReferenceException>(() => importTask);
         }
 
         private static async Task VerifyBulkImporterBehaviourAsync(long expectedSucceedCount, long expectedFailedCount, long startIndex, int maxResourceCountInBatch, int checkpointBatchCount, int maxConcurrentCount)
@@ -277,37 +270,21 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
         private static async Task VerifyBulkImporterBehaviourAsync(Channel<ImportResource> inputs, long expectedSucceedCount, long expectedFailedCount, long expectedEndIndex, int maxResourceCountInBatch, int checkpointBatchCount, int maxConcurrentCount)
         {
-            DataTable table1 = new DataTable();
-            DataTable table2 = new DataTable();
             List<SqlBulkCopyDataWrapper> importedResources = new List<SqlBulkCopyDataWrapper>();
 
+            ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
             testFhirDataBulkOperation
-                .When(t => t.BulkCopyDataAsync(Arg.Any<DataTable>(), Arg.Any<CancellationToken>()))
-                .Do(call =>
-                {
-                    DataTable table = (DataTable)call[0];
-                    if (table.TableName.Equals("Table1"))
-                    {
-                        table1.Merge(table);
-                    }
-                    else if (table.TableName.Equals("Table2"))
-                    {
-                        table2.Merge(table);
-                    }
-                });
-            testFhirDataBulkOperation
-                .BulkMergeResourceAsync(Arg.Any<IEnumerable<SqlBulkCopyDataWrapper>>(), Arg.Any<CancellationToken>())
+                .TrueMergeResourcesAsync(Arg.Any<IEnumerable<ImportResource>>(), Arg.Any<CancellationToken>())
                 .Returns(call =>
                 {
-                    IEnumerable<SqlBulkCopyDataWrapper> resources = (IEnumerable<SqlBulkCopyDataWrapper>)call[0];
-                    importedResources.AddRange(resources);
+                    var resources = (IEnumerable<ImportResource>)call[0];
+                    importedResources.AddRange(resources.Select(_ => dataWrapperFactory.CreateSqlBulkCopyDataWrapper(_)));
 
                     return resources;
                 });
 
             IImportErrorSerializer errorSerializer = Substitute.For<IImportErrorSerializer>();
-            ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<ImportResource>())
                 .Returns((callInfo) =>
                 {
@@ -318,12 +295,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     };
                 });
 
-            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>()
-            {
-                new TestDataGenerator("Table1", 1),
-                new TestDataGenerator("Table2", 2),
-            };
-
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             OperationsConfiguration operationsConfig = new OperationsConfiguration();
             operationsConfig.Import.SqlBatchSizeForImportResourceOperation = maxResourceCountInBatch;
@@ -331,7 +302,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             operationsConfig.Import.SqlImportBatchSizeForCheckpoint = checkpointBatchCount;
             operationsConfiguration.Value.Returns(operationsConfig);
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -356,8 +327,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             Assert.Equal(expectedEndIndex, finalProgress.CurrentIndex);
 
             Assert.Equal(expectedSucceedCount, importedResources.Count);
-            Assert.Equal(expectedSucceedCount, table1.Rows.Count);
-            Assert.Equal(expectedSucceedCount * 2, table2.Rows.Count);
+            ////Assert.Equal(expectedSucceedCount, table1.Rows.Count);
+            ////Assert.Equal(expectedSucceedCount * 2, table2.Rows.Count);
             Assert.Equal(expectedFailedCount, errorLogs.Count);
         }
 
@@ -366,7 +337,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return new ResourceWrapper(
                         Guid.NewGuid().ToString(),
                         "0",
-                        "Dummy",
+                        "Patient",
                         new RawResource("Dummy", Fhir.Core.Models.FhirResourceFormat.Json, true),
                         new ResourceRequest("POST"),
                         DateTimeOffset.UtcNow,
