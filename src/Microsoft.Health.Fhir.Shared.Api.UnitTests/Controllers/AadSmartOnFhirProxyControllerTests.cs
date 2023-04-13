@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Mvc;
@@ -158,14 +159,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [InlineData("Zm9v", null, null, null)] // Zm9v is "foo" base64 encoded
-        [InlineData("aHR0cDovL3Rlc3QudXJs", null, null, null)] // aHR0cDovL3Rlc3QudXJs is "http://test.url" base64 encoded
-        [InlineData("aHR0cDovL3Rlc3QudXJs", "code", null, null)]
-        [InlineData("aHR0cDovL3Rlc3QudXJs", "code", "state", null)]
+        [MemberData(nameof(GetParamsDataForGivenInvalidQueryParams_RedirectUrlCodeStateSession))]
         public void GivenInvalidQueryParams_WhenCallbackRequestAction_ThenBadRequestExceptionThrown(
             string redirectUrl, string code, string state, string sessionState)
         {
-                Assert.Throws<AadSmartOnFhirProxyBadRequestException>(() => _controller.Callback(redirectUrl, code, state, sessionState, null, null));
+            Assert.Throws<AadSmartOnFhirProxyBadRequestException>(() => _controller.Callback(redirectUrl, code, state, sessionState, null, null));
+        }
+
+        public static IEnumerable<object[]> GetParamsDataForGivenInvalidQueryParams_RedirectUrlCodeStateSession()
+        {
+            var foo = Convert.ToBase64String(Encoding.UTF8.GetBytes("foo"));
+            var testUrl = Convert.ToBase64String(Encoding.UTF8.GetBytes("http://test.url"));
+
+            yield return new object[] { foo, null, null, null };
+            yield return new object[] { testUrl, null, null, null };
+            yield return new object[] { testUrl, "code", null, null };
+            yield return new object[] { testUrl, "code", "state", null };
         }
 
         [Theory]
@@ -174,8 +183,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("authorization_code", "clientId", null, null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", "InvalidCode", null)]
-
-        // [InlineData("authorization_code", "clientId", "clientSecret", "xxxxxxxxxxxxxxxxxxxxxxxx", null)] // xxxxxxxxxxxxxxxxxxxxxxxx is { "code" : "foo" } base 64 encoded
+        [MemberData(nameof(GetParamsDataForGivenInvalidQueryParams_TokenCompoundCode))]
         public async Task GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
             string grantType, string clientId, string clientSecret, string compoundCode, string redirectUriString)
         {
@@ -194,6 +202,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             await Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret));
+        }
+
+        public static IEnumerable<object[]> GetParamsDataForGivenInvalidQueryParams_TokenCompoundCode()
+        {
+            var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("{ \"code\" : \"foo\" }"));
+            yield return new object[] { "authorization_code", "clientId", "clientSecret", encoded, null };
         }
 
         [Theory]

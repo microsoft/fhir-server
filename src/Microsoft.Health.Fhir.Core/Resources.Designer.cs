@@ -1574,6 +1574,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only Code, ResourceType, and Url are supported as query parameters for $status.
+        /// </summary>
+        internal static string UnsupportedSearchParameterStateQueryParameter {
+            get {
+                return ResourceManager.GetString("UnsupportedSearchParameterStateQueryParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
         internal static string UnsupportedTotalParameter {

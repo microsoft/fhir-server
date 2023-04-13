@@ -179,10 +179,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenBatchInValidResources_WhenBulkCopy_ThenExceptionShouldBeThrow()
         {
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
-            int count = 1001;
+            short typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
+            int count = 1;
 
-            DataTable inputTable = TestBulkDataProvider.GenerateInValidUriSearchParamsTable(count, startSurrogateId, 0);
+            DataTable inputTable = TestBulkDataProvider.GenerateInValidUriSearchParamsTable(count, startSurrogateId, typeId);
             await Assert.ThrowsAnyAsync<Exception>(async () => await _sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
+
+            inputTable = TestBulkDataProvider.GenerateInvalidDataTokenQuantityCompositeSearchParamsTable(count, startSurrogateId, typeId);
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await _sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
         }
 
         [Fact]

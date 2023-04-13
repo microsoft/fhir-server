@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -42,7 +41,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
         private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Resources.TooManyConcurrentRequests);
 
-        private IConfiguration _baseConfiguration;
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
@@ -62,7 +60,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public ThrottlingMiddleware(
             RequestDelegate next,
-            IConfiguration baseConfiguration,
             IOptions<ThrottlingConfiguration> throttlingConfiguration,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<ThrottlingMiddleware> logger)
@@ -72,7 +69,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
 
-            _baseConfiguration = EnsureArg.IsNotNull(baseConfiguration, nameof(baseConfiguration));
             _throttlingEnabled = throttlingConfiguration.Value.Enabled;
 
             _securityEnabled = securityConfiguration.Value.Enabled;
@@ -89,11 +85,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             // snapshot the configuration values to reduce the number of instructions that need to execute in the lock.
             _concurrentRequestLimit = configuration.ConcurrentRequestLimit;
-            if (_baseConfiguration["DataStore"].Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
+            if (throttlingConfiguration.Value.DataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
                 _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen1);
             }
-            else if (_baseConfiguration["DataStore"].Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            else if (throttlingConfiguration.Value.DataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 _concurrentRequestLimit = Math.Max(_concurrentRequestLimit, (int)ThrottlingLimitDefault.Gen2);
             }

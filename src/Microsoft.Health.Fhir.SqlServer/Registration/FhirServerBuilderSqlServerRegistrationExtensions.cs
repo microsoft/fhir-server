@@ -68,6 +68,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlQueryHashCalculator>()
+                .Singleton()
+                .AsImplementedInterfaces();
+
             services.Add<SqlServerSearchService>()
                 .Scoped()
                 .AsSelf()

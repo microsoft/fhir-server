@@ -100,5 +100,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="url">The url identifying the custom search parameter to remove.</param>
         /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
         void DeleteSearchParameter(string url, bool calculateHash = true);
+
+        /// <summary>
+        /// Retrieves the search parameters that match the given <paramref name="resourceTypes"/>.
+        /// </summary>
+        /// <param name="resourceTypes">Collection of resource type names</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes);
+
+        /// <summary>
+        /// Retrieves the search parameters that match the given <paramref name="definitionUrls"/>.
+        /// </summary>
+        /// <param name="definitionUrls">Collection of definition urls</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(ICollection<string> definitionUrls);
+
+        /// <summary>
+        /// Retrieves the search parameters that match the given <paramref name="codes"/>.
+        /// </summary>
+        /// <param name="codes">Collection of codes</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByCodes(ICollection<string> codes);
+
+        /// <summary>
+        /// Retrieves the search parameters that match the given <paramref name="ids"/>.
+        /// </summary>
+        /// <param name="ids">Collection of codes</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> that contains the search parameters.</returns>
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids);
     }
 }

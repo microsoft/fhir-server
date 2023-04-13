@@ -66,6 +66,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
+            string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
 
@@ -82,7 +83,13 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Throttling));
+            services.AddSingleton(provider =>
+            {
+                var throttlingOptions = Options.Options.Create(fhirServerConfiguration.Throttling);
+                throttlingOptions.Value.DataStore = dataStore;
+                return throttlingOptions;
+            });
+
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();

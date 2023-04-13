@@ -394,4 +394,7 @@
     <value>fhirUser claim value of {0} is not valid. fhirUser claim must be a valid URL.</value>
     <comment>{0} is the provided value in the fhirUser claim.</comment>
   </data>
+  <data name="SearchParameterStatusNotFound" xml:space="preserve">
+    <value>No Search Parameters found. </value>
+  </data>
 </root>
