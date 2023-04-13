@@ -706,4 +706,8 @@
   <data name="ReindexMultipleTargetsNotSupported" xml:space="preserve">
     <value>Reindex targets are mutually exclusive. Please only use one at a time.</value>
   </data>
+  <data name="UnsupportedSearchParameterStateQueryParameter" xml:space="preserve">
+    <value>Only Code, ResourceType, and Url are supported as query parameters for $status</value>
+    <comment>{NumberedPlaceHolder="$status"}</comment>
+  </data>
 </root>

@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
+using Microsoft.Health.Core.Extensions;
+
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public enum SearchParameterStatus
+    internal class SqlQueryHashCalculator : ISqlQueryHashCalculator
     {
-        Disabled = 1,
-        Supported = 2,
-        Enabled = 3,
-        Deleted = 4,
-        PendingDelete = 5,
-        PendingDisable = 6,
+        public string CalculateHash(string query)
+        {
+            return query.ComputeHash();
+        }
     }
 }

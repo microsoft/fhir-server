@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -45,6 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _unionVisited = false;
         private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
+        private bool _hasIdentifier = false;
+        private int _searchParamCount = 0;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -251,6 +254,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                    }
+
+                    // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
+                    // then we will tell SQL to ignore the parameter values and base the query plan one the
+                    // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
+                    if (AddOptimizeForUnknownClause())
+                    {
+                        StringBuilder.AppendLine(" OPTION (OPTIMIZE FOR UNKNOWN)");
                     }
                 }
             }
@@ -480,6 +491,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (searchParamTableExpression.Predicate != null)
                 {
                     delimited.BeginDelimitedElement();
+                    CheckForIdentifierSearchParams(searchParamTableExpression.Predicate);
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
@@ -1323,6 +1335,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// We are looking for 3 conditions to add the OptimizeForUnknownClause:
+        /// 1. Has an include expression
+        /// 2. Has an identifier search
+        /// 3. Has at least one more search parameter
+        /// </summary>
+        /// <returns>True if all condition are met</returns>
+        private bool AddOptimizeForUnknownClause()
+        {
+            var hasInclude = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+            return hasInclude && _hasIdentifier && (_searchParamCount >= 2);
+        }
+
+        private void CheckForIdentifierSearchParams(Expression predicate)
+        {
+            var searchParameterExpressionPredicate = predicate as SearchParameterExpression;
+            if (searchParameterExpressionPredicate != null)
+            {
+                _searchParamCount++;
+                if (searchParameterExpressionPredicate.Parameter.Name == KnownQueryParameterNames.Identifier)
+                {
+                    _hasIdentifier = true;
+                }
+            }
         }
 
         private static SortContext GetSortRelatedDetails(SearchOptions context)

@@ -89,5 +89,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string GlobalEndSurrogateId = "_globalEndSurrogateId";
 
         public const string IgnoreSearchParamHash = "_ignoreSearchParamHash";
+
+        /// <summary>
+        /// Frequently used SearchParameters
+        /// </summary>
+        public const string Identifier = "identifier";
     }
 }

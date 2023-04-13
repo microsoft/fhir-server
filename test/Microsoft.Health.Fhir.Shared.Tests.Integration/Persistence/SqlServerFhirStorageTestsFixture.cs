@@ -221,6 +221,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var compartmentSearchRewriter = new CompartmentSearchRewriter(new Lazy<ICompartmentDefinitionManager>(() => compartmentDefinitionManager), new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
             var smartCompartmentSearchRewriter = new SmartCompartmentSearchRewriter(compartmentSearchRewriter, new Lazy<ISearchParameterDefinitionManager>(() => _searchParameterDefinitionManager));
 
+            SqlQueryHashCalculator = new TestSqlHashCalculator();
+
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
                 _fhirDataStore,
@@ -238,6 +240,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SchemaInformation,
                 _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
+                SqlQueryHashCalculator,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
@@ -274,6 +277,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlServerFhirModel SqlServerFhirModel { get; }
 
         internal SchemaInformation SchemaInformation { get; }
+
+        internal ISqlQueryHashCalculator SqlQueryHashCalculator { get; }
 
         public async Task InitializeAsync()
         {
@@ -378,6 +383,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IQueueClient))
             {
                 return _sqlQueueClient;
+            }
+
+            if (serviceType == typeof(TestSqlHashCalculator))
+            {
+                return SqlQueryHashCalculator as TestSqlHashCalculator;
             }
 
             return null;
