@@ -1004,14 +1004,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenARevInclude_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
+        public async Task GivenAIncludeWithInvalidParameter_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
         {
             string query = $"_include=Patient:family";
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIncorrectParameterType) };
+            string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeIncorrectParameterType) };
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
