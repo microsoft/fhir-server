@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             if (searchParameterResult.Count == 0)
             {
-                return null;
+                throw new ResourceNotFoundException(Core.Resources.SearchParameterStatusNotFound);
             }
 
             SearchParameterStateResponse response;

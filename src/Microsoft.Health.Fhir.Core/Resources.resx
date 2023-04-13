@@ -729,4 +729,7 @@
     <value>Search Parameter status '{0}' for url '{1}' is invalid. Only 'supported' or 'disabled' are allowed.</value>
     <comment>'{0}' the status of the search paramter.'{1}' the uri identifying the search parameter.</comment>
   </data>
+  <data name="SearchParameterStatusNotFound" xml:space="preserve">
+    <value>Search Parameter Status was not found.</value>
+  </data>
 </root>

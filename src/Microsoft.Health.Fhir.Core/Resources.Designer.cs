@@ -1439,6 +1439,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search Parameter Status was not found..
+        /// </summary>
+        internal static string SearchParameterStatusNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search Parameter status &apos;{0}&apos; for url &apos;{1}&apos; is invalid. Only &apos;supported&apos; or &apos;disabled&apos; are allowed..
         /// </summary>
         internal static string SearchParameterStatusNotValid {

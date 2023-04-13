@@ -61,8 +61,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
 
-            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
-
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
@@ -82,8 +80,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
 
-            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
-
             return FhirResult.Create(result.SearchParameters, System.Net.HttpStatusCode.OK);
         }
 
@@ -102,7 +98,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
             SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
 
-            _ = result ?? throw new ResourceNotFoundException(Resources.SearchParameterStatusNotFound);
             return FhirResult.Create(result.UpdateStatus, System.Net.HttpStatusCode.OK);
         }
 
