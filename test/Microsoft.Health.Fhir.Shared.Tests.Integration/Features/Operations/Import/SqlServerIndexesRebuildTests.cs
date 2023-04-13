@@ -15,8 +15,11 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -24,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -69,13 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
         private async Task<(SqlImportOperation sqlImportOperation, List<(string tableName, string columns, long startSurrogatedId)> tables, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName, long startSurrogateId)
         {
-            SqlServerFhirStorageTestHelper helper = null;
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = null;
-            IFhirDataStore store = null;
-            SqlServerFhirModel sqlServerFhirModel = null;
-            SchemaInformation schemaInformation = null;
-
-            (helper, sqlConnectionWrapperFactory, sqlServerFhirModel, schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
+            (var helper, var sqlConnectionWrapperFactory, var store, var sqlServerFhirModel, var schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
 
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration()
@@ -157,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             return (inputTable.TableName, columnsString, startSurrogateId);
         }
 
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirModel sqlServerFhirModel, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirDataStore store, SqlServerFhirModel sqlServerFhirModel, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -230,13 +228,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 mediator,
                 NullLogger<SchemaInitializer>.Instance);
 
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
+
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddSqlServerTableRowParameterGenerators();
+            serviceCollection.AddSingleton(sqlServerFhirModel);
+            serviceCollection.AddSingleton<ISqlServerFhirModel>(sqlServerFhirModel);
+            serviceCollection.AddSingleton(searchParameterToSearchValueTypeMap);
+            var converter = (ICompressedRawResourceConverter)new CompressedRawResourceConverter();
+            serviceCollection.AddSingleton(converter);
+            ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+            var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var mergeResourcesTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>>>();
+            var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
+
+            var store = new SqlServerFhirDataStore(
+                sqlServerFhirModel,
+                searchParameterToSearchValueTypeMap,
+                upsertResourceTvpGeneratorVLatest,
+                mergeResourcesTvpGeneratorVLatest,
+                reindexResourceTvpGeneratorVLatest,
+                bulkReindexResourceTvpGeneratorVLatest,
+                Options.Create(new CoreFeatureConfiguration()),
+                defaultSqlConnectionWrapperFactory,
+                converter,
+                NullLogger<SqlServerFhirDataStore>.Instance,
+                schemaInformation,
+                ModelInfoProvider.Instance,
+                Substitute.For<RequestContextAccessor<IFhirRequestContext>>());
+
             await testHelper.CreateAndInitializeDatabase(
                 databaseName,
                 maxSchemaVersion,
                 false,
                 schemaInitializer);
 
-            return (testHelper, defaultSqlConnectionWrapperFactory, sqlServerFhirModel, schemaInformation);
+            return (testHelper, defaultSqlConnectionWrapperFactory, store, sqlServerFhirModel, schemaInformation);
         }
 
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)
