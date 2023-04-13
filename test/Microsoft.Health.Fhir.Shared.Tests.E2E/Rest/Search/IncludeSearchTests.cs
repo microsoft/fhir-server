@@ -1009,7 +1009,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string query = $"_include=Patient:family";
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeIncorrectParameterType) };
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
@@ -1024,7 +1024,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string query = $"_revinclude=Patient:family";
 
             using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIncorrectParameterType) };
             IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
