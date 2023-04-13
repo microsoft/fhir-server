@@ -34,11 +34,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
-        private IFhirDataStore _store;
+        private SqlServerFhirDataStore _store;
 
-        public SqlImportOperation(
+        internal SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            IFhirDataStore store,
+            SqlServerFhirDataStore store,
             ISqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,

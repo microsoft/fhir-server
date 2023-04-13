@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly SqlServerFhirDataStore _sqlServerFhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
 
-            _fhirDataStore = new SqlServerFhirDataStore(
+            _sqlServerFhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
                 upsertResourceTvpGeneratorVLatest,
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
-                _fhirDataStore,
+                _sqlServerFhirDataStore,
                 sqlServerFhirModel,
                 sqlRootExpressionRewriter,
                 chainFlatteningRewriter,
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
-        internal IFhirDataStore IFhirDataStore => _fhirDataStore;
+        internal SqlServerFhirDataStore SqlServerFhirDataStore => _sqlServerFhirDataStore;
 
         internal IOptions<SqlServerDataStoreConfiguration> SqlServerDataStoreConfiguration { get; }
 
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             if (serviceType == typeof(IFhirDataStore))
             {
-                return _fhirDataStore;
+                return _sqlServerFhirDataStore;
             }
 
             if (serviceType == typeof(IFhirOperationDataStore))
