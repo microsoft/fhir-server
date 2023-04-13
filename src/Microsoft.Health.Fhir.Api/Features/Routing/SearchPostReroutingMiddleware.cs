@@ -3,11 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
@@ -33,16 +37,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 {
                     if (request.HasFormContentType)
                     {
-                        var dic = request.Query.ToDictionary(k => k.Key, v => v.Value);
-                        foreach (var elem in request.Form)
-                        {
-                            dic.Add(elem.Key, elem.Value);
-                        }
-
-                        request.Query = new QueryCollection(dic);
+                        var mergedPairs = GetUniqueFormAndQueryStringKeyValues(HttpUtility.ParseQueryString(request.QueryString.ToString()), request.Form);
+                        request.Query = mergedPairs;
                     }
 
-                    request.ContentType = null;
                     request.Form = null;
                     request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
                     request.Method = "GET";
@@ -57,6 +55,38 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
 
             await _next.Invoke(context);
+        }
+
+        private static QueryCollection GetUniqueFormAndQueryStringKeyValues(NameValueCollection queryCollection, IFormCollection formCollection)
+        {
+            var uniquePairs = new Dictionary<string, StringValues>();
+
+            foreach (string key in queryCollection.Keys)
+            {
+                StringValues values = queryCollection.GetValues(key);
+                GetUniqueKeyValuesCore(uniquePairs, key, values);
+            }
+
+            foreach (var key in formCollection.Keys)
+            {
+                StringValues values = formCollection[key];
+                GetUniqueKeyValuesCore(uniquePairs, key, values);
+            }
+
+            return new QueryCollection(uniquePairs);
+        }
+
+        private static void GetUniqueKeyValuesCore(Dictionary<string, StringValues> uniquePairs, string key, StringValues values)
+        {
+            // this discovers the possible multiple values for a key and of course makes sure they're unique
+            if (uniquePairs.TryGetValue(key, out StringValues existingValue))
+            {
+                uniquePairs[key] = values.Union(existingValue).ToArray();
+            }
+            else
+            {
+                uniquePairs.Add(key, new StringValues(values.Distinct().ToArray()));
+            }
         }
     }
 }
