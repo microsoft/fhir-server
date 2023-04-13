@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Globalization;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.ApplicationInsights.Extensibility;
@@ -26,7 +27,8 @@ namespace Microsoft.Health.Fhir.Shared.Web
             {
                 if (_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
                 {
-                    requestTelemetry.Properties.Add(HeaderNames.UserAgent, userAgent);
+                    string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
+                    requestTelemetry.Properties.Add(propertyName, userAgent);
                 }
             }
         }
