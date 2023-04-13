@@ -429,7 +429,18 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to A request was made to an Azure Container Registry without the necessary External Managed Identity configured..
+        /// </summary>
+        internal static string ExternalManagedIdentityConfigurationMissing
+        {
+            get
+            {
+                return ResourceManager.GetString("ExternalManagedIdentityConfigurationMissing", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Failed to anonymize resource. The job will be marked as failed. {0}.
         /// </summary>
@@ -789,7 +800,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("MalformedSearchValue", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Found multiple matches, narrow search criteria..
         /// </summary>

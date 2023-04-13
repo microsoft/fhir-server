@@ -68,7 +68,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
                 async Task<string> TokenEntryFactory(ICacheEntry entry)
                 {
-                    var token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
+                    var token = string.Empty;
+
+                    token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
+
+                    if (token == null)
+                    {
+                        throw new ContainerRegistryAuthenticationException(string.Format(Core.Resources.ExternalManagedIdentityConfigurationMissing));
+                    }
+
                     entry.Size = token.Length;
                     entry.AbsoluteExpiration = GetTokenAbsoluteExpiration(token);
                     return token;

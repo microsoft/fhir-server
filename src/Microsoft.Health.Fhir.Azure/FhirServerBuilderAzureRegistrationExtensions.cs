@@ -3,10 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net.Http;
 using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Build.Framework;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -74,9 +79,19 @@ namespace Microsoft.Health.Fhir.Azure
             fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
                 .Transient()
                 .AsService<IAccessTokenProvider>();
-            fhirServerBuilder.Services.Add<AzureContainerRegistryAccessTokenProvider>()
-                .Singleton()
-                .AsService<IContainerRegistryTokenProvider>();
+
+            if (fhirServerBuilder.Services.BuildServiceProvider().GetService<IAccessTokenProvider>() != null) // TODO: should we use the External MI config as the source of truth instead?
+            {
+                fhirServerBuilder.Services.Add<AzureContainerRegistryAccessTokenProvider>()
+                    .Singleton()
+                    .AsService<IContainerRegistryTokenProvider>();
+            }
+            else
+            {
+                fhirServerBuilder.Services.Add<DefaultTokenProvider>()
+                    .Singleton()
+                    .AsService<IContainerRegistryTokenProvider>();
+            }
 
             return fhirServerBuilder;
         }
