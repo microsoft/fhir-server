@@ -8,11 +8,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
+using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -26,13 +28,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     public class ContainerRegistryTemplateProviderTests
     {
         [Fact]
-        public async Task GivenDefaultTemplateReference_WhenFetchingTemplates_DefaultTemplateCollectionShouldReturn()
+        public async Task GivenDefaultTemplateReference_WhenFetchingTemplatesWithAcrTokenProvider_DefaultTemplateCollectionShouldReturn()
+        {
+            var containerRegistryTemplateProvider = GetAcrTemplateProvider();
+            foreach (var templateInfo in DefaultTemplateInfo.DefaultTemplateMap.Values)
+            {
+                var templateReference = templateInfo.ImageReference;
+                var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithDefaultTemplateReference(templateReference), CancellationToken.None);
+
+                Assert.NotEmpty(templateCollection);
+            }
+        }
+
+        [Fact]
+        public async Task GivenDefaultTemplateReference_WhenFetchingTemplatesWithDefaultTokenProvider_DefaultTemplateCollectionShouldReturn()
         {
             var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
             foreach (var templateInfo in DefaultTemplateInfo.DefaultTemplateMap.Values)
             {
                 var templateReference = templateInfo.ImageReference;
-                var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
+                var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithDefaultTemplateReference(templateReference), CancellationToken.None);
 
                 Assert.NotEmpty(templateCollection);
             }
@@ -41,15 +56,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [Fact]
         public async Task GivenAnInvalidToken_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
         {
+            var containerRegistryTemplateProvider = GetAcrTemplateProvider();
+            var templateReference = "test.azurecr.io/templates:latest";
+
+            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithCustomTemplateReference(templateReference), CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenDefaultTokenProvider_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
+        {
             var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
             var templateReference = "test.azurecr.io/templates:latest";
 
-            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
+            await Assert.ThrowsAsync<ContainerRegistryAuthenticationException>(() => containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithCustomTemplateReference(templateReference), CancellationToken.None));
         }
 
         private IConvertDataTemplateProvider GetDefaultTemplateProvider()
         {
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<DefaultTokenProvider>();
             tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
 
             var convertDataConfig = new ConvertDataConfiguration
@@ -63,9 +87,30 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             return new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());
         }
 
-        private ConvertDataRequest GetRequestWithTemplateReference(string templateReference)
+        private IConvertDataTemplateProvider GetAcrTemplateProvider()
+        {
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<AzureContainerRegistryAccessTokenProvider>();
+            tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
+
+            var convertDataConfig = new ConvertDataConfiguration
+            {
+                Enabled = true,
+                OperationTimeout = TimeSpan.FromSeconds(1),
+            };
+            convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
+
+            var config = Options.Create(convertDataConfig);
+            return new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());
+        }
+
+        private ConvertDataRequest GetRequestWithDefaultTemplateReference(string templateReference)
         {
             return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, templateReference.Split('/')[0], true, templateReference, "ADT_A01");
+        }
+
+        private ConvertDataRequest GetRequestWithCustomTemplateReference(string templateReference)
+        {
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, templateReference.Split('/')[0], false, templateReference, "ADT_A01");
         }
     }
 }

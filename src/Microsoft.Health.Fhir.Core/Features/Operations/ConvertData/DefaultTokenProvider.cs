@@ -12,11 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 {
     /// <summary>
-    /// Retrieve ACR access token with AAD token provider.
-    /// We need to exchange ACR refresh token with AAD token, and get ACR access token from refresh token.
-    /// References:
-    /// https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#calling-post-oauth2exchange-to-get-an-acr-refresh-token
-    /// https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#calling-post-oauth2token-to-get-an-acr-access-token
+    /// An implementation of IContainerRegistryTokenProvider that provides null rather than an access token
     /// </summary>
     public class DefaultTokenProvider : IContainerRegistryTokenProvider
     {
