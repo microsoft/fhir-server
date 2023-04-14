@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.Invalid,
-                        string.Format(Core.Resources.InvalidUpdateStatus, uri)));
+                        string.Format(Core.Resources.InvalidUpdateStatus, status, uri)));
                 }
                 else if (searchParameterInfo.Status.Equals(SearchParameterStatus.Deleted) || searchParameterInfo.Status.Equals(SearchParameterStatus.Unsupported))
                 {
@@ -93,6 +93,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     if (searchParametersToUpdate.TryGetValue(status, out List<string> value))
                     {
                         value.Add(uri.ToString());
+                    }
+                    else if (status == SearchParameterStatus.Disabled && searchParametersToUpdate.TryGetValue(SearchParameterStatus.PendingDisable, out List<string> disableValueList))
+                    {
+                        disableValueList.Add(uri.ToString());
                     }
                     else
                     {
@@ -165,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                         {
                             Resource = succeededResults,
                         });
-            }
+             }
 
             bundle.Type = Bundle.BundleType.BatchResponse;
             bundle.Total = invalidSearchParameters?.Count + searchParametersToUpdate?.Count;
