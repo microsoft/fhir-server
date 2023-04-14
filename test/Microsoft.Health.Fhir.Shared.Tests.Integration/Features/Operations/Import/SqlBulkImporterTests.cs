@@ -134,12 +134,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     throw new InvalidOperationException();
                 });
             testFhirDataBulkOperation
-                .BulkMergeResourceAsync(Arg.Any<IEnumerable<SqlBulkCopyDataWrapper>>(), Arg.Any<CancellationToken>())
+                .MergeResourcesAsync(Arg.Any<IEnumerable<ImportResource>>(), Arg.Any<CancellationToken>())
                 .Returns(call =>
                 {
-                    IEnumerable<SqlBulkCopyDataWrapper> resources = (IEnumerable<SqlBulkCopyDataWrapper>)call[0];
-
-                    return resources;
+                    return (IEnumerable<ImportResource>)call[0];
                 });
 
             IImportErrorSerializer errorSerializer = Substitute.For<IImportErrorSerializer>();
@@ -157,7 +155,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -181,12 +179,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             IImportErrorSerializer errorSerializer = Substitute.For<IImportErrorSerializer>();
-            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>();
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -222,7 +219,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -275,12 +272,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
             testFhirDataBulkOperation
-                .TrueMergeResourcesAsync(Arg.Any<IEnumerable<ImportResource>>(), Arg.Any<CancellationToken>())
+                .MergeResourcesAsync(Arg.Any<IEnumerable<ImportResource>>(), Arg.Any<CancellationToken>())
                 .Returns(call =>
                 {
                     var resources = (IEnumerable<ImportResource>)call[0];
                     importedResources.AddRange(resources.Select(_ => dataWrapperFactory.CreateSqlBulkCopyDataWrapper(_)));
-
                     return resources;
                 });
 
@@ -302,7 +298,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             operationsConfig.Import.SqlImportBatchSizeForCheckpoint = checkpointBatchCount;
             operationsConfiguration.Value.Returns(operationsConfig);
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, null, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, errorSerializer, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();

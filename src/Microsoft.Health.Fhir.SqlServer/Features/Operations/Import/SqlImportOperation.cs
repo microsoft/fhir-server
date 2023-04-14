@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IEnumerable<ImportResource>> TrueMergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
+        public async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
         {
             try
             {
@@ -186,66 +186,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 throw new RetriableJobException(ex.Message, ex);
             }
         }
-
-        public async Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken)
-        {
-            try
-            {
-                List<long> importedSurrogatedId = new List<long>();
-
-                // Make sure there's no dup in this batch
-                resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource.ResourceId)).Select(r => r.First());
-                IEnumerable<BulkImportResourceTypeV1Row> inputResources = resources.Select(r => r.BulkImportResource);
-
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    VLatest.BulkMergeResource.PopulateCommand(sqlCommandWrapper, inputResources);
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                    var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        long surrogatedId = sqlDataReader.GetInt64(0);
-                        importedSurrogatedId.Add(surrogatedId);
-                    }
-
-                    return resources.Where(r => importedSurrogatedId.Contains(r.ResourceSurrogateId));
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "BulkMergeResourceAsync failed.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-        }
-
-        ////public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
-        ////{
-        ////    try
-        ////    {
-        ////        short resourceTypeId = _model.GetResourceTypeId(resourceType);
-
-        ////        await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-        ////        await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-
-        ////        foreach (var tableName in SearchParameterTables.ToArray())
-        ////        {
-        ////            await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
-        ////        }
-        ////    }
-        ////    catch (Exception ex)
-        ////    {
-        ////        _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
-        ////        if (ex.IsRetriable())
-        ////        {
-        ////            throw new RetriableJobException(ex.Message, ex);
-        ////        }
-
-        ////        throw;
-        ////    }
-        ////}
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
@@ -437,66 +377,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-            }
-        }
-
-        private async Task BatchDeleteResourcesInternalAsync(long beginSequenceId, long endSequenceId, short resourceTypeId, int batchSize, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                    VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
-                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                    if (impactRows < batchSize)
-                    {
-                        return;
-                    }
-                }
-            }
-        }
-
-        private async Task BatchDeleteResourceWriteClaimsInternalAsync(long beginSequenceId, long endSequenceId, int batchSize, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                    VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, batchSize);
-                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                    if (impactRows < batchSize)
-                    {
-                        return;
-                    }
-                }
-            }
-        }
-
-        private async Task BatchDeleteResourceParamsInternalAsync(string tableName, long beginSequenceId, long endSequenceId, short resourceTypeId, int batchSize, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
-
-                    VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
-                    int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                    if (impactRows < batchSize)
-                    {
-                        return;
-                    }
-                }
             }
         }
     }
