@@ -3,27 +3,31 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-/*
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using static Hl7.Fhir.Model.VerificationResult;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.SearchParameterState
 {
@@ -39,34 +43,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private static readonly string ResourceTest = "http://hl7.org/fhir/SearchParameter/Resource-test";
         private static readonly string PatientPreExisting2 = "http://test/Patient-preexisting2";
         private static readonly string PatientLastUpdated = "http://test/Patient-lastupdated";
+        private static readonly string NotFoundResource = "http://test/not-here";
 
-        private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly SearchParameterStateUpdateHandler _searchParameterUpdateHandler;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+        private readonly SearchParameterStateUpdateHandler _searchParameterStateUpdateHandler;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly CancellationToken _cancellationToken;
-
-        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
-        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
-        private readonly IMediator _mediator;
-        private readonly ILogger<SearchParameterStatusManager> _logger;
-
-        private const string HttpGetName = "GET";
-        private const string HttpPostName = "POST";
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly CancellationToken _cancellationToken = default;
+        private ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
-            _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
-            _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _mediator = Substitute.For<IMediator>();
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
-            _searchParameterUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager);
+            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager);
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(DataActions.Read, _cancellationToken).Returns(DataActions.Read);
+            _authorizationService.CheckAccess(DataActions.Reindex, _cancellationToken).Returns(DataActions.Reindex);
             var searchParamDefinitionStore = new List<SearchParameterInfo>
             {
                 new SearchParameterInfo(
@@ -119,12 +116,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                     new List<SearchParameterComponentInfo> { new SearchParameterComponentInfo(new Uri(PatientLastUpdated)) }),
             };
 
-            _searchParameterDefinitionManager.AllSearchParameters.Returns(searchParamDefinitionStore);
-
-            _searchParameterDefinitionManager.GetSearchParametersByResourceTypes(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Name)));
-            _searchParameterDefinitionManager.GetSearchParametersByCodes(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Code)));
-            _searchParameterDefinitionManager.GetSearchParametersByUrls(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Url.ToString())));
-
             _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new[]
                 {
@@ -170,116 +161,96 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                         Uri = new Uri(PatientLastUpdated),
                     },
                 });
+            ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
+            _searchParameterDefinitionManager.UrlLookup = urlLookup;
+            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").ToDictionary(x => x.Code.ToString())));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").ToDictionary(x => x.Code.ToString())));
+            _searchParameterDefinitionManager.TypeLookup = typeLookup;
+
+            // _searchParameterStatusManager.UpdateSearchParameterStatusAsync(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<SearchParameterStatus>(), Arg.Any<CancellationToken>()).Returns(System.Threading.Tasks.Task.CompletedTask);
         }
 
         [Fact]
-        public async void GivenARequestWithNoQueries_WhenHandling_ThenAllSearchParametersAreReturned()
+        public async void GivenARequestToUpdateSearchParameterStatus_WhenTheStatusIsEnabled_ThenTheStatusShouldBeUpdated()
         {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>());
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Supported),
+            };
 
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
 
-            // Assert
             Assert.NotNull(response);
-            Parameters result = response.SearchParameters.ToPoco<Parameters>();
-            Assert.Equal(8, result.Parameter.Count);
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDelete.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceProfile).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Disabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceSecurity).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Supported.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceTest).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == PatientPreExisting2).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == PatientLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
+            Assert.NotNull(response.UpdateStatus);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (Parameters)unwrappedResponse.Entry[0].Resource;
+            var urlPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Url).First();
+            var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
+            Assert.True(urlPart.Value.ToString() == ResourceId);
+            Assert.True(statusPart.Value.ToString() == SearchParameterStatus.Supported.ToString());
         }
 
         [Fact]
-        public async void GivenARequestWithAValidUrl_WhenHandling_ThenSearchParameterMatchingUrlIsReturned()
+        public async void GivenARequestToUpdateSearchParameterStatus_WhenTheResourceIsNotFound_ThenAnOperationOutcomeIsReturnedWithInformationSeverity()
         {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Url, ResourceId) });
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Enabled),
+            };
 
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
 
-            // Assert
             Assert.NotNull(response);
-            Assert.NotNull(response.SearchParameters);
-            Parameters result = response.SearchParameters.ToPoco<Parameters>();
-            Assert.Single(result.Parameter);
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
+            Assert.NotNull(response.UpdateStatus);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
+            var issue = resourceResponse.Issue[0];
+            Assert.True(issue.Details.Text == string.Format(Fhir.Core.Resources.SearchParameterNotFound, SearchParameterStatus.Enabled, NotFoundResource));
+            Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Information);
         }
 
         [Fact]
-        public async void GivenARequestWithAValidCode_WhenHandling_ThenSearchParameterMatchingCodeIsReturned()
+        public async void GivenARequestToUpdateSearchParameterStatus_WhenStatusIsNotSupportedOrDisabled_ThenAnOperationOutcomeIsReturnedWithErrorSeverity()
         {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated") });
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Deleted),
+            };
 
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
 
-            // Assert
             Assert.NotNull(response);
-            Assert.NotNull(response.SearchParameters);
-            Parameters result = response.SearchParameters.ToPoco<Parameters>();
-            Assert.Equal(2, result.Parameter.Count);
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == PatientLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
+            Assert.NotNull(response.UpdateStatus);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
+            var issue = resourceResponse.Issue[0];
+            Assert.True(issue.Details.Text == string.Format(Fhir.Core.Resources.InvalidUpdateStatus, SearchParameterStatus.Deleted, ResourceId));
+            Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Error);
         }
 
         [Fact]
-        public async void GivenARequestWithAValidResourceType_WhenHandling_ThenSearchParametersMatchingResourceTypeAreReturned()
+        public async void GivenARequestToUpdateSearchParameterStatus_WhenStatusIsDisabled_ThenTheStatusIsUpdatedAsPendingDisable()
         {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
+            };
 
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
+            SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
 
-            // Assert
             Assert.NotNull(response);
-            Parameters result = response.SearchParameters.ToPoco<Parameters>();
-            Assert.Equal(6, result.Parameter.Count);
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDelete.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceProfile).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Disabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceSecurity).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Supported.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceTest).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
-        }
+            Assert.NotNull(response.UpdateStatus);
 
-        [Fact]
-        public async void GivenARequestWithAValidCodeAndResourceType_WhenHandling_ThenSearchParameterMatchingCodeAndResourceTypeIsReturned()
-        {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "Resource") });
-
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
-
-            // Assert
-            Assert.NotNull(response);
-            Assert.NotNull(response.SearchParameters);
-            Parameters result = response.SearchParameters.ToPoco<Parameters>();
-            Assert.Single(result.Parameter);
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
-        }
-
-        [Fact]
-        public async void GivenARequestWithAValidCodeAndResourceTypeThatDonotHaveMatchinSearchParameters_WhenHandling_ThenNoSearchParametersAreReturned()
-        {
-            // Arrange
-            var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "nomatch") });
-
-            // Act
-            var response = await _searchParameterUpdateHandler.Handle(request, _cancellationToken);
-
-            // Assert
-            Assert.Null(response);
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (Parameters)unwrappedResponse.Entry[0].Resource;
+            var urlPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Url).First();
+            var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
+            Assert.True(urlPart.Value.ToString() == ResourceId);
+            Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
         }
     }
 }
-*/

@@ -70,23 +70,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                 if (searchParameterInfo == null)
                 {
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueSeverity.Error,
-                        OperationOutcomeConstants.IssueType.Invalid,
-                        string.Format(Core.Resources.SearchParameterNotFound, status, uri)));
+                        OperationOutcomeConstants.IssueSeverity.Information,
+                        OperationOutcomeConstants.IssueType.NotFound,
+                        detailsText: string.Format(Core.Resources.SearchParameterNotFound, status, uri)));
                 }
                 else if (!(status.Equals(SearchParameterStatus.Supported) || status.Equals(SearchParameterStatus.Disabled)))
                 {
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
                         OperationOutcomeConstants.IssueType.Invalid,
-                        string.Format(Core.Resources.InvalidUpdateStatus, status, uri)));
+                        detailsText: string.Format(Core.Resources.InvalidUpdateStatus, status, uri)));
                 }
                 else if (searchParameterInfo.Status.Equals(SearchParameterStatus.Deleted) || searchParameterInfo.Status.Equals(SearchParameterStatus.Unsupported))
                 {
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
-                        OperationOutcomeConstants.IssueType.Invalid,
-                        string.Format(Core.Resources.SearchParameterDeleted, uri)));
+                        OperationOutcomeConstants.IssueType.NotSupported,
+                        detailsText: string.Format(Core.Resources.SearchParameterDeleted, uri)));
                 }
                 else
                 {
