@@ -152,6 +152,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
+        public static DataTable GenerateInvalidDataTokenQuantityCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        {
+            TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator();
+
+            DataTable result = generator.GenerateDataTable();
+
+            for (int i = 0; i < count; ++i)
+            {
+                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenQuantityCompositeSearchParamTableTypeV2Row(0, 0, 0, string.Empty, null, 0, 0, 20180221235900, 0, 0));
+            }
+
+            return result;
+        }
+
         public static DataTable GenerateTokenSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenSearchParamsTableBulkCopyDataGenerator generator = new TokenSearchParamsTableBulkCopyDataGenerator();

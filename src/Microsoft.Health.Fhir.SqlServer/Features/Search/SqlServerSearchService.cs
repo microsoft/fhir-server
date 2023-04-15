@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly ISqlQueryHashCalculator _queryHashCalculator;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -86,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
+            ISqlQueryHashCalculator queryHashCalculator,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -112,6 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
+            _queryHashCalculator = queryHashCalculator;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -347,9 +350,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
+                            var queryText = stringBuilder.ToString();
+                            var queryHash = _queryHashCalculator.CalculateHash(RemoveParamHash(queryText));
+                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+
+                            if (!string.IsNullOrEmpty(customQuery))
+                            {
+                                _logger.LogInformation("SQl Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
+                                queryText = customQuery;
+                                sqlCommand.CommandType = CommandType.StoredProcedure;
+                            }
+
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
-                            sqlCommand.CommandText = stringBuilder.ToString();
+                            sqlCommand.CommandText = queryText;
 #pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
@@ -1060,6 +1075,24 @@ WHERE ResourceTypeId = @p0
             }
 
             return resourceType;
+        }
+
+        private static string RemoveParamHash(string queryText)
+        {
+            var lines = queryText.Split('\n');
+            for (var i = lines.Length - 1; i >= 0; i--)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    continue;
+                }
+                else if (lines[i].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Join('\n', lines.Take(i));
+                }
+            }
+
+            return queryText;
         }
 
         // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .

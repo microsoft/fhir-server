@@ -1,79 +1,6 @@
---DROP TABLE WatchdogLeases
+﻿--DROP PROCEDURE AcquireWatchdogLease
 GO
-IF object_id('dbo.WatchdogLeases') IS NULL
-CREATE TABLE dbo.WatchdogLeases
-  (
-       Watchdog            varchar(100)  NOT NULL
-      ,LeaseHolder         varchar(100)  NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseHolder DEFAULT ''
-      ,LeaseEndTime        datetime      NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseEndTime DEFAULT 0
-      ,RemainingLeaseTimeSec AS datediff(second,getUTCdate(),LeaseEndTime)
-      ,LeaseRequestor      varchar(100)  NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseRequestor DEFAULT ''
-      ,LeaseRequestTime    datetime      NOT NULL CONSTRAINT DF_WatchdogLeases_LeaseRequestTime DEFAULT 0
-
-	   CONSTRAINT PKC_WatchdogLeases_Watchdog PRIMARY KEY CLUSTERED (Watchdog)
-  )
-GO
---DROP PROCEDURE dbo.CleanupEventLog
-GO
-CREATE OR ALTER PROCEDURE dbo.CleanupEventLog -- This sp keeps EventLog table small
-WITH EXECUTE AS 'dbo' -- this is required for sys.dm_db_partition_stats access
-AS
-set nocount on
-DECLARE @SP                    varchar(100) = 'CleanupEventLog'
-       ,@Mode                  varchar(100) = ''
-       ,@MaxDeleteRows         int
-       ,@MaxAllowedRows        bigint
-       ,@RetentionPeriodSecond int
-       ,@DeletedRows           int
-       ,@TotalDeletedRows      int = 0
-       ,@TotalRows             int
-       ,@Now                   datetime = getUTCdate()
-
-EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
-
-BEGIN TRY
-  SET @MaxDeleteRows = (SELECT Number FROM dbo.Parameters WHERE Id = 'CleanupEventLog.DeleteBatchSize')
-  IF @MaxDeleteRows IS NULL
-    RAISERROR('Cannot get Parameter.CleanupEventLog.DeleteBatchSize',18,127)
-    
-  SET @MaxAllowedRows = (SELECT Number FROM dbo.Parameters WHERE Id = 'CleanupEventLog.AllowedRows')
-  IF @MaxAllowedRows IS NULL
-    RAISERROR('Cannot get Parameter.CleanupEventLog.AllowedRows',18,127)
-    
-  SET @RetentionPeriodSecond = (SELECT Number*24*60*60 FROM dbo.Parameters WHERE Id = 'CleanupEventLog.RetentionPeriodDay')
-  IF @RetentionPeriodSecond IS NULL
-    RAISERROR('Cannot get Parameter.CleanupEventLog.RetentionPeriodDay',18,127)
-    
-  SET @TotalRows = (SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('EventLog') AND index_id IN (0,1))
-  
-  SET @DeletedRows = 1
-  
-  WHILE @DeletedRows > 0 AND EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'CleanupEventLog.IsEnabled' AND Number = 1)
-  BEGIN
-    SET @DeletedRows = 0
-    
-    -- Do anything only if...
-    IF @TotalRows - @TotalDeletedRows > @MaxAllowedRows -- row check
-    BEGIN
-      DELETE TOP (@MaxDeleteRows) 
-        FROM dbo.EventLog WITH (PAGLOCK)
-        WHERE EventDate <= dateadd(second, -@RetentionPeriodSecond, @Now) -- cannot use getdate because it is a moving target
-      SET @DeletedRows = @@rowcount
-      SET @TotalDeletedRows += @DeletedRows
-      EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Run',@Target='EventLog',@Action='Delete',@Rows=@DeletedRows,@Text=@TotalDeletedRows
-    END -- row check
-  END -- While
-  
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@Now
-END TRY
-BEGIN CATCH
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
-  THROW
-END CATCH
-GO
---DROP PROCEDURE AcquireWatchdogLease
-GO
-CREATE OR ALTER PROCEDURE dbo.AcquireWatchdogLease
+CREATE PROCEDURE dbo.AcquireWatchdogLease
    @Watchdog           varchar(100)
   ,@Worker             varchar(100)
   ,@AllowRebalance     bit          = 1 
@@ -271,3 +198,105 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+--DECLARE @LeaseEndTime  datetime
+--       ,@IsAcquired     bit
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'whatever'
+--       ,@Worker = 'box.1234'
+--       ,@NumberOfWorkers = 4
+--       ,@LeasePeriodSec = 120
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+
+--DELETE FROM WatchdogLeases WHERE Id IN ('R1','R2')
+--DECLARE @LeaseEndTime  datetime
+--       ,@IsAcquired     bit
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R1'
+--       ,@Worker = 'P1'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire lease on R1 by P1', @LeaseEndTime, @IsAcquired
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R2'
+--       ,@Worker = 'P1'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire lease on R2 by P1', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R1'
+--       ,@Worker = 'P2'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire R1 by P2 while P1 lease is valid', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R2'
+--       ,@Worker = 'P2'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire R2 by P2', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+
+--WAITFOR DELAY '00:00:02'
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R1'
+--       ,@Worker = 'P1'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to renew lease on R1 by P1 while P1 lease is valid', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+
+--WAITFOR DELAY '00:00:04'
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R1'
+--       ,@Worker = 'P2'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire R1 by P2 when P1 lease expired', @LeaseEndTime, @IsAcquired
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R2'
+--       ,@Worker = 'P2'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to renew R2 by P2', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+--WAITFOR DELAY '00:00:02'
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R2'
+--       ,@Worker = 'P2'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to renew R2 by P2', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R1'
+--       ,@Worker = 'P1'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire lease on R1 by P1', @LeaseEndTime, @IsAcquired
+--EXECUTE AcquireWatchdogLease 
+--        @Watchdog = 'R2'
+--       ,@Worker = 'P1'
+--       ,@NumberOfWorkers = 2
+--       ,@LeaseEndTime = @LeaseEndTime OUT
+--       ,@IsAcquired  = @IsAcquired OUT
+--SELECT 'Try to acquire lease on R2 by P1', @LeaseEndTime, @IsAcquired
+--SELECT *, Now = getUTCdate() FROM WatchdogLeases
+
+--SELECT TOP 10 * FROM EventLog WHERE Process = 'AcquireWatchdogLease' ORDER BY EventDate DESC
+----SELECT TOP 10 * FROM EventLog ORDER BY EventId DESC
+--SELECT count(*) FROM EventLog WHERE Process = 'AcquireWatchdogLease'
+--DELETE TOP (100000) FROM EventLog WHERE Process = 'AcquireWatchdogLease'

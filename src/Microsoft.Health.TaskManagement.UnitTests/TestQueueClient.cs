@@ -24,6 +24,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
+        public Func<TestQueueClient, long, CancellationToken, IReadOnlyList<JobInfo>> GetJobByGroupIdFunc { get; set; }
+
         public List<JobInfo> JobInfos
         {
             get { return jobInfos; }
@@ -152,6 +154,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetJobByGroupIdFunc != null)
+            {
+                return Task.FromResult(GetJobByGroupIdFunc(this, groupId, cancellationToken));
+            }
+
             IReadOnlyList<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId).ToList();
             return Task.FromResult(result);
         }
@@ -175,7 +182,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             IReadOnlyList<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id)).ToList();
-            return Task.FromResult<IReadOnlyList<JobInfo>>(result);
+            return Task.FromResult(result);
         }
 
         public bool IsInitialized()
