@@ -21,8 +21,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         public Uri Url { get; set; }
 
         /// <summary>
+        /// Blob length in bytes
+        /// </summary>
+        public long BlobLength { get; set; }
+
+        /// <summary>
+        /// Offset to read input blob/file from
+        /// </summary>
+        public long Offset { get; set; }
+
+        /// <summary>
+        /// Number of bytes to read
+        /// </summary>
+        public int BytesToRead { get; set; }
+
+        /// <summary>
         /// Determines the etag of resource file.
         /// </summary>
         public string Etag { get; set; }
+
+        public InputResource Clone()
+        {
+            var res = new InputResource();
+            res.Type = Type;
+            res.Url = Url;
+            res.BlobLength = BlobLength;
+            res.Offset = Offset;
+            res.BytesToRead = BytesToRead;
+            res.Etag = Etag;
+
+            return res;
+        }
     }
 }

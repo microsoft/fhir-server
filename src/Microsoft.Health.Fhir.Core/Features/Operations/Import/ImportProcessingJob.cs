@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = (index) => inputData.BeginSequenceId + index;
+                Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
 
                 // Clean resources before import start
                 await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, inputData.Offset, inputData.BytesToRead, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken, inputData.EndSequenceId == 0);
 
                 // Import to data store
                 (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);

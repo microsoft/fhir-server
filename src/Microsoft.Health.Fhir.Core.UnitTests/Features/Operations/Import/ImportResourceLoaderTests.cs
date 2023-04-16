@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, null, idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, null, idGenerator, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, "DummyType", idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, "DummyType", idGenerator, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, null, idGenerator, cancellationTokenSource.Token);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, null, idGenerator, cancellationTokenSource.Token);
 
             resetEvent1.WaitOne();
             cancellationTokenSource.Cancel();
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
             loader.MaxBatchSize = batchSize;
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, null, idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, startIndex, null, idGenerator, CancellationToken.None);
 
             long currentIndex = startIndex;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())

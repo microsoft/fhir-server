@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), 0, (int)1e9, Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     long startIndex = (long)callInfo[1];
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), 0, (int)1e9, Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     long startIndex = (long)callInfo[1];

@@ -46,18 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken, bool isMerge = true)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
             Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, resourceType, sequenceIdGenerator, cancellationToken), cancellationToken);
+            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, offset, bytesToRead, startIndex, resourceType, sequenceIdGenerator, isMerge, cancellationToken), cancellationToken);
 
             return (outputChannel, loadTask);
         }
 
-        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, bool isMerge, CancellationToken cancellationToken)
         {
             string leaseId = null;
             try
@@ -67,16 +67,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Try to acquire lease to block change on the blob.
                 leaseId = await _integrationDataStoreClient.TryAcquireLeaseAsync(new Uri(resourceLocation), Guid.NewGuid().ToString("N"), cancellationToken);
 
-                using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
-                using StreamReader inputDataReader = new StreamReader(inputDataStream);
+                using Stream stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
+                using StreamReader reader = new StreamReader(stream);
 
                 string content = null;
                 long currentIndex = 0;
+                long currentBytesRead = 0;
                 List<(string content, long index)> buffer = new List<(string content, long index)>();
                 Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
 
+                var skipFirstLine = true;
 #pragma warning disable CA2016
-                while (!string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
+                while (((isMerge && currentBytesRead <= bytesToRead) || !isMerge) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
 #pragma warning restore CA2016
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -84,15 +86,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
-                    // TODO: improve to load from offset in file
                     if (currentIndex < startIndex)
                     {
                         currentIndex++;
                         continue;
                     }
 
-                    buffer.Add((content, currentIndex));
+                    if (offset > 0 && skipFirstLine) // skip first line
+                    {
+                        skipFirstLine = false;
+                        continue;
+                    }
+
+                    currentBytesRead += content.Length + Environment.NewLine.Length;
                     currentIndex++;
+
+                    buffer.Add((content, currentIndex));
 
                     if (buffer.Count < MaxBatchSize)
                     {
