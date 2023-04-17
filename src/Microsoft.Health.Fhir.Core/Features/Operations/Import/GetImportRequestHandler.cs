@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -89,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
                         = await GetProcessingResultAsync(coord.GroupId, cancellationToken);
 
-                    ImportJobResult result = new ImportJobResult()
+                    var result = new ImportJobResult()
                     {
                         Request = orchestratorJobResult.Request,
                         TransactionTime = orchestratorJobResult.TransactionTime,
@@ -111,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     (List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)
                         = await GetProcessingResultAsync(coord.GroupId, cancellationToken);
 
-                    ImportJobResult result = new ImportJobResult()
+                    var result = new ImportJobResult()
                     {
                         Request = orchestratorJobResult.Request,
                         TransactionTime = orchestratorJobResult.TransactionTime,
