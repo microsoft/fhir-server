@@ -20,12 +20,14 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Firely.Fhir.Packages" />
+    <PackageReference Include="Hl7.Fhir.Validation.Legacy.STU3" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Hl7.Fhir.STU3" />
-    <PackageReference Include="Hl7.Fhir.Specification.STU3" PrivateAssets="build;analyzers"/>
+    <PackageReference Include="Hl7.Fhir.Specification.Data.STU3" PrivateAssets="build;analyzers" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />

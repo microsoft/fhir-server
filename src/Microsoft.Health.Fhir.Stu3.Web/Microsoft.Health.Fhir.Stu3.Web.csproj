@@ -6,6 +6,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="C:\Users\jaerwin\.nuget\packages\hl7.fhir.specification.stu3\4.3.0\contentFiles\any\any\specification.zip" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="hl7.fhir.r3.core-3.0.2.tgz" />
+    <None Remove="hl7.fhir.r3.elements-3.0.2.tgz" />
+    <None Remove="hl7.fhir.r3.expansions-3.0.2.tgz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="hl7.fhir.r3.core-3.0.2.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="hl7.fhir.r3.elements-3.0.2.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="hl7.fhir.r3.expansions-3.0.2.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="IdentityServer4" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />

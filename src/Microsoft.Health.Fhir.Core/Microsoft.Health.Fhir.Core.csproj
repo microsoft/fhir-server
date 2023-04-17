@@ -48,9 +48,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Core" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
-    <PackageReference Include="Hl7.Fhir.Support.Poco" />
-    <PackageReference Include="Hl7.Fhir.Serialization" />
-    <PackageReference Include="Hl7.FhirPath" />
+    <PackageReference Include="Hl7.Fhir.Base" />
     <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Newtonsoft.Json.Schema" />
