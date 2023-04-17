@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             _logger.LogInformation("Accessing default token provider");
 
-            return null;
+            return Task.FromResult(string.Empty);
         }
     }
 }

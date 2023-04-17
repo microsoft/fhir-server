@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
@@ -73,8 +76,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private IConvertDataTemplateProvider GetDefaultTemplateProvider()
         {
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<DefaultTokenProvider>();
-            tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
+            ILogger<DefaultTokenProvider> logger = Substitute.For<ILogger<DefaultTokenProvider>>();
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<DefaultTokenProvider>(logger);
+
+            tokenProvider.GetTokenAsync(default, default);
 
             var convertDataConfig = new ConvertDataConfiguration
             {
@@ -89,7 +94,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private IConvertDataTemplateProvider GetAcrTemplateProvider()
         {
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<AzureContainerRegistryAccessTokenProvider>();
+            IAccessTokenProvider aadTokenProvider = Substitute.For<IAccessTokenProvider>();
+            IHttpClientFactory httpClientFactory = Substitute.For<IHttpClientFactory>();
+            IOptions<ConvertDataConfiguration> convertDataConfiguration = Substitute.For<IOptions<ConvertDataConfiguration>>();
+            ILogger<AzureContainerRegistryAccessTokenProvider> logger = Substitute.For<ILogger<AzureContainerRegistryAccessTokenProvider>>();
+
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<AzureContainerRegistryAccessTokenProvider>(aadTokenProvider, httpClientFactory, convertDataConfiguration, logger);
             tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
 
             var convertDataConfig = new ConvertDataConfiguration

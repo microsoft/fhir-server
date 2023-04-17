@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
                     token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
 
-                    if (token == null)
+                    if (string.IsNullOrEmpty(token))
                     {
                         throw new ContainerRegistryAuthenticationException(string.Format(Core.Resources.ExternalManagedIdentityConfigurationMissing));
                     }
