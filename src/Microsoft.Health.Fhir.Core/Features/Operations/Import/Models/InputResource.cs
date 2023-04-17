@@ -21,11 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         public Uri Url { get; set; }
 
         /// <summary>
-        /// Blob length in bytes
-        /// </summary>
-        public long BlobLength { get; set; }
-
-        /// <summary>
         /// Offset to read input blob/file from
         /// </summary>
         public long Offset { get; set; }
@@ -45,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
             var res = new InputResource();
             res.Type = Type;
             res.Url = Url;
-            res.BlobLength = BlobLength;
             res.Offset = Offset;
             res.BytesToRead = BytesToRead;
             res.Etag = Etag;

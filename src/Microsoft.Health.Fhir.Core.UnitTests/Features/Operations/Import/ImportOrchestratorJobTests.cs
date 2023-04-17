@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorJob_WhenProcessingInputFilesMoreThanConcurrentCount_ThenJobShouldBeCompleted()
         {
-            await VerifyCommonOrchestratorJobAsync(105, 6);
+            await VerifyCommonOrchestratorJobAsync(105, 11);
         }
 
         [Fact]
@@ -1209,14 +1209,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(importOrchestratorJobInputData.CreateTime, resultDetails.TransactionTime);
 
             Assert.Equal(inputFileCount, testQueueClient.JobInfos.Count() - 1);
-
-            var orderedSurrogatedIdRanges = surrogatedIdRanges.OrderBy(r => r.begin).ToArray();
-            Assert.Equal(inputFileCount, orderedSurrogatedIdRanges.Length + completedCount);
-            for (int i = 0; i < orderedSurrogatedIdRanges.Length - 1; ++i)
-            {
-                Assert.True(orderedSurrogatedIdRanges[i].end > orderedSurrogatedIdRanges[i].begin);
-                Assert.True(orderedSurrogatedIdRanges[i].end <= orderedSurrogatedIdRanges[i + 1].begin);
-            }
 
             _ = mediator.Received().Publish(
                 Arg.Is<ImportJobMetricsNotification>(
