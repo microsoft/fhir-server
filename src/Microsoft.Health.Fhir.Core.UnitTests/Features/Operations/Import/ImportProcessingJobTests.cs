@@ -59,11 +59,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), 0, (int)1e9, Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
                 .Returns(callInfo =>
                 {
-                    long startIndex = (long)callInfo[1];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[3];
+                    long startIndex = (long)callInfo[3];
+                    Func<long, long> idGenerator = (Func<long, long>)callInfo[5];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(async () =>
@@ -169,19 +169,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            loader.LoadResources(Arg.Any<string>(), 0, (int)1e9, Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
                 .Returns(callInfo =>
                 {
-                    long startIndex = (long)callInfo[1];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[3];
+                    long startIndex = (long)callInfo[3];
+                    Func<long, long> idGenerator = (Func<long, long>)callInfo[5];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(async () =>
                     {
-                        ResourceWrapper resourceWrapper = new ResourceWrapper(
+                        var resourceWrapper = new ResourceWrapper(
                             Guid.NewGuid().ToString(),
                             "0",
-                            "Dummy",
+                            "Patient",
                             new RawResource(Guid.NewGuid().ToString(), Fhir.Core.Models.FhirResourceFormat.Json, true),
                             new ResourceRequest("POST"),
                             DateTimeOffset.UtcNow,
@@ -230,16 +230,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             string progressResult = null;
-            Progress<string> progress = new Progress<string>((r) =>
-            {
-                progressResult = r;
-            });
-            ImportProcessingJob job = new ImportProcessingJob(
-                                    loader,
-                                    importer,
-                                    importErrorStoreFactory,
-                                    contextAccessor,
-                                    loggerFactory);
+            var progress = new Progress<string>((r) => { progressResult = r; });
+            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory);
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
@@ -261,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobInputData inputData = new ImportProcessingJobInputData();
             inputData.BaseUriString = "http://dummy";
             inputData.ResourceLocation = "http://dummy";
-            inputData.ResourceType = "Resource";
+            inputData.ResourceType = "Patient";
             inputData.JobId = Guid.NewGuid().ToString("N");
             inputData.UriString = "http://dummy";
 
