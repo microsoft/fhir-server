@@ -124,7 +124,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             JobInfo orchestratorJob = new JobInfo()
             {
-                Status = JobStatus.Running,
+                Id = 1,
+                GroupId = 1,
+                Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(orchestratorJobResult),
             };
 
@@ -139,18 +141,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             JobInfo processingJob1 = new JobInfo()
             {
+                Id = 2,
+                GroupId = 1,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(processingJobResult),
             };
 
             JobInfo processingJob2 = new JobInfo()
             {
+                Id = 3,
+                GroupId = 1,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(processingJobResult),
             };
 
             JobInfo processingJob3 = new JobInfo()
             {
+                Id = 4,
+                GroupId = 1,
                 Status = JobStatus.Running,
                 Result = JsonConvert.SerializeObject(processingJobResult),
             };
