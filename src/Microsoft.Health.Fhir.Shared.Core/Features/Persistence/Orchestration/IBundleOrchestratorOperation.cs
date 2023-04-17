@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public interface IBundleOrchestratorOperation<T>
-        where T : class
+    public interface IBundleOrchestratorOperation
     {
         DateTime CreationTime { get; }
 
@@ -26,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         BundleOrchestratorOperationType Type { get; }
 
-        Task AppendResourceAsync(T resource, CancellationToken cancellationToken);
+        Task AppendResourceAsync(ResourceWrapper resource, CancellationToken cancellationToken);
 
         Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken);
     }

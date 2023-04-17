@@ -27,8 +27,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const string label = "label";
             const int expectedNumberOfResources = 100;
 
-            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
-            IBundleOrchestratorOperation<object> operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, label, expectedNumberOfResources);
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, label, expectedNumberOfResources);
 
             Assert.Equal(label, operation.Label);
             Assert.Equal(expectedNumberOfResources, operation.OriginalExpectedNumberOfResources);
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
-            var batchOrchestrator = new BundleOrchestrator<object>(isEnabled: true, dataStore: _dataStore);
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
 
             Assert.Throws<ArgumentNullException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, null, expectedNumberOfResources: 100));
 

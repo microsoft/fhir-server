@@ -13,15 +13,14 @@ using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public sealed class BundleOrchestratorOperation<T> : IBundleOrchestratorOperation<T>
-        where T : class
+    public sealed class BundleOrchestratorOperation : IBundleOrchestratorOperation
     {
         private const int DelayTimeInMilliseconds = 10;
 
         /// <summary>
         /// List of resource to be sent to the data layer.
         /// </summary>
-        private readonly ConcurrentBag<T> _resources;
+        private readonly ConcurrentBag<ResourceWrapper> _resources;
 
         /// <summary>
         /// Data layer reference.
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             OriginalExpectedNumberOfResources = expectedNumberOfResources;
             _currentExpectedNumberOfResources = expectedNumberOfResources;
 
-            _resources = new ConcurrentBag<T>();
+            _resources = new ConcurrentBag<ResourceWrapper>();
             _dataStore = dataStore;
 
             _lock = new object();
@@ -91,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             return $"[ Job: {Id}, Label: {Label}, OriginalExpectedNumberOfResources: {OriginalExpectedNumberOfResources}, CreationTime: {CreationTime.ToString("o")}, Status: {Status} ]";
         }
 
-        public async Task AppendResourceAsync(T resource, CancellationToken cancellationToken)
+        public async Task AppendResourceAsync(ResourceWrapper resource, CancellationToken cancellationToken)
         {
             try
             {

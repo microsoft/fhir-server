@@ -7,12 +7,11 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public interface IBundleOrchestrator<T>
-        where T : class
+    public interface IBundleOrchestrator
     {
         bool IsEnabled { get; }
 
-        IBundleOrchestratorOperation<T> CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
+        IBundleOrchestratorOperation CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
 
         bool RemoveOperation(Guid id);
     }

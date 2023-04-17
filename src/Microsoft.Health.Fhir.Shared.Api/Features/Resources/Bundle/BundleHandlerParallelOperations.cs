@@ -72,11 +72,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // This method runs in parallel requests extracted from bundles.
             // It uses Parallel.ForEachAsync as an optimization, given that Parallel.ForEachAsync has a better parallel Task management then handling Tasks manually.
 
-            IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping; // Safe
-            RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor; // Safe
-            FhirJsonParser fhirJsonParser = _fhirJsonParser; // Safe
-            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext; // Modified
-            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // Modified
+            IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
+            RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
+            FhirJsonParser fhirJsonParser = _fhirJsonParser;
+            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext; // Not thread-safe
+            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // Not thread-safe
 
             if (_requests[httpVerb].Any())
             {
