@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     invalidSearchParameters.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Information,
                         OperationOutcomeConstants.IssueType.NotFound,
-                        detailsText: string.Format(Core.Resources.SearchParameterNotFound, status, uri)));
+                        detailsText: string.Format(Core.Resources.SearchParameterNotFound, uri)));
                 }
                 else if (!(status.Equals(SearchParameterStatus.Supported) || status.Equals(SearchParameterStatus.Disabled)))
                 {
