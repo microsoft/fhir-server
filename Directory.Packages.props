@@ -2,7 +2,7 @@
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
     <HealthcareSharedPackageVersion>6.2.103</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
+    <Hl7FhirVersion>5.0.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
   <Choose>
@@ -33,18 +33,19 @@
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
+    <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="FluentValidation" Version="11.5.2" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.R4B" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.R5" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Specification.STU3" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R4B" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.R5" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Specification.Data.STU3" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Support.Poco" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.FhirPath" Version="$(Hl7FhirVersion)" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4" Version="5.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4B" Version="5.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R5" Version="5.0.0" />
     <PackageVersion Include="IdentityServer4" Version="4.1.2" />
     <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />

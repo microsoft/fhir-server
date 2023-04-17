@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using EnsureThat;
+using Firely.Fhir.Packages;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
@@ -62,6 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     packagesToInclude.Add(packageVariables.CorePackageName);
                     packagesToInclude.Add(packageVariables.ExpansionsPackageName);
+
+                    // elements package name is not included in the reflection metadata, but we should try and include it
+                    var extensionsPackageName = packageVariables.ExpansionsPackageName.Replace("expansions", "elements", StringComparison.OrdinalIgnoreCase);
+                    packagesToInclude.Add(extensionsPackageName);
                 }
 
                 foreach (var package in _coreConfig.PackageConfiguration.PackageNames)
@@ -76,17 +81,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     // Allow local packages
                     var resolvedPath = Path.GetFullPath(_coreConfig.PackageConfiguration.PackageSource, Environment.CurrentDirectory);
-                    validationSource = new FhirPackageSource(_coreConfig.PackageConfiguration.PackageNames.Select(x => Path.GetFullPath(x, resolvedPath)).ToArray());
+                    validationSource = new FhirPackageSource(ModelInfo.ModelInspector, Directory.GetFiles(resolvedPath)
+                        .Where(f => packagesToInclude.Any(p => f.Contains(p, StringComparison.OrdinalIgnoreCase))).ToArray());
                 }
                 else
                 {
                     // Look for packages on an npm server
                     var server = string.IsNullOrEmpty(_coreConfig.PackageConfiguration.PackageSource) ? packageVariables.Server : _coreConfig.PackageConfiguration.PackageSource;
-                    validationSource = new FhirPackageSource(server, packagesToInclude.ToArray());
+                    validationSource = new FhirPackageSource(ModelInfo.ModelInspector, packagesToInclude.ToArray());
                 }
 
                 // Ensure packages are downloaded to temp folder
-                var patient = validationSource.ListResourceUris(ResourceType.Patient).ToArray();
+                var patient = validationSource.ListResourceUris(KnownResourceTypes.Patient).ToArray();
 
                 return new MultiResolver(_profilesResolver, new CachedResolver(validationSource, _options.CacheDurationInSeconds));
             }

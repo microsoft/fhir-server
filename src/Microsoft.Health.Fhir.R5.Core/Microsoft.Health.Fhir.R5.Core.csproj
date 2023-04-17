@@ -13,12 +13,14 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Firely.Fhir.Packages" />
+    <PackageReference Include="Hl7.Fhir.Validation.Legacy.R5" />
     <PackageReference Include="MediatR" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Hl7.Fhir.R5" />
-    <PackageReference Include="Hl7.Fhir.Specification.R5" PrivateAssets="build;analyzers"/>
+    <PackageReference Include="Hl7.Fhir.Specification.Data.R5" PrivateAssets="build;analyzers" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
