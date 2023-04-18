@@ -1004,6 +1004,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAIncludeWithInvalidParam_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
+        {
+            string query = $"_include=Patient:family";
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.IncludeIncorrectParameterType) };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
+            IssueType[] expectedCodeTypes = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenARevincludeWithInvalidParameter_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
+        {
+            string query = $"_revinclude=Patient:family";
+
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await Client.SearchAsync(ResourceType.Patient, query));
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIncorrectParameterType) };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
+            IssueType[] expectedCodeTypes = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleResultsSetsWithoutSpecificRevIncludeIterateTargetType_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
         {
             // Non-recursive iteration - Multiple result sets: MedicationDispense:performer;Practitioner and MedicationRequest:requester:Practitioner
