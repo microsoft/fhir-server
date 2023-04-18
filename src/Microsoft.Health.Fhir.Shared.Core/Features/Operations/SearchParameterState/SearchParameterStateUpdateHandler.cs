@@ -90,24 +90,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                 }
                 else
                 {
-                    if (searchParametersToUpdate.TryGetValue(status, out List<string> value))
+                    SearchParameterStatus statusValue = status == SearchParameterStatus.Disabled ? SearchParameterStatus.PendingDisable : status;
+                    if (searchParametersToUpdate.TryGetValue(statusValue, out List<string> value))
                     {
                         value.Add(uri.ToString());
                     }
-                    else if (status == SearchParameterStatus.Disabled && searchParametersToUpdate.TryGetValue(SearchParameterStatus.PendingDisable, out List<string> disableValueList))
-                    {
-                        disableValueList.Add(uri.ToString());
-                    }
                     else
                     {
-                        if (status == SearchParameterStatus.Disabled)
-                        {
-                            searchParametersToUpdate.Add(SearchParameterStatus.PendingDisable, new List<string>() { uri.ToString() });
-                        }
-                        else
-                        {
-                            searchParametersToUpdate.Add(status, new List<string>() { uri.ToString() });
-                        }
+                        searchParametersToUpdate.Add(statusValue, new List<string>() { uri.ToString() });
                     }
                 }
             }

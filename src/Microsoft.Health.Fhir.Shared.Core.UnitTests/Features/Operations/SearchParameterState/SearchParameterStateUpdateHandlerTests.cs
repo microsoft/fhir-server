@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         {
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
-                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Enabled),
+                new Tuple<Uri, SearchParameterStatus>(new Uri(NotFoundResource), SearchParameterStatus.Supported),
             };
 
             SearchParameterStateUpdateResponse response = await _searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
             var resourceResponse = (OperationOutcome)unwrappedResponse.Entry[0].Resource;
             var issue = resourceResponse.Issue[0];
-            Assert.True(issue.Details.Text == string.Format(Fhir.Core.Resources.SearchParameterNotFound, SearchParameterStatus.Enabled, NotFoundResource));
+            Assert.True(issue.Details.Text == string.Format(Fhir.Core.Resources.SearchParameterNotFound, NotFoundResource));
             Assert.True(issue.Severity == OperationOutcome.IssueSeverity.Information);
         }
 
