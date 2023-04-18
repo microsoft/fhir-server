@@ -2,7 +2,7 @@
 # Removes resource groups used in PRs.
 # THIS WILL DELETE ALL PR RESOURCE GROUPS, EVEN THOSE CURRENTLY RUNNING.
 # Check that no PRs are currently running and no one needs any of the resource groups before running.
-# The Exclude variable can be used to preserve specific resource groups. It is a comma seperated list of the full resource group names.
+# The Exclude variable can be used to preserve specific resource groups. It is a comma seperated list of the full resource group names. 
 
 variables:
 - template: build-variables.yml
@@ -25,5 +25,5 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: InlineScript
         Inline: |
-          $excludeList = $(Exclude).Split(',').Trim()
+          $excludeList = ${env:Exclude}.Split(',').Trim()
           Get-AzResourceGroup -Name "$(resourceGroupRoot)*" -Location "$(ResourceGroupRegion)" | Where ResourceGroupName -NotIn $excludeList | Remove-AzResourceGroup -Verbose -Force
