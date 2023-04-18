@@ -368,7 +368,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
+#if !R5
             searchParam.Base = new List<ResourceType?>() { ResourceType.Specimen, ResourceType.Immunization };
+#else
+            searchParam.Base = new List<AllResourceTypes?>() { AllResourceTypes.Specimen, AllResourceTypes.Immunization };
+#endif
 
             // POST a new Specimen
             Specimen specimen = Samples.GetJsonSample<Specimen>("Specimen");

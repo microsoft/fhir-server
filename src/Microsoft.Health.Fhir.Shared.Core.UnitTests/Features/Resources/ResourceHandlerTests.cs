@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -75,8 +76,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Observation, null);
-            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Observation);
+            VersionSpecificMockResourceFactory.SetupMockResource(_conformanceStatement, ResourceType.Observation, null);
+            var observationResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == ResourceType.Observation.ToString());
             observationResource.ReadHistory = false;
             observationResource.UpdateCreate = true;
             observationResource.ConditionalCreate = true;
@@ -84,8 +85,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             observationResource.ConditionalDelete = CapabilityStatement.ConditionalDeleteStatus.Single;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
-            CapabilityStatementMock.SetupMockResource(_conformanceStatement, ResourceType.Patient, null);
-            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient);
+            VersionSpecificMockResourceFactory.SetupMockResource(_conformanceStatement, ResourceType.Patient, null);
+            var patientResource = _conformanceStatement.Rest.First().Resource.Find(x => x.Type.ToString() == ResourceType.Patient.ToString());
             patientResource.ReadHistory = true;
             patientResource.UpdateCreate = true;
             patientResource.ConditionalCreate = true;

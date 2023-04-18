@@ -80,7 +80,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Tag = new List<Coding>() { _tag },
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
+#if Stu3 || R4 || R4B
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
+#endif
+#if R5
+            coverage.PaymentBy = new List<Coverage.PaymentByComponent>() { new Coverage.PaymentByComponent() { Party = new ResourceReference($"Patient/{patient.Id}") } };
+#endif
             coverage.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v3-ActCode", type);
             coverage.Status = FinancialResourceStatusCodes.Active;
             if (!string.IsNullOrEmpty(subPlan))
@@ -91,7 +96,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     new Coverage.ClassComponent()
                     {
                         Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/coverage-class", "subplan"),
+#if R4 || R4B
                         Value = subPlan,
+#else
+                        Value = new Identifier() { Value = subPlan },
+#endif
                     },
                 };
 #else

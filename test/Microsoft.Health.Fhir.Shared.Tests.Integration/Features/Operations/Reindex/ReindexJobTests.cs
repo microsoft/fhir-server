@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -274,7 +275,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             string searchParamName = randomName;
             string searchParamCode = randomName + "Code";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             string sampleName1 = randomName + "searchIndicesPatient1";
             string sampleName2 = randomName + "searchIndicesPatient2";
@@ -380,7 +381,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             string searchParamName = randomName;
             string searchParamCode = randomName + "Code";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             string sampleName1 = randomName + "searchIndicesPatient1";
             string sampleName2 = randomName + "searchIndicesPatient2";
@@ -445,7 +446,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             string searchParamName = randomName;
             string searchParamCode = randomName + "Code";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             const string sampleName1 = "searchIndicesPatient1";
             const string sampleName2 = "searchIndicesPatient2";
@@ -538,7 +539,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             UpsertOutcome sample1 = await CreatePatientResource(sampleName1, sampleId1);
             UpsertOutcome sample2 = await CreatePatientResource(sampleName2, sampleId2);
 
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             // Create the query <fhirserver>/Patient?foo=searchIndicesPatient1
             var queryParams = new List<Tuple<string, string>> { new(searchParamCode, sampleName1) };
@@ -604,7 +605,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             UpsertOutcome sample1 = await CreatePatientResource(sampleName1, sampleId1);
             UpsertOutcome sample2 = await CreatePatientResource(sampleName2, sampleId2);
 
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
 
@@ -685,7 +686,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             string searchParamName = randomName;
             string searchParamCode = randomName + "Code";
 
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, KnownResourceTypes.Patient, "Patient.name", searchParamCode);
 
             var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
 
@@ -745,7 +746,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             const string searchParamName = "resourceFoo";
             const string searchParamCode = "resourceFooCode";
-            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.Token, ResourceType.Resource, "Resource.id", searchParamCode);
+
+            SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.Token, KnownResourceTypes.Resource, "Resource.id", searchParamCode);
 
             // Create the query <fhirserver>/Patient?resourceFooCode=<patientId>
             var queryParams = new List<Tuple<string, string>> { new(searchParamCode, patientId) };
@@ -881,18 +883,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             }
         }
 
-        private async Task<SearchParameter> CreateSearchParam(string searchParamName, SearchParamType searchParamType, ResourceType baseType, string expression, string searchParamCode)
+        private async Task<SearchParameter> CreateSearchParam(string searchParamName, SearchParamType searchParamType, string baseType, string expression, string searchParamCode)
         {
-            var searchParam = new SearchParameter
-            {
-                Url = $"http://hl7.org/fhir/SearchParameter/{baseType}-{searchParamName}",
-                Type = searchParamType,
-                Base = new List<ResourceType?> { baseType },
-                Expression = expression,
-                Name = searchParamName,
-                Code = searchParamCode,
-                Id = searchParamName,
-            };
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                $"http://hl7.org/fhir/SearchParameter/{baseType}-{searchParamName}",
+                searchParamCode,
+                new[] { baseType },
+                searchParamName,
+                expression,
+                searchParamType);
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 

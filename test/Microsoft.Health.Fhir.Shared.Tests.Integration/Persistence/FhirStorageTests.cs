@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -1064,15 +1065,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)
         {
-            var searchParam = new SearchParameter
-            {
-                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
-                Type = type,
-                Base = new List<ResourceType?> { ResourceType.Patient },
-                Expression = expression,
-                Name = searchParamName,
-                Code = searchParamName,
-            };
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
+                searchParamName,
+                new[] { KnownResourceTypes.Patient },
+                searchParamName,
+                expression,
+                type);
 
             _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
 
@@ -1099,7 +1098,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
-            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type.ToString() == ResourceType.Observation.ToString());
             var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;

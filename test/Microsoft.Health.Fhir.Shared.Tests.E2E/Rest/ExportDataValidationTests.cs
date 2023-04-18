@@ -99,7 +99,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 var group = new FhirGroup()
                 {
                     Type = FhirGroup.GroupType.Person,
+#if Stu3 || R4 || R4B
                     Actual = true,
+#endif
                 };
 
                 var groupResponse = await _testFhirClient.CreateAsync(group);
@@ -150,10 +152,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var encounter = new Encounter()
             {
                 Status = Encounter.EncounterStatus.InProgress,
+#if !R5
                 Class = new Coding()
                 {
                     Code = "test",
                 },
+#else
+                Class = new List<CodeableConcept>()
+                {
+                    new CodeableConcept()
+                    {
+                        Coding = new List<Coding>()
+                        {
+                            new Coding() { Code = "test" },
+                        },
+                    },
+                },
+#endif
                 Subject = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
             };
 
@@ -182,7 +197,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var group = new FhirGroup()
             {
                 Type = FhirGroup.GroupType.Person,
+#if !R5
                 Actual = true,
+#endif
                 Member = new List<FhirGroup.MemberComponent>()
                 {
                     new FhirGroup.MemberComponent()

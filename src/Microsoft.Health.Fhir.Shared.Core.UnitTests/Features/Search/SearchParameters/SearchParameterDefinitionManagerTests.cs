@@ -306,15 +306,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
         {
             // Initialize a search parameter
-            var searchParam = new SearchParameter()
-            {
-                Url = "http://test/Patient-test",
-                Type = Hl7.Fhir.Model.SearchParamType.String,
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-                Expression = "Patient.Name",
-                Name = "test",
-                Code = "test",
-            };
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://test/Patient-test",
+                "test",
+                new[] { KnownResourceTypes.Patient },
+                "test",
+                "Patient.Name");
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
@@ -339,29 +336,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 return reference;
             }
-            #endif
+#endif
 
             // Initialize a search parameter
-            var searchParam = new SearchParameter()
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://test/Patient-test",
+                "test",
+                new[] { KnownResourceTypes.Patient },
+                "test",
+                "Patient.Name",
+                Hl7.Fhir.Model.SearchParamType.Composite);
+            searchParam.Component = new List<SearchParameter.ComponentComponent>
             {
-                Url = "http://test/Patient-test",
-                Type = Hl7.Fhir.Model.SearchParamType.Composite,
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-                Expression = "Patient",
-                Name = "test",
-                Code = "test",
-                Component = new List<SearchParameter.ComponentComponent>
+                new()
                 {
-                    new()
-                    {
-                        Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-id"),
-                        Expression = "id",
-                    },
-                    new()
-                    {
-                        Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated"),
-                        Expression = "meta.lastUpdated",
-                    },
+                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-id"),
+                    Expression = "id",
+                },
+                new()
+                {
+                    Definition = CreateDefinition("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated"),
+                    Expression = "meta.lastUpdated",
                 },
             };
 
@@ -398,16 +393,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             var patientParamCount = patientParams.Count();
 
-            // Initialize a search parameter
-            var searchParam = new SearchParameter()
-            {
-                Url = "http://test/Patient-test",
-                Type = Hl7.Fhir.Model.SearchParamType.String,
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-                Expression = "Patient.name",
-                Name = "test",
-                Code = "test",
-            };
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://test/Patient-test",
+                "test",
+                new[] { KnownResourceTypes.Patient },
+                "test",
+                "Patient.Name",
+                Hl7.Fhir.Model.SearchParamType.String);
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
@@ -424,52 +416,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             // Create some existing search paramters that will be returned when searching for resources
             // of type SearchParameter
-            var searchParam = new SearchParameter()
-            {
-                Id = "id",
-                Url = "http://test/Patient-preexisting",
-                Type = Hl7.Fhir.Model.SearchParamType.String,
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-                Expression = "Patient.name",
-                Name = "preexisting",
-                Code = "preexisting",
-            };
+            var searchParam = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://test/Patient-preexisting",
+                "preexisting",
+                new[] { KnownResourceTypes.Patient },
+                "preexisting",
+                "Patient.name",
+                Hl7.Fhir.Model.SearchParamType.String);
+            searchParam.Id = "id";
             SearchResult result = GetSearchResultFromSearchParam(searchParam, "token");
 
-            var searchParam2 = new SearchParameter()
-            {
-                Id = "id2",
-                Url = "http://test/Patient-preexisting2",
-                Type = Hl7.Fhir.Model.SearchParamType.String,
-                Base = new List<ResourceType?>() { ResourceType.Patient },
-                Expression = "Patient.name",
-                Name = "preexisting2",
-                Code = "preexisting2",
-            };
+            var searchParam2 = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://test/Patient-preexisting2",
+                "preexisting2",
+                new[] { KnownResourceTypes.Patient },
+                "preexisting2",
+                "Patient.name",
+                Hl7.Fhir.Model.SearchParamType.String);
+            searchParam.Id = "id2";
             SearchResult result2 = GetSearchResultFromSearchParam(searchParam2, "token2");
 
-            var searchParam3 = new SearchParameter()
-            {
-                Id = "QuestionnaireResponse-questionnaire2",
-                Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire2",
-                Type = Hl7.Fhir.Model.SearchParamType.Reference,
-                Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
-                Expression = "QuestionnaireResponse.questionnaire",
-                Name = "questionnaire2",
-                Code = "questionnaire2",
-            };
+            var searchParam3 = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire2",
+                "questionnaire2",
+                new[] { KnownResourceTypes.QuestionnaireResponse },
+                "questionnaire2",
+                "QuestionnaireResponse.questionnaire",
+                Hl7.Fhir.Model.SearchParamType.Reference);
+            searchParam.Id = "QuestionnaireResponse-questionnaire2";
             SearchResult result3 = GetSearchResultFromSearchParam(searchParam3, "token3");
 
-            var searchParam4 = new SearchParameter()
-            {
-                Id = "QuestionnaireResponse-questionnaire",
-                Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire",
-                Type = Hl7.Fhir.Model.SearchParamType.Reference,
-                Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
-                Expression = "QuestionnaireResponse.questionnaire",
-                Name = "questionnaire",
-                Code = "questionnaire",
-            };
+            var searchParam4 = VersionSpecificSearchParameterFactory.CreateSearchParameter(
+                "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire",
+                "questionnaire",
+                new[] { KnownResourceTypes.QuestionnaireResponse },
+                "questionnaire",
+                "QuestionnaireResponse.questionnaire",
+                Hl7.Fhir.Model.SearchParamType.Reference);
+            searchParam.Id = "QuestionnaireResponse-questionnaire";
             SearchResult result4 = GetSearchResultFromSearchParam(searchParam4, null);
 
             var searchService = Substitute.For<ISearchService>();

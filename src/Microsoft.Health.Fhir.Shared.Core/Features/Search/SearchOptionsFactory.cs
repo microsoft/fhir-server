@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
 
-            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
         }
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
-            ResourceType[] parsedResourceTypes = new[] { ResourceType.DomainResource };
+            ResourceType[] parsedResourceTypes = null;
 
             var searchExpressions = new List<Expression>();
             if (string.IsNullOrWhiteSpace(resourceType))
@@ -278,10 +278,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else
             {
-                if (!Enum.TryParse(resourceType, out parsedResourceTypes[0]))
+                if (!Enum.TryParse(resourceType, out ResourceType parsedResourceType))
                 {
                     throw new ResourceNotSupportedException(resourceType);
                 }
+
+                parsedResourceTypes = new[] { parsedResourceType };
 
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }

@@ -13,6 +13,9 @@
     <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="TestFiles\R5\Coverage.json" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
@@ -162,6 +165,7 @@
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R5\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\Coverage.json" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" />

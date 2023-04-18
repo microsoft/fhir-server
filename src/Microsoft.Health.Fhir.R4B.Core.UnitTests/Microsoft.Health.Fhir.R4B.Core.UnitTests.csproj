@@ -27,8 +27,12 @@
     <Compile Include="..\Microsoft.Health.Fhir.R4.Core.UnitTests\Features\Conformance\ConformanceBuilderTests.cs">
       <Link>Features\Conformance\ConformanceBuilderTests.cs</Link>
     </Compile>
+    <Compile Include="..\Microsoft.Health.Fhir.R4.Core.UnitTests\Features\Conformance\VersionSpecificMockResourceFactory.cs" Link="VersionSpecificMockResourceFactory.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.R4.Core.UnitTests\Features\Search\Converters\MoneyToQuantitySearchValueConverterTests.cs">
       <Link>Features\Search\Converters\MoneyToQuantitySearchValueConverterTests.cs</Link>
+    </Compile>
+    <Compile Include="..\Microsoft.Health.Fhir.R4.Core.UnitTests\Features\Search\VersionSpecificSearchParameterFactory.cs">
+      <Link>Features\Search\VersionSpecificSearchParameterFactory.cs</Link>
     </Compile>
   </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />

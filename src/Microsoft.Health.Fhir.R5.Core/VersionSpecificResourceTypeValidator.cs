@@ -3,22 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
+namespace Microsoft.Health.Fhir.Core
 {
-    public static class ModelExtensions
+    /// <summary>
+    /// Uses ResourceType enum for Stu3, R4 and R4B, but AllResourceTypes enum for R5
+    /// </summary>
+    public static class VersionSpecificResourceTypeValidator
     {
-        public static Device AssignPatient(this Device device, ResourceReference patient)
+        public static bool IsValidResourceType(string resourceType)
         {
-#if Stu3 || R4 || R4B
-            device.Patient = patient;
-#endif
-
-#if R5
-            // device.Subject = patient;
-#endif
-            return device;
+            return Enum.TryParse(resourceType, out AllResourceTypes result);
         }
     }
 }

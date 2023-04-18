@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
 
-            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Type.ToString() == ResourceType.Patient.ToString());
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.NoVersion);
         }
 
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
 
-            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Type.ToString() == ResourceType.Patient.ToString());
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
 
-            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Type.ToString() == ResourceType.Patient.ToString());
             Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 

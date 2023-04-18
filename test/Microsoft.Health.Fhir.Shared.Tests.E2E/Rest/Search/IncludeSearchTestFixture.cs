@@ -119,10 +119,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
+#if !R5
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
-
             DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "SeattleForgotten" } } })).Resource;
-
+#else
+            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new List<ExtendedContactDetail> { new ExtendedContactDetail { Address = new Address() { City = "Seattle" } } } })).Resource;
+            DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Contact = new List<ExtendedContactDetail> { new ExtendedContactDetail { Address = new Address { City = "SeattleForgotten" } } } })).Resource;
+#endif
             Organization.Name = "Updated";
 
             Organization = (await TestFhirClient.UpdateAsync(Organization)).Resource;
@@ -192,7 +195,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             var group = new Group
             {
                 Meta = meta,
-                Type = Group.GroupType.Person, Actual = true,
+                Type = Group.GroupType.Person,
+#if !R5
+                Actual = true,
+#endif
                 Member = new List<Group.MemberComponent>
                 {
                     new Group.MemberComponent { Entity = new ResourceReference($"Patient/{AdamsPatient.Id}") },
@@ -302,8 +308,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             Agent = new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
 #else
-                        IntentElement = new Code<MedicationRequest.medicationRequestIntent> { Value = MedicationRequest.medicationRequestIntent.Order },
-                        StatusElement = new Code<MedicationRequest.medicationrequestStatus> { Value = MedicationRequest.medicationrequestStatus.Completed },
+                        IntentElement = new Code<MedicationRequest.MedicationRequestIntent> { Value = MedicationRequest.MedicationRequestIntent.Order },
+                        StatusElement = new Code<MedicationRequest.MedicationrequestStatus> { Value = MedicationRequest.MedicationrequestStatus.Completed },
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
