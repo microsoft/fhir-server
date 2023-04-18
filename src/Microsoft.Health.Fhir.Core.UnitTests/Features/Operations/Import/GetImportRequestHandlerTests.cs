@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             {
                 Id = 1,
                 GroupId = 1,
-                Status = JobStatus.Completed,
+                Status = JobStatus.Running,
                 Result = JsonConvert.SerializeObject(orchestratorJobResult),
             };
 
