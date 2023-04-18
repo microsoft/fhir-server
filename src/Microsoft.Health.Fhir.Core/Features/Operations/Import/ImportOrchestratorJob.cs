@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportOrchestratorJob : IJob
     {
         private const long DefaultResourceSizePerByte = 64;
-        private const int BytesToRead = 10000 * 2000; // each job should handle about 10000 resources. with about 2000 bytes per resource
+        public const int BytesToRead = 10000 * 2000; // each job should handle about 10000 resources. with about 2000 bytes per resource
 
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
