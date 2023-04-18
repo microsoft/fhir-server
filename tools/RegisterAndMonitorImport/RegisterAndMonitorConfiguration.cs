@@ -44,6 +44,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
         /// <summary>
         /// a simple flag to indicate that when true we're going to use the token for/// our http POST/GET
         /// this is useful when you have a Paas deployment if you set to false then you could use it against an oss fhir service
+        /// and Token properties do not need to be set.
         /// </summary>
         public bool UseBearerToken { get; set; }
 
