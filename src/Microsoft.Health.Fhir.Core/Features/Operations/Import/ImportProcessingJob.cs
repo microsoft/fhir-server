@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     method: "Import",
                     uriString: inputData.UriString,
                     baseUriString: inputData.BaseUriString,
-                    correlationId: inputData.JobId,
+                    correlationId: inputData.JobId, // TODO: Replace by group id in stage 2
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {

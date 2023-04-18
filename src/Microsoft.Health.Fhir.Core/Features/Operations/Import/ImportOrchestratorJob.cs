@@ -281,51 +281,122 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobInputData coordDefinition, ImportOrchestratorJobResult currentResult, bool isMerge, CancellationToken cancellationToken)
         {
-            currentResult.TotalSizeInBytes = 0;
-
-            // split blobs by size
-            var inputs = new List<Models.InputResource>();
-            foreach (var input in coordDefinition.Input)
+            if (isMerge)
             {
-                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                currentResult.TotalSizeInBytes += blobLength;
-                var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
-                numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
-                numberOfStreams = isMerge ? numberOfStreams : 1; // only one blob if not merge
-                for (var stream = 0; stream < numberOfStreams; stream++)
+                currentResult.TotalSizeInBytes = 0;
+
+                // split blobs by size
+                var inputs = new List<Models.InputResource>();
+                foreach (var input in coordDefinition.Input)
                 {
-                    var newInput = input.Clone();
-                    newInput.Offset = stream * BytesToRead;
-                    newInput.BytesToRead = BytesToRead;
-                    inputs.Add(newInput);
+                    var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                    currentResult.TotalSizeInBytes += blobLength;
+                    var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
+                    numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
+                    numberOfStreams = isMerge ? numberOfStreams : 1; // only one blob if not merge
+                    for (var stream = 0; stream < numberOfStreams; stream++)
+                    {
+                        var newInput = input.Clone();
+                        newInput.Offset = stream * BytesToRead;
+                        newInput.BytesToRead = BytesToRead;
+                        inputs.Add(newInput);
+                    }
                 }
+
+                var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
+                progress.Report(JsonConvert.SerializeObject(currentResult));
+
+                await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
             }
-
-            ////foreach (var input in isMerge ? inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)) : inputs.Skip(currentResult.CreatedJobCount))
-            foreach (var input in inputs.Skip(currentResult.CreatedJobCount))
+            else
             {
-                if (cancellationToken.IsCancellationRequested)
+                currentResult.TotalSizeInBytes = currentResult.TotalSizeInBytes ?? 0;
+
+                foreach (var input in coordDefinition.Input.Skip(currentResult.CreatedJobCount))
                 {
-                    throw new OperationCanceledException();
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException();
+                    }
+
+                    while (currentResult.RunningJobIds.Count >= _importConfiguration.MaxRunningProcessingJobCount)
+                    {
+                        await WaitRunningJobComplete(progress, coord, currentResult, cancellationToken);
+                    }
+
+                    (long processingJobId, long endSequenceId, long blobSizeInBytes) = await CreateNewProcessingJobAsync(input, coord, coordDefinition, currentResult, cancellationToken);
+
+                    currentResult.RunningJobIds.Add(processingJobId);
+                    currentResult.CurrentSequenceId = endSequenceId;
+                    currentResult.TotalSizeInBytes += blobSizeInBytes;
+                    currentResult.CreatedJobCount += 1;
+                    progress.Report(JsonConvert.SerializeObject(currentResult));
                 }
 
-                while (currentResult.RunningJobIds.Count >= _importConfiguration.MaxRunningProcessingJobCount)
+                while (currentResult.RunningJobIds.Count > 0)
                 {
                     await WaitRunningJobComplete(progress, coord, currentResult, cancellationToken);
                 }
-
-                (long processingJobId, long endSequenceId) = await CreateNewProcessingJobAsync(input, coord, coordDefinition, currentResult, cancellationToken);
-
-                currentResult.RunningJobIds.Add(processingJobId);
-                currentResult.CurrentSequenceId = endSequenceId;
-                currentResult.CreatedJobCount += 1;
-                progress.Report(JsonConvert.SerializeObject(currentResult));
             }
+        }
 
-            while (currentResult.RunningJobIds.Count > 0)
+        private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        {
+            do
             {
-                await WaitRunningJobComplete(progress, coord, currentResult, cancellationToken);
+                var completedJobIds = new HashSet<long>();
+                var jobIdsToCheck = jobIds.Take(20).ToList();
+                var jobInfos = new List<JobInfo>();
+                try
+                {
+                    jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to get running jobs.");
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                foreach (var jobInfo in jobInfos)
+                {
+                    if (jobInfo.Status != JobStatus.Created && jobInfo.Status != JobStatus.Running)
+                    {
+                        if (jobInfo.Status == JobStatus.Completed)
+                        {
+                            var procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
+                            currentResult.SucceedImportCount += procesingJobResult.SucceedCount;
+                            currentResult.FailedImportCount += procesingJobResult.FailedCount;
+                        }
+                        else if (jobInfo.Status == JobStatus.Failed)
+                        {
+                            var procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobErrorResult>(jobInfo.Result);
+                            throw new ImportProcessingException(procesingJobResult.Message);
+                        }
+                        else if (jobInfo.Status == JobStatus.Cancelled)
+                        {
+                            throw new OperationCanceledException("Import operation cancelled by customer.");
+                        }
+
+                        completedJobIds.Add(jobInfo.Id);
+                    }
+                }
+
+                if (completedJobIds.Count > 0)
+                {
+                    foreach (var jobId in completedJobIds)
+                    {
+                        jobIds.Remove(jobId);
+                    }
+
+                    progress.Report(JsonConvert.SerializeObject(currentResult));
+                }
+                else
+                {
+                    // Only wait if no completed job (optimized for small jobs)
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                }
             }
+            while (jobIds.Count > 0);
         }
 
         private async Task WaitRunningJobComplete(IProgress<string> progress, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
@@ -383,35 +454,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<(long jobId, long endSequenceId)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo coord, ImportOrchestratorJobInputData coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<Models.InputResource> inputs, long groupId, ImportOrchestratorJobInputData coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        {
+            var definitions = new List<string>();
+            foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
+            {
+                var importJobPayload = new ImportProcessingJobInputData()
+                {
+                    TypeId = (int)JobType.ImportProcessing,
+                    ResourceLocation = input.Url.ToString(),
+                    Offset = input.Offset,
+                    BytesToRead = input.BytesToRead,
+                    UriString = coordDefinition.RequestUri.ToString(),
+                    BaseUriString = coordDefinition.BaseUri.ToString(),
+                    ResourceType = input.Type,
+                    JobId = $"{groupId}", // TODO: remove in stage 2
+                };
+
+                definitions.Add(JsonConvert.SerializeObject(importJobPayload));
+            }
+
+            try
+            {
+                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Import, definitions.ToArray(), groupId, false, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
+                return jobIds;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to enqueue job.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+        }
+
+        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
             long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
             long estimatedResourceNumber = CalculateResourceNumberByResourceSize(blobSizeInBytes, DefaultResourceSizePerByte);
-            long beginSequenceId = coordDefinition.StartSequenceId > 0 ? currentResult.CurrentSequenceId : 0;
-            long endSequenceId = coordDefinition.StartSequenceId > 0 ? beginSequenceId + estimatedResourceNumber : 0;
+            long beginSequenceId = currentResult.CurrentSequenceId;
+            long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
-            var importJobPayload = new ImportProcessingJobInputData()
+            ImportProcessingJobInputData importJobPayload = new ImportProcessingJobInputData()
             {
                 TypeId = (int)JobType.ImportProcessing,
                 ResourceLocation = input.Url.ToString(),
-                Offset = input.Offset,
-                BytesToRead = input.BytesToRead,
-                UriString = coordDefinition.RequestUri.ToString(),
-                BaseUriString = coordDefinition.BaseUri.ToString(),
+                UriString = inputData.RequestUri.ToString(),
+                BaseUriString = inputData.BaseUri.ToString(),
                 ResourceType = input.Type,
                 BeginSequenceId = beginSequenceId,
                 EndSequenceId = endSequenceId,
-                JobId = $"{coord.GroupId}_{beginSequenceId}",
+                JobId = $"{jobInfo.GroupId}_{beginSequenceId}",
             };
 
             string[] definitions = new string[] { JsonConvert.SerializeObject(importJobPayload) };
 
             try
             {
-                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(coord.QueueType, definitions, coord.GroupId, false, false, cancellationToken))[0];
+                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(jobInfo.QueueType, definitions, jobInfo.GroupId, false, false, cancellationToken))[0];
 
-                return (jobInfoFromServer.Id, endSequenceId);
+                return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
             }
             catch (Exception ex)
             {

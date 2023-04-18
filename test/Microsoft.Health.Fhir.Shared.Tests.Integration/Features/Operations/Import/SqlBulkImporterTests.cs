@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInBulkOpertation_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-            await inputs.Writer.WriteAsync(new ImportResource(0, 0, default(ResourceWrapper)));
+            await inputs.Writer.WriteAsync(new ImportResource(1, 0, default(ResourceWrapper)));
             inputs.Writer.Complete();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInProcessResource_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-            await inputs.Writer.WriteAsync(new ImportResource(0, 0, default(ResourceWrapper)));
+            await inputs.Writer.WriteAsync(new ImportResource(1, 0, default(ResourceWrapper)));
             inputs.Writer.Complete();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();

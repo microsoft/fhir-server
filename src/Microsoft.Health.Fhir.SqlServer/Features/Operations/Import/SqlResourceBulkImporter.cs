@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
-                    if (resource.Id > 0) // this is a temporary hack. it will be removed on stage 2.
+                    if (resource.Id > 0) // this is a temporary hack. it will be removed in stage 2.
                     {
                         isMerge = false;
                     }
