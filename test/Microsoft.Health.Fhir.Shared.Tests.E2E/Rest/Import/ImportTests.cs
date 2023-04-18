@@ -370,8 +370,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(1, result.Error.Count);
             Assert.NotEmpty(result.Request);
 
-            string errorLoation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            string errorLocation = result.Error.ToArray()[0].Url;
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
 
             // Only check metric for local tests

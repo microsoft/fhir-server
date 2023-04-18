@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        [Fact]
+        [Fact(Skip = "Disabling/rebuilding of indexes is disabled because every E2E $import test is affected. There are special tests still.")]
         public async Task GivenImportOperationEnabled_WhenRebuildIndexesEnabled_ThenAllIndexesShouldBeRebuild()
         {
             if (!_fixture.IsUsingInProcTestServer)
