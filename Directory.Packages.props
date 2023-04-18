@@ -33,6 +33,11 @@
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
+    <PackageVersion Include="Firely.Fhir.Packages" Version="4.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.STU3" Version="5.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4" Version="5.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4B" Version="5.0.0" />
+    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R5" Version="5.0.0" />
     <PackageVersion Include="Hl7.Fhir.Base" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="FluentValidation" Version="11.5.2" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -42,10 +47,6 @@
     <PackageVersion Include="Hl7.Fhir.Specification.Data.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.Data.R5" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.Specification.Data.STU3" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4" Version="5.0.0" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R4B" Version="5.0.0" />
-    <PackageVersion Include="Hl7.Fhir.Validation.Legacy.R5" Version="5.0.0" />
     <PackageVersion Include="IdentityServer4" Version="4.1.2" />
     <PackageVersion Include="MediatR" Version="12.0.1" />
     <PackageVersion Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.20.0" />
@@ -83,7 +84,7 @@
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.1.0.62" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.1.0.62" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.1.0.101" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.1.0.7" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />

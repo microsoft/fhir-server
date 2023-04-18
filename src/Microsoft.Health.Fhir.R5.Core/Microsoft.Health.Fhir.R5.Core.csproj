@@ -8,6 +8,9 @@
   <ItemGroup>
     <None Remove="Features\Definition\unsupported-search-parameters.json" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.R4.Core.UnitTests\Features\Conformance\VersionSpecificMockResourceFactory.cs" Link="VersionSpecificMockResourceFactory.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" />

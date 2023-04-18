@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using Hl7.Fhir.Model;
 using static Hl7.Fhir.Model.CapabilityStatement;
 
@@ -24,22 +23,6 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
                     },
                 },
             };
-        }
-
-        public static void SetupMockResource(
-            CapabilityStatement capability,
-            ResourceType type,
-            IEnumerable<TypeRestfulInteraction> interactions,
-            IEnumerable<SearchParamComponent> searchParams = null,
-            ResourceVersionPolicy? versioningPolicy = null)
-        {
-            capability.Rest[0].Resource.Add(new ResourceComponent
-            {
-                Type = type,
-                Interaction = interactions?.Select(x => new ResourceInteractionComponent { Code = x }).ToList(),
-                SearchParam = searchParams?.ToList(),
-                Versioning = versioningPolicy,
-            });
         }
     }
 }

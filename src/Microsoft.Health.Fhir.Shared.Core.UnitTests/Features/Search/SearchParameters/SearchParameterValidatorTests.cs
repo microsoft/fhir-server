@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-            var duplicateCode = new SearchParameter { Url = "http://unique", Code = "duplicate", Base = new[] { ResourceType.Patient as ResourceType? } };
-            var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = new[] { ResourceType.Patient as ResourceType? } };
+            var duplicateCode = VersionSpecificSearchParameterFactory.CreateSearchParameter("http://unique", "duplicate", new[] { KnownResourceTypes.Patient });
+            var nullCode = VersionSpecificSearchParameterFactory.CreateSearchParameter("http://unique", null, new[] { KnownResourceTypes.Patient });
 
             var data = new List<object[]>();
             data.Add(new object[] { missingUrl, "POST" });
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> DuplicateCodeAtBaseResourceData()
         {
-            var duplicateCode1 = new SearchParameter { Url = "http://unique2", Code = "duplicate", Base = new[] { ResourceType.Resource as ResourceType? } };
+            var duplicateCode1 = VersionSpecificSearchParameterFactory.CreateSearchParameter("http://unique2", "duplicate", new[] { KnownResourceTypes.Resource });
 
             var data = new List<object[]>();
             data.Add(new object[] { duplicateCode1, "POST" });
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var duplicateUrl = new SearchParameter { Url = "http://duplicate" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
-            var uniqueCode = new SearchParameter { Url = "http://unique", Code = "unique", Base = new[] { ResourceType.Patient as ResourceType? } };
+            var uniqueCode = VersionSpecificSearchParameterFactory.CreateSearchParameter("http://unique", "unique", new[] { KnownResourceTypes.Patient });
 
             var data = new List<object[]>();
             data.Add(new object[] { uniqueUrl, "POST" });

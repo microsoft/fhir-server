@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             const ResourceType resourceType = ResourceType.Patient;
 
             CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, versioningPolicy);
+            VersionSpecificMockResourceFactory.SetupMockResource(statement, resourceType, null, null, versioningPolicy);
 
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
 
