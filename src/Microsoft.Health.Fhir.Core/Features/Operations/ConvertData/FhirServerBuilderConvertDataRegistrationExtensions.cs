@@ -32,6 +32,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddConvertDataTemplateProvider(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.AddSingleton<IConvertDataTemplateProvider, ContainerRegistryTemplateProvider>();
+            fhirServerBuilder.Services.AddSingleton<IConvertDataTemplateProvider, DefaultTemplateProvider>();
 
             return fhirServerBuilder;
         }

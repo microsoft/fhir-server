@@ -1,11 +1,14 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid;
 using EnsureThat;
-using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public DefaultTemplateProvider(
             IOptions<ConvertDataConfiguration> convertDataConfig,
-            ILogger<ContainerRegistryTemplateProvider> logger)
+            ILogger<IConvertDataTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(convertDataConfig, nameof(convertDataConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -44,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         protected MemoryCache Cache { get; }
 
-        protected ILogger<ContainerRegistryTemplateProvider> Logger { get; }
+        protected ILogger<IConvertDataTemplateProvider> Logger { get; }
 
         /// <summary>
         /// Fetch template collection from container registry or built-in archive.

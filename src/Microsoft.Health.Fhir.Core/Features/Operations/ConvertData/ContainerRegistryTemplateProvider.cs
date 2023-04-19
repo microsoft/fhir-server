@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         public ContainerRegistryTemplateProvider(
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
             IOptions<ConvertDataConfiguration> convertDataConfig,
-            ILogger<ContainerRegistryTemplateProvider> logger)
+            ILogger<IConvertDataTemplateProvider> logger)
             : base(convertDataConfig, logger)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
