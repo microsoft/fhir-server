@@ -62,6 +62,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     packagesToInclude.Add(packageVariables.CorePackageName);
                     packagesToInclude.Add(packageVariables.ExpansionsPackageName);
+
+                    // elements package name is not included in the reflection metadata, but we should try and include it
+                    var extensionsPackageName = packageVariables.ExpansionsPackageName.Replace("expansions", "elements", StringComparison.OrdinalIgnoreCase);
+                    packagesToInclude.Add(extensionsPackageName);
                 }
 
                 foreach (var package in _coreConfig.PackageConfiguration.PackageNames)
@@ -76,7 +80,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     // Allow local packages
                     var resolvedPath = Path.GetFullPath(_coreConfig.PackageConfiguration.PackageSource, Environment.CurrentDirectory);
-                    validationSource = new FhirPackageSource(_coreConfig.PackageConfiguration.PackageNames.Select(x => Path.GetFullPath(x, resolvedPath)).ToArray());
+                    validationSource = new FhirPackageSource(Directory.GetFiles(resolvedPath)
+                        .Where(f => packagesToInclude.Any(p => f.Contains(p, StringComparison.OrdinalIgnoreCase))).ToArray());
                 }
                 else
                 {
@@ -104,7 +109,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             FieldInfo coreField = type.GetField("FHIR_CORE_PACKAGE_NAME", BindingFlags.Static | BindingFlags.NonPublic);
             FieldInfo expansionsField = type.GetField("FHIR_CORE_EXPANSIONS_PACKAGE_NAME", BindingFlags.Static | BindingFlags.NonPublic);
 
-            return (serverField?.GetValue(null) as string, coreField?.GetValue(null) as string, expansionsField?.GetValue(null) as string);
+            var corePackageName = coreField?.GetValue(null) as string;
+            var expansionsPackageName = expansionsField?.GetValue(null) as string;
+            corePackageName = corePackageName.Replace("@", "-", StringComparison.OrdinalIgnoreCase).Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
+            expansionsPackageName = expansionsPackageName.Replace("@", "-", StringComparison.OrdinalIgnoreCase).Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+            return (serverField?.GetValue(null) as string, corePackageName, expansionsPackageName);
         }
 
         private Validator GetValidator()

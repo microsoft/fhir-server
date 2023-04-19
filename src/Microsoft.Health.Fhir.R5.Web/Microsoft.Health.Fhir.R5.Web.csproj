@@ -6,6 +6,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="hl7.fhir.r5.core#5.0.0.tgz" />
+    <None Remove="hl7.fhir.r5.expansions#5.0.0.tgz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="hl7.fhir.r5.core#5.0.0.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="hl7.fhir.r5.expansions#5.0.0.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="IdentityServer4" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
