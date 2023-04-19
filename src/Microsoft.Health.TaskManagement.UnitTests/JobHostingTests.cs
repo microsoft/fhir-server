@@ -36,7 +36,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             List<string> definitions = new List<string>();
             for (int i = 0; i < jobCount; ++i)
             {
-                definitions.Add(jobCount.ToString());
+                definitions.Add(i.ToString());
             }
 
             IEnumerable<JobInfo> jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
