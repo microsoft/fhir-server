@@ -200,6 +200,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 throw new BadRequestException(Resources.SchemaVersionNeedsToBeUpgraded);
             }
 
+            // If the search parameter table in SQL does not yet contain the larger status column we reset back to disabled status
+            if (_schemaInformation.Current < (int)SchemaVersion.V52)
+            {
+                foreach (var status in statuses)
+                {
+                    if (status.Status == SearchParameterStatus.Unsupported)
+                    {
+                        status.Status = SearchParameterStatus.Disabled;
+                    }
+                }
+            }
+
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
