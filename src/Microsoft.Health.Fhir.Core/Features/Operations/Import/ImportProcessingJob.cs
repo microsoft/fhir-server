@@ -87,8 +87,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
 
-                // Clean resources before import start
-                await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
+                if (inputData.EndSequenceId > 0)
+                {
+                    // Clean resources before import start
+                    await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
+                }
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData), cancellationToken);
