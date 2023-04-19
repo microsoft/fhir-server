@@ -6,17 +6,17 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.JobManagement
+namespace Microsoft.Health.TaskManagement.Exceptions
 {
-    public class JobConflictException : Exception
+    public class RetriableJobException : Exception
     {
-        public JobConflictException(string message)
+        public RetriableJobException(string message)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public JobConflictException(string message, Exception innerException)
+        public RetriableJobException(string message, Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));

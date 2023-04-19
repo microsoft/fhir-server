@@ -5,9 +5,10 @@
 
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.JobManagement;
+namespace Microsoft.Health.TaskManagement.Exceptions;
 
 public static class JobInfoExtensions
 {

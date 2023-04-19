@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.TaskManagement.Exceptions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement

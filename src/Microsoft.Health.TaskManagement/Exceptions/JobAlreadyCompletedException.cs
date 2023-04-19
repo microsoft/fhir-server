@@ -6,40 +6,21 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.JobManagement
+namespace Microsoft.Health.TaskManagement.Exceptions
 {
-    public class JobExecutionException : Exception
+    public class JobAlreadyCompletedException : Exception
     {
-        public JobExecutionException(string message)
-            : base(message)
-        {
-            Error = null;
-        }
-
-        public JobExecutionException(string message, object error)
+        public JobAlreadyCompletedException(string message)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
-
-            Error = error;
         }
 
-        public JobExecutionException(string message, Exception innerException)
-            : this(message, null, innerException)
-        {
-        }
-
-        public JobExecutionException(string message, object error, Exception innerException)
+        public JobAlreadyCompletedException(string message, Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));
             EnsureArg.IsNotNull(innerException, nameof(innerException));
-
-            Error = error;
         }
-
-        public object Error { get; private set; }
-
-        public bool RequestCancellationOnFailure { get; set; }
     }
 }

@@ -19,6 +19,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.TaskManagement.Exceptions;
 using Newtonsoft.Json;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 

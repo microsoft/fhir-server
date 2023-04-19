@@ -18,6 +18,7 @@ using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.TaskManagement.Exceptions;
 using Polly;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;

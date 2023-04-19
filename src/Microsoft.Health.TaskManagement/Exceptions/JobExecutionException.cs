@@ -6,21 +6,40 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.JobManagement
+namespace Microsoft.Health.TaskManagement.Exceptions
 {
-    public class RetriableJobException : Exception
+    public class JobExecutionException : Exception
     {
-        public RetriableJobException(string message)
+        public JobExecutionException(string message)
+            : base(message)
+        {
+            Error = null;
+        }
+
+        public JobExecutionException(string message, object error)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            Error = error;
         }
 
-        public RetriableJobException(string message, Exception innerException)
+        public JobExecutionException(string message, Exception innerException)
+            : this(message, null, innerException)
+        {
+        }
+
+        public JobExecutionException(string message, object error, Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));
             EnsureArg.IsNotNull(innerException, nameof(innerException));
+
+            Error = error;
         }
+
+        public object Error { get; private set; }
+
+        public bool RequestCancellationOnFailure { get; set; }
     }
 }

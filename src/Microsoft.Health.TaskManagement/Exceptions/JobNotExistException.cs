@@ -6,7 +6,7 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.JobManagement
+namespace Microsoft.Health.TaskManagement.Exceptions
 {
     public class JobNotExistException : Exception
     {

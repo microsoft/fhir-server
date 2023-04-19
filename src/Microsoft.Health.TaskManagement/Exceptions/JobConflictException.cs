@@ -6,17 +6,17 @@
 using System;
 using EnsureThat;
 
-namespace Microsoft.Health.JobManagement
+namespace Microsoft.Health.TaskManagement.Exceptions
 {
-    public class JobAlreadyCompletedException : Exception
+    public class JobConflictException : Exception
     {
-        public JobAlreadyCompletedException(string message)
+        public JobConflictException(string message)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public JobAlreadyCompletedException(string message, Exception innerException)
+        public JobConflictException(string message, Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));

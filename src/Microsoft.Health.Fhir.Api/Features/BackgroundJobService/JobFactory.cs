@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.TaskManagement.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
 {
