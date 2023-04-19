@@ -143,6 +143,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             long endSequenceId = inputData.EndSequenceId;
             long endIndex = result.CurrentIndex;
 
+            if (endSequenceId == 0)
+            {
+                return;
+            }
+
             try
             {
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
