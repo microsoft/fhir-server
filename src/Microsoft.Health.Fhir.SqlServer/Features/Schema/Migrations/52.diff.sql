@@ -11,6 +11,11 @@ ALTER TABLE [dbo].[SearchParam]
    ALTER COLUMN [Status] varchar(20)
 GO
 
+UPDATE [dbo].[SearchParam]
+SET [Status] = 'Unsupported'
+WHERE [Status] = 'Disabled'
+GO
+
 CREATE OR ALTER PROCEDURE dbo.UpsertSearchParams
 @searchParams dbo.SearchParamTableType_2 READONLY
 AS
