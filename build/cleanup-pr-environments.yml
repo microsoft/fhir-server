@@ -24,9 +24,19 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: InlineScript
         Inline: |
-          $excludeList = ${env:Exclude}.Split(',').Trim()
+          Write-Host "Starting"
+
+          Write-Host ${env:Exclude}
+          try {
+            $excludeList = ${env:Exclude}.Split(',').Trim()
+          }
+          catch {
+          }
+
+          Write-Host "Getting resource groups"
           $resourceGroups = Get-AzResourceGroup -Name "$(resourceGroupRoot)*" -Location "$(ResourceGroupRegion)" | Where ResourceGroupName -NotIn $excludeList 
 
+          Write-Host "Finding cutoff time"
           $cutoffTime = Get-Date
           If (${env:DeleteRecent} -ne $true)
           {
@@ -35,6 +45,7 @@ stages:
 
           ForEach ($group in $resourceGroups)
           {
+            Write-Host "Deleting $($group.ResourceGroupName)"
             $deploymentTimes = Get-AzResourceGroupDeployment -ResourceGroupName $group.ResourceGroupName | Select Timestamp | Where Timestamp -lt $cutoffTime
             If ($deploymentTimes.Count -gt 0)
             {
