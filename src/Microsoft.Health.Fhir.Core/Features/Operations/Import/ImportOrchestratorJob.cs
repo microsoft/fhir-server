@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                while (currentResult.RunningJobIds.Count >= _importConfiguration.MaxRunningProcessingJobCount)
+                while (currentResult.RunningJobIds.Count >= 60)
                 {
                     await WaitRunningJobComplete(progress, jobInfo, currentResult, cancellationToken);
                 }
