@@ -1,8 +1,7 @@
 # DESCRIPTION: 	
 # Removes resource groups used in PRs.
-# THIS WILL DELETE ALL PR RESOURCE GROUPS, EVEN THOSE CURRENTLY RUNNING.
-# Check that no PRs are currently running and no one needs any of the resource groups before running.
 # The Exclude variable can be used to preserve specific resource groups. It is a comma seperated list of the full resource group names. 
+# The DeleteRecent variable can be used to delete recent runs. Otherwise only resource groups with no deployments in the last week will be deleted.
 
 variables:
 - template: build-variables.yml
