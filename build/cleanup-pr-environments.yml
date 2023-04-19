@@ -26,4 +26,19 @@ stages:
         ScriptType: InlineScript
         Inline: |
           $excludeList = ${env:Exclude}.Split(',').Trim()
-          Get-AzResourceGroup -Name "$(resourceGroupRoot)*" -Location "$(ResourceGroupRegion)" | Where ResourceGroupName -NotIn $excludeList | Remove-AzResourceGroup -Verbose -Force
+          $resourceGroups = Get-AzResourceGroup -Name "$(resourceGroupRoot)*" -Location "$(ResourceGroupRegion)" | Where ResourceGroupName -NotIn $excludeList 
+
+          $cutoffTime = Get-Date
+          If (${env:DeleteRecent} -ne $true)
+          {
+            $cutoffTime = $cutoffTime.AddDays(-7)
+          }
+
+          ForEach ($group in $resourceGroups)
+          {
+            $deploymentTimes = Get-AzResourceGroupDeployment -ResourceGroupName $group.ResourceGroupName | Select Timestamp | Where Timestamp -lt $cutoffTime
+            If ($deploymentTimes.Count -gt 0)
+            {
+              Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force
+            }
+          }
