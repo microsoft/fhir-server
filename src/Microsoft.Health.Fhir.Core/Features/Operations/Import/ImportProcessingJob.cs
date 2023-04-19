@@ -146,6 +146,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new RetriableJobException("Failed to load data", ex);
                 }
 
+                jobInfo.Data = currentResult.SucceedCount;
+
                 return JsonConvert.SerializeObject(currentResult);
             }
             catch (TaskCanceledException canceledEx)
