@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -383,8 +384,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlDbType = SqlDbType.Structured,
                     Value = collection,
                     Direction = ParameterDirection.Input,
-                    TypeName = "dbo.SearchParamTableType_2",
+                    TypeName = "dbo.SearchParamTableType_1",
                 };
+
+                if (_schemaInformation.Current >= (int)SchemaVersion.V52)
+                {
+                    tableValuedParameter = new SqlParameter
+                    {
+                        ParameterName = "searchParamStatuses",
+                        SqlDbType = SqlDbType.Structured,
+                        Value = collection,
+                        Direction = ParameterDirection.Input,
+                        TypeName = "dbo.SearchParamTableType_2",
+                    };
+                }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
