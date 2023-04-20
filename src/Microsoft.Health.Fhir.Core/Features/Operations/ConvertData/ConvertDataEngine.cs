@@ -49,10 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         {
             IConvertDataTemplateProvider convertDataTemplateProvider = _templateProviderFactory.GetTemplateProvider(convertRequest);
 
-            List<Dictionary<string, DotLiquid.Template>> templateCollection;
-
-            // TODO: add try-catch for Unauthorized Exception
-            templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
+            var templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
 
             ITemplateProvider templateProvider = new TemplateProvider(templateCollection);
             if (templateProvider == null)

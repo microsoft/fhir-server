@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private ContainerRegistryTemplateProvider _containerRegistryTemplateProvider;
         private DefaultTemplateProvider _defaultTemplateProvider;
 
-        public TemplateProviderFactory(ContainerRegistryTemplateProvider containerRegistryTemplateProvider, DefaultTemplateProvider defaultTemplateProvider) 
+        public TemplateProviderFactory(ContainerRegistryTemplateProvider containerRegistryTemplateProvider, DefaultTemplateProvider defaultTemplateProvider)
         {
             _containerRegistryTemplateProvider = containerRegistryTemplateProvider;
             _defaultTemplateProvider = defaultTemplateProvider;
