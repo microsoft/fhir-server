@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
 
                 // Initialize error store
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.Id), cancellationToken);
+                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
@@ -214,9 +214,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private static string GetErrorFileName(string resourceType, long jobId)
+        private static string GetErrorFileName(string resourceType, long groupId, long jobId)
         {
-            return $"{resourceType}{jobId}.ndjson";
+            return $"{resourceType}{groupId}_{jobId}.ndjson"; // jobId instead of resources surrogate id
         }
     }
 }
