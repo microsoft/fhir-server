@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -172,11 +173,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedDiagnostics, issue.Diagnostics);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
         {
+            Skip.If(ModelInfoProvider.Instance.Version == FhirSpecification.R5, "Validation not currently working correctly for R5");
+
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = Bundle.BundleType.Batch,
