@@ -375,6 +375,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
+                if (_schemaInformation.Current < (int)SchemaVersion.V52)
+                {
+                    foreach (var status in statuses)
+                    {
+                        if (status.Status == SearchParameterStatus.Unsupported)
+                        {
+                            status.Status = SearchParameterStatus.Disabled;
+                        }
+                    }
+                }
+
                 var collection = new SearchParameterStatusCollection();
                 collection.AddRange(statuses);
 
