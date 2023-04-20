@@ -295,7 +295,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     currentResult.TotalSizeInBytes += blobLength;
                     var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
                     numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
-                    numberOfStreams = isMerge ? numberOfStreams : 1; // only one blob if not merge
                     for (var stream = 0; stream < numberOfStreams; stream++)
                     {
                         var newInput = input.Clone();
