@@ -23,22 +23,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class ConvertDataEngine : IConvertDataEngine
     {
-        private readonly IConvertDataTemplateProvider _convertDataTemplateProvider;
+        private readonly TemplateProviderFactory _templateProviderFactory;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
         private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
 
         public ConvertDataEngine(
-            IConvertDataTemplateProvider convertDataTemplateProvider,
+            TemplateProviderFactory templateProviderFactory,
             IOptions<ConvertDataConfiguration> convertDataConfiguration,
             ILogger<ConvertDataEngine> logger)
         {
-            EnsureArg.IsNotNull(convertDataTemplateProvider, nameof(convertDataTemplateProvider));
+            EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
             EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _convertDataTemplateProvider = convertDataTemplateProvider;
+            _templateProviderFactory = templateProviderFactory;
             _convertDataConfiguration = convertDataConfiguration.Value;
             _logger = logger;
 
@@ -47,7 +47,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
         {
-            var templateCollection = await _convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
+            IConvertDataTemplateProvider convertDataTemplateProvider = _templateProviderFactory.GetTemplateProvider(convertRequest);
+
+            List<Dictionary<string, DotLiquid.Template>> templateCollection;
+
+            try
+            {
+                templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                throw new UnauthorizedAccessException(ex.Message); // TODO: update caught exception and thrown exception
+            }
 
             ITemplateProvider templateProvider = new TemplateProvider(templateCollection);
             if (templateProvider == null)
