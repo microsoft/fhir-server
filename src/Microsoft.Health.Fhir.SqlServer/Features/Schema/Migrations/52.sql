@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (51, 'started');
+VALUES (52, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -944,7 +944,7 @@ CREATE TABLE dbo.SchemaMigrationProgress (
 CREATE TABLE dbo.SearchParam (
     SearchParamId        SMALLINT           IDENTITY (1, 1) NOT NULL,
     Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status               VARCHAR (10)       NULL,
+    Status               VARCHAR (20)       NULL,
     LastUpdated          DATETIMEOFFSET (7) NULL,
     IsPartiallySupported BIT                NULL,
     CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
@@ -5627,7 +5627,7 @@ IF @InitialTranCount = 0
 
 GO
 CREATE PROCEDURE dbo.UpsertSearchParams
-@searchParams dbo.SearchParamTableType_1 READONLY
+@searchParams dbo.SearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

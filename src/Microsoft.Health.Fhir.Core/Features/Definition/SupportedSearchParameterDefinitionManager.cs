@@ -114,25 +114,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             throw new NotImplementedException();
         }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes)
-        {
-            return _inner.GetSearchParametersByResourceTypes(resourceTypes).Where(x => x.IsSupported);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(ICollection<string> definitionUrls)
-        {
-            return _inner.GetSearchParametersByUrls(definitionUrls).Where(x => x.IsSupported);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByCodes(ICollection<string> codes)
-        {
-            return _inner.GetSearchParametersByCodes(codes).Where(x => x.IsSupported);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
-        {
-            return _inner.GetSearchParametersByIds(ids).Where(x => x.IsSupported);
-        }
     }
 }

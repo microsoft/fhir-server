@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
         // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
-        internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; }
+        internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; set; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
@@ -221,26 +221,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
             await EnsureInitializedAsync(cancellationToken);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes)
-        {
-            return TypeLookup.Where(t => resourceTypes.Contains(t.Key)).SelectMany(t => t.Value.Values);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(ICollection<string> definitionUrls)
-        {
-            return UrlLookup.Where(t => definitionUrls.Contains(t.Key)).Select(t => t.Value);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByCodes(ICollection<string> codes)
-        {
-            return UrlLookup.Where(t => codes.Contains(t.Value.Code)).Select(t => t.Value);
-        }
-
-        public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
-        {
-            throw new NotImplementedException();
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)

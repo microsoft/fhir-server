@@ -61,5 +61,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V49 = 49,
         V50 = 50,
         V51 = 51,
+        V52 = 52,
     }
 }

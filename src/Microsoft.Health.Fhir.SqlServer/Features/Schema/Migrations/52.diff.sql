@@ -1,22 +1,23 @@
-﻿/*************************************************************
-    Stored procedures - UpsertSearchParams
-**************************************************************/
---
--- STORED PROCEDURE
---     UpsertSearchParams
---
--- DESCRIPTION
---     Given a set of search parameters, creates or updates the parameters.
---
--- PARAMETERS
---     @searchParams
---         * The updated existing search parameters or the new search parameters
---
--- RETURN VALUE
---     The IDs and URIs of the search parameters that were inserted (not updated).
---
-CREATE PROCEDURE dbo.UpsertSearchParams
-    @searchParams dbo.SearchParamTableType_2 READONLY
+if(not exists(select * from sys.types WHERE is_table_type = 1 and name = 'SearchParamTableType_2'))
+BEGIN
+    CREATE TYPE dbo.SearchParamTableType_2 AS TABLE (
+    Uri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status               VARCHAR (20)  NOT NULL,
+    IsPartiallySupported BIT           NOT NULL);
+END
+GO
+
+ALTER TABLE [dbo].[SearchParam]
+   ALTER COLUMN [Status] varchar(20)
+GO
+
+UPDATE [dbo].[SearchParam]
+SET [Status] = 'Unsupported'
+WHERE [Status] = 'Disabled'
+GO
+
+CREATE OR ALTER PROCEDURE dbo.UpsertSearchParams
+@searchParams dbo.SearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -26,8 +27,6 @@ DECLARE @lastUpdated AS DATETIMEOFFSET (7) = SYSDATETIMEOFFSET();
 DECLARE @summaryOfChanges TABLE (
     Uri    VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Action VARCHAR (20)  NOT NULL);
-
--- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
 MERGE INTO dbo.SearchParam WITH (TABLOCKX)
  AS target
 USING @searchParams AS source ON target.Uri = source.Uri
@@ -45,4 +44,3 @@ FROM   dbo.SearchParam AS searchParam
        ON searchParam.Uri = upsertedSearchParam.Uri
 WHERE  upsertedSearchParam.Action = 'INSERT';
 COMMIT TRANSACTION;
-GO

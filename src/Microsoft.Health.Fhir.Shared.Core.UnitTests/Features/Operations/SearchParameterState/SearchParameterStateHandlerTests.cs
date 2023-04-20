@@ -4,21 +4,26 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -39,28 +44,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private static readonly string PatientPreExisting2 = "http://test/Patient-preexisting2";
         private static readonly string PatientLastUpdated = "http://test/Patient-lastupdated";
 
-        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
         private readonly SearchParameterStateHandler _searchParameterHandler;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly CancellationToken _cancellationToken;
 
-        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
-        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
-        private readonly IMediator _mediator;
-        private readonly ILogger<SearchParameterStatusManager> _logger;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
+        private ISearchService _searchService = Substitute.For<ISearchService>();
 
         private const string HttpGetName = "GET";
         private const string HttpPostName = "POST";
 
         public SearchParameterStateHandlerTests()
         {
-            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
-            _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
-            _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _mediator = Substitute.For<IMediator>();
+            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterHandler = new SearchParameterStateHandler(_authorizationService, _searchParameterDefinitionManager, _searchParameterStatusManager);
             _cancellationToken = CancellationToken.None;
@@ -118,12 +119,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                     new List<SearchParameterComponentInfo> { new SearchParameterComponentInfo(new Uri(PatientLastUpdated)) }),
             };
 
-            _searchParameterDefinitionManager.AllSearchParameters.Returns(searchParamDefinitionStore);
-
-            _searchParameterDefinitionManager.GetSearchParametersByResourceTypes(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Name)));
-            _searchParameterDefinitionManager.GetSearchParametersByCodes(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Code)));
-            _searchParameterDefinitionManager.GetSearchParametersByUrls(Arg.Any<ICollection<string>>()).DefaultIfEmpty().Returns(args => searchParamDefinitionStore.Where(sp => args.Arg<ICollection<string>>().Contains(sp.Url.ToString())));
-
             _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new[]
                 {
@@ -169,6 +164,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                         Uri = new Uri(PatientLastUpdated),
                     },
                 });
+            ConcurrentDictionary<string, SearchParameterInfo> urlLookup = new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.ToDictionary(x => x.Url.ToString()));
+            _searchParameterDefinitionManager.UrlLookup = urlLookup;
+            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> typeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
+            typeLookup.GetOrAdd("Resource", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Resource").ToDictionary(x => x.Code.ToString())));
+            typeLookup.GetOrAdd("Patient", new ConcurrentDictionary<string, SearchParameterInfo>(searchParamDefinitionStore.Where(sp => sp.Name == "Patient").ToDictionary(x => x.Code.ToString())));
+            _searchParameterDefinitionManager.TypeLookup = typeLookup;
         }
 
         [Fact]
@@ -274,10 +275,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var request = new SearchParameterStateRequest(new List<Tuple<string, string>>() { new Tuple<string, string>(SearchParameterStateProperties.Code, "lastUpdated"), new Tuple<string, string>(SearchParameterStateProperties.ResourceType, "nomatch") });
 
             // Act
-            var response = await _searchParameterHandler.Handle(request, _cancellationToken);
-
             // Assert
-            Assert.Null(response);
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchParameterHandler.Handle(request, _cancellationToken));
         }
     }
 }

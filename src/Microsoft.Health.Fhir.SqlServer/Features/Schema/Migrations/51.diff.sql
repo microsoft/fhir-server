@@ -1,4 +1,4 @@
-﻿--DROP TABLE WatchdogLeases
+--DROP TABLE WatchdogLeases
 GO
 IF object_id('dbo.WatchdogLeases') IS NULL
 CREATE TABLE dbo.WatchdogLeases
