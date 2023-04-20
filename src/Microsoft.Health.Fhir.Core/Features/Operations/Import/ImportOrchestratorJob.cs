@@ -345,10 +345,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
+            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
+
             do
             {
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
-
                 var completedJobIds = new HashSet<long>();
                 var jobIdsToCheck = jobIds.Take(20).ToList();
                 var jobInfos = new List<JobInfo>();
@@ -394,6 +394,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     progress.Report(JsonConvert.SerializeObject(currentResult));
+                }
+                else
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
                 }
             }
             while (jobIds.Count > 0);
