@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
                         await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
-                        AppendDuplicatedResourceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
+                        AppendDuplicatedResourceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer, 0);
 
                         succeedCount += mergedResources.Count();
                         failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                         await FillResourceParamsBuffer(mergedResources.ToArray(), resourceParamsBuffer);
 
-                        AppendDuplicatedResourceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
+                        AppendDuplicatedResourceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer, 0);
                         succeedCount += mergedResources.Count();
                         failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
                     }
@@ -394,15 +394,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             foreach (var resource in resources)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.Resource.ResourceId, resource.Index)));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.Resource.ResourceId, resource.Index), resource.Offset));
             }
         }
 
-        private void AppendDuplicatedResourceErrorToBuffer(IEnumerable<SqlBulkCopyDataWrapper> resources, List<string> importErrorBuffer)
+        private void AppendDuplicatedResourceErrorToBuffer(IEnumerable<SqlBulkCopyDataWrapper> resources, List<string> importErrorBuffer, long offset)
         {
             foreach (SqlBulkCopyDataWrapper resourceWrapper in resources)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resourceWrapper.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resourceWrapper.Resource.ResourceId, resourceWrapper.Index)));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resourceWrapper.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resourceWrapper.Resource.ResourceId, resourceWrapper.Index), offset));
             }
         }
 

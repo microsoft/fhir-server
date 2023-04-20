@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInBulkOpertation_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-            await inputs.Writer.WriteAsync(new ImportResource(1, 0, default(ResourceWrapper)));
+            await inputs.Writer.WriteAsync(new ImportResource(1, 0, 0, default(ResourceWrapper)));
             inputs.Writer.Complete();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInErrorLogUpload_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-            await inputs.Writer.WriteAsync(new ImportResource(0, 0, "Error message"));
+            await inputs.Writer.WriteAsync(new ImportResource(0, 0, 0, "Error message"));
             inputs.Writer.Complete();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInProcessResource_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-            await inputs.Writer.WriteAsync(new ImportResource(1, 0, default(ResourceWrapper)));
+            await inputs.Writer.WriteAsync(new ImportResource(1, 0, 0, default(ResourceWrapper)));
             inputs.Writer.Complete();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
@@ -261,11 +261,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 {
                     if (resourceFailedRecords[i])
                     {
-                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, "Error message"));
+                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, 0, "Error message"));
                     }
                     else
                     {
-                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, CreateResourceWrapper()));
+                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, 0, CreateResourceWrapper()));
                     }
                 }
 

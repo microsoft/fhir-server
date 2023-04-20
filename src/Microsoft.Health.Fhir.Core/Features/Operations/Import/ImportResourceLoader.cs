@@ -122,11 +122,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         }
                     }
 
-                    processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
+                    processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator, offset));
                     buffer.Clear();
                 }
 
-                processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
+                processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator, offset));
                 while (processingTasks.Count > 0)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, (string content, long index)[] rawContents, Func<long, long> idGenerator)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, (string content, long index)[] rawContents, Func<long, long> idGenerator, long offset)
         {
             return await Task.Run(() =>
             {
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     try
                     {
-                        ImportResource importResource = _importResourceParser.Parse(id, index, content);
+                        ImportResource importResource = _importResourceParser.Parse(id, index, offset, content);
 
                         if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
                         {
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     catch (Exception ex)
                     {
                         // May contains customer's data, no error logs here.
-                        result.Add(new ImportResource(id, index, _importErrorSerializer.Serialize(index, ex)));
+                        result.Add(new ImportResource(id, index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
                     }
                 }
 

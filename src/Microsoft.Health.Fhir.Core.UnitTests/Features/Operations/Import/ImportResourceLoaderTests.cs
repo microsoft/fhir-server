@@ -64,14 +64,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException(errorMessage);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     ImportResource importResource = new ImportResource(null);
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     resetEvent1.Set();
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -233,12 +233,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     long surrogatedId = (long)callInfo[0];
                     long index = (long)callInfo[1];
-                    string content = (string)callInfo[2];
+                    string content = (string)callInfo[3];
                     ResourceWrapper resourceWrapper = new ResourceWrapper(
                             content,
                             "0",
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(surrogatedId, index, resourceWrapper);
+                    return new ImportResource(surrogatedId, index, 0, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();

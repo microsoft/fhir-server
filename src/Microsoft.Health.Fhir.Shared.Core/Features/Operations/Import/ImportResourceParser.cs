@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public ImportResource Parse(long id, long index, string rawContent)
+        public ImportResource Parse(long id, long index, long offset, string rawContent)
         {
             Resource resource = _parser.Parse<Resource>(rawContent);
             CheckConditionalReferenceInResource(resource);
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ResourceElement resourceElement = resource.ToResourceElement();
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new ImportResource(id, index, resourceWapper)
+            return new ImportResource(id, index, offset, resourceWapper)
             {
                 // this is temp hack as compressed stream goes away in stage 2
                 CompressedStream = id == 0 ? null : GenerateCompressedRawResource(resourceWapper.RawResource.Data),

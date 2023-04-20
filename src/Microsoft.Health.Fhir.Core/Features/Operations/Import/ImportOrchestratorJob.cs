@@ -284,6 +284,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (isMerge)
             {
                 currentResult.TotalSizeInBytes = 0;
+                currentResult.FailedImportCount = 0;
+                currentResult.SucceedImportCount = 0;
 
                 // split blobs by size
                 var inputs = new List<Models.InputResource>();
@@ -305,6 +307,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
                 progress.Report(JsonConvert.SerializeObject(currentResult));
+
+                currentResult.CreatedJobCount = jobIds.Count;
 
                 await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
             }

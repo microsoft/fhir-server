@@ -191,8 +191,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             "SearchParam");
 
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, resourceWrapper));
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex + 1), startIndex + 1, "Error"));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, 0, resourceWrapper));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex + 1), startIndex + 1, 0, "Error"));
                         resourceChannel.Writer.Complete();
                     });
 
