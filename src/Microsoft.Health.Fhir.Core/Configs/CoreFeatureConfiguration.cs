@@ -75,6 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
         /// </summary>
-        public bool SupportsSelectiveSearchParameters { get; set; }
+        public bool SupportsSelectableSearchParameters { get; set; }
     }
 }

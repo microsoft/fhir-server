@@ -3,16 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
+using Microsoft.Health.Fhir.Core.Models;
+
+namespace Microsoft.Health.Fhir.Core.Messages.SearchParameterState
 {
-    public enum SearchParameterStatus
+    public class SearchParameterStateUpdateResponse
     {
-        Disabled = 1,
-        Supported = 2,
-        Enabled = 3,
-        Deleted = 4,
-        PendingDelete = 5,
-        PendingDisable = 6,
-        Unsupported = 7,
+        public SearchParameterStateUpdateResponse(ResourceElement updateStatus = null)
+        {
+            UpdateStatus = updateStatus;
+        }
+
+        public ResourceElement UpdateStatus { get; }
     }
 }

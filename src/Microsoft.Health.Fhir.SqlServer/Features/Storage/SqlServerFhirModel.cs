@@ -194,24 +194,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                  _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlCommandWrapper.Connection.DataSource, sqlCommandWrapper.Connection.Database, version);
             }
 
-            // If we are applying a full snap shot schema file, or if the server is just starting up
-            if (runAllInitialization || _highestInitializedVersion == 0)
-            {
-                // Run the schema initialization required for all schema versions, from the minimum version to the current version.
-                await InitializeBase(cancellationToken);
+            // Run the schema initialization required for all schema versions, from the minimum version to the current version.
+            await InitializeBase(cancellationToken);
 
-                if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
-                {
-                    await InitializeSearchParameterStatuses(cancellationToken);
-                }
-            }
-            else
+            // If we are applying a full snap shot schema file, or if the server is just starting up
+            if (runAllInitialization)
             {
-                // Only run the schema initialization required for the current version
-                if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
-                {
-                    await InitializeSearchParameterStatuses(cancellationToken);
-                }
+                await InitializeSearchParameterStatuses(cancellationToken);
             }
 
             _highestInitializedVersion = version;
@@ -386,6 +375,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
                     .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
+                if (_schemaInformation.Current < (int)SchemaVersion.V52)
+                {
+                    foreach (var status in statuses)
+                    {
+                        if (status.Status == SearchParameterStatus.Unsupported)
+                        {
+                            status.Status = SearchParameterStatus.Disabled;
+                        }
+                    }
+                }
+
                 var collection = new SearchParameterStatusCollection();
                 collection.AddRange(statuses);
 
@@ -397,6 +397,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     Direction = ParameterDirection.Input,
                     TypeName = "dbo.SearchParamTableType_1",
                 };
+
+                if (_schemaInformation.Current >= (int)SchemaVersion.V52)
+                {
+                    tableValuedParameter = new SqlParameter
+                    {
+                        ParameterName = "searchParamStatuses",
+                        SqlDbType = SqlDbType.Structured,
+                        Value = collection,
+                        Direction = ParameterDirection.Input,
+                        TypeName = "dbo.SearchParamTableType_2",
+                    };
+                }
 
                 sqlCommandWrapper.Parameters.Add(tableValuedParameter);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);

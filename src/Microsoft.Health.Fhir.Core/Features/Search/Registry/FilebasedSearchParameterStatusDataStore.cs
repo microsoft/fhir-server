@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     .Select(x => new ResourceSearchParameterStatus
                     {
                         Uri = x,
-                        Status = SearchParameterStatus.Disabled,
+                        Status = SearchParameterStatus.Unsupported,
                         LastUpdated = Clock.UtcNow,
                     })
                     .Concat(unsupportedParams.PartialSupport
