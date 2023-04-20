@@ -81,7 +81,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     // Allow local packages
                     var resolvedPath = Path.GetFullPath(_coreConfig.PackageConfiguration.PackageSource, Environment.CurrentDirectory);
                     validationSource = new FhirPackageSource(Directory.GetFiles(resolvedPath)
-                        .Where(f => packagesToInclude.Any(p => f.Contains(p, StringComparison.OrdinalIgnoreCase))).ToArray());
+                        .Where(f => packagesToInclude.Any(p => f.Contains(p, StringComparison.OrdinalIgnoreCase)
+                        && f.EndsWith("tgz", StringComparison.OrdinalIgnoreCase))).ToArray());
                 }
                 else
                 {
