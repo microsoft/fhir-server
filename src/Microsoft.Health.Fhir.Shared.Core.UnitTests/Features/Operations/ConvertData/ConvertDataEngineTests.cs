@@ -396,19 +396,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
 
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            ContainerRegistryTemplateProvider containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            DefaultTemplateProvider defaultTemplateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+
+            TemplateProviderFactory templateProviderFactory = new TemplateProviderFactory(containerRegistryTemplateProvider, defaultTemplateProvider);
 
             return new ConvertDataEngine(
-                templateProvider,
+                templateProviderFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
         }
 
         private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
         {
-            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
-            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
-            return new ConvertDataEngine(templateProvider, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            ContainerRegistryTemplateProvider containerRegistryTemplateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
+            containerRegistryTemplateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+
+            DefaultTemplateProvider defaultTemplateProvider = Substitute.For<DefaultTemplateProvider>();
+            TemplateProviderFactory templateProviderFactory = new TemplateProviderFactory(containerRegistryTemplateProvider, defaultTemplateProvider);
+
+            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.

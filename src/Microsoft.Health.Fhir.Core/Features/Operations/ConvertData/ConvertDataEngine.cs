@@ -47,7 +47,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
         {
-            IConvertDataTemplateProvider convertDataTemplateProvider = _templateProviderFactory.GetTemplateProvider(convertRequest);
+            IConvertDataTemplateProvider convertDataTemplateProvider;
+
+            if (convertRequest.IsDefaultTemplateReference)
+            {
+                convertDataTemplateProvider = _templateProviderFactory.GetDefaultTemplateProvider();
+            }
+            else
+            {
+                convertDataTemplateProvider = _templateProviderFactory.GetContainerRegistryTemplateProvider();
+            }
 
             var templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
 

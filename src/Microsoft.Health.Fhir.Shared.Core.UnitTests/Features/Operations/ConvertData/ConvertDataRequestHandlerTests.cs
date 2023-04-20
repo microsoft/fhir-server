@@ -119,10 +119,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
 
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            var templateProviderFactory = Substitute.For<TemplateProviderFactory>();
 
             var convertDataEngine = new ConvertDataEngine(
-                templateProvider,
+                templateProviderFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
 

@@ -3,31 +3,31 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Messages.ConvertData;
+using System;
+using EnsureThat;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class TemplateProviderFactory
     {
-        private ContainerRegistryTemplateProvider _containerRegistryTemplateProvider;
-        private DefaultTemplateProvider _defaultTemplateProvider;
+        private IServiceProvider _sp;
 
-        public TemplateProviderFactory(ContainerRegistryTemplateProvider containerRegistryTemplateProvider, DefaultTemplateProvider defaultTemplateProvider)
+        public TemplateProviderFactory(IServiceProvider sp)
         {
-            _containerRegistryTemplateProvider = containerRegistryTemplateProvider;
-            _defaultTemplateProvider = defaultTemplateProvider;
+            EnsureArg.IsNotNull(sp, nameof(sp));
+
+            _sp = sp;
         }
 
-        public IConvertDataTemplateProvider GetTemplateProvider(ConvertDataRequest request)
+        public IConvertDataTemplateProvider GetContainerRegistryTemplateProvider()
         {
-            if (request.IsDefaultTemplateReference)
-            {
-                return _defaultTemplateProvider;
-            }
-            else
-            {
-                return _containerRegistryTemplateProvider;
-            }
+            return _sp.GetRequiredService<ContainerRegistryTemplateProvider>();
+        }
+
+        public IConvertDataTemplateProvider GetDefaultTemplateProvider()
+        {
+            return _sp.GetRequiredService<DefaultTemplateProvider>();
         }
     }
 }
