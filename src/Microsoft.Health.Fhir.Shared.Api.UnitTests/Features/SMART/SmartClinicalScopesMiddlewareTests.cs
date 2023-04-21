@@ -70,18 +70,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
-            var scopesClaim = new Claim(authorizationConfiguration.ScopesClaim, scopes);
-            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
-            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            httpContext.User = expectedPrincipal;
-            fhirRequestContext.Principal = expectedPrincipal;
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-            Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
+            }
         }
 
         [Theory]
@@ -170,17 +174,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
 
             var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "globalAdmin");
-            var scopesClaim = new Claim(authorizationConfiguration.ScopesClaim, "patient.patient.read");
-            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
-            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            httpContext.User = expectedPrincipal;
-            fhirRequestContext.Principal = expectedPrincipal;
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
-            Assert.Empty(fhirRequestContext.AccessControlContext.AllowedResourceActions);
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                Assert.Empty(fhirRequestContext.AccessControlContext.AllowedResourceActions);
+            }
         }
 
         [Fact]
@@ -202,20 +210,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             await LoadRoles(authorizationConfiguration);
 
             var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
-            var scopesClaim = new Claim(authorizationConfiguration.ScopesClaim, "patient.patient.read");
-            var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim });
-            var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            httpContext.User = expectedPrincipal;
-            fhirRequestContext.Principal = expectedPrincipal;
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var scopesClaim = new Claim(singleClaim, "patient.patient.read");
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
 
-            _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
 
-            await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
 
-            Assert.Equal(new Uri("https://fhirServer/Patient/foo"), fhirRequestContext.AccessControlContext.FhirUserClaim);
-            Assert.Equal("Patient", fhirRequestContext.AccessControlContext.CompartmentResourceType);
-            Assert.Equal("foo", fhirRequestContext.AccessControlContext.CompartmentId);
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                Assert.Equal(new Uri("https://fhirServer/Patient/foo"), fhirRequestContext.AccessControlContext.FhirUserClaim);
+                Assert.Equal("Patient", fhirRequestContext.AccessControlContext.CompartmentResourceType);
+                Assert.Equal("foo", fhirRequestContext.AccessControlContext.CompartmentId);
+            }
         }
 
         public static IEnumerable<object[]> GetTestScopes()
@@ -302,6 +314,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 .GetFileInfo("roles.json")
                 .CreateReadStream()
                 .Returns(new MemoryStream(Encoding.UTF8.GetBytes(JObject.FromObject(roles).ToString())));
+
+            authConfig.ScopesClaim = new[] { "scope", "roles" };
 
             var roleLoader = new RoleLoader(authConfig, hostEnvironment);
             await roleLoader.StartAsync(CancellationToken.None);
