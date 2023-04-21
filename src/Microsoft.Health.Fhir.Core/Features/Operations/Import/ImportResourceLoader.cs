@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const int DefaultChannelMaxCapacity = 500;
         private const int DefaultMaxBatchSize = 100;
         private static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
+        private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -98,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         continue;
                     }
 
-                    currentBytesRead += content.Length + Environment.NewLine.Length;
+                    currentBytesRead += Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
                     currentIndex++;
 
                     buffer.Add((content, currentIndex));

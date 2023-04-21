@@ -58,6 +58,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ImportProcessingJobInputData inputData = JsonConvert.DeserializeObject<ImportProcessingJobInputData>(jobInfo.Definition);
             ImportProcessingJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
 
+            if (inputData.EndSequenceId == 0) // in merge currentResult is irrelevant
+            {
+                currentResult.SucceedCount = 0;
+                currentResult.FailedCount = 0;
+                currentResult.CurrentIndex = 0;
+            }
+
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
                     uriString: inputData.UriString,
