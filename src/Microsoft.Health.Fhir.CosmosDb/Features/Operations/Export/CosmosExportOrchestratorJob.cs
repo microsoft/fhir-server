@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -65,17 +65,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         record.RequestUri,
                         record.ExportType,
                         format,
-                        string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
+                        record.ResourceType,
                         record.Filters,
                         record.Hash,
                         record.RollingFileSizeInMB,
                         record.RequestorClaims,
-                        since == null ? record.Since : since,
-                        till == null ? record.Till : till,
-                        startSurrogateId,
-                        endSurrogateId,
-                        globalStartSurrogateId,
-                        globalEndSurrogateId,
+                        record.Since,
+                        record.Till,
+                        startSurrogateId: null,
+                        endSurrogateId: null,
+                        globalStartSurrogateId: null,
+                        globalEndSurrogateId: null,
                         record.GroupId,
                         record.StorageAccountConnectionHash,
                         record.StorageAccountUri,

@@ -30,6 +30,7 @@ grant_type=client_credentials
 # &resource={{fhirurl}}
 # &client_id={{clientid}}
 # &client_secret={{clientsecret}}
+# &scope=fhir-api
 
 # ### Capture access token from getToken request
 

@@ -24,6 +24,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -51,7 +52,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             _throttlingConfiguration = new ThrottlingConfiguration
             {
-                ConcurrentRequestLimit = 5,
                 Enabled = true,
             };
 
@@ -99,8 +99,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(4)]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public void GivenRequestsBelowThreshold_WhenInvoked_Executes(int numberOfConcurrentRequests)
         {
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests + 1;
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
             tasks.Add((_middleware.Value.Invoke(_httpContext), _httpContext, _cts));
@@ -111,8 +114,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         }
 
         [Theory]
-        [InlineData(5)]
-        [InlineData(10)]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
         public async Task GivenRequestsAtOrAboveThreshold_WhenInvoked_ReturnsTooManyRequests(int numberOfConcurrentRequests)
         {
             _ = SetupPreexistingRequests(numberOfConcurrentRequests);
@@ -124,11 +127,14 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Fact]
-        public async Task GivenRequestsAtOrAboveThreshold_AndSecurityDisabled_Executes()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenRequestsAtOrAboveThreshold_AndSecurityDisabled_Executes(int numberOfConcurrentRequests)
         {
             _securityEnabled = false;
-            var mapping = SetupPreexistingRequests(numberOfConcurrentRequests: 10);
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
+            var mapping = SetupPreexistingRequests(numberOfConcurrentRequests + 1);
 
             await _middleware.Value.Invoke(_httpContext);
             Assert.Equal(429, _httpContext.Response.StatusCode);
@@ -138,10 +144,13 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _cts.Dispose();
         }
 
-        [Fact]
-        public async Task GivenRequestsToExcludedEndpoint_WhenInvoked_Executes()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenRequestsToExcludedEndpoint_WhenInvoked_Executes(int numberOfConcurrentRequests)
         {
-            var mapping = SetupPreexistingRequests(10, "health/check");
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
+            var mapping = SetupPreexistingRequests(numberOfConcurrentRequests + 10, "health/check");
             _cts.Cancel();
             await Task.WhenAll(mapping.Select(x => x.task));
 
@@ -149,12 +158,17 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             {
                 Assert.Equal(200, context.Response.StatusCode);
             }
+
+            _cts.Dispose();
         }
 
-        [Fact]
-        public async Task GivenRequestToExcludedEndpoint_WhenAlreadyThrottled_Succeeds()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenRequestToExcludedEndpoint_WhenAlreadyThrottled_Succeeds(int numberOfConcurrentRequests)
         {
-            var mapping = SetupPreexistingRequests(6);
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
+            var mapping = SetupPreexistingRequests(numberOfConcurrentRequests + 1);
 
             _httpContext.Request.Path = "/health/check";
             _httpContext.Request.Method = HttpMethod.Get.ToString();
@@ -165,16 +179,20 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             await Task.WhenAll(mapping.Select(x => x.task));
 
             Assert.Contains(mapping, x => x.httpContext.Response.StatusCode == 429);
+            _cts.Dispose();
         }
 
-        [Fact]
-        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenExistingRequestCompletes_TheQueuedRequestCompletes()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenExistingRequestCompletes_TheQueuedRequestCompletes(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.MaxMillisecondsInQueue = 5000000;
             _throttlingConfiguration.MaxQueueSize = 10;
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
 
             // fill up to max
-            var existingRequests = SetupPreexistingRequests(5);
+            var existingRequests = SetupPreexistingRequests(numberOfConcurrentRequests);
 
             // make this a short request
             _httpContext.Request.Path = "/duration/1";
@@ -188,14 +206,17 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.All(existingRequests.Skip(1), tuple => Assert.False(tuple.task.IsCompleted));
         }
 
-        [Fact]
-        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenMaxQueueTimeElapses_TheQueuedRequestReturns429()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenMaxQueueTimeElapses_TheQueuedRequestReturns429(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.MaxMillisecondsInQueue = 1;
             _throttlingConfiguration.MaxQueueSize = 10;
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
 
             // fill up to max
-            var existingRequests = SetupPreexistingRequests(5);
+            var existingRequests = SetupPreexistingRequests(numberOfConcurrentRequests);
 
             // make this a short request
             _httpContext.Request.Path = "/duration/1";
@@ -206,14 +227,17 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.All(existingRequests, tuple => Assert.False(tuple.task.IsCompleted));
         }
 
-        [Fact]
-        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenQueueIsSaturated_RequestsAreRejected()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenQueueIsSaturated_RequestsAreRejected(int numberOfConcurrentRequests)
         {
             _throttlingConfiguration.MaxMillisecondsInQueue = 5000000;
             _throttlingConfiguration.MaxQueueSize = 1;
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests;
 
             // fill up to max
-            var existingRequests = SetupPreexistingRequests(6);
+            var existingRequests = SetupPreexistingRequests(numberOfConcurrentRequests + _throttlingConfiguration.MaxQueueSize);
 
             // make this a short request
             _httpContext.Request.Path = "/duration/1";
@@ -229,9 +253,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Equal(200, _httpContext.Response.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429(int numberOfConcurrentRequests)
         {
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
                 Options.Create(_throttlingConfiguration),
@@ -245,9 +272,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Equal("1", values.ToString());
         }
 
-        [Fact]
-        public async Task GivenARequest_ThatResultsInRequestRateExceeded_ReturnsValidFhirResource()
+        [Theory]
+        [InlineData((int)ThrottlingLimitDefault.Gen1)]
+        [InlineData((int)ThrottlingLimitDefault.Gen2)]
+        public async Task GivenARequest_ThatResultsInRequestRateExceeded_ReturnsValidFhirResource(int numberOfConcurrentRequests)
         {
+            _throttlingConfiguration.ConcurrentRequestLimit = numberOfConcurrentRequests - 1;
             var throttlingMiddleware = new ThrottlingMiddleware(
                 context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
                 Options.Create(_throttlingConfiguration),

@@ -119,6 +119,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 
+        public TestSqlHashCalculator SqlQueryHashCalculator => _fixture.GetRequiredService<TestSqlHashCalculator>();
+
         public GetResourceHandler GetResourceHandler { get; set; }
 
         public IQueueClient QueueClient => _fixture.GetRequiredService<IQueueClient>();

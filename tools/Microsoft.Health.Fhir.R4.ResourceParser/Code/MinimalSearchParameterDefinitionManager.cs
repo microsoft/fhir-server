@@ -186,5 +186,25 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
                 CalculateSearchParameterHash();
             }
         }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByResourceTypes(ICollection<string> resourceTypes)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByUrls(ICollection<string> definitionUrls)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByCodes(ICollection<string> codes)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<SearchParameterInfo> GetSearchParametersByIds(ICollection<string> ids)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -33,6 +34,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -43,6 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSearchService : SearchService
     {
+        private static readonly GetResourceSurrogateIdRangesProcedure GetResourceSurrogateIdRanges = new GetResourceSurrogateIdRangesProcedure();
+
         private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
@@ -55,12 +59,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
+        private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
+        private readonly ISqlQueryHashCalculator _queryHashCalculator;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -73,15 +81,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            ISqlConnectionBuilder sqlConnectionBuilder,
+            ISqlRetryService sqlRetryService,
+            IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
+            ISqlQueryHashCalculator queryHashCalculator,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
@@ -89,6 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
@@ -97,6 +112,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _sqlConnectionBuilder = sqlConnectionBuilder;
+            _sqlRetryService = sqlRetryService;
+            _queryHashCalculator = queryHashCalculator;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -293,204 +311,234 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
-                if (exportTimeTravel)
+            SearchResult searchResult = null;
+            await _sqlRetryService.ExecuteSql(
+                async (cancellationToken) =>
                 {
-                    PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommandWrapper);
-                    sqlCommandWrapper.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
-                }
-                else
-                {
-                    var stringBuilder = new IndentedStringBuilder(new StringBuilder());
-
-                    EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
-
-                    var queryGenerator = new SqlQueryGenerator(
-                        stringBuilder,
-                        new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
-                        _model,
-                        searchType,
-                        _schemaInformation,
-                        currentSearchParameterHash);
-
-                    expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
-
-                    SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommandWrapper.Parameters, _logger);
-
-                    sqlCommandWrapper.CommandText = stringBuilder.ToString();
-                }
-
-                LogSqlCommand(sqlCommandWrapper);
-
-                using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
-                {
-                    if (clonedSearchOptions.CountOnly)
+                    using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
+                    using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
-                        await reader.ReadAsync(cancellationToken);
-                        long count = reader.GetInt64(0);
-                        if (count > int.MaxValue)
-                        {
-                            _requestContextAccessor.RequestContext.BundleIssues.Add(
-                                new OperationOutcomeIssue(
-                                    OperationOutcomeConstants.IssueSeverity.Error,
-                                    OperationOutcomeConstants.IssueType.NotSupported,
-                                    string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+                        // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
+                        // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
+                        // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
+                        connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                        await connection.OpenAsync(cancellationToken);
 
-                            throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                        sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+
+                        var exportTimeTravel = clonedSearchOptions.QueryHints != null && _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel;
+                        if (exportTimeTravel)
+                        {
+                            PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
+                            sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
-
-                        var searchResult = new SearchResult((int)count, clonedSearchOptions.UnsupportedSearchParams);
-
-                        // call NextResultAsync to get the info messages
-                        await reader.NextResultAsync(cancellationToken);
-
-                        return searchResult;
-                    }
-
-                    var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
-                    short? newContinuationType = null;
-                    long? newContinuationId = null;
-                    bool moreResults = false;
-                    int matchCount = 0;
-
-                    string sortValue = null;
-                    var isResultPartial = false;
-                    int numberOfColumnsRead = 0;
-
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        PopulateResourceTableColumnsToRead(
-                            reader,
-                            out short resourceTypeId,
-                            out string resourceId,
-                            out int version,
-                            out bool isDeleted,
-                            out long resourceSurrogateId,
-                            out string requestMethod,
-                            out bool isMatch,
-                            out bool isPartialEntry,
-                            out bool isRawResourceMetaSet,
-                            out string searchParameterHash,
-                            out Stream rawResourceStream);
-                        numberOfColumnsRead = reader.FieldCount;
-
-                        string rawResource;
-                        await using (rawResourceStream)
+                        else
                         {
-                            // If we get to this point, we know there are more results so we need a continuation token
-                            // Additionally, this resource shouldn't be included in the results
-                            if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                            {
-                                moreResults = true;
+                            var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
-                                continue;
+                            EnableTimeAndIoMessageLogging(stringBuilder, connection);
+
+                            var queryGenerator = new SqlQueryGenerator(
+                                stringBuilder,
+                                new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
+                                _model,
+                                searchType,
+                                _schemaInformation,
+                                currentSearchParameterHash);
+
+                            expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
+
+                            SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
+
+                            var queryText = stringBuilder.ToString();
+                            var queryHash = _queryHashCalculator.CalculateHash(RemoveParamHash(queryText));
+                            _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
+                            var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
+
+                            if (!string.IsNullOrEmpty(customQuery))
+                            {
+                                _logger.LogInformation("SQl Search Service, custom Query identified by hash {QueryHash}, {CustomQuery}", queryHash, customQuery);
+                                queryText = customQuery;
+                                sqlCommand.CommandType = CommandType.StoredProcedure;
                             }
 
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            // Command text contains no direct user input.
+#pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
+                            sqlCommand.CommandText = queryText;
+#pragma warning restore CA2100 // Review SQL queries for security vulnerabilities
                         }
 
-                        _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+                        LogSqlCommand(new SqlCommandWrapper(sqlCommand)); // TODO: when SqlCommandWrapper is fully depreciated everywhere, modify LogSqlCommand to accept sqlCommand.
 
-                        if (string.IsNullOrEmpty(rawResource))
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
-
-                        // See if this resource is a continuation token candidate and increase the count
-                        if (isMatch)
-                        {
-                            newContinuationType = resourceTypeId;
-                            newContinuationId = resourceSurrogateId;
-
-                            // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
-                            // If we have more, that means we have an extra column tracking sort value.
-                            // Keep track of sort value if this is the last row.
-                            if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
+                            if (clonedSearchOptions.CountOnly)
                             {
-                                var tempSortValue = reader.GetValue(SortValueColumnName);
-                                if ((tempSortValue as DateTime?) != null)
+                                await reader.ReadAsync(cancellationToken);
+                                long count = reader.GetInt64(0);
+                                if (count > int.MaxValue)
                                 {
-                                    sortValue = (tempSortValue as DateTime?).Value.ToString("o");
+                                    _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                        new OperationOutcomeIssue(
+                                            OperationOutcomeConstants.IssueSeverity.Error,
+                                            OperationOutcomeConstants.IssueType.NotSupported,
+                                            string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
+
+                                    throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
                                 }
-                                else
-                                {
-                                    sortValue = tempSortValue.ToString();
-                                }
+
+                                searchResult = new SearchResult((int)count, clonedSearchOptions.UnsupportedSearchParams);
+
+                                // call NextResultAsync to get the info messages
+                                await reader.NextResultAsync(cancellationToken);
+
+                                return;
                             }
 
-                            matchCount++;
-                        }
+                            var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
+                            short? newContinuationType = null;
+                            long? newContinuationId = null;
+                            bool moreResults = false;
+                            int matchCount = 0;
 
-                        // as long as at least one entry was marked as partial, this resultset
-                        // should be marked as partial
-                        isResultPartial = isResultPartial || isPartialEntry;
+                            string sortValue = null;
+                            var isResultPartial = false;
+                            int numberOfColumnsRead = 0;
 
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash,
-                                resourceSurrogateId),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
-                    }
+                            while (await reader.ReadAsync(cancellationToken))
+                            {
+                                PopulateResourceTableColumnsToRead(
+                                    reader,
+                                    out short resourceTypeId,
+                                    out string resourceId,
+                                    out int version,
+                                    out bool isDeleted,
+                                    out long resourceSurrogateId,
+                                    out string requestMethod,
+                                    out bool isMatch,
+                                    out bool isPartialEntry,
+                                    out bool isRawResourceMetaSet,
+                                    out string searchParameterHash,
+                                    out Stream rawResourceStream);
+                                numberOfColumnsRead = reader.FieldCount;
 
-                    // call NextResultAsync to get the info messages
-                    await reader.NextResultAsync(cancellationToken);
-
-                    ContinuationToken continuationToken =
-                        moreResults && !exportTimeTravel // with query hints all results are returned on single page
-                            ? new ContinuationToken(
-                                clonedSearchOptions.Sort.Select(s =>
-                                    s.searchParameterInfo.Name switch
+                                string rawResource;
+                                await using (rawResourceStream)
+                                {
+                                    // If we get to this point, we know there are more results so we need a continuation token
+                                    // Additionally, this resource shouldn't be included in the results
+                                    if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
                                     {
-                                        SearchParameterNames.ResourceType => (object)newContinuationType,
-                                        SearchParameterNames.LastUpdated => newContinuationId,
-                                        _ => sortValue,
-                                    }).ToArray())
-                            : null;
+                                        moreResults = true;
 
-                    if (isResultPartial)
-                    {
-                        _requestContextAccessor.RequestContext.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Warning,
-                                OperationOutcomeConstants.IssueType.Incomplete,
-                                Core.Resources.TruncatedIncludeMessage));
+                                        continue;
+                                    }
+
+                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                }
+
+                                _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
+
+                                if (string.IsNullOrEmpty(rawResource))
+                                {
+                                    rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
+                                    _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
+                                }
+
+                                // See if this resource is a continuation token candidate and increase the count
+                                if (isMatch)
+                                {
+                                    newContinuationType = resourceTypeId;
+                                    newContinuationId = resourceSurrogateId;
+
+                                    // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
+                                    // If we have more, that means we have an extra column tracking sort value.
+                                    // Keep track of sort value if this is the last row.
+                                    if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
+                                    {
+                                        var tempSortValue = reader.GetValue(SortValueColumnName);
+                                        if ((tempSortValue as DateTime?) != null)
+                                        {
+                                            sortValue = (tempSortValue as DateTime?).Value.ToString("o");
+                                        }
+                                        else
+                                        {
+                                            sortValue = tempSortValue.ToString();
+                                        }
+                                    }
+
+                                    matchCount++;
+                                }
+
+                                // as long as at least one entry was marked as partial, this resultset
+                                // should be marked as partial
+                                isResultPartial = isResultPartial || isPartialEntry;
+
+                                resources.Add(new SearchResultEntry(
+                                    new ResourceWrapper(
+                                        resourceId,
+                                        version.ToString(CultureInfo.InvariantCulture),
+                                        _model.GetResourceTypeName(resourceTypeId),
+                                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                        new ResourceRequest(requestMethod),
+                                        new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                                        isDeleted,
+                                        null,
+                                        null,
+                                        null,
+                                        searchParameterHash,
+                                        resourceSurrogateId),
+                                    isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
+                            }
+
+                            // call NextResultAsync to get the info messages
+                            await reader.NextResultAsync(cancellationToken);
+
+                            ContinuationToken continuationToken =
+                                moreResults && !exportTimeTravel // with query hints all results are returned on single page
+                                    ? new ContinuationToken(
+                                        clonedSearchOptions.Sort.Select(s =>
+                                            s.searchParameterInfo.Name switch
+                                            {
+                                                SearchParameterNames.ResourceType => (object)newContinuationType,
+                                                SearchParameterNames.LastUpdated => newContinuationId,
+                                                _ => sortValue,
+                                            }).ToArray())
+                                    : null;
+
+                            if (isResultPartial)
+                            {
+                                _requestContextAccessor.RequestContext.BundleIssues.Add(
+                                    new OperationOutcomeIssue(
+                                        OperationOutcomeConstants.IssueSeverity.Warning,
+                                        OperationOutcomeConstants.IssueType.Incomplete,
+                                        Core.Resources.TruncatedIncludeMessage));
+                            }
+
+                            // If this is a sort query, lets keep track of whether we actually searched for sort values.
+                            if (clonedSearchOptions.Sort != null &&
+                                clonedSearchOptions.Sort.Count > 0 &&
+                                clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                            {
+                                sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
+                            }
+
+                            // This value is set inside the SortRewriter. If it is set, we need to pass
+                            // this value back to the caller.
+                            if (clonedSearchOptions.IsSortWithFilter)
+                            {
+                                sqlSearchOptions.IsSortWithFilter = true;
+                            }
+
+                            searchResult = new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
+                        }
                     }
-
-                    // If this is a sort query, lets keep track of whether we actually searched for sort values.
-                    if (clonedSearchOptions.Sort != null &&
-                        clonedSearchOptions.Sort.Count > 0 &&
-                        clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
-                    {
-                        sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
-                    }
-
-                    // This value is set inside the SortRewriter. If it is set, we need to pass
-                    // this value back to the caller.
-                    if (clonedSearchOptions.IsSortWithFilter)
-                    {
-                        sqlSearchOptions.IsSortWithFilter = true;
-                    }
-
-                    return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
-                }
-            }
+                },
+                cancellationToken);
+            return searchResult;
         }
 
-        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommandWrapper cmd)
+        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
         {
             var hints = options.QueryHints;
             var type = _model.GetResourceTypeId(hints.First(_ => _.Param == KnownQueryParameterNames.Type).Value);
@@ -498,7 +546,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var endId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.EndSurrogateId).Value);
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
-            VLatest.GetResourcesByTypeAndSurrogateIdRange.PopulateCommand(cmd, type, startId, endId, globalStartId, globalEndId);
+
+            command.CommandType = CommandType.StoredProcedure;
+            command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
+            command.Parameters.AddWithValue("@ResourceTypeId", type);
+            command.Parameters.AddWithValue("@StartId", startId);
+            command.Parameters.AddWithValue("@EndId", endId);
+            command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
+            command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
         }
 
         /// <summary>
@@ -591,21 +646,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        private static (long StartId, long EndId) ReaderToSurogateIdRange(SqlDataReader sqlDataReader)
+        {
+            return (sqlDataReader.GetInt64(1), sqlDataReader.GetInt64(2));
+        }
+
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            var ranges = new List<(long start, long end)>(numberOfRanges);
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            sqlCommandWrapper.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
-            VLatest.GetResourceSurrogateIdRanges.PopulateCommand(sqlCommandWrapper, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
-            using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                ranges.Add((reader.GetInt64(1), reader.GetInt64(2)));
-            }
+            // TODO: this code will not set capacity for the result list!
 
-            return ranges;
+            var resourceTypeId = _model.GetResourceTypeId(resourceType);
+            using SqlCommand sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = 1200; // Should be >> average execution time which for 100K resources is ~3 minutes.
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            return await _sqlRetryService.ExecuteSqlDataReader(
+                sqlCommand,
+                ReaderToSurogateIdRange,
+                _logger,
+                "GetSurrogateIdRanges failed.",
+                cancellationToken);
         }
 
         public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
@@ -769,12 +828,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         [Conditional("DEBUG")]
-        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnectionWrapper sqlConnectionWrapper)
+        private void EnableTimeAndIoMessageLogging(IndentedStringBuilder stringBuilder, SqlConnection sqlConnection)
         {
             stringBuilder.AppendLine("SET STATISTICS IO ON;");
             stringBuilder.AppendLine("SET STATISTICS TIME ON;");
             stringBuilder.AppendLine();
-            sqlConnectionWrapper.SqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
+            sqlConnection.InfoMessage += (sender, args) => _logger.LogInformation("SQL message: {Message}", args.Message);
         }
 
         /// <summary>
@@ -1011,6 +1070,52 @@ WHERE ResourceTypeId = @p0
             }
 
             return resourceType;
+        }
+
+        private static string RemoveParamHash(string queryText)
+        {
+            var lines = queryText.Split('\n');
+            for (var i = lines.Length - 1; i >= 0; i--)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    continue;
+                }
+                else if (lines[i].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Join('\n', lines.Take(i));
+                }
+            }
+
+            return queryText;
+        }
+
+        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
+        private class GetResourceSurrogateIdRangesProcedure : StoredProcedure
+        {
+            private readonly ParameterDefinition<short> _resourceTypeId = new ParameterDefinition<short>("@ResourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<long> _startId = new ParameterDefinition<long>("@StartId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<long> _endId = new ParameterDefinition<long>("@EndId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
+
+            internal GetResourceSurrogateIdRangesProcedure()
+                : base("dbo.GetResourceSurrogateIdRanges")
+            {
+            }
+
+            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up)
+            {
+                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
+                sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
+                _resourceTypeId.AddParameter(sqlCommand.Parameters, resourceTypeId);
+                _startId.AddParameter(sqlCommand.Parameters, startId);
+                _endId.AddParameter(sqlCommand.Parameters, endId);
+                _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
+                _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
+                _up.AddParameter(sqlCommand.Parameters, up);
+            }
         }
     }
 }

@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _exportJobRecord.RestartCount++;
                 }
 
-                // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
+                // The initial list of query parameters will not have a continuation token. We will add that later if we get one back
                 // from the search result.
                 // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist in the job record.
                 var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
+                _logger.LogInformation(dce, "Can't connect to destination. The job will be marked as failed.");
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);

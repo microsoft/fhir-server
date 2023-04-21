@@ -159,8 +159,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "BulkCopyDataAsync failed.");
+                if (ex.IsRetriable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
 
-                throw new RetriableJobException(ex.Message, ex);
+                throw;
             }
         }
 
@@ -215,7 +219,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "CleanBatchResourceAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -252,7 +256,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "PreprocessAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -282,7 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "PostprocessAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -355,7 +359,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to rebuild indexes");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }

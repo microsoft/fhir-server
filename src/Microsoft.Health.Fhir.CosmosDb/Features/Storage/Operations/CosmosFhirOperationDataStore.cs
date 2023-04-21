@@ -88,31 +88,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         private string CollectionId { get; }
 
-        public override Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
+        public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
             try
             {
-                return base.GetExportJobByIdAsync(id, cancellationToken);
+                return await base.GetExportJobByIdAsync(id, cancellationToken);
             }
             catch (JobNotFoundException)
             {
                 // try old job records
                 var oldJobs = (ILegacyExportOperationDataStore)this;
-                return oldJobs.GetExportJobByIdAsync(id, cancellationToken);
+                return await oldJobs.GetExportJobByIdAsync(id, cancellationToken);
             }
         }
 
-        public override Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        public override async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
             try
             {
-                return base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
+                return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
             }
             catch (JobNotFoundException)
             {
                 // try old job records
                 var oldJobs = (ILegacyExportOperationDataStore)this;
-                return oldJobs.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
+                return await oldJobs.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
             }
         }
 
