@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_include", "Location:organization:Organization"), ("_tag", Fixture.Tag));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), null, default, ("_include", "Location:organization:Organization"), ("_tag", Fixture.Tag));
 
             ValidateBundle(
                 bundle,
@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), default, ("_revinclude", "Location:organization"), ("_tag", Fixture.Tag));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), null, default, ("_revinclude", "Location:organization"), ("_tag", Fixture.Tag));
 
             ValidateBundle(
                 bundle,
