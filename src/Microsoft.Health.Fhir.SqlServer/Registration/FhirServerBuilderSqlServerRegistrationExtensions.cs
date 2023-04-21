@@ -271,16 +271,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 job.AsDelegate<Func<IJob>>();
             }
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ImportOrchestratorJob>()
-                .AssignableTo<IJob>()
-                .Transient()
-                .AsSelf();
-
-            foreach (TypeRegistrationBuilder job in jobs)
-            {
-                job.AsDelegate<Func<IJob>>();
-            }
-
             return fhirServerBuilder;
         }
 
