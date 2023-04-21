@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, bool isMerge, CancellationToken cancellationToken)
         {
             string leaseId = null;
+
             try
             {
                 _logger.LogInformation("Start to load resource from store.");
@@ -88,12 +89,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
-                    if (currentIndex < startIndex)
-                    {
-                        currentIndex++;
-                        continue;
-                    }
-
                     if (offset > 0 && skipFirstLine) // skip first line
                     {
                         skipFirstLine = false;
@@ -101,6 +96,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     currentBytesRead += Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
+
+                    if (currentIndex < startIndex)
+                    {
+                        currentIndex++;
+                        continue;
+                    }
+
                     currentIndex++;
 
                     buffer.Add((content, currentIndex));
