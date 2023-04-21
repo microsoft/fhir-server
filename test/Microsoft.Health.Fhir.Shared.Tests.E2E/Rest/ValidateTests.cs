@@ -6,12 +6,12 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -27,10 +27,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string Success = "All OK";
         private readonly TestFhirClient _client;
+        private readonly int _firelySdkVersion;
 
         public ValidateTests(ValidateTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
+            _firelySdkVersion = Assembly.GetAssembly(typeof(Hl7.Fhir.Model.Resource)).GetName().Version.Major;
         }
 
         [SkippableTheory]
@@ -44,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
-            Skip.If(ModelInfoProvider.Instance.Version == FhirSpecification.R5, "Validation not currently working correctly for R5");
+            Skip.If(_firelySdkVersion < 5, "Validation not currently working correctly for R5 previous to firely version 5");
 
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
@@ -140,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
-            Skip.If(ModelInfoProvider.Instance.Version == FhirSpecification.R5, "Validation not currently working correctly for R5");
+            Skip.If(_firelySdkVersion < 5, "Validation not currently working correctly for R5 previous to firely version 5");
 
             var fhirSource = Samples.GetJson("Profile-Patient-uscore");
             var parser = new FhirJsonParser();
@@ -172,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
         {
-            Skip.If(ModelInfoProvider.Instance.Version == FhirSpecification.R5, "Validation not currently working correctly for R5");
+            Skip.If(_firelySdkVersion < 5, "Validation not currently working correctly for R5 previous to firely version 5");
 
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 

@@ -63,9 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     packagesToInclude.Add(packageVariables.CorePackageName);
                     packagesToInclude.Add(packageVariables.ExpansionsPackageName);
 
+#if !R5
                     // elements package name is not included in the reflection metadata, but we should try and include it
                     var extensionsPackageName = packageVariables.ExpansionsPackageName.Replace("expansions", "elements", StringComparison.OrdinalIgnoreCase);
                     packagesToInclude.Add(extensionsPackageName);
+#endif
                 }
 
                 foreach (var package in _coreConfig.PackageConfiguration.PackageNames)
@@ -80,9 +82,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     // Allow local packages
                     var resolvedPath = Path.GetFullPath(_coreConfig.PackageConfiguration.PackageSource, Environment.CurrentDirectory);
-                    validationSource = new FhirPackageSource(Directory.GetFiles(resolvedPath)
+
+                    var packageFileList = Directory.GetFiles(resolvedPath)
                         .Where(f => packagesToInclude.Any(p => f.Contains(p, StringComparison.OrdinalIgnoreCase)
-                        && f.EndsWith("tgz", StringComparison.OrdinalIgnoreCase))).ToArray());
+                        && f.EndsWith("tgz", StringComparison.OrdinalIgnoreCase))).ToArray();
+
+                    if (packageFileList.Length != packagesToInclude.Count)
+                    {
+                        _logger.LogWarning(
+                            "Attempted to load {DesiredPackageList} packages, but found {ActualPackageList} in file system.",
+                            string.Join(',', packagesToInclude),
+                            string.Join(',', packageFileList));
+                    }
+
+                    validationSource = new FhirPackageSource(packageFileList);
                 }
                 else
                 {

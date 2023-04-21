@@ -6,10 +6,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
+        private readonly int _firelySdkVersion;
         private readonly Dictionary<HttpStatusCode, string> _statusCodeMap = new Dictionary<HttpStatusCode, string>()
         {
             { HttpStatusCode.NoContent, "204" },
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public BatchTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
+            _firelySdkVersion = Assembly.GetAssembly(typeof(Hl7.Fhir.Model.Resource)).GetName().Version.Major;
         }
 
         [Fact]
@@ -178,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(false)]
         public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
         {
-            Skip.If(ModelInfoProvider.Instance.Version == FhirSpecification.R5, "Validation not currently working correctly for R5");
+            Skip.If(_firelySdkVersion < 5, "Validation not currently working correctly for R5 previous to firely version 5");
 
             var bundle = new Hl7.Fhir.Model.Bundle
             {
