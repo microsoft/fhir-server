@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task ValidateResourcesAsync(ImportOrchestratorJobInputData inputData, CancellationToken cancellationToken)
         {
-            foreach (var input in inputData.Input)
+            await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
                 Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 if (!string.IsNullOrEmpty(input.Etag))
@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         throw new ImportFileEtagNotMatchException(string.Format("Input file Etag not match. {0}", input.Url));
                     }
                 }
-            }
+            });
         }
 
         private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult)
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 // split blobs by size
                 var inputs = new List<Models.InputResource>();
-                foreach (var input in coordDefinition.Input)
+                await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
                 {
                     var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                     currentResult.TotalSizeInBytes += blobLength;
@@ -300,9 +300,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         var newInput = input.Clone();
                         newInput.Offset = stream * BytesToRead;
                         newInput.BytesToRead = BytesToRead;
-                        inputs.Add(newInput);
+                        lock (inputs)
+                        {
+                            inputs.Add(newInput);
+                        }
                     }
-                }
+                });
 
                 var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
                 progress.Report(JsonConvert.SerializeObject(currentResult));
