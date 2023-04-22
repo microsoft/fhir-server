@@ -34,7 +34,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -74,7 +79,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -105,7 +115,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -133,7 +148,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -173,7 +193,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             // Short cancellation time. This test should fail fast and throw a TaskCanceledException.
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, dataStore: _dataStore);
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);

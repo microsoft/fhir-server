@@ -39,6 +39,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -58,12 +59,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly Dictionary<HTTPVerb, List<(RouteContext, int, string)>> _requests;
+        private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
         private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ILogger<BundleHandler> _logger;
         private int _requestCount;
@@ -94,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             FhirJsonParser fhirJsonParser,
             ITransactionHandler transactionHandler,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
+            IBundleOrchestrator bundleOrchestrator,
             ResourceIdProvider resourceIdProvider,
             TransactionBundleValidator transactionBundleValidator,
             ResourceReferenceResolver referenceResolver,
@@ -110,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
@@ -124,6 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _fhirJsonParser = fhirJsonParser;
             _transactionHandler = transactionHandler;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _bundleOrchestrator = bundleOrchestrator;
             _resourceIdProvider = resourceIdProvider;
             _transactionBundleValidator = transactionBundleValidator;
             _referenceResolver = referenceResolver;
@@ -134,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
-            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<(RouteContext, int, string)>());
+            _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
 
             HttpContext outerHttpContext = httpContextAccessor.HttpContext;
             _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
@@ -421,7 +426,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add((routeContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(routeContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -439,16 +444,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             const int GCCollectTrigger = 150;
 
-            foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
+            foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
-                if (entryIndex % GCCollectTrigger == 0)
+                if (resourceContext.Index % GCCollectTrigger == 0)
                 {
                     RunGarbageCollection();
                 }
 
                 EntryComponent entryComponent;
 
-                if (request.Handler != null)
+                if (resourceContext.Context.Handler != null)
                 {
                     if (throttledEntryComponent != null)
                     {
@@ -458,23 +463,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     else
                     {
-                        HttpContext httpContext = request.HttpContext;
+                        HttpContext httpContext = resourceContext.Context.HttpContext;
 
-                        SetupContexts(request, httpContext);
+                        SetupContexts(resourceContext.Context, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
-                        if (!string.IsNullOrWhiteSpace(persistedId))
+                        if (!string.IsNullOrWhiteSpace(resourceContext.PersistedId))
                         {
-                            _resourceIdProvider.Create = () => persistedId;
+                            _resourceIdProvider.Create = () => resourceContext.PersistedId;
                         }
 
-                        await request.Handler.Invoke(httpContext);
+                        await resourceContext.Context.Handler.Invoke(httpContext);
 
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                         {
-                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, entryIndex);
+                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
                             int retryDelay = 2;
                             var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
                             if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
@@ -483,7 +488,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             }
 
                             await Task.Delay(retryDelay * 1000); // multiply by 1000 as retry-header specifies delay in seconds
-                            await request.Handler.Invoke(httpContext);
+                            await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
@@ -500,7 +505,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                         {
-                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, entryIndex);
+                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
 
                             // this action was throttled. Capture the entry and reuse it for subsequent actions.
                             throttledEntryComponent = entryComponent;
@@ -517,14 +522,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Error,
                                 OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.HttpContext.Request.Path}{resourceContext.Context.HttpContext.Request.QueryString}")),
                         },
                     };
                 }
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
@@ -534,7 +539,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
                 }
 
-                responseBundle.Entry[entryIndex] = entryComponent;
+                responseBundle.Entry[resourceContext.Index] = entryComponent;
             }
 
             return throttledEntryComponent;

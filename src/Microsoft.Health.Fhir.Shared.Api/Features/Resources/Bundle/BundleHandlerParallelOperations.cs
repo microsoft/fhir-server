@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Rest;
 using static Hl7.Fhir.Model.Bundle;
@@ -75,44 +76,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
             FhirJsonParser fhirJsonParser = _fhirJsonParser;
-            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext; // Not thread-safe
-            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // Not thread-safe
+            IFhirRequestContext originalFhirRequestContext = _originalFhirRequestContext; // No thread-safe
+            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // No thread-safe
 
             if (_requests[httpVerb].Any())
             {
                 int totalNumberOfRequests = _requests[httpVerb].Count;
-                const int MaxNumberOfRequestsInParallel = 4;
-                var options = new ParallelOptions()
-                {
-                    MaxDegreeOfParallelism = MaxNumberOfRequestsInParallel,
-                    CancellationToken = cancellationToken,
-                };
 
-                _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests. MaxDegreeOfParallelism of {MaxDegreeOfParallelism}.", totalNumberOfRequests, httpVerb, options.MaxDegreeOfParallelism);
+                _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.", totalNumberOfRequests, httpVerb);
 
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                await Parallel.ForEachAsync(_requests[httpVerb], options, async (state, ct) =>
+                _bundleOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, httpVerb.ToString(), expectedNumberOfResources: totalNumberOfRequests);
+
+                // Parallel Resource Handling Function.
+                Func<ResourceExecutionContext, CancellationToken, Task> requestWorkFunc = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
-                    if (state.Item2 > 0 && state.Item2 % GCCollectTrigger == 0)
+                    if (resourceExecutionContext.Index > 0 && resourceExecutionContext.Index % GCCollectTrigger == 0)
                     {
                         RunGarbageCollection();
                     }
 
-                    _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", state.Item2, totalNumberOfRequests);
+                    _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.Index, totalNumberOfRequests);
 
                     // FHIBF - ResourceIdProvider is modified by HandleRequestAsync.
                     // I've decided creating one new instance of ResourceIdProvider per record, giving that it can cause internal conflicts due the parallel access from multiple threads.
                     // The single instance would make it thread safe.
                     ResourceIdProvider resourceIdProvider = new ResourceIdProvider();
 
-                    await HandleRequestAsync(
+                    EntryComponent entry = await HandleRequestAsync(
                         responseBundle,
                         httpVerb,
                         throttledEntryComponent,
                         _bundleType,
-                        state.Item1, // Request
-                        state.Item2, // Entry index
-                        state.Item3, // Persisted ID
+                        resourceExecutionContext.Context,
+                        resourceExecutionContext.Index,
+                        resourceExecutionContext.PersistedId,
                         _requestCount,
                         auditEventTypeMapping,
                         originalFhirRequestContext,
@@ -122,13 +119,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         fhirJsonParser,
                         _logger,
                         ct);
-                });
 
-                stopwatch.Stop();
+                    // TODO: Add logic to release resources.
+                };
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                List<Task> requestsPerResource = new List<Task>();
+                foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
+                {
+                    requestsPerResource.Add(requestWorkFunc(resourceContext, cancellationToken));
+                }
+
+                Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+
                 LogBundleStatistics(responseBundle, totalNumberOfRequests, httpVerb, stopwatch);
             }
 
-            return throttledEntryComponent;
+            return await Task.FromResult(throttledEntryComponent);
         }
 
         private static async Task<EntryComponent> HandleRequestAsync(
@@ -357,6 +364,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     newFhirRequestContext.ResponseHeaders.Add(headerName, values);
                 }
             }
+        }
+
+        private struct ResourceExecutionContext
+        {
+            public ResourceExecutionContext(RouteContext context, int index, string persistedId)
+            {
+                Context = context;
+                Index = index;
+                PersistedId = persistedId;
+            }
+
+            public RouteContext Context { get; private set; } // Request
+
+            public int Index { get; private set; } // Entry index
+
+            public string PersistedId { get; private set; } // Persisted Id
         }
     }
 }

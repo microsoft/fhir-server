@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -48,7 +49,6 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Bundle)]
     [Trait(Traits.Category, Categories.Bundle)]
     public class BundleHandlerTests
     {
@@ -84,6 +84,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
+            Func<IFhirDataStore> newDataStoreFunc = () =>
+            {
+                return Substitute.For<IFhirDataStore>();
+            };
+
+            // TODO: Make 'isEnabled' a parameter.
+            var bundleOrchestrator = new BundleOrchestrator(isEnabled: false, createDataStoreFunc: newDataStoreFunc);
+
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
             {
@@ -115,6 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 fhirJsonParser,
                 transactionHandler,
                 bundleHttpContextAccessor,
+                bundleOrchestrator,
                 resourceIdProvider,
                 transactionBundleValidator,
                 resourceReferenceResolver,

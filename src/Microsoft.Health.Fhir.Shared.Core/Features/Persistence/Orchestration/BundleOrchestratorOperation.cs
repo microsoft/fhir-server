@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Data layer reference.
         /// </summary>
-        private readonly IScoped<IFhirDataStore> _dataStore;
+        private readonly IFhirDataStore _dataStore;
 
         /// <summary>
         /// Thread safe locking object reference.
@@ -42,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private Task _mergeAsyncTask;
 
-        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, IScoped<IFhirDataStore> dataStore)
+        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, IFhirDataStore dataStore)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));

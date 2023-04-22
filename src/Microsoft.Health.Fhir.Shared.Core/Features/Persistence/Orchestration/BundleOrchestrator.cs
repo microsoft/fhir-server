@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -16,17 +15,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// Dictionary of current operations. At the end of an operation, it should be removed from this dictionary.
         /// Operations are indexed by their respective IDs.
         /// </summary>
-        private readonly ConcurrentDictionary<Guid, BundleOrchestratorOperation> _operationsById;
+        private readonly ConcurrentDictionary<Guid, IBundleOrchestratorOperation> _operationsById;
 
-        private readonly IScoped<IFhirDataStore> _dataStore;
+        private readonly Func<IFhirDataStore> _createDataStoreFunc;
 
-        public BundleOrchestrator(bool isEnabled, IScoped<IFhirDataStore> dataStore)
+        /// <summary>
+        /// Creates a new instance of <see cref="BundleOrchestrator"/>.
+        /// </summary>
+        /// <param name="isEnabled">Enables or disables the Bundle Orchestrator functionality.</param>
+        /// <param name="createDataStoreFunc">Function creating a new instances of the data store.</param>
+        public BundleOrchestrator(bool isEnabled, Func<IFhirDataStore> createDataStoreFunc)
         {
-            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
+            EnsureArg.IsNotNull(createDataStoreFunc, nameof(createDataStoreFunc));
 
-            _dataStore = dataStore;
-
-            _operationsById = new ConcurrentDictionary<Guid, BundleOrchestratorOperation>();
+            _createDataStoreFunc = createDataStoreFunc;
+            _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
 
             IsEnabled = isEnabled;
         }
@@ -38,19 +41,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            var newJob = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, _dataStore);
+            // Every bundle operation requires a new instance of the data store.
+            IFhirDataStore dataStore = _createDataStoreFunc();
+            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, dataStore: dataStore);
 
-            if (!_operationsById.TryAdd(newJob.Id, newJob))
+            if (!_operationsById.TryAdd(newOperation.Id, newOperation))
             {
-                throw new BundleOrchestratorException($"A job with ID '{newJob.Id}' was already added to the queue.");
+                throw new BundleOrchestratorException($"An operation with ID '{newOperation.Id}' was already added to the queue.");
             }
 
-            return newJob;
+            return newOperation;
         }
 
         public bool RemoveOperation(Guid id)
         {
-            if (!_operationsById.TryRemove(id, out BundleOrchestratorOperation job))
+            if (!_operationsById.TryRemove(id, out IBundleOrchestratorOperation job))
             {
                 throw new BundleOrchestratorException($"A job with ID '{id}' was not found or unable to be removed from {nameof(BundleOrchestrator)}.");
             }
