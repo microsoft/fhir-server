@@ -370,8 +370,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(1, result.Error.Count);
             Assert.NotEmpty(result.Request);
 
-            string errorLoation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            string errorLocation = result.Error.ToArray()[0].Url;
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
 
             // Only check metric for local tests
@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request, errorCount: 1);
-            await ImportCheckAsync(request, errorCount: 2);
+            await ImportCheckAsync(request, errorCount: 1); // importing already existing resource is success in merge.
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
             Assert.Equal(resourceId, patient.Id);
@@ -425,15 +425,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                 Assert.Equal(2, notificationList.Count);
 
-                var notification1 = notificationList.First() as ImportJobMetricsNotification;
+                var notification1 = notificationList[0] as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
                 Assert.Equal(1, notification1.SucceedCount);
                 Assert.Equal(1, notification1.FailedCount);
 
                 var notification2 = notificationList[1] as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
-                Assert.Equal(0, notification2.SucceedCount);
-                Assert.Equal(2, notification2.FailedCount);
+                Assert.Equal(1, notification2.SucceedCount);
+                Assert.Equal(1, notification2.FailedCount);
             }
         }
 

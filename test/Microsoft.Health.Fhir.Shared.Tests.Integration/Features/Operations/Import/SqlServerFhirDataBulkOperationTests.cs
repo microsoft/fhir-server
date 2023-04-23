@@ -41,8 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         private SchemaInformation _schemaInformation;
         private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
-        public SqlServerFhirDataBulkOperationTests(
-            SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerFhirDataBulkOperationTests(SqlServerFhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, _fixture.IFhirDataStore, _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]

@@ -25,13 +25,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             string errorMessage = "Test Error";
             ImportErrorSerializer serializer = new ImportErrorSerializer(_jsonSerializer);
 
-            string outcome = serializer.Serialize(10, new Exception(errorMessage));
+            string outcome = serializer.Serialize(10, new Exception(errorMessage), 0);
 
             FhirJsonParser parser = new FhirJsonParser();
             OperationOutcome operationOutcome = parser.Parse<OperationOutcome>(outcome);
 
             Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[0].Severity);
-            Assert.Equal($"Failed to process resource at line: {10}", operationOutcome.Issue[0].Diagnostics);
+            Assert.Equal($"Failed to process resource at line: {10} with stream start offset: {0}", operationOutcome.Issue[0].Diagnostics);
             Assert.Equal(errorMessage, operationOutcome.Issue[0].Details.Text);
         }
     }

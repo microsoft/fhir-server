@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
+        private readonly bool _isMerge;
         private readonly IQueueClient _queueClient;
         private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly ILogger<CreateImportRequestHandler> _logger;
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _sequenceIdGenerator = sequenceIdGenerator;
             _authorizationService = authorizationService;
             _logger = logger;
+            _isMerge = true;
         }
 
         public async Task<CreateImportResponse> Handle(CreateImportRequest request, CancellationToken cancellationToken)
@@ -66,7 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
                 CreateTime = Clock.UtcNow,
-                StartSequenceId = _sequenceIdGenerator.GetCurrentSequenceId(),
+                //// this is a temporary hack. Start sequence will go away in stage 2.
+                //// setting _isMerge to false reverts to previous bulk insert behavior.
+                StartSequenceId = _isMerge ? 0 : _sequenceIdGenerator.GetCurrentSequenceId(),
             };
 
             string definition = JsonConvert.SerializeObject(inputData);

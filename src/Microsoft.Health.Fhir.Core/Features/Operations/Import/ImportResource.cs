@@ -10,22 +10,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long id, long index, ResourceWrapper resource)
+        public ImportResource(long id, long index, long offset, ResourceWrapper resource)
         {
             Id = id;
             Index = index;
+            Offset = offset;
             Resource = resource;
         }
 
         public ImportResource(ResourceWrapper resource)
-            : this(0, 0, resource)
+            : this(0, 0, 0, resource)
         {
         }
 
-        public ImportResource(long id, long index, string importError)
+        public ImportResource(long id, long index, long offset, string importError)
         {
             Id = id;
             Index = index;
+            Offset = offset;
             ImportError = importError;
         }
 
@@ -38,6 +40,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Resource sequence id
         /// </summary>
         public long Id { get; set; }
+
+        /// <summary>
+        /// Read stream offset in bytes
+        /// </summary>
+        public long Offset { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content

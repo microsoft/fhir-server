@@ -17,6 +17,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public string ResourceLocation { get; set; }
 
         /// <summary>
+        /// Offset to read input blob/file from
+        /// </summary>
+        public long Offset { get; set; }
+
+        /// <summary>
+        /// Number of bytes to read
+        /// </summary>
+        public int BytesToRead { get; set; }
+
+        /// <summary>
         /// Request Uri string for the import operation
         /// </summary>
 #pragma warning disable CA1056
