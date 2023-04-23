@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
@@ -34,5 +35,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         /// <param name="resources">Input resources content.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         public Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Merge resources to resource and search param tables.
+        /// </summary>
+        /// <param name="resources">Input resources content.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken);
     }
 }

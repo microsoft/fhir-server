@@ -22,20 +22,20 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
             _fhirJsonSerializer = fhirJsonSerializer;
         }
 
-        public string Serialize(long index, Exception ex)
+        public string Serialize(long index, Exception ex, long offset)
         {
             EnsureArg.IsNotNull(ex, nameof(ex));
 
-            return Serialize(index, ex.Message);
+            return Serialize(index, ex.Message, offset);
         }
 
-        public string Serialize(long index, string errorMessage)
+        public string Serialize(long index, string errorMessage, long offset)
         {
             EnsureArg.IsNotNullOrEmpty(errorMessage, nameof(errorMessage));
 
             var issue = new OperationOutcome.IssueComponent();
             issue.Severity = OperationOutcome.IssueSeverity.Error;
-            issue.Diagnostics = string.Format("Failed to process resource at line: {0}", index);
+            issue.Diagnostics = string.Format("Failed to process resource at line: {0} with stream start offset: {1}", index, offset);
             issue.Details = new CodeableConcept();
             issue.Details.Text = errorMessage;
             OperationOutcome operationOutcome = new OperationOutcome();

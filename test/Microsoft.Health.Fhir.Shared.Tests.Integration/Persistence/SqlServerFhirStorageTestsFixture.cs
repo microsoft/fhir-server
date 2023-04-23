@@ -264,6 +264,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
+        internal IFhirDataStore IFhirDataStore => _fhirDataStore;
+
         internal IOptions<SqlServerDataStoreConfiguration> SqlServerDataStoreConfiguration { get; }
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
