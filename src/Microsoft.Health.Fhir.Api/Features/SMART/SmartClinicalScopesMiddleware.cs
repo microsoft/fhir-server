@@ -77,87 +77,91 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
+                    string scopeClaims = string.Empty;
+
                     foreach (string singleScope in authorizationConfiguration.ScopesClaim)
                     {
                         foreach (Claim claim in principal.FindAll(singleScope))
                         {
-                            var matches = ClinicalScopeRegEx.Matches(claim.Value);
-                            foreach (Match match in matches)
+                            scopeClaims += " " + string.Join(" ", claim.Value);
+                        }
+                    }
+
+                    var matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    foreach (Match match in matches)
+                    {
+                        fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
+
+                        var id = match.Groups["id"]?.Value;
+                        var resource = match.Groups["resource"]?.Value;
+                        var accessLevel = match.Groups["accessLevel"]?.Value;
+
+                        switch (accessLevel)
+                        {
+                            case "read":
+                                permittedDataActions |= DataActions.Read;
+                                break;
+                            case "write":
+                                permittedDataActions |= DataActions.Write;
+                                break;
+                            case "*":
+                            case AllDataActions:
+                                permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
+                                break;
+                        }
+
+                        if (!string.IsNullOrEmpty(resource)
+                            && !string.IsNullOrEmpty(id))
+                        {
+                            if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
                             {
-                                fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
+                                resource = KnownResourceTypes.All;
+                            }
 
-                                var id = match.Groups["id"]?.Value;
-                                var resource = match.Groups["resource"]?.Value;
-                                var accessLevel = match.Groups["accessLevel"]?.Value;
+                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
 
-                                switch (accessLevel)
-                                {
-                                    case "read":
-                                        permittedDataActions |= DataActions.Read;
-                                        break;
-                                    case "write":
-                                        permittedDataActions |= DataActions.Write;
-                                        break;
-                                    case "*":
-                                    case AllDataActions:
-                                        permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
-                                        break;
-                                }
+                            scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
 
-                                if (!string.IsNullOrEmpty(resource)
-                                    && !string.IsNullOrEmpty(id))
-                                {
-                                    if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        resource = KnownResourceTypes.All;
-                                    }
+                            if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
+                            {
+                                includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
+                            }
+                        }
+                    }
 
-                                    fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+                    _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
+                    _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
 
-                                    scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
-
-                                    if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
-                                    }
-                                }
+                    if (includeFhirUserClaim)
+                    {
+                        var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
+                        if (string.IsNullOrEmpty(fhirUser))
+                        {
+                            // look for the fhirUser info in a header
+                            if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
+                                && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
+                            {
+                                fhirUser = hValue.ToString();
                             }
                         }
 
-                        _logger.LogInformation("Scope restrictions allowed are {ScopeRestriction}", scopeRestrictions);
-                        _logger.LogInformation("FhirUserClaim is present {FhirUserClaim}", includeFhirUserClaim);
-
-                        if (includeFhirUserClaim)
+                        try
                         {
-                            var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
-                            if (string.IsNullOrEmpty(fhirUser))
+                            fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
+                            FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
+                        }
+                        catch (UriFormatException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                // look for the fhirUser info in a header
-                                if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
-                                    && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
-                                {
-                                    fhirUser = hValue.ToString();
-                                }
+                                throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
                             }
-
-                            try
+                        }
+                        catch (ArgumentNullException)
+                        {
+                            if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
                             {
-                                fhirRequestContext.AccessControlContext.FhirUserClaim = new System.Uri(fhirUser, UriKind.RelativeOrAbsolute);
-                                FhirUserClaimParser.ParseFhirUserClaim(fhirRequestContext.AccessControlContext, authorizationConfiguration.ErrorOnMissingFhirUserClaim);
-                            }
-                            catch (UriFormatException)
-                            {
-                                if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                                {
-                                    throw new BadHttpRequestException(string.Format(Resources.FhirUserClaimMustBeURL, fhirUser));
-                                }
-                            }
-                            catch (ArgumentNullException)
-                            {
-                                if (authorizationConfiguration.ErrorOnMissingFhirUserClaim)
-                                {
-                                    throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
-                                }
+                                throw new BadHttpRequestException(Resources.FhirUserClaimCannotBeNull);
                             }
                         }
                     }

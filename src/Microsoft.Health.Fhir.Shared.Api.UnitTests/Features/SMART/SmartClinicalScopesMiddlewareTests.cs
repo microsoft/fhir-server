@@ -242,6 +242,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                     new ScopeRestriction("Observation", DataActions.Read, "patient"),
                 },
             };
+            yield return new object[]
+            {
+                "patient.Patient.read user.Observation.write",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                },
+            };
 
             yield return new object[] { "user/*.*", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
             yield return new object[] { "user/Encounter.*", new List<ScopeRestriction>() { new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
