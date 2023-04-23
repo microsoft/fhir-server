@@ -53,11 +53,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             return newOperation;
         }
 
-        public bool RemoveOperation(Guid id)
+        public bool CompleteOperation(IBundleOrchestratorOperation operation)
         {
-            if (!_operationsById.TryRemove(id, out IBundleOrchestratorOperation job))
+            EnsureArg.IsNotNull(operation, nameof(operation));
+
+            if (!_operationsById.TryRemove(operation.Id, out IBundleOrchestratorOperation job))
             {
-                throw new BundleOrchestratorException($"A job with ID '{id}' was not found or unable to be removed from {nameof(BundleOrchestrator)}.");
+                throw new BundleOrchestratorException($"A job with ID '{operation.Id}' was not found or unable to be completed.");
             }
 
             return true;

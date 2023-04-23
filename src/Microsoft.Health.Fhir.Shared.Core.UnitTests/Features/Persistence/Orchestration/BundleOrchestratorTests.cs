@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -19,8 +18,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorTests
     {
-        private readonly IScoped<IFhirDataStore> _dataStore = Substitute.For<IScoped<IFhirDataStore>>();
-
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJob_ReceiveANewJobBack()
         {
@@ -38,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(label, operation.Label);
             Assert.Equal(expectedNumberOfResources, operation.OriginalExpectedNumberOfResources);
 
-            batchOrchestrator.RemoveOperation(operation.Id);
+            batchOrchestrator.CompleteOperation(operation);
         }
 
         [Fact]
@@ -58,7 +55,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             Assert.Throws<ArgumentOutOfRangeException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "test", expectedNumberOfResources: 0));
 
-            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.RemoveOperation(Guid.Empty));
+            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100, Substitute.For<IFhirDataStore>())));
         }
     }
 }

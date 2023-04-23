@@ -38,6 +38,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler
     {
+        private readonly string[] _bundleExpectedStatusCodes = new string[]
+        {
+            ((int)HttpStatusCode.OK).ToString(),
+            ((int)HttpStatusCode.Created).ToString(),
+        };
+
         private async Task ExecuteAllRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
@@ -85,7 +91,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.", totalNumberOfRequests, httpVerb);
 
-                _bundleOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, httpVerb.ToString(), expectedNumberOfResources: totalNumberOfRequests);
+                // This logic works well for Batches. Transactions should have a single Bundle Operation.
+                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                    _bundleType == BundleType.Transaction ? BundleOrchestratorOperationType.Transaction : BundleOrchestratorOperationType.Batch,
+                    label: httpVerb.ToString(),
+                    expectedNumberOfResources: totalNumberOfRequests);
 
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> requestWorkFunc = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -107,6 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         httpVerb,
                         throttledEntryComponent,
                         _bundleType,
+                        bundleOperation,
                         resourceExecutionContext.Context,
                         resourceExecutionContext.Index,
                         resourceExecutionContext.PersistedId,
@@ -120,7 +131,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         _logger,
                         ct);
 
-                    // TODO: Add logic to release resources.
+                    string resourceFinalStatusCode = entry.Response.Status;
+                    if (!_bundleExpectedStatusCodes.Contains(resourceFinalStatusCode))
+                    {
+                        _logger.LogTrace(
+                            "BundleHandler - Releasing resource #{RequestNumber} as it completed with HTTP Status Code {HTTPStatusCode}.",
+                            resourceExecutionContext.Index,
+                            resourceFinalStatusCode);
+
+                        await bundleOperation.ReleaseResourceAsync(
+                            $"Resource #{resourceExecutionContext.Index} completed with HTTP Status Code {resourceFinalStatusCode}.",
+                            cancellationToken);
+                    }
                 };
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
@@ -133,6 +155,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
 
                 LogBundleStatistics(responseBundle, totalNumberOfRequests, httpVerb, stopwatch);
+
+                _bundleOrchestrator.CompleteOperation(bundleOperation);
             }
 
             return await Task.FromResult(throttledEntryComponent);
@@ -143,6 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             HTTPVerb httpVerb,
             EntryComponent throttledEntryComponent,
             BundleType? bundleType,
+            IBundleOrchestratorOperation bundleOperation,
             RouteContext request,
             int entryIndex,
             string persistedId,
@@ -171,7 +196,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     HttpContext httpContext = request.HttpContext;
 
-                    SetupContexts(request, httpContext, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(request, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
 
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
 
@@ -328,6 +353,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private static void SetupContexts(
             RouteContext request,
             HttpContext httpContext,
+            IBundleOrchestratorOperation bundleOperation,
             IFhirRequestContext requestContext,
             IAuditEventTypeMapping auditEventTypeMapping,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
@@ -352,6 +378,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
             };
+
+            // Assign the current Bundle Orchestrator Operation ID as part of the downstream requests.
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
 

@@ -5,12 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
-    public interface IBundleOrchestrator
+    public sealed class BundleOrchestratorNamingConventions
     {
-        bool IsEnabled { get; }
-
-        IBundleOrchestratorOperation CreateNewOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources);
-
-        bool CompleteOperation(IBundleOrchestratorOperation operation);
+        public const string HttpHeaderOperationTag = "X-BundleOperation";
     }
 }

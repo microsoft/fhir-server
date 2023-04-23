@@ -11,8 +11,6 @@
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" Link="Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ConvertDataEngineTests.cs" Link="Operations\ConvertData\ConvertDataEngineTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ConvertDataRequestHandlerTests.cs" Link="Operations\ConvertData\ConvertDataRequestHandlerTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\Orchestration\BatchOrchestratorTests.cs" Link="BatchOrchestratorTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\Orchestration\BundleOrchestratorTests.cs" Link="BundleOrchestratorTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
