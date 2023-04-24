@@ -64,14 +64,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException(errorMessage);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, null, idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, null, idGenerator, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     ImportResource importResource = new ImportResource(null);
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Func<long, long> idGenerator = (i) => i;
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, "DummyType", idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, "DummyType", idGenerator, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     resetEvent1.Set();
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>(), Arg.Any<long>())
                 .Returns(callInfo =>
                 {
                     Exception ex = (Exception)callInfo[1];
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, null, idGenerator, cancellationTokenSource.Token);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, 0, null, idGenerator, cancellationTokenSource.Token);
 
             resetEvent1.WaitOne();
             cancellationTokenSource.Cancel();
@@ -233,12 +233,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     long surrogatedId = (long)callInfo[0];
                     long index = (long)callInfo[1];
-                    string content = (string)callInfo[2];
+                    string content = (string)callInfo[3];
                     ResourceWrapper resourceWrapper = new ResourceWrapper(
                             content,
                             "0",
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(surrogatedId, index, resourceWrapper);
+                    return new ImportResource(surrogatedId, index, 0, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
             loader.MaxBatchSize = batchSize;
 
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, null, idGenerator, CancellationToken.None);
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, startIndex, null, idGenerator, CancellationToken.None);
 
             long currentIndex = startIndex;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())

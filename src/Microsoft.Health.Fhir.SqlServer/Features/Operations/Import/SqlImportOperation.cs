@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -33,25 +34,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
+        private IFhirDataStore _store;
 
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            IFhirDataStore store,
             ISqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,
             ILogger<SqlImportOperation> logger)
         {
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(model, nameof(model));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _model = model;
-            _importTaskConfiguration = operationsConfig.Value.Import;
-            _schemaInformation = schemaInformation;
-            _logger = logger;
+            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _store = EnsureArg.IsNotNull(store, nameof(store));
+            _model = EnsureArg.IsNotNull(model, nameof(model));
+            _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
@@ -77,6 +75,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.TokenStringCompositeSearchParam.TableName,
                 VLatest.TokenNumberNumberCompositeSearchParam.TableName,
             };
+
+        public async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.Resource, true, true, null, false)).ToList();
+                var result = await _store.MergeAsync(input, cancellationToken);
+                return resources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "MergeResourcesAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+        }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> UniqueIndexesList()
         {

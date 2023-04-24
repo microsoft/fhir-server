@@ -64,8 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
 
             // enable rebuild indexes for testing
-            configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "true";
-            configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "true";
+            configuration["FhirServer:Operations:Import:DisableOptionalIndexesForImport"] = "false";
+            configuration["FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport"] = "false";
 
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
                     configuration["TaskHosting:Enabled"] = "true";
                     configuration["TaskHosting:MaxRunningTaskCount"] = "2";
+                    configuration["TaskHosting:PollingFrequencyInSeconds"] = "2";
 
                     _cleanupDatabase = async () =>
                     {

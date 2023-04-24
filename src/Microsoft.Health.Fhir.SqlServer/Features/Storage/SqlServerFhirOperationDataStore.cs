@@ -389,13 +389,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return new ExportJobOutcome(jobRecord, etag);
         }
 
-        private ExportJobOutcome CreateExportJobOutcomeToBeDeprecated(string rawJobRecord, byte[] rowVersionAsBytes)
-        {
-            var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);
-            WeakETag etag = GetRowVersionAsEtag(rowVersionAsBytes);
-            return new ExportJobOutcome(exportJobRecord, etag);
-        }
-
         private static WeakETag GetRowVersionAsEtag(byte[] rowVersionAsBytes)
         {
             if (BitConverter.IsLittleEndian)

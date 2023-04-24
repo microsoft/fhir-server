@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     method: "Import",
                     uriString: inputData.UriString,
                     baseUriString: inputData.BaseUriString,
-                    correlationId: inputData.JobId,
+                    correlationId: inputData.JobId, // TODO: Replace by group id in stage 2
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {
@@ -85,17 +85,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = (index) => inputData.BeginSequenceId + index;
+                Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
 
                 // Clean resources before import start
                 await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
 
                 // Initialize error store
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData), cancellationToken);
+                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, inputData.Offset, inputData.BytesToRead, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken, inputData.EndSequenceId == 0);
 
                 // Import to data store
                 (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
@@ -145,6 +145,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     _logger.LogError(ex, "Failed to load data.");
                     throw new RetriableJobException("Failed to load data", ex);
                 }
+
+                jobInfo.Data = currentResult.SucceedCount + currentResult.FailedCount;
 
                 return JsonConvert.SerializeObject(currentResult);
             }
@@ -212,9 +214,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private static string GetErrorFileName(ImportProcessingJobInputData inputData)
+        private static string GetErrorFileName(string resourceType, long groupId, long jobId)
         {
-            return $"{inputData.ResourceType}{inputData.JobId}.ndjson";
+            return $"{resourceType}{groupId}_{jobId}.ndjson"; // jobId instead of resources surrogate id
         }
     }
 }

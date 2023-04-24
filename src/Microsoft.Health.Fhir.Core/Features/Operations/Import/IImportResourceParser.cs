@@ -15,8 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         /// <param name="id">sequence id of the resource.</param>
         /// <param name="index">index of the resource.</param>
+        /// <param name="offset">Read stream offset in file.</param>
         /// <param name="rawContent">raw content in string format.</param>
         /// <returns>ImportResource</returns>
-        public ImportResource Parse(long id, long index, string rawContent);
+        public ImportResource Parse(long id, long index, long offset, string rawContent);
     }
 }

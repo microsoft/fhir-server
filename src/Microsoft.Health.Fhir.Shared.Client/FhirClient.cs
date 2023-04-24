@@ -336,9 +336,9 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, CancellationToken cancellationToken = default, params (string key, string value)[] body)
+        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, string query, CancellationToken cancellationToken = default, params (string key, string value)[] body)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search?{query}")
             {
                 Content = new FormUrlEncodedContent(body.ToDictionary(p => p.key, p => p.value)),
             };

@@ -187,6 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // cannot use VLatest as it does not understand optional parameters
             sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
             sqlCommand.CommandText = "dbo.EnqueueJobs";
+            sqlCommand.CommandTimeout = 300;
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, definitions.Select(d => new StringListRow(d)));
             if (groupId.HasValue)

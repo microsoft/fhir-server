@@ -125,9 +125,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
-            List<JobInfo> result = new List<JobInfo>();
+            var result = new List<JobInfo>();
 
             long gId = groupId ?? largestId++;
+
             foreach (string definition in definitions)
             {
                 if (jobInfos.Any(t => t.Definition.Equals(definition)))
@@ -135,20 +136,25 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     result.Add(jobInfos.First(t => t.Definition.Equals(definition)));
                     continue;
                 }
-
-                result.Add(new JobInfo()
+                else
                 {
-                    Definition = definition,
-                    Id = largestId,
-                    GroupId = gId,
-                    Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
-                    HeartbeatDateTime = DateTime.Now,
-                    QueueType = queueType,
-                });
+                    var newJob = new JobInfo()
+                    {
+                        Definition = definition,
+                        Id = largestId,
+                        GroupId = gId,
+                        Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
+                        HeartbeatDateTime = DateTime.Now,
+                        QueueType = queueType,
+                    };
+
+                    result.Add(newJob);
+                    jobInfos.Add(newJob);
+                }
+
                 largestId++;
             }
 
-            jobInfos.AddRange(result);
             return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
