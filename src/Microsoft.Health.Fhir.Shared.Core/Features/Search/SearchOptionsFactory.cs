@@ -450,6 +450,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
 
+            if (searchOptions.Expression is SearchParameterExpression searchParameterExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", searchParameterExpression.Parameter.Name, searchParameterExpression.Parameter.Code);
+            }
+            else
+            {
+                LogExpresssionSearchParameters(searchOptions.Expression);
+            }
+
             return searchOptions;
 
             IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
@@ -536,6 +545,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
                 }
+            }
+        }
+
+        private void LogExpresssionSearchParameters(Expression expression)
+        {
+            if (expression == null)
+            {
+                return;
+            }
+            else if (expression is SearchParameterExpression searchParameterExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", searchParameterExpression.Parameter.Name, searchParameterExpression.Parameter.Code);
+                LogExpresssionSearchParameters(searchParameterExpression.Expression);
+            }
+            else if (expression is SearchParameterExpressionBase baseExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", baseExpression.Parameter.Name, baseExpression.Parameter.Code);
+            }
+            else if (expression is MissingSearchParameterExpression missingSearchParameterExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}, IsMissing: {Missing}.", missingSearchParameterExpression.Parameter.Name, missingSearchParameterExpression.Parameter.Code, missingSearchParameterExpression.IsMissing);
+            }
+            else if (expression is ChainedExpression chainedExpression)
+            {
+                _logger.LogInformation("SearchParameters in chained search. URL: {Url}, Code: {Code}", chainedExpression.ReferenceSearchParameter.Name, chainedExpression.ReferenceSearchParameter.Code);
+                LogExpresssionSearchParameters(chainedExpression.Expression);
+            }
+            else if (expression is SearchParameterExpression includeExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", includeExpression.Parameter.Name, includeExpression.Parameter.Code);
+                LogExpresssionSearchParameters(includeExpression.Expression);
+            }
+            else if (expression is MultiaryExpression multiaryExpression)
+            {
+                foreach (var subExpression in multiaryExpression.Expressions)
+                {
+                    LogExpresssionSearchParameters(subExpression);
+                }
+            }
+            else if (expression is UnionExpression unionExpression)
+            {
+                foreach (var subExpression in unionExpression.Expressions)
+                {
+                    LogExpresssionSearchParameters(subExpression);
+                }
+            }
+            else if (expression is NotExpression notExpression)
+            {
+                LogExpresssionSearchParameters(notExpression.Expression);
+            }
+            else if (expression is SortExpression sortExpression)
+            {
+                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", sortExpression.Parameter.Name, sortExpression.Parameter.Code);
             }
         }
 
