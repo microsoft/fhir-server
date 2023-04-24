@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
 
-                    if (result.Status == SearchParameterStatus.Disabled)
+                    if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
                         (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
@@ -195,6 +195,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
         }
 
+        /// <summary>
+        /// Used to apply search parameter status updates to the SearchParameterDefinitionManager.Used in reindex operation when checking every 10 minutes or so.
+        /// </summary>
+        /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())

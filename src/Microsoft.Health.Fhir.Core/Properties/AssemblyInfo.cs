@@ -40,6 +40,7 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.CosmosDb.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Core.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Shared.Core.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Common")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Tests.Integration")]
 

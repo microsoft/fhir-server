@@ -41,6 +41,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorOperationType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\IBundleOrchestrator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\IBundleOrchestratorOperation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalResourceHandler.cs" />

@@ -26,10 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
     public class SearchParameterStateHandler : IRequestHandler<SearchParameterStateRequest, SearchParameterStateResponse>
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
-        public SearchParameterStateHandler(IAuthorizationService<DataActions> authorizationService, ISearchParameterDefinitionManager searchParameterDefinitionManager, SearchParameterStatusManager searchParameterStatusManager)
+        public SearchParameterStateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterDefinitionManager searchParameterDefinitionManager, SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             if (searchParameterResult.Count == 0)
             {
-                return null;
+                throw new ResourceNotFoundException(Core.Resources.SearchParameterStatusNotFound);
             }
 
             SearchParameterStateResponse response;

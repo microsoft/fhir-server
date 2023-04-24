@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             var sqlRow = new SqlDataRecord(
                 new SqlMetaData("Uri", SqlDbType.VarChar, 128),
-                new SqlMetaData("Status", SqlDbType.VarChar, 10),
+                new SqlMetaData("Status", SqlDbType.VarChar, 20),
                 new SqlMetaData("IsPartiallySupported", SqlDbType.Bit));
 
             foreach (ResourceSearchParameterStatus status in this)

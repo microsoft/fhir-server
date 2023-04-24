@@ -602,6 +602,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The [_include]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
+        /// </summary>
+        internal static string IncludeIncorrectParameterType {
+            get {
+                return ResourceManager.GetString("IncludeIncorrectParameterType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The parameter {0}={1} with circular reference is executed once (a single iteration)..
         /// </summary>
         internal static string IncludeIterateCircularReferenceExecutedOnce {
@@ -751,6 +760,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidTypeParameter {
             get {
                 return ResourceManager.GetString("InvalidTypeParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The provided status of &apos;{0}&apos; for url &apos;{1}&apos; is invalid. It can be either &apos;supported or &apos;disabled&apos;.
+        /// </summary>
+        internal static string InvalidUpdateStatus {
+            get {
+                return ResourceManager.GetString("InvalidUpdateStatus", resourceCulture);
             }
         }
         
@@ -1196,6 +1214,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The [_revinclude]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
+        /// </summary>
+        internal static string RevIncludeIncorrectParameterType {
+            get {
+                return ResourceManager.GetString("RevIncludeIncorrectParameterType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;_revinclude:iterate={0}&apos; search parameter has multiple target types. Please specify a target type..
         /// </summary>
         internal static string RevIncludeIterateTargetTypeNotSpecified {
@@ -1376,6 +1403,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; is deleted or unsupported and cannot be updated. .
+        /// </summary>
+        internal static string SearchParameterDeleted {
+            get {
+                return ResourceManager.GetString("SearchParameterDeleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search parameter &apos;{0}&apos; is not common for &apos;{1}&apos; and &apos;{2}&apos;..
         /// </summary>
         internal static string SearchParameterMustBeCommon {
@@ -1394,11 +1430,47 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; does not exist in datastore. The $status operation cannot be used to add a search parameter..
+        /// </summary>
+        internal static string SearchParameterNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter &apos;{0}&apos; is not supported for resource type &apos;{1}&apos;..
         /// </summary>
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update request is invalid. Requires a &apos;url&apos; and &apos;status&apos; for each search parameter to be updated..
+        /// </summary>
+        internal static string SearchParameterRequestNotValid {
+            get {
+                return ResourceManager.GetString("SearchParameterRequestNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search Parameter Status was not found..
+        /// </summary>
+        internal static string SearchParameterStatusNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search Parameter status &apos;{0}&apos; for url &apos;{1}&apos; is invalid. Only &apos;supported&apos; or &apos;disabled&apos; are allowed..
+        /// </summary>
+        internal static string SearchParameterStatusNotValid {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotValid", resourceCulture);
             }
         }
         

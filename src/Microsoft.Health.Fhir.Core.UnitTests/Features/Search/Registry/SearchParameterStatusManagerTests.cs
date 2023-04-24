@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                     },
                     new ResourceSearchParameterStatus
                     {
-                        Status = SearchParameterStatus.Disabled,
+                        Status = SearchParameterStatus.Unsupported,
                         Uri = new Uri(ResourceProfile),
                         LastUpdated = Clock.UtcNow,
                     },

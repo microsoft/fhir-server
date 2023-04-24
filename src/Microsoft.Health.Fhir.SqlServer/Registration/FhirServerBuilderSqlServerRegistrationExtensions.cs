@@ -8,6 +8,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -243,14 +244,16 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services
-                .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
-                .Add<DefragWatchdog>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+            services.Add<DefragWatchdog>().Singleton().AsSelf();
 
-            services.AddHostedService<WatchdogsBackgroundService>();
+            services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
+
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<StorageInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+                    .Add<WatchdogsBackgroundService>()
+                    .Singleton()
+                    .AsSelf() // this is needed to create the instance the delegates resolve
+                    .AsService<IHostedService>()
+                    .AsService<INotificationHandler<StorageInitializedNotification>>();
 
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());

@@ -13,5 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Deleted = 4,
         PendingDelete = 5,
         PendingDisable = 6,
+        Unsupported = 7,
     }
 }

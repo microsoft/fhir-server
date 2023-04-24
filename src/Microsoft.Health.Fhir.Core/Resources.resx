@@ -236,9 +236,17 @@
     <value>The _include search is missing the type to search.</value>
     <comment>_include is a query parameter.</comment>
   </data>
+  <data name="IncludeIncorrectParameterType" xml:space="preserve">
+    <value>The [_include]=[resource]:[parameter] search has an invalid search parameter, must be of type reference.</value>
+    <comment>_include is a query parameter.</comment>
+  </data>
   <data name="RevIncludeMissingType" xml:space="preserve">
     <value>The _revinclude search is missing the type to search.</value>
     <comment>_revinclude is a query parameter.</comment>
+  </data>
+  <data name="RevIncludeIncorrectParameterType" xml:space="preserve">
+    <value>The [_revinclude]=[resource]:[parameter] search has an invalid search parameter, must be of type reference.</value>
+    <comment>_include is a query parameter.</comment>
   </data>
   <data name="RevIncludeIterateTargetTypeNotSpecified" xml:space="preserve">
     <value>The '_revinclude:iterate={0}' search parameter has multiple target types. Please specify a target type.</value>
@@ -709,5 +717,27 @@
   <data name="UnsupportedSearchParameterStateQueryParameter" xml:space="preserve">
     <value>Only Code, ResourceType, and Url are supported as query parameters for $status</value>
     <comment>{NumberedPlaceHolder="$status"}</comment>
+  </data>
+  <data name="InvalidUpdateStatus" xml:space="preserve">
+    <value>The provided status of '{0}' for url '{1}' is invalid. It can be either 'supported or 'disabled'</value>
+    <comment>'{0}' Is the status of the SearchParameter. '{1}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
+  <data name="SearchParameterDeleted" xml:space="preserve">
+    <value>Search parameter matching the url '{0}' is deleted or unsupported and cannot be updated. </value>
+    <comment>'{0}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
+  <data name="SearchParameterNotFound" xml:space="preserve">
+    <value>Search parameter matching the url '{0}' does not exist in datastore. The $status operation cannot be used to add a search parameter.</value>
+    <comment>{NumberedPlaceHolder="$status"}. '{0}' Is the Uri Identifying the SearchParameter</comment>
+  </data>
+  <data name="SearchParameterRequestNotValid" xml:space="preserve">
+    <value>Update request is invalid. Requires a 'url' and 'status' for each search parameter to be updated.</value>
+  </data>
+  <data name="SearchParameterStatusNotValid" xml:space="preserve">
+    <value>Search Parameter status '{0}' for url '{1}' is invalid. Only 'supported' or 'disabled' are allowed.</value>
+    <comment>'{0}' the status of the search paramter.'{1}' the uri identifying the search parameter.</comment>
+  </data>
+  <data name="SearchParameterStatusNotFound" xml:space="preserve">
+    <value>Search Parameter Status was not found.</value>
   </data>
 </root>
