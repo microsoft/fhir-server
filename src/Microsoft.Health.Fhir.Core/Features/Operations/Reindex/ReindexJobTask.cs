@@ -781,7 +781,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            _logger.LogTrace("Reindex job updating the status of the fully indexed search, id: {Id}, parameters: '{ParamUris}'", _reindexJobRecord.Id, string.Join("', '", fullyIndexedParamUris));
+            _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameters: '{ParamUris}'", _reindexJobRecord.Id, string.Join("', '", fullyIndexedParamUris));
             (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexedParamUris, _cancellationToken);
 
             if (success)
