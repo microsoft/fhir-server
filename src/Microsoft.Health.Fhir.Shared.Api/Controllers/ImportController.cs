@@ -92,18 +92,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
-            // Commenting out until me decide to remove completely
-            ////if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
-            ////{
-            ////    throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
-            ////}
-
-            // Commenting out until me decide to remove completely
-            ////if (!importRequest.Force && !_importConfig.InitialImportMode)
-            ////{
-            ////    throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
-            ////}
-
             CreateImportResponse response = await _mediator.ImportAsync(
                  _fhirRequestContextAccessor.RequestContext.Uri,
                  importRequest.InputFormat,

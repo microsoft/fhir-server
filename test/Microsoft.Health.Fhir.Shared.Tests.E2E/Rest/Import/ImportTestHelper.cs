@@ -17,7 +17,6 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
@@ -138,7 +137,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 try
                 {
-                    request.Mode = ImportConstants.InitialLoadMode;
                     request.Force = true;
                     Uri checkLocation = await testFhirClient.ImportAsync(request.ToParameters());
                     return checkLocation;
