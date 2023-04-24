@@ -41,4 +41,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Features\Operations\Import\" />
+  </ItemGroup>
 </Project>
