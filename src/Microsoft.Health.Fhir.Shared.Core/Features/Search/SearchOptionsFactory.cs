@@ -450,13 +450,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
 
-            if (searchOptions.Expression is SearchParameterExpression searchParameterExpression)
-            {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", searchParameterExpression.Parameter.Name, searchParameterExpression.Parameter.Code);
-            }
-            else
+            try
             {
                 LogExpresssionSearchParameters(searchOptions.Expression);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning("Unable to log search parameters. Error: {Exception}", e.ToString());
             }
 
             return searchOptions;
