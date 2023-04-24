@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return (outputChannel, importTask);
         }
 
-        public async Task CleanResourceAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult result, CancellationToken cancellationToken)
+        public async Task CleanResourceAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult result, CancellationToken cancellationToken)
         {
             long beginSequenceId = inputData.BeginSequenceId;
             long endSequenceId = inputData.EndSequenceId;

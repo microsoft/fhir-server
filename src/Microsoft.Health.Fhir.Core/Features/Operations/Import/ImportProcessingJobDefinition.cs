@@ -7,7 +7,7 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProcessingJobInputData : IJobData
+    public class ImportProcessingJobDefinition : IJobData
     {
         public int TypeId { get; set; }
 

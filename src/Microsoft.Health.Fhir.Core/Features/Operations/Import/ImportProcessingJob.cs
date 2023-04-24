@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            ImportProcessingJobInputData inputData = JsonConvert.DeserializeObject<ImportProcessingJobInputData>(jobInfo.Definition);
+            ImportProcessingJobDefinition inputData = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
             ImportProcessingJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
 
             var fhirRequestContext = new FhirRequestContext(
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Try best to clean failure data.
         /// </summary>
-        private async Task CleanResourceForFailureAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult currentResult)
+        private async Task CleanResourceForFailureAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
             try
             {

@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
-            ImportOrchestratorJobInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorJobInputData>(jobInfo.Definition);
+            ImportOrchestratorJobDefinition inputData = JsonConvert.DeserializeObject<ImportOrchestratorJobDefinition>(jobInfo.Definition);
             ImportOrchestratorJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportOrchestratorJobResult() : JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(jobInfo.Result);
 
             var fhirRequestContext = new FhirRequestContext(
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (currentResult.Progress == ImportOrchestratorJobProgress.PreprocessCompleted)
                 {
-                    await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, inputData.StartSequenceId == 0, cancellationToken);
+                    await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, cancellationToken);
                     currentResult.Progress = ImportOrchestratorJobProgress.SubJobsCompleted;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return Math.Max((blobSizeInBytes / resourceCountPerBytes) + 1, 10000L);
         }
 
-        private async Task ValidateResourcesAsync(ImportOrchestratorJobInputData inputData, CancellationToken cancellationToken)
+        private async Task ValidateResourcesAsync(ImportOrchestratorJobDefinition inputData, CancellationToken cancellationToken)
         {
             await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             });
         }
 
-        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult)
+        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobDefinition inputData, ImportOrchestratorJobResult currentResult)
         {
             ImportJobMetricsNotification importJobMetricsNotification = new ImportJobMetricsNotification(
                 jobInfo.Id.ToString(),
@@ -279,71 +279,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
 
-        private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobInputData coordDefinition, ImportOrchestratorJobResult currentResult, bool isMerge, CancellationToken cancellationToken)
+        private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
-            if (isMerge)
+            currentResult.TotalSizeInBytes = 0;
+            currentResult.FailedImportCount = 0;
+            currentResult.SucceedImportCount = 0;
+
+            // split blobs by size
+            var inputs = new List<Models.InputResource>();
+            await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
-                currentResult.TotalSizeInBytes = 0;
-                currentResult.FailedImportCount = 0;
-                currentResult.SucceedImportCount = 0;
-
-                // split blobs by size
-                var inputs = new List<Models.InputResource>();
-                await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
+                var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
+                currentResult.TotalSizeInBytes += blobLength;
+                var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
+                numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
+                for (var stream = 0; stream < numberOfStreams; stream++)
                 {
-                    var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                    currentResult.TotalSizeInBytes += blobLength;
-                    var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
-                    numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
-                    for (var stream = 0; stream < numberOfStreams; stream++)
+                    var newInput = input.Clone();
+                    newInput.Offset = stream * BytesToRead;
+                    newInput.BytesToRead = BytesToRead;
+                    lock (inputs)
                     {
-                        var newInput = input.Clone();
-                        newInput.Offset = stream * BytesToRead;
-                        newInput.BytesToRead = BytesToRead;
-                        lock (inputs)
-                        {
-                            inputs.Add(newInput);
-                        }
+                        inputs.Add(newInput);
                     }
-                });
-
-                var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
-                progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                currentResult.CreatedJobCount = jobIds.Count;
-
-                await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
-            }
-            else
-            {
-                currentResult.TotalSizeInBytes = currentResult.TotalSizeInBytes ?? 0;
-
-                foreach (var input in coordDefinition.Input.Skip(currentResult.CreatedJobCount))
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException();
-                    }
-
-                    while (currentResult.RunningJobIds.Count >= _importConfiguration.MaxRunningProcessingJobCount)
-                    {
-                        await WaitRunningJobComplete(progress, coord, currentResult, cancellationToken);
-                    }
-
-                    (long processingJobId, long endSequenceId, long blobSizeInBytes) = await CreateNewProcessingJobAsync(input, coord, coordDefinition, currentResult, cancellationToken);
-
-                    currentResult.RunningJobIds.Add(processingJobId);
-                    currentResult.CurrentSequenceId = endSequenceId;
-                    currentResult.TotalSizeInBytes += blobSizeInBytes;
-                    currentResult.CreatedJobCount += 1;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
                 }
+            });
 
-                while (currentResult.RunningJobIds.Count > 0)
-                {
-                    await WaitRunningJobComplete(progress, coord, currentResult, cancellationToken);
-                }
-            }
+            var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
+            progress.Report(JsonConvert.SerializeObject(currentResult));
+
+            currentResult.CreatedJobCount = jobIds.Count;
+
+            await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
         }
 
         private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
@@ -461,12 +428,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<Models.InputResource> inputs, long groupId, ImportOrchestratorJobInputData coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<Models.InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             var definitions = new List<string>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
             {
-                var importJobPayload = new ImportProcessingJobInputData()
+                var importJobPayload = new ImportProcessingJobDefinition()
                 {
                     TypeId = (int)JobType.ImportProcessing,
                     ResourceLocation = input.Url.ToString(),
@@ -493,7 +460,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobInputData inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobDefinition inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
             long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
@@ -501,7 +468,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             long beginSequenceId = currentResult.CurrentSequenceId;
             long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
-            ImportProcessingJobInputData importJobPayload = new ImportProcessingJobInputData()
+            ImportProcessingJobDefinition importJobPayload = new ImportProcessingJobDefinition()
             {
                 TypeId = (int)JobType.ImportProcessing,
                 ResourceLocation = input.Url.ToString(),

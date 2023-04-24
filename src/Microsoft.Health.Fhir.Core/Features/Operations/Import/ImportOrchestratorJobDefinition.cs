@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// <summary>
     /// Import job input payload
     /// </summary>
-    public class ImportOrchestratorJobInputData : IJobData
+    public class ImportOrchestratorJobDefinition : IJobData
     {
         public int TypeId { get; set; }
 

@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            ImportOrchestratorJobInputData inputData = new ImportOrchestratorJobInputData()
+            ImportOrchestratorJobDefinition inputData = new ImportOrchestratorJobDefinition()
             {
                 TypeId = (int)JobType.ImportOrchestrator,
                 RequestUri = request.RequestUri,

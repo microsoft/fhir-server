@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportInput_WhenStartFromClean_ThenAllResoruceShouldBeImported()
         {
-            ImportProcessingJobInputData inputData = GetInputData();
+            ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
             await VerifyCommonImportAsync(inputData, result);
         }
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportInput_WhenStartFromMiddle_ThenAllResoruceShouldBeImported()
         {
-            ImportProcessingJobInputData inputData = GetInputData();
+            ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
             result.SucceedCount = 3;
             result.FailedCount = 1;
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
         {
-            ImportProcessingJobInputData inputData = GetInputData();
+            ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportInput_WhenOperationWasCancelledExceptionThrow_ThenJobShouldFailed()
         {
-            ImportProcessingJobInputData inputData = GetInputData();
+            ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), new Progress<string>(), CancellationToken.None));
         }
 
-        private static async Task VerifyCommonImportAsync(ImportProcessingJobInputData inputData, ImportProcessingJobResult currentResult)
+        private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
             long startIndexFromProgress = currentResult.CurrentIndex;
             long succeedCountFromProgress = currentResult.SucceedCount;
@@ -154,10 +154,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             long cleanStart = -1;
             long cleanEnd = -1;
-            importer.CleanResourceAsync(Arg.Any<ImportProcessingJobInputData>(), Arg.Any<ImportProcessingJobResult>(), Arg.Any<CancellationToken>())
+            importer.CleanResourceAsync(Arg.Any<ImportProcessingJobDefinition>(), Arg.Any<ImportProcessingJobResult>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    var inputData = (ImportProcessingJobInputData)callInfo[0];
+                    var inputData = (ImportProcessingJobDefinition)callInfo[0];
                     var progress = (ImportProcessingJobResult)callInfo[1];
                     long beginSequenceId = inputData.BeginSequenceId;
                     long endSequenceId = inputData.EndSequenceId;
@@ -248,9 +248,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(inputData.EndSequenceId, cleanEnd);
         }
 
-        private ImportProcessingJobInputData GetInputData()
+        private ImportProcessingJobDefinition GetInputData()
         {
-            ImportProcessingJobInputData inputData = new ImportProcessingJobInputData();
+            ImportProcessingJobDefinition inputData = new ImportProcessingJobDefinition();
             inputData.BaseUriString = "http://dummy";
             inputData.ResourceLocation = "http://dummy";
             inputData.ResourceType = "Patient";
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             return inputData;
         }
 
-        private static JobInfo GetJobInfo(ImportProcessingJobInputData data, ImportProcessingJobResult result)
+        private static JobInfo GetJobInfo(ImportProcessingJobDefinition data, ImportProcessingJobResult result)
         {
             var jobInfo = new JobInfo
             {

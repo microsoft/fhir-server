@@ -7,7 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class ImportTaskConfiguration
     {
-        private const int DefaultMaxRunningProcessingTaskCount = 5;
         private const int DefaultSqlImportBatchSizeForCheckpoint = 80000;
         private const int DefaultSqlBatchSizeForImportResourceOperation = 2000;
         private const int DefaultSqlBatchSizeForImportParamsOperation = 10000;
@@ -36,11 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Queue id for data processing task. it might be different from orchestraotr task for standalone runtime environment.
         /// </summary>
         public string ProcessingTaskQueueId { get; set; }
-
-        /// <summary>
-        /// Controls how many data processing task would run at the same time.
-        /// </summary>
-        public int MaxRunningProcessingJobCount { get; set; } = DefaultMaxRunningProcessingTaskCount;
 
         /// <summary>
         /// Long running operation timeout
