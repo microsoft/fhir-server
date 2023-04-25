@@ -149,10 +149,11 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator>(sp =>
             {
-                Func<IFhirDataStore> createNewDataStoreFunc = () =>
+                Func<IScoped<IFhirDataStore>> createNewDataStoreFunc = () =>
                 {
-                    IFhirDataStore dataStore = sp.GetRequiredService<IFhirDataStore>();
-                    return dataStore;
+                    IScoped<IFhirDataStore> scopedDataStore = sp.GetRequiredService<IScoped<IFhirDataStore>>();
+
+                    return scopedDataStore;
                 };
 
                 return new BundleOrchestrator(

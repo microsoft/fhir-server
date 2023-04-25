@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -154,6 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
+            // ToDo: Create class 'CreateResourceRequest'.
             RawResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
@@ -177,6 +179,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
+            // ToDo: Add bundle ID to class 'ConditionalCreateResourceRequest'.
             UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters), HttpContext.RequestAborted);
 
             if (createResponse == null)
@@ -203,6 +206,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Update)]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
+            // ToDo: Create class 'UpsertResourceRequest'.
             SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), ifMatchHeader, HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response);
@@ -219,6 +223,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
+            // ToDo: Add bundle ID to class 'ConditionalUpsertResourceRequest'.
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters),
                 HttpContext.RequestAborted);
@@ -256,6 +261,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
+            // ToDo: Create class 'ReadResourceRequest'.
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response)
@@ -366,6 +372,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
+            // ToDo: Create class 'DeleteResourceRequest'.
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -399,6 +406,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
+            // ToDo: Extend class 'ConditionalDeleteResourceRequest'.
             DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
 
             if (maxDeleteCount.HasValue)
@@ -593,6 +601,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
+        }
+
+        public Guid? GetBundleOperationId()
+        {
+            if (HttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, out StringValues response))
+            {
+                string rawId = response.FirstOrDefault();
+                if (Guid.TryParse(rawId, out var id))
+                {
+                    return id;
+                }
+            }
+
+            return null;
         }
     }
 }

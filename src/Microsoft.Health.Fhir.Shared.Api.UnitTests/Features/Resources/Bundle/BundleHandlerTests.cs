@@ -21,6 +21,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -84,9 +85,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
-            Func<IFhirDataStore> newDataStoreFunc = () =>
+            Func<IScoped<IFhirDataStore>> newDataStoreFunc = () =>
             {
-                return Substitute.For<IFhirDataStore>();
+                return Substitute.For<IScoped<IFhirDataStore>>();
             };
 
             // TODO: Make 'isEnabled' a parameter.

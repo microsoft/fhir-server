@@ -91,11 +91,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.", totalNumberOfRequests, httpVerb);
 
-                // This logic works well for Batches. Transactions should have a single Bundle Operation.
-                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                    _bundleType == BundleType.Transaction ? BundleOrchestratorOperationType.Transaction : BundleOrchestratorOperationType.Batch,
-                    label: httpVerb.ToString(),
-                    expectedNumberOfResources: totalNumberOfRequests);
+                IBundleOrchestratorOperation bundleOperation = null;
+
+                try
+                {
+                    // This logic works well for Batches. Transactions should have a single Bundle Operation.
+                    bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                        _bundleType == BundleType.Transaction ? BundleOrchestratorOperationType.Transaction : BundleOrchestratorOperationType.Batch,
+                        label: httpVerb.ToString(),
+                        expectedNumberOfResources: totalNumberOfRequests);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "There was an error while initializing a new Bundle Operation: {ErrorMessage}", ex.Message);
+                    throw;
+                }
 
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> requestWorkFunc = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -107,9 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.Index, totalNumberOfRequests);
 
-                    // FHIBF - ResourceIdProvider is modified by HandleRequestAsync.
-                    // I've decided creating one new instance of ResourceIdProvider per record, giving that it can cause internal conflicts due the parallel access from multiple threads.
-                    // The single instance would make it thread safe.
+                    // Creating one new instance of ResourceIdProvider per record in the bundle, giving that it can cause internal conflicts due the parallel access from multiple threads.
                     ResourceIdProvider resourceIdProvider = new ResourceIdProvider();
 
                     EntryComponent entry = await HandleRequestAsync(
@@ -135,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (!_bundleExpectedStatusCodes.Contains(resourceFinalStatusCode))
                     {
                         _logger.LogTrace(
-                            "BundleHandler - Releasing resource #{RequestNumber} as it completed with HTTP Status Code {HTTPStatusCode}.",
+                            "BundleHandler - Releasing resource #{RequestNumber} as it has completed with HTTP Status Code {HTTPStatusCode}.",
                             resourceExecutionContext.Index,
                             resourceFinalStatusCode);
 
@@ -155,7 +163,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
 
                 LogBundleStatistics(responseBundle, totalNumberOfRequests, httpVerb, stopwatch);
-
                 _bundleOrchestrator.CompleteOperation(bundleOperation);
             }
 

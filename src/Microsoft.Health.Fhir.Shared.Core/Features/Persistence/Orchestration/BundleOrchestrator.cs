@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
+using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -17,14 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private readonly ConcurrentDictionary<Guid, IBundleOrchestratorOperation> _operationsById;
 
-        private readonly Func<IFhirDataStore> _createDataStoreFunc;
+        private readonly Func<IScoped<IFhirDataStore>> _createDataStoreFunc;
 
         /// <summary>
         /// Creates a new instance of <see cref="BundleOrchestrator"/>.
         /// </summary>
         /// <param name="isEnabled">Enables or disables the Bundle Orchestrator functionality.</param>
         /// <param name="createDataStoreFunc">Function creating a new instances of the data store.</param>
-        public BundleOrchestrator(bool isEnabled, Func<IFhirDataStore> createDataStoreFunc)
+        public BundleOrchestrator(bool isEnabled, Func<IScoped<IFhirDataStore>> createDataStoreFunc)
         {
             EnsureArg.IsNotNull(createDataStoreFunc, nameof(createDataStoreFunc));
 
@@ -42,8 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
             // Every bundle operation requires a new instance of the data store.
-            IFhirDataStore dataStore = _createDataStoreFunc();
-            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, dataStore: dataStore);
+            IScoped<IFhirDataStore> dataStore = _createDataStoreFunc();
+            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, dataStore: dataStore.Value);
 
             if (!_operationsById.TryAdd(newOperation.Id, newOperation))
             {

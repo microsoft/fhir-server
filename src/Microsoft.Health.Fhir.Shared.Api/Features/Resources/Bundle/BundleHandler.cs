@@ -80,7 +80,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
-        private readonly bool _enabledBundleOrchestrator;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -148,8 +147,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
-
-            _enabledBundleOrchestrator = true;
         }
 
         /// <summary>
@@ -216,7 +213,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    if (_enabledBundleOrchestrator)
+                    if (_bundleOrchestrator.IsEnabled)
                     {
                         await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
                     }

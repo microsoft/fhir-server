@@ -82,8 +82,8 @@ namespace Microsoft.Health.Fhir.Web
             */
             fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
 
-            // Set up Bundle Orchestrator types.
-            fhirServerBuilder.AddBundleOrchestrator(enabledBundleOrchestratorOperations: false);
+            // Set up Bundle Orchestrator.
+            fhirServerBuilder.AddBundleOrchestrator(enabledBundleOrchestratorOperations: true);
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
