@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// <param name="request">The convert data request which contains template reference.</param>
         /// <param name="cancellationToken">Cancellation token to cancel the fetch operation.</param>
         /// <returns>Template collection.</returns>
-        public virtual async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(ConvertDataRequest request, CancellationToken cancellationToken)
+        public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
             var accessToken = string.Empty;
 

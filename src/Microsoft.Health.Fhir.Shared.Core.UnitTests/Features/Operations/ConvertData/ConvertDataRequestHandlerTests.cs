@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1924-10-10", patient.BirthDate);
         }
 
+        /*
         [Fact]
         public async Task GivenACcdaConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
@@ -106,6 +107,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Single(patient.Extension);
         }
 
+        */
         private ConvertDataRequestHandler GetRequestHandler()
         {
             var convertDataConfig = new ConvertDataConfiguration
@@ -117,13 +119,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(convertDataConfig);
 
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
-
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
+            ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            templateProviderFactory.GetDefaultTemplateProvider().Returns(templateProvider);
 
             var convertDataEngine = new ConvertDataEngine(
-                templateProvider,
+                templateProviderFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
 
@@ -135,7 +136,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 convertDataEngine,
                 convertDataConfiguration);
         }
-        */
 
         private static ConvertDataRequest GetSampleHl7v2Request()
         {

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
+using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -124,7 +125,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Single(patient.Extension);
         }
 
-        /*
         [Theory]
         [InlineData("fakeacr.azurecr.io/template:default")]
         [InlineData("test.azurecr-test.io/template:default")]
@@ -146,7 +146,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var fhirRequest = GetFhirRequestWithTemplateReference(templateReference);
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(fhirRequest, CancellationToken.None));
         }
-        */
 
         [Theory]
         [InlineData("       ")]
@@ -248,7 +247,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
-        /*
         [Fact]
         public async Task GivenHl7V2TemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
         {
@@ -259,7 +257,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "ADT_A01", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetHl7V2RequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -275,7 +273,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "CCD", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetCcdaRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -291,7 +289,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "ExamplePatient", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetJsonRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -307,12 +305,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "Patient", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
         }
-        */
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
         {
@@ -398,9 +395,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         {
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
 
-            DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+
+            return new ConvertDataEngine(
+                templateProviderFactory,
+                convertDataConfiguration,
+                new NullLogger<ConvertDataEngine>());
+        }
+
+        private IConvertDataEngine GetDefaultEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
+        {
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+
+            IConvertDataTemplateProvider templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+        }
+
+        private IConvertDataEngine GetCustomEngine()
+        {
+            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
+            IContainerRegistryTokenProvider containerRegistryTokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(containerRegistryTokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
 
             return new ConvertDataEngine(
                 templateProviderFactory,
@@ -411,7 +434,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
         {
             var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
-            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+            var templateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
             return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());

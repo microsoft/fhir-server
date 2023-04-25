@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 convertDataTemplateProvider = _templateProviderFactory.GetContainerRegistryTemplateProvider();
             }
 
-            var templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
+            List<Dictionary<string, DotLiquid.Template>> templateCollection = await convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
 
             ITemplateProvider templateProvider = new TemplateProvider(templateCollection);
             if (templateProvider == null)
