@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IResourceImporter importer = Substitute.For<IResourceImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IResourceImporter importer = Substitute.For<IResourceImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             long failedCountFromProgress = currentResult.FailedCount;
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IResourceImporter importer = Substitute.For<IResourceImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -154,20 +154,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             long cleanStart = -1;
             long cleanEnd = -1;
-            importer.CleanResourceAsync(Arg.Any<ImportProcessingJobDefinition>(), Arg.Any<ImportProcessingJobResult>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    var inputData = (ImportProcessingJobDefinition)callInfo[0];
-                    var progress = (ImportProcessingJobResult)callInfo[1];
-                    long beginSequenceId = inputData.BeginSequenceId;
-                    long endSequenceId = inputData.EndSequenceId;
-                    long endIndex = progress.CurrentIndex;
-
-                    cleanStart = beginSequenceId + endIndex;
-                    cleanEnd = endSequenceId;
-
-                    return Task.CompletedTask;
-                });
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
                 .Returns(callInfo =>

@@ -24,14 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IResourceBulkImporter _resourceBulkImporter;
+        private readonly IResourceImporter _resourceBulkImporter;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
-            IResourceBulkImporter resourceBulkImporter,
+            IResourceImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
@@ -86,9 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
 
                 Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
-
-                // Clean resources before import start
-                await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, cancellationToken);
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
@@ -154,9 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, CancelledErrorMessage);
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
-
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
+                var error = new ImportProcessingJobErrorResult()
                 {
                     Message = CancelledErrorMessage,
                 };
@@ -167,9 +162,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
-
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
+                var error = new ImportProcessingJobErrorResult()
                 {
                     Message = CancelledErrorMessage,
                 };
@@ -180,37 +173,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(retriableEx, "Error in data processing job.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
-
                 throw;
             }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Critical error in data processing job.");
 
-                await CleanResourceForFailureAsync(inputData, currentResult);
-
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
+                var error = new ImportProcessingJobErrorResult()
                 {
                     Message = ex.Message,
                 };
 
                 throw new JobExecutionException(ex.Message, error, ex);
-            }
-        }
-
-        /// <summary>
-        /// Try best to clean failure data.
-        /// </summary>
-        private async Task CleanResourceForFailureAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
-        {
-            try
-            {
-                await _resourceBulkImporter.CleanResourceAsync(inputData, currentResult, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Data processing job is canceled. Failed to clean resource.");
             }
         }
 

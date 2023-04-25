@@ -7,7 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class ImportTaskConfiguration
     {
-        private const int DefaultSqlImportBatchSizeForCheckpoint = 80000;
         private const int DefaultSqlBatchSizeForImportResourceOperation = 2000;
         private const int DefaultSqlBatchSizeForImportParamsOperation = 10000;
         private const int DefaultSqlMaxImportOperationConcurrentCount = 5;
@@ -62,11 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Max concurrent count for import operation
         /// </summary>
         public int SqlMaxImportOperationConcurrentCount { get; set; } = DefaultSqlMaxImportOperationConcurrentCount;
-
-        /// <summary>
-        /// Checkpoint batch size
-        /// </summary>
-        public int SqlImportBatchSizeForCheckpoint { get; set; } = DefaultSqlImportBatchSizeForCheckpoint;
 
         /// <summary>
         /// Batch size to clean duplicated resource with same resource id.

@@ -138,7 +138,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlResourceBulkImporter>()
+            services.Add<SqlResourceImporter>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -149,11 +149,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<CompressedRawResourceConverter>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlBulkCopyDataWrapperFactory>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
