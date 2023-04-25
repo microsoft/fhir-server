@@ -50,7 +50,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var observationWrapper = GetResourceWrapper(Samples.GetDefaultObservation().UpdateId(observationId));
 
             // create both
-            var mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            var mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
@@ -71,7 +77,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update patient
             _logger.LogInformation($"update patient");
             UpdateResource(patientWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
@@ -86,7 +98,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update observation
             _logger.LogInformation($"update observation");
             UpdateResource(observationWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
             patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
@@ -110,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var patientWrapper = GetResourceWrapper(Samples.GetDefaultPatient().UpdateId(patientId));
 
                 // create
-                var upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
+                var upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false, bundleOperationId: null), default);
                 Assert.NotNull(upsertResult);
                 Assert.Equal(SaveOutcomeType.Created, upsertResult.OutcomeType);
                 Assert.Equal("1", upsertResult.Wrapper.Version);
@@ -120,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // update
                 UpdateResource(patientWrapper);
-                upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
+                upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false, bundleOperationId: null), default);
                 Assert.NotNull(upsertResult);
                 Assert.Equal(SaveOutcomeType.Updated, upsertResult.OutcomeType);
                 Assert.Equal("2", upsertResult.Wrapper.Version);
