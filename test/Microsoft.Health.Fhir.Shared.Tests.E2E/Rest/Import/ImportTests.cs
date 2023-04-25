@@ -183,9 +183,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             request.Mode = ImportConstants.InitialLoadMode;
             request.Force = true;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            request.InputSource = new Uri("https://other-server.example2.org"); // $import registration calls are idempotent.
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.Equal(HttpStatusCode.Conflict, fhirException.StatusCode);
-
             HttpResponseMessage response;
             while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
@@ -414,6 +414,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request, errorCount: 1);
+            request.InputSource = new Uri("https://other-server.example2.org"); // $import registration calls are idempotent.
             await ImportCheckAsync(request, errorCount: 1); // importing already existing resource is success in merge.
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);

@@ -80,7 +80,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             IMediator mediator = Substitute.For<IMediator>();
 
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri("http://dummy"), Etag = "dummy" });
@@ -119,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
@@ -136,7 +135,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             IMediator mediator = Substitute.For<IMediator>();
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri("http://dummy"), Etag = "dummy" });
@@ -172,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
@@ -190,7 +188,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
@@ -238,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == null &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
@@ -256,7 +253,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
 
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
@@ -343,7 +339,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 getJobByGroupIdCalledTime = true;
                 return jobInfos.ToList();
             };
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
 
@@ -387,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                Arg.Is<ImportJobMetricsNotification>(
                    notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                    notification.Status == JobStatus.Failed.ToString() &&
-                   notification.CreatedTime == importOrchestratorInputData.CreateTime),
+                   notification.CreatedTime == orchestratorJobInfo.CreateDate),
                Arg.Any<CancellationToken>());
         }
 
@@ -442,7 +437,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfos.ToList();
             };
 
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
 
             var inputs = new List<InputResource>();
@@ -486,7 +480,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -515,7 +509,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                 return jobInfo;
             };
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
 
             var inputs = new List<InputResource>();
@@ -556,7 +549,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Cancelled.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -585,7 +578,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                 return jobInfo;
             };
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
 
             var inputs = new List<InputResource>();
@@ -627,7 +619,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -655,7 +647,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
 
             var inputs = new List<InputResource>();
@@ -697,7 +688,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Cancelled.ToString() &&
-                    notification.CreatedTime == importOrchestratorInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -725,7 +716,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorInputData.CreateTime = Clock.UtcNow;
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
 
             var inputs = new List<InputResource>();
@@ -770,7 +760,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == importOrchestratorInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -815,7 +805,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
@@ -889,7 +878,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
@@ -977,7 +965,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
 
@@ -1062,7 +1049,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id.Equals(orchestratorJobInfo.Id.ToString()) &&
                     notification.Status == jobStatus.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == succeedCount &&
                     notification.FailedCount == failedCount),
                 Arg.Any<CancellationToken>());
@@ -1108,7 +1095,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 return jobInfo;
             };
 
-            importOrchestratorJobInputData.CreateTime = Clock.UtcNow;
             importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
             importOrchestratorJobInputData.RequestUri = importOrchestratorJobInputData.BaseUri;
             var inputs = new List<InputResource>();
@@ -1201,7 +1187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string result = await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None);
             ImportOrchestratorJobResult resultDetails = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(result);
             Assert.NotEmpty(resultDetails.Request);
-            Assert.Equal(importOrchestratorJobInputData.CreateTime, resultDetails.TransactionTime);
+            Assert.Equal(orchestratorJobInfo.CreateDate, resultDetails.TransactionTime);
 
             Assert.Equal(inputFileCount, testQueueClient.JobInfos.Count() - 1);
 
@@ -1209,7 +1195,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id.Equals(orchestratorJobInfo.Id.ToString()) &&
                     notification.Status == JobStatus.Completed.ToString() &&
-                    notification.CreatedTime == importOrchestratorJobInputData.CreateTime &&
+                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
                     notification.SucceedCount == inputFileCount &&
                     notification.FailedCount == inputFileCount),
                 Arg.Any<CancellationToken>());

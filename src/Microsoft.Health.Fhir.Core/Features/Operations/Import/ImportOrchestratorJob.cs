@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     ErrorMessage = eTagEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 // Cancel other processing jobs
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
             }
             catch (RetriableJobException ex)
             {
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, inputData, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
             }
 
             // Post-process operation cannot be cancelled.
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new JobExecutionException(errorResult.ErrorMessage, errorResult);
             }
 
-            await SendImportMetricsNotification(JobStatus.Completed, jobInfo, inputData, currentResult);
+            await SendImportMetricsNotification(JobStatus.Completed, jobInfo, currentResult);
             return JsonConvert.SerializeObject(currentResult);
         }
 
@@ -264,12 +264,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             });
         }
 
-        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobDefinition inputData, ImportOrchestratorJobResult currentResult)
+        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult)
         {
-            ImportJobMetricsNotification importJobMetricsNotification = new ImportJobMetricsNotification(
+            var importJobMetricsNotification = new ImportJobMetricsNotification(
                 jobInfo.Id.ToString(),
                 jobStatus.ToString(),
-                inputData.CreateTime,
+                jobInfo.CreateDate,
                 Clock.UtcNow,
                 currentResult.TotalSizeInBytes,
                 currentResult.SucceedImportCount,

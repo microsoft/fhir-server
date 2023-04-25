@@ -46,10 +46,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Resource storage details.
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; set; }
-
-        /// <summary>
-        /// Job create time.
-        /// </summary>
-        public DateTimeOffset CreateTime { get; set; }
     }
 }

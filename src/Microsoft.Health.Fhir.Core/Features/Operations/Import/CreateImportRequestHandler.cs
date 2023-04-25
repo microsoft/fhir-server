@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -62,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
-                CreateTime = Clock.UtcNow, // TODO: Remove
             };
 
             string definition = JsonConvert.SerializeObject(definitionObj);
