@@ -4,12 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orchestration
@@ -27,11 +24,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const string label = "label";
             const int expectedNumberOfResources = 100;
 
-            Func<IScoped<IFhirDataStore>> newDataStoreFunc = () =>
-            {
-                return Substitute.For<IScoped<IFhirDataStore>>();
-            };
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(operationType, label, expectedNumberOfResources);
 
@@ -45,11 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
-            Func<IScoped<IFhirDataStore>> newDataStoreFunc = () =>
-            {
-                return Substitute.For<IScoped<IFhirDataStore>>();
-            };
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true, createDataStoreFunc: newDataStoreFunc);
+            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
 
             // Fail: Providing invalid labels.
             Assert.Throws<ArgumentNullException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, null, expectedNumberOfResources: 100));
@@ -60,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Throws<ArgumentOutOfRangeException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "test", expectedNumberOfResources: 0));
 
             // Fail: Trying to complete an operation that does not exist in the BundleOrchestrator.
-            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100, Substitute.For<IFhirDataStore>())));
+            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100)));
         }
     }
 }

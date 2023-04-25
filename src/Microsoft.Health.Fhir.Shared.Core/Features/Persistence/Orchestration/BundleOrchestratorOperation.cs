@@ -22,11 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         private readonly ConcurrentBag<ResourceWrapper> _resources;
 
         /// <summary>
-        /// Data layer reference.
-        /// </summary>
-        private readonly IFhirDataStore _dataStore;
-
-        /// <summary>
         /// Thread safe locking object reference.
         /// </summary>
         private readonly object _lock;
@@ -41,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private Task _mergeAsyncTask;
 
-        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, IFhirDataStore dataStore)
+        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
@@ -56,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _currentExpectedNumberOfResources = expectedNumberOfResources;
 
             _resources = new ConcurrentBag<ResourceWrapper>();
-            _dataStore = dataStore;
 
             _lock = new object();
 

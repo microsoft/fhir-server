@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// The fraction of <see cref="QueryRequestOptions.MaxItemCount"/> to attempt to fill before giving up.
         /// </summary>
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
-
         internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
 
         private readonly IScoped<Container> _containerScope;

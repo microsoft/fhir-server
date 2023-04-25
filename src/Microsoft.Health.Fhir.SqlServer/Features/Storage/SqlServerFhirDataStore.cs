@@ -41,6 +41,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const string InitialVersion = "1";
+        public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
+
+        private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
+        private static object _mergeResourcesFeatureFlagLocker = new object();
+
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
@@ -55,10 +61,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private const string InitialVersion = "1";
-        public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
-        private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
-        private static object _mergeResourcesFeatureFlagLocker = new object();
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,

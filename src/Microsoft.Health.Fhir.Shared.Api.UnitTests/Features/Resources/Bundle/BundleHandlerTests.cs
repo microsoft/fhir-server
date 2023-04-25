@@ -85,13 +85,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
-            Func<IScoped<IFhirDataStore>> newDataStoreFunc = () =>
-            {
-                return Substitute.For<IScoped<IFhirDataStore>>();
-            };
-
             // TODO: Make 'isEnabled' a parameter.
-            var bundleOrchestrator = new BundleOrchestrator(isEnabled: false, createDataStoreFunc: newDataStoreFunc);
+            var bundleOrchestrator = new BundleOrchestrator(isEnabled: false);
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)

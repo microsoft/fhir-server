@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -18,18 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private readonly ConcurrentDictionary<Guid, IBundleOrchestratorOperation> _operationsById;
 
-        private readonly Func<IScoped<IFhirDataStore>> _createDataStoreFunc;
-
         /// <summary>
         /// Creates a new instance of <see cref="BundleOrchestrator"/>.
         /// </summary>
         /// <param name="isEnabled">Enables or disables the Bundle Orchestrator functionality.</param>
-        /// <param name="createDataStoreFunc">Function creating a new instances of the data store.</param>
-        public BundleOrchestrator(bool isEnabled, Func<IScoped<IFhirDataStore>> createDataStoreFunc)
+        public BundleOrchestrator(bool isEnabled)
         {
-            EnsureArg.IsNotNull(createDataStoreFunc, nameof(createDataStoreFunc));
-
-            _createDataStoreFunc = createDataStoreFunc;
             _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
 
             IsEnabled = isEnabled;
@@ -42,9 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            // Every bundle operation requires a new instance of the data store.
-            IScoped<IFhirDataStore> dataStore = _createDataStoreFunc();
-            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, dataStore: dataStore.Value);
+            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources);
 
             if (!_operationsById.TryAdd(newOperation.Id, newOperation))
             {
@@ -54,13 +45,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             return newOperation;
         }
 
+        public IBundleOrchestratorOperation GetOperation(Guid operationId)
+        {
+            if (!_operationsById.TryGetValue(operationId, out IBundleOrchestratorOperation operation))
+            {
+                throw new BundleOrchestratorException($"An operation with ID '{operationId}' was not found or unable to be completed.");
+            }
+
+            return operation;
+        }
+
         public bool CompleteOperation(IBundleOrchestratorOperation operation)
         {
             EnsureArg.IsNotNull(operation, nameof(operation));
 
-            if (!_operationsById.TryRemove(operation.Id, out IBundleOrchestratorOperation job))
+            if (!_operationsById.TryRemove(operation.Id, out IBundleOrchestratorOperation deletedOperation))
             {
-                throw new BundleOrchestratorException($"A job with ID '{operation.Id}' was not found or unable to be completed.");
+                throw new BundleOrchestratorException($"An operation with ID '{operation.Id}' was not found or unable to be completed.");
             }
 
             return true;
