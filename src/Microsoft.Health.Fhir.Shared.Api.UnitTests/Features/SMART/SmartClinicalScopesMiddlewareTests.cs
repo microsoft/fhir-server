@@ -51,6 +51,45 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
         }
 
         [Theory]
+        [MemberData(nameof(GetTestScopesAndRoles))]
+        public async Task GivenSmartScopesSplitAcrossClaims_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, string claims, ICollection<ScopeRestriction> expectedScopeRestrictions)
+        {
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
+            var fhirRequestContext = new DefaultFhirRequestContext();
+
+            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            HttpContext httpContext = new DefaultHttpContext();
+
+            var fhirConfiguration = new FhirServerConfiguration();
+            fhirConfiguration.Security.Enabled = true;
+            var authorizationConfiguration = fhirConfiguration.Security.Authorization;
+            authorizationConfiguration.Enabled = true;
+            await LoadRoles(authorizationConfiguration);
+
+            var fhirUserClaim = new Claim(authorizationConfiguration.FhirUserClaim, "https://fhirServer/Patient/foo");
+            var rolesClaim = new Claim(authorizationConfiguration.RolesClaim, claims);
+            var rolesSmartUserClaim = new Claim(authorizationConfiguration.RolesClaim, "smartUser");
+
+            foreach (string singleClaim in authorizationConfiguration.ScopesClaim)
+            {
+                var scopesClaim = new Claim(singleClaim, scopes);
+                var claimsIdentity = new ClaimsIdentity(new List<Claim>() { scopesClaim, rolesClaim, fhirUserClaim, rolesSmartUserClaim });
+                var expectedPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+                httpContext.User = expectedPrincipal;
+                fhirRequestContext.Principal = expectedPrincipal;
+
+                _authorizationService = new RoleBasedFhirAuthorizationService(authorizationConfiguration, fhirRequestContextAccessor);
+
+                await _smartClinicalScopesMiddleware.Invoke(httpContext, fhirRequestContextAccessor, Options.Create(fhirConfiguration.Security), _authorizationService);
+
+                Assert.Equal(expectedScopeRestrictions, fhirRequestContext.AccessControlContext.AllowedResourceActions);
+            }
+        }
+
+        [Theory]
         [MemberData(nameof(GetTestScopes))]
         public async Task GivenSmartScope_WhenInvoked_ThenScopeParsedandAddedtoContext(string scopes, ICollection<ScopeRestriction> expectedScopeRestrictions)
         {
@@ -228,6 +267,47 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 Assert.Equal("Patient", fhirRequestContext.AccessControlContext.CompartmentResourceType);
                 Assert.Equal("foo", fhirRequestContext.AccessControlContext.CompartmentId);
             }
+        }
+
+        public static IEnumerable<object[]> GetTestScopesAndRoles()
+        {
+            yield return new object[]
+            {
+                "patient/Patient.read",
+                "patient/Observation.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read, "patient"),
+                },
+            };
+            yield return new object[]
+            {
+                "patient.Patient.read",
+                "user.Observation.write",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                },
+            };
+            yield return new object[]
+            {
+                "patient$Patient.read",
+                "practitioner/Observation.write",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("Patient", DataActions.Read, "patient"),
+                },
+            };
+            yield return new object[]
+            {
+                "patient$Patient.rd",
+                "practitioner/Observation.wr",
+                new List<ScopeRestriction>()
+                {
+                },
+            };
         }
 
         public static IEnumerable<object[]> GetTestScopes()
