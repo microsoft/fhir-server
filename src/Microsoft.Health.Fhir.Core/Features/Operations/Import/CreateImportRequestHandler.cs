@@ -25,28 +25,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
-        private readonly bool _isMerge;
         private readonly IQueueClient _queueClient;
-        private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly ILogger<CreateImportRequestHandler> _logger;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public CreateImportRequestHandler(
             IQueueClient queueClient,
-            ISequenceIdGenerator<long> sequenceIdGenerator,
+            ISequenceIdGenerator<long> sequenceIdGenerator, // TODO: remove
             ILogger<CreateImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
-            _sequenceIdGenerator = sequenceIdGenerator;
             _authorizationService = authorizationService;
             _logger = logger;
-            _isMerge = true;
         }
 
         public async Task<CreateImportResponse> Handle(CreateImportRequest request, CancellationToken cancellationToken)
@@ -58,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            ImportOrchestratorJobDefinition inputData = new ImportOrchestratorJobDefinition()
+            var definitionObj = new ImportOrchestratorJobDefinition()
             {
                 TypeId = (int)JobType.ImportOrchestrator,
                 RequestUri = request.RequestUri,
@@ -67,13 +62,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
-                CreateTime = Clock.UtcNow,
-                //// this is a temporary hack. Start sequence will go away in stage 2.
-                //// setting _isMerge to false reverts to previous bulk insert behavior.
-                StartSequenceId = _isMerge ? 0 : _sequenceIdGenerator.GetCurrentSequenceId(),
+                CreateTime = Clock.UtcNow, // TODO: Remove
             };
 
-            string definition = JsonConvert.SerializeObject(inputData);
+            string definition = JsonConvert.SerializeObject(definitionObj);
 
             try
             {

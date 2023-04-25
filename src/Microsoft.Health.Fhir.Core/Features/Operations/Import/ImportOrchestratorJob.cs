@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _contextAccessor.RequestContext = fhirRequestContext;
 
             currentResult.Request = inputData.RequestUri.ToString();
-            currentResult.TransactionTime = inputData.CreateTime;
+            currentResult.TransactionTime = jobInfo.CreateDate;
 
             ImportOrchestratorJobErrorResult errorResult = null;
 
@@ -114,7 +114,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     await _importOrchestratorJobDataStoreOperation.PreprocessAsync(cancellationToken);
 
                     currentResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
-                    currentResult.CurrentSequenceId = inputData.StartSequenceId;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
                     _logger.LogInformation("Preprocess Completed");

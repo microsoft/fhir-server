@@ -51,10 +51,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Job create time.
         /// </summary>
         public DateTimeOffset CreateTime { get; set; }
-
-        /// <summary>
-        /// Start sequence id
-        /// </summary>
-        public long StartSequenceId { get; set; }
     }
 }
