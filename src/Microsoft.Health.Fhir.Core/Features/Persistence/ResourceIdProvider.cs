@@ -4,16 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Cryptography;
+using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceIdProvider
     {
+        private int _sequence = RandomNumberGenerator.GetInt32(0, 8999);
         private Func<string> _resourceId;
 
         public ResourceIdProvider()
         {
-            _resourceId = () => Guid.NewGuid().ToString();
+            _resourceId = () => Clock.UtcNow.UtcDateTime.ToSequentialGuid(_sequence++).ToString();
         }
 
         public Func<string> Create

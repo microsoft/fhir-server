@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultObservation()
                 .UpdateId("id1");
 
-            _resourceIdProvider.Create = () => "id2";
+            _resourceIdProvider.Create = dt => "id2";
 
             var wrapper = CreateResourceWrapper(resource, false);
 

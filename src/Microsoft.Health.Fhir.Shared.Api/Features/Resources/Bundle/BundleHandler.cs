@@ -26,6 +26,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -445,11 +446,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         SetupContexts(request, httpContext);
 
-                        Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
+                        Func<DateTime, string> originalResourceIdProvider = _resourceIdProvider.Create;
 
                         if (!string.IsNullOrWhiteSpace(persistedId))
                         {
-                            _resourceIdProvider.Create = () => persistedId;
+                            _resourceIdProvider.Create = dt => persistedId;
                         }
 
                         await request.Handler.Invoke(httpContext);

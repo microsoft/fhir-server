@@ -49,18 +49,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted, bool keepMeta)
         {
-            if (string.IsNullOrEmpty(resource.Id))
-            {
-                resource.Id = _resourceIdProvider.Create();
-            }
-
             if (resource.Meta == null)
             {
                 resource.Meta = new Meta();
             }
 
-            // store with millisecond precision
-            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+            if (string.IsNullOrEmpty(resource.Id))
+            {
+                resource.Id = _resourceIdProvider.Create();
+                resource.Meta.LastUpdated = Guid.Parse(resource.Id).SequentialGuidToDateTime();
+            }
+            else
+            {
+                // store with millisecond precision
+                resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+            }
 
             return _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted, keepMeta);
         }
