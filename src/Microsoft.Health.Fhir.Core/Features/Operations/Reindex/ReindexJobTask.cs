@@ -577,7 +577,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 q.Status == OperationStatus.Queued ||
                 q.Status == OperationStatus.Running).Any())
             {
-                _logger.LogInformation("Reindex job stauts update, id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
+                _logger.LogInformation("Reindex job status update, id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
                 return;
             }
             else
