@@ -59,8 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// <returns>Template collection.</returns>
         public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
-            // We have embedded a default template collection in the templatemanagement package.
-            // If the template collection is the default reference, we don't need to retrieve token.
             var accessToken = string.Empty;
 
             _logger.LogInformation("Using a custom template collection for data conversion.");
@@ -113,6 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private static DateTimeOffset GetTokenAbsoluteExpiration(string accessToken)
         {
             var defaultExpiration = DateTimeOffset.Now.AddMinutes(30);
+
             if (accessToken.StartsWith("bearer ", StringComparison.OrdinalIgnoreCase))
             {
                 var jwtTokenText = accessToken.Substring(7);

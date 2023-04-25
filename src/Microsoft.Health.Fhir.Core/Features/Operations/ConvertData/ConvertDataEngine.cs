@@ -23,14 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class ConvertDataEngine : IConvertDataEngine
     {
-        private readonly TemplateProviderFactory _templateProviderFactory;
+        private readonly ITemplateProviderFactory _templateProviderFactory;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
         private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
 
         public ConvertDataEngine(
-            TemplateProviderFactory templateProviderFactory,
+            ITemplateProviderFactory templateProviderFactory,
             IOptions<ConvertDataConfiguration> convertDataConfiguration,
             ILogger<ConvertDataEngine> logger)
         {

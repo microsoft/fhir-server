@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public class TemplateProviderFactory
+    public class TemplateProviderFactory : ITemplateProviderFactory
     {
         private IServiceProvider _sp;
 
