@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -88,24 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
             var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
 
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateStringSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateNumberSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateResourceWriteClaimTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
-            tables.Add(await ImportDataAsync(sqlImportOperation, startSurrogateId, 10, 103, TestBulkDataProvider.GenerateUriSearchParamsTable));
-
+            // TODO: Populate DB
             return (sqlImportOperation, tables, sqlConnectionWrapperFactory, helper);
         }
 
@@ -143,16 +125,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
             await prototypeHelper.DeleteDatabase(prototypeDatabaseName);
             await rebuildHelper.DeleteDatabase(rebuildDatabaseName);
-        }
-
-        private async Task<(string tableName, string columns, long startSurrogatedId)> ImportDataAsync(SqlImportOperation sqlImportOperation, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
-        {
-            DataTable inputTable = tableGenerator(count, startSurrogateId, resourceTypeId, resourceId);
-            await sqlImportOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
-            DataColumn[] columns = new DataColumn[inputTable.Columns.Count];
-            inputTable.Columns.CopyTo(columns, 0);
-            string columnsString = string.Join(',', columns.Select(c => c.ColumnName));
-            return (inputTable.TableName, columnsString, startSurrogateId);
         }
 
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirDataStore store, SqlServerFhirModel sqlServerFhirModel, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)

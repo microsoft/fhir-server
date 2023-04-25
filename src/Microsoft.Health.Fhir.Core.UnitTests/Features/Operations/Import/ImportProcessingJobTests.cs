@@ -35,18 +35,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenStartFromMiddle_ThenAllResoruceShouldBeImported()
-        {
-            ImportProcessingJobDefinition inputData = GetInputData();
-            ImportProcessingJobResult result = new ImportProcessingJobResult();
-            result.SucceedCount = 3;
-            result.FailedCount = 1;
-            result.CurrentIndex = 4;
-
-            await VerifyCommonImportAsync(inputData, result);
-        }
-
-        [Fact]
         public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
@@ -152,23 +140,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            long cleanStart = -1;
-            long cleanEnd = -1;
-            importer.CleanResourceAsync(Arg.Any<ImportProcessingJobDefinition>(), Arg.Any<ImportProcessingJobResult>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    var inputData = (ImportProcessingJobDefinition)callInfo[0];
-                    var progress = (ImportProcessingJobResult)callInfo[1];
-                    long beginSequenceId = inputData.BeginSequenceId;
-                    long endSequenceId = inputData.EndSequenceId;
-                    long endIndex = progress.CurrentIndex;
-
-                    cleanStart = beginSequenceId + endIndex;
-                    cleanEnd = endSequenceId;
-
-                    return Task.CompletedTask;
-                });
-
+            long cleanStart = 0;
+            long cleanEnd = 0;
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
                 .Returns(callInfo =>
                 {
