@@ -100,7 +100,7 @@ BEGIN
                 ResourceSurrogateId BIGINT          NOT NULL,
                 SearchParamId       SMALLINT        NOT NULL,
                 SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+                Code1               VARCHAR (256)   NOT NULL,
                 SingleValue2        DECIMAL (36, 18) NULL,
                 LowValue2           DECIMAL (36, 18) NULL,
                 HighValue2          DECIMAL (36, 18) NULL,
@@ -109,7 +109,7 @@ BEGIN
                 HighValue3          DECIMAL (36, 18) NULL,
                 HasRange            BIT             NOT NULL,
                 IsHistory           BIT             NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+                CodeOverflow1       VARCHAR (MAX)   NULL
             );
             IF object_id('DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory') IS NULL
             ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam
@@ -149,14 +149,14 @@ BEGIN
                 ResourceSurrogateId BIGINT          NOT NULL,
                 SearchParamId       SMALLINT        NOT NULL,
                 SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+                Code1               VARCHAR (256)   NOT NULL,
                 SystemId2           INT             NULL,
                 QuantityCodeId2     INT             NULL,
                 SingleValue2        DECIMAL (36, 18) NULL,
                 LowValue2           DECIMAL (36, 18) NULL,
                 HighValue2          DECIMAL (36, 18) NULL,
                 IsHistory           BIT             NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+                CodeOverflow1       VARCHAR (MAX)   NULL
             );
             IF object_id('DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory') IS NULL
             ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam
@@ -226,8 +226,8 @@ BEGIN
             ResourceSurrogateId BIGINT          NOT NULL,
             SearchParamId       SMALLINT        NOT NULL,
             SystemId1           INT             NULL,
-            Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-            CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+            Code1               VARCHAR (256)   NOT NULL,
+            CodeOverflow1       VARCHAR (MAX)   NULL,
             SingleValue2        DECIMAL (36, 18) NULL,
             LowValue2           DECIMAL (36, 18) NULL,
             HighValue2          DECIMAL (36, 18) NULL,
@@ -243,8 +243,8 @@ BEGIN
             ResourceSurrogateId BIGINT          NOT NULL,
             SearchParamId       SMALLINT        NOT NULL,
             SystemId1           INT             NULL,
-            Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-            CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+            Code1               VARCHAR (256)   NOT NULL,
+            CodeOverflow1       VARCHAR (MAX)   NULL,
             SystemId2           INT             NULL,
             QuantityCodeId2     INT             NULL,
             SingleValue2        DECIMAL (36, 18) NULL,
@@ -925,8 +925,8 @@ BEGIN
                 ResourceSurrogateId BIGINT          NOT NULL,
                 SearchParamId       SMALLINT        NOT NULL,
                 SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+                Code1               VARCHAR (256)   NOT NULL,
+                CodeOverflow1       VARCHAR (MAX)   NULL,
                 SingleValue2        DECIMAL (36, 18) NULL,
                 LowValue2           DECIMAL (36, 18) NULL,
                 HighValue2          DECIMAL (36, 18) NULL,
@@ -941,8 +941,8 @@ BEGIN
                 ResourceSurrogateId BIGINT          NOT NULL,
                 SearchParamId       SMALLINT        NOT NULL,
                 SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+                Code1               VARCHAR (256)   NOT NULL,
+                CodeOverflow1       VARCHAR (MAX)   NULL,
                 SystemId2           INT             NULL,
                 QuantityCodeId2     INT             NULL,
                 SingleValue2        DECIMAL (36, 18) NULL,
