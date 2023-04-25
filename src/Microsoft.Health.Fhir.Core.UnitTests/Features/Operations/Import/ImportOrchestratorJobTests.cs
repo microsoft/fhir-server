@@ -13,7 +13,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -1187,7 +1186,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             string result = await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None);
             ImportOrchestratorJobResult resultDetails = JsonConvert.DeserializeObject<ImportOrchestratorJobResult>(result);
             Assert.NotEmpty(resultDetails.Request);
-            Assert.Equal(orchestratorJobInfo.CreateDate, resultDetails.TransactionTime);
 
             Assert.Equal(inputFileCount, testQueueClient.JobInfos.Count() - 1);
 

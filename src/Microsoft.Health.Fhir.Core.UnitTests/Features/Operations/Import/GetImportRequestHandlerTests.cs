@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -46,9 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            ImportOrchestratorJobResult orchestratorJobResult = new ImportOrchestratorJobResult()
+            var orchestratorJobResult = new ImportOrchestratorJobResult()
             {
-                TransactionTime = DateTime.Now,
                 Request = "Request",
             };
 
@@ -116,9 +114,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            ImportOrchestratorJobResult orchestratorJobResult = new ImportOrchestratorJobResult()
+            var orchestratorJobResult = new ImportOrchestratorJobResult()
             {
-                TransactionTime = DateTime.Now,
                 Request = "Request",
             };
 

@@ -3,18 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportOrchestratorJobResult
     {
-        /// <summary>
-        /// Transaction time for import job created
-        /// </summary>
-        public DateTimeOffset TransactionTime { get; set; }
-
         /// <summary>
         /// Request Uri for the import opearion
         /// </summary>

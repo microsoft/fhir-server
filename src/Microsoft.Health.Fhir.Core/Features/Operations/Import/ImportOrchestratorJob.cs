@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob
     {
-        private const long DefaultResourceSizePerByte = 64;
         public const int BytesToRead = 10000 * 1000; // each job should handle about 10000 resources. with about 1000 bytes per resource
 
         private readonly IMediator _mediator;
@@ -88,7 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _contextAccessor.RequestContext = fhirRequestContext;
 
             currentResult.Request = inputData.RequestUri.ToString();
-            currentResult.TransactionTime = jobInfo.CreateDate;
 
             ImportOrchestratorJobErrorResult errorResult = null;
 
@@ -451,41 +449,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Import, definitions.ToArray(), groupId, false, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
                 return jobIds;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to enqueue job.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-        }
-
-        private async Task<(long jobId, long endSequenceId, long blobSizeInBytes)> CreateNewProcessingJobAsync(Models.InputResource input, JobInfo jobInfo, ImportOrchestratorJobDefinition inputData, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
-        {
-            Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
-            long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
-            long estimatedResourceNumber = CalculateResourceNumberByResourceSize(blobSizeInBytes, DefaultResourceSizePerByte);
-            long beginSequenceId = currentResult.CurrentSequenceId;
-            long endSequenceId = beginSequenceId + estimatedResourceNumber;
-
-            ImportProcessingJobDefinition importJobPayload = new ImportProcessingJobDefinition()
-            {
-                TypeId = (int)JobType.ImportProcessing,
-                ResourceLocation = input.Url.ToString(),
-                UriString = inputData.RequestUri.ToString(),
-                BaseUriString = inputData.BaseUri.ToString(),
-                ResourceType = input.Type,
-                BeginSequenceId = beginSequenceId,
-                EndSequenceId = endSequenceId,
-                JobId = $"{jobInfo.GroupId}_{beginSequenceId}",
-            };
-
-            string[] definitions = new string[] { JsonConvert.SerializeObject(importJobPayload) };
-
-            try
-            {
-                JobInfo jobInfoFromServer = (await _queueClient.EnqueueAsync(jobInfo.QueueType, definitions, jobInfo.GroupId, false, false, cancellationToken))[0];
-
-                return (jobInfoFromServer.Id, endSequenceId, blobSizeInBytes);
             }
             catch (Exception ex)
             {
