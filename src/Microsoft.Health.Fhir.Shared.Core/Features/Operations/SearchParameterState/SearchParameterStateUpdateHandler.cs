@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -28,14 +29,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IReadOnlyCollection<ResourceSearchParameterStatus> _resourceSearchParameterStatus = null;
+        private readonly ILogger<SearchParameterStateUpdateHandler> _logger;
 
-        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager)
+        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _authorizationService = authorizationService;
             _searchParameterStatusManager = searchParameterStatusManager;
+            _logger = logger;
         }
 
         public async Task<SearchParameterStateUpdateResponse> Handle(SearchParameterStateUpdateRequest request, CancellationToken cancellationToken)
@@ -105,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
             return searchParametersToUpdate;
         }
 
-        private static SearchParameterStateUpdateResponse CreateBundleResponse(Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters)
+        private SearchParameterStateUpdateResponse CreateBundleResponse(Dictionary<SearchParameterStatus, List<string>> searchParametersToUpdate, List<OperationOutcomeIssue> invalidSearchParameters)
         {
             // Create the bundle from the result.
             var bundle = new Bundle();
@@ -123,6 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                     {
                         Resource = operationOutcome,
                     });
+
+                _logger.LogInformation("The following search parameters were not updated: {Issue}", string.Join(", ", invalidSearchParameters.Select(x => x.DetailsText)));
             }
 
             if (searchParametersToUpdate.Any())
@@ -151,6 +157,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                             Name = SearchParameterStateProperties.Name,
                             Part = parts,
                         });
+
+                        _logger.LogInformation("SearchParameterUpdated. SearchParameter: {SearchParameter}, Status: {Status}", uri, searchParameterGroup.Key.ToString().ToLowerInvariant());
                     }
                 }
 
