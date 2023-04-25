@@ -431,6 +431,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             var payload = new JsonPatchPayload(patchDocument);
+
+            // ToDo: Create class 'PatchResourceRequest'.
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response.Outcome);
@@ -451,6 +453,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new JsonPatchPayload(patchDocument);
 
+            // ToDo: Create class 'ConditionalPatchResourceRequest'.
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
