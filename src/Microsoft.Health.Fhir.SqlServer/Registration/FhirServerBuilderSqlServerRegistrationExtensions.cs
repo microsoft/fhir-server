@@ -138,7 +138,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlResourceBulkImporter>()
+            services.Add<SqlImporter>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();

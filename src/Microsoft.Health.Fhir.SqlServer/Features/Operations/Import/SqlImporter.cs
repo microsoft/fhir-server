@@ -21,22 +21,22 @@ using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    internal class SqlResourceBulkImporter : IResourceBulkImporter
+    internal class SqlImporter : IResourceBulkImporter
     {
         private List<TableBulkCopyDataGenerator> _generators = new List<TableBulkCopyDataGenerator>();
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private ISqlImportOperation _sqlImportOperation;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private IImportErrorSerializer _importErrorSerializer;
-        private ILogger<SqlResourceBulkImporter> _logger;
+        private ILogger<SqlImporter> _logger;
 
-        public SqlResourceBulkImporter(
+        public SqlImporter(
             ISqlImportOperation sqlImportOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             IImportErrorSerializer importErrorSerializer,
             List<TableBulkCopyDataGenerator> generators,
             IOptions<OperationsConfiguration> operationsConfig,
-            ILogger<SqlResourceBulkImporter> logger)
+            ILogger<SqlImporter> logger)
         {
             EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = logger;
         }
 
-        public SqlResourceBulkImporter(
+        // TODO: Remove this constructor
+        public SqlImporter(
             ISqlImportOperation sqlImportOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             IImportErrorSerializer importErrorSerializer,
@@ -74,51 +75,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
             IOptions<OperationsConfiguration> operationsConfig,
-            ILogger<SqlResourceBulkImporter> logger)
+            ILogger<SqlImporter> logger)
         {
             EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
             EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            EnsureArg.IsNotNull(compartmentAssignmentTableBulkCopyDataGenerator, nameof(compartmentAssignmentTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(resourceWriteClaimTableBulkCopyDataGenerator, nameof(resourceWriteClaimTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(dateTimeSearchParamsTableBulkCopyDataGenerator, nameof(dateTimeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(numberSearchParamsTableBulkCopyDataGenerator, nameof(numberSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(quantitySearchParamsTableBulkCopyDataGenerator, nameof(quantitySearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(referenceSearchParamsTableBulkCopyDataGenerator, nameof(referenceSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(referenceTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(referenceTokenCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(stringSearchParamsTableBulkCopyDataGenerator, nameof(stringSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenSearchParamsTableBulkCopyDataGenerator, nameof(tokenSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenTextSearchParamsTableBulkCopyDataGenerator, nameof(tokenTextSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(uriSearchParamsTableBulkCopyDataGenerator, nameof(uriSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlImportOperation = sqlImportOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
             _importErrorSerializer = importErrorSerializer;
-
-            _generators.Add(compartmentAssignmentTableBulkCopyDataGenerator);
-            _generators.Add(resourceWriteClaimTableBulkCopyDataGenerator);
-            _generators.Add(dateTimeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(numberSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(quantitySearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(referenceSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(referenceTokenCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(stringSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenTextSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
-            _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
-
             _importTaskConfiguration = operationsConfig.Value.Import;
             _logger = logger;
         }
