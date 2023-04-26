@@ -117,9 +117,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == 0 &&
-                    notification.SucceedCount == 0 &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -169,9 +169,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == 0 &&
-                    notification.SucceedCount == 0 &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -234,9 +234,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
                     notification.DataSize == 0 &&
-                    notification.SucceedCount == 0 &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                Arg.Is<ImportJobMetricsNotification>(
                    notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                    notification.Status == JobStatus.Failed.ToString() &&
-                   notification.CreatedTime == orchestratorJobInfo.CreateDate),
+                   notification.CreateTime == orchestratorJobInfo.CreateDate),
                Arg.Any<CancellationToken>());
         }
 
@@ -479,8 +479,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == 0 &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -548,8 +548,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Cancelled.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == 0 &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -618,8 +618,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == 0 &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -687,8 +687,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Cancelled.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == 0 &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -759,8 +759,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == 0 &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
         }
@@ -1046,8 +1046,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id.Equals(orchestratorJobInfo.Id.ToString()) &&
                     notification.Status == jobStatus.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == succeedCount &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == succeedCount &&
                     notification.FailedCount == failedCount),
                 Arg.Any<CancellationToken>());
         }
@@ -1189,8 +1189,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Arg.Is<ImportJobMetricsNotification>(
                     notification => notification.Id.Equals(orchestratorJobInfo.Id.ToString()) &&
                     notification.Status == JobStatus.Completed.ToString() &&
-                    notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.SucceedCount == inputFileCount &&
+                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
+                    notification.SucceededCount == inputFileCount &&
                     notification.FailedCount == inputFileCount),
                 Arg.Any<CancellationToken>());
         }
