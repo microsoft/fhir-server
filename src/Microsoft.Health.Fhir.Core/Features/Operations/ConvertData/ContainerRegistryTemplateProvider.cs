@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         }
 
         /// <summary>
-        /// Fetch template collection from container registry or built-in archive.
+        /// Fetch template collection from container registry following a custom template convert request.
         /// </summary>
         /// <param name="request">The convert data request which contains template reference.</param>
         /// <param name="cancellationToken">Cancellation token to cancel the fetch operation.</param>
