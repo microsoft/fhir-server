@@ -222,11 +222,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsSelf();
 
-            services.Add<SqlStoreSequenceIdGenerator>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await VerifyCommonOrchestratorJobAsync(105, 105);
         }
 
-        [Fact(Skip = "TODO: Verify if test is still valid in stage 2")]
+        [Fact]
         public async Task GivenAnOrchestratorJob_WhenResumeFromFailureSomeJobStillRunning_ThenJobShouldBeCompleted()
         {
             await VerifyCommonOrchestratorJobAsync(105, 10, 5);
@@ -303,7 +303,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
             ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
@@ -359,8 +358,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
-
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
@@ -392,7 +389,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -459,7 +455,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
@@ -492,7 +487,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -527,7 +521,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
             JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
@@ -561,7 +554,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -596,7 +588,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
             JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
@@ -631,7 +622,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -665,7 +655,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
             JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorInputData) }, 1, false, false, CancellationToken.None)).First();
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
@@ -700,7 +689,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -734,7 +722,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
             JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorInputData) }, 1, false, false, CancellationToken.None)).First();
 
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
@@ -772,7 +759,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -854,7 +840,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -920,7 +905,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
@@ -1027,8 +1011,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
-
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
@@ -1058,7 +1040,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
             ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
@@ -1164,8 +1145,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     };
                     return properties;
                 });
-
-            sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
             var orchestratorJob = new ImportOrchestratorJob(
                 mediator,

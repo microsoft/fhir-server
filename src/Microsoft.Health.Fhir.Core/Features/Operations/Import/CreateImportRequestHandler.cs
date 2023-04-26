@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public CreateImportRequestHandler(
             IQueueClient queueClient,
-            ISequenceIdGenerator<long> sequenceIdGenerator, // TODO: remove
             ILogger<CreateImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
