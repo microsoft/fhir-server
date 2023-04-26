@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
-using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -133,7 +132,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("¶Š™œãý£¾.com/template:default")]
         public async Task GivenConvertDataRequest_WithUnconfiguredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
-            var convertDataEngine = GetDefaultEngine();
+            var convertDataEngine = GetCustomEngine();
             var hl7v2Request = GetHl7V2RequestWithTemplateReference(templateReference);
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(hl7v2Request, CancellationToken.None));
 
@@ -420,6 +419,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         {
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
             IContainerRegistryTokenProvider containerRegistryTokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            containerRegistryTokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
 
             ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(containerRegistryTokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();

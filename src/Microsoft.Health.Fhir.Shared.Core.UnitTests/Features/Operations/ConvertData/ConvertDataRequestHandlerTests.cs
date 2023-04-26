@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     [Trait(Traits.Category, Categories.Operations)]
     public class ConvertDataRequestHandlerTests
     {
-        /*
         [Fact]
         public async Task GivenAHl7v2ConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
@@ -49,7 +48,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1924-10-10", patient.BirthDate);
         }
 
-        /*
         [Fact]
         public async Task GivenACcdaConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
@@ -107,7 +105,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Single(patient.Extension);
         }
 
-        */
         private ConvertDataRequestHandler GetRequestHandler()
         {
             var convertDataConfig = new ConvertDataConfiguration
