@@ -328,11 +328,13 @@
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "true"
                         }
-                    ]
+                    ],
+                    "generalSettings": {
+                        "basicAuthEnabled": false
+                    }
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "clientAffinityEnabled": false,
-                "basicAuthEnabled": false,
+                "clientAffinityEnabled": false
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
