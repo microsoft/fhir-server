@@ -574,7 +574,7 @@ BEGIN
         DECLARE @LastProcessed varchar(100) = (SELECT Char FROM dbo.Parameters WHERE Id = @Id)
 
         DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
-        DECLARE @SurrogateIds TABLE (ResourceSurrogateId bigint PRIMARY KEY)
+        DECLARE @SurrogateIds TABLE (ResourceSurrogateId bigint)
   
         INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
         EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Run',@Target='@Types',@Action='Insert',@Rows=@@rowcount
@@ -630,12 +630,11 @@ BEGIN
                     AND NOT EXISTS (SELECT * 
                                     FROM Tmp_NumberSearchParam A 
                                     WHERE A.ResourceTypeId = @ResourceTypeId 
-                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId 
-                                        AND A.SearchParamId = B.SearchParamId
-                                        AND (A.SingleValue = B.SingleValue OR A.SingleValue IS NULL AND B.SingleValue IS NULL)
-                                        AND A.LowValue = B.LowValue
-                                        AND A.HighValue = B.HighValue)
-            SET @CopiedSearchParams += @@rowcount
+                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+
+            DECLARE @myRows bigint = @@rowcount
+            EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Run',@Target='Tmp_NumberSearchParam',@Action='Insert',@Rows=@myRows
+            SET @CopiedSearchParams += @myRows
 
             INSERT INTO dbo.Tmp_QuantitySearchParam 
                         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue )
@@ -646,14 +645,10 @@ BEGIN
                     AND NOT EXISTS (SELECT * 
                                         FROM Tmp_QuantitySearchParam A 
                                         WHERE A.ResourceTypeId = @ResourceTypeId 
-                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId 
-                                        AND A.SearchParamId = B.SearchParamId
-                                        AND (A.SystemId = B.SystemId OR A.SystemId IS NULL AND B.SystemId IS NULL)
-                                        AND (A.QuantityCodeId = B.QuantityCodeId OR A.QuantityCodeId IS NULL AND B.QuantityCodeId IS NULL)
-                                        AND (A.SingleValue = B.SingleValue OR A.SingleValue IS NULL AND B.SingleValue IS NULL)
-                                        AND A.LowValue = B.LowValue
-                                        AND A.HighValue = B.HighValue)
-            SET @CopiedSearchParams += @@rowcount
+                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+            SET @myRows = @@rowcount
+            EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Run',@Target='Tmp_QuantitySearchParam',@Action='Insert',@Rows=@myRows
+            SET @CopiedSearchParams += @myRows
 
             INSERT INTO dbo.Tmp_TokenQuantityCompositeSearchParam 
                         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2 )
@@ -664,17 +659,10 @@ BEGIN
                         AND NOT EXISTS (SELECT * 
                                             FROM Tmp_TokenQuantityCompositeSearchParam A 
                                             WHERE A.ResourceTypeId = @ResourceTypeId 
-                                                AND A.ResourceSurrogateId = B.ResourceSurrogateId 
-                                                AND A.SearchParamId = B.SearchParamId
-                                                AND (A.SystemId1 = B.SystemId1 OR A.SystemId1 IS NULL AND B.SystemId1 IS NULL)
-                                                AND (A.Code1 = B.Code1 OR A.Code1 IS NULL AND B.Code1 IS NULL)
-                                                AND (A.SystemId2 = B.SystemId2 OR A.SystemId2 IS NULL AND B.SystemId2 IS NULL)
-                                                AND (A.QuantityCodeId2 = B.QuantityCodeId2 OR A.QuantityCodeId2 IS NULL AND B.QuantityCodeId2 IS NULL)
-                                                AND (A.SingleValue2 = B.SingleValue2 OR A.SingleValue2 IS NULL AND B.SingleValue2 IS NULL)
-                                                AND (A.LowValue2 = B.LowValue2 OR A.LowValue2 IS NULL AND B.LowValue2 IS NULL)
-                                                AND (A.HighValue2 = B.HighValue2 OR A.HighValue2 IS NULL AND B.HighValue2 IS NULL)
-                                                AND (A.CodeOverflow1 = B.CodeOverflow1 OR A.CodeOverflow1 IS NULL AND B.CodeOverflow1 IS NULL))
-            SET @CopiedSearchParams += @@rowcount
+                                                AND A.ResourceSurrogateId = B.ResourceSurrogateId)
+            SET @myRows = @@rowcount
+            EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Run',@Target='Tmp_TokenQuantityCompositeSearchParam',@Action='Insert',@Rows=@myRows
+            SET @CopiedSearchParams += @myRows
 
             INSERT INTO dbo.Tmp_TokenNumberNumberCompositeSearchParam 
                     ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange )
@@ -685,20 +673,11 @@ BEGIN
                     AND NOT EXISTS (SELECT * 
                                         FROM Tmp_TokenNumberNumberCompositeSearchParam A 
                                         WHERE A.ResourceTypeId = @ResourceTypeId 
-                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId 
-                                        AND A.SearchParamId = B.SearchParamId
-                                        AND (A.SystemId1 = B.SystemId1 OR A.SystemId1 IS NULL AND B.SystemId1 IS NULL)
-                                        AND (A.Code1 = B.Code1 OR A.Code1 IS NULL AND B.Code1 IS NULL)
-                                        AND (A.SingleValue2 = B.SingleValue2 OR A.SingleValue2 IS NULL AND B.SingleValue2 IS NULL)
-                                        AND (A.LowValue2 = B.LowValue2 OR A.LowValue2 IS NULL AND B.LowValue2 IS NULL)
-                                        AND (A.HighValue2 = B.HighValue2 OR A.HighValue2 IS NULL AND B.HighValue2 IS NULL)
-                                        AND (A.SingleValue3 = B.SingleValue3 OR A.SingleValue3 IS NULL AND B.SingleValue3 IS NULL)
-                                        AND (A.LowValue3 = B.LowValue3 OR A.LowValue3 IS NULL AND B.LowValue3 IS NULL)
-                                        AND (A.HighValue3 = B.HighValue3 OR A.HighValue3 IS NULL AND B.HighValue3 IS NULL)
-                                        AND A.HasRange = B.HasRange
-                                        AND (A.CodeOverflow1 = B.CodeOverflow1 OR A.CodeOverflow1 IS NULL AND B.CodeOverflow1 IS NULL))
+                                        AND A.ResourceSurrogateId = B.ResourceSurrogateId)
 
-            SET @CopiedSearchParams += @@rowcount
+            SET @myRows = @@rowcount
+            EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Run',@Target='Tmp_TokenNumberNumberCompositeSearchParam',@Action='Insert',@Rows=@myRows
+            SET @CopiedSearchParams += @myRows
             END
 
             UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
