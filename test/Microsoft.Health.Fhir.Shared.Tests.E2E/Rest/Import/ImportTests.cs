@@ -565,7 +565,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 Assert.Single(notificationList);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Failed.ToString(), notification.Status);
-                Assert.Null(notification.DataSize);
+                Assert.Equal(0, notification.DataSize);
                 Assert.Equal(0, notification.SucceededCount);
                 Assert.Equal(0, notification.FailedCount);
             }
