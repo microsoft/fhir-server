@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// <summary>
     /// Importer for ImportResoruce into data store.
     /// </summary>
-    public interface IResourceBulkImporter
+    public interface IImporter
     {
         /// <summary>
         /// Import resource into data store.

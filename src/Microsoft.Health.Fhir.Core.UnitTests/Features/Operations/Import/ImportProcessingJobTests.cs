@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IImporter importer = Substitute.For<IImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = new ImportProcessingJobResult();
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IImporter importer = Substitute.For<IImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             long failedCountFromProgress = currentResult.FailedCount;
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
-            IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
+            IImporter importer = Substitute.For<IImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();

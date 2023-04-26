@@ -24,14 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IResourceBulkImporter _resourceBulkImporter;
+        private readonly IImporter _resourceBulkImporter;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
-            IResourceBulkImporter resourceBulkImporter,
+            IImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
