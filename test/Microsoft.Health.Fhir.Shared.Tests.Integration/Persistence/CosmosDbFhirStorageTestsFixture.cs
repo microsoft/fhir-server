@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly IScoped<Container> _scopedContainer = Substitute.For<IScoped<Container>>();
 
         private Container _container;
         private CosmosFhirDataStore _fhirDataStore;
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var updaters = new ICollectionUpdater[]
             {
-                new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
+                new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance, _scopedContainer),
                 new StoredProcedureInstaller(fhirStoredProcs),
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,

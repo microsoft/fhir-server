@@ -10,8 +10,10 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -23,21 +25,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
+        private readonly UpdateUnsupportedSearchParameters _updateSP = new UpdateUnsupportedSearchParameters();
+        private readonly IScoped<Container> _containerScope;
 
-        private const int CollectionSettingsVersion = 2;
+        private const int CollectionSettingsVersion = 3;
 
         public FhirCollectionSettingsUpdater(
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
-            ILogger<FhirCollectionSettingsUpdater> logger)
+            ILogger<FhirCollectionSettingsUpdater> logger,
+            IScoped<Container> containerScope)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(containerScope, nameof(containerScope));
 
             _configuration = configuration;
             _collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
             _logger = logger;
+            _containerScope = containerScope;
         }
 
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
@@ -46,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
-            if (thisVersion.Version < CollectionSettingsVersion)
+            if (thisVersion.Version < 2)
             {
                 var containerResponse = await container.ReadContainerAsync(cancellationToken: cancellationToken);
 
@@ -72,6 +79,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                 thisVersion.Version = CollectionSettingsVersion;
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
+            }
+            else if (thisVersion.Version < CollectionSettingsVersion)
+            {
+                await _updateSP.Execute(_containerScope.Value.Scripts, cancellationToken);
+                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
+                thisVersion.Version = CollectionSettingsVersion;
             }
         }
 
