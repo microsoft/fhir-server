@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.DataSize == null &&
+                    notification.DataSize == 0 &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.DataSize == null &&
+                    notification.DataSize == 0 &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
                     notification.Status == JobStatus.Failed.ToString() &&
                     notification.CreatedTime == orchestratorJobInfo.CreateDate &&
-                    notification.DataSize == null &&
+                    notification.DataSize == 0 &&
                     notification.SucceedCount == 0 &&
                     notification.FailedCount == 0),
                 Arg.Any<CancellationToken>());
@@ -997,17 +997,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         if (i < completedCount)
                         {
                             jobInfo.Status = JobManagement.JobStatus.Completed;
-                            importOrchestratorJobResult.SucceedImportCount += 1;
-                            importOrchestratorJobResult.FailedImportCount += 1;
+                            importOrchestratorJobResult.SucceedResources += 1;
+                            importOrchestratorJobResult.FailedResources += 1;
                         }
                         else
                         {
                             jobInfo.Status = JobManagement.JobStatus.Running;
-                            importOrchestratorJobResult.RunningJobIds.Add(jobInfo.Id);
                         }
 
-                        importOrchestratorJobResult.CreatedJobCount += 1;
-                        importOrchestratorJobResult.CurrentSequenceId += 1;
+                        importOrchestratorJobResult.CreatedJobs += 1;
                     }
 
                     importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
@@ -1134,17 +1132,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         if (i < completedCount)
                         {
                             jobInfo.Status = JobManagement.JobStatus.Completed;
-                            importOrchestratorJobResult.SucceedImportCount += 1;
-                            importOrchestratorJobResult.FailedImportCount += 1;
+                            importOrchestratorJobResult.SucceedResources += 1;
+                            importOrchestratorJobResult.FailedResources += 1;
                         }
                         else
                         {
                             jobInfo.Status = JobManagement.JobStatus.Running;
-                            importOrchestratorJobResult.RunningJobIds.Add(jobInfo.Id);
                         }
 
-                        importOrchestratorJobResult.CreatedJobCount += 1;
-                        importOrchestratorJobResult.CurrentSequenceId += 1;
+                        importOrchestratorJobResult.CreatedJobs += 1;
                     }
 
                     importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;

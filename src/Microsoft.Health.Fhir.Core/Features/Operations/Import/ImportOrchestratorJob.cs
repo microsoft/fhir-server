@@ -242,11 +242,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return JsonConvert.SerializeObject(currentResult);
         }
 
-        private static long CalculateResourceNumberByResourceSize(long blobSizeInBytes, long resourceCountPerBytes)
-        {
-            return Math.Max((blobSizeInBytes / resourceCountPerBytes) + 1, 10000L);
-        }
-
         private async Task ValidateResourcesAsync(ImportOrchestratorJobDefinition inputData, CancellationToken cancellationToken)
         {
             await Parallel.ForEachAsync(inputData.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
@@ -269,25 +264,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 jobStatus.ToString(),
                 jobInfo.CreateDate,
                 Clock.UtcNow,
-                currentResult.TotalSizeInBytes,
-                currentResult.SucceedImportCount,
-                currentResult.FailedImportCount);
+                currentResult.TotalBytes,
+                currentResult.SucceedResources,
+                currentResult.FailedResources);
 
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
 
         private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
-            currentResult.TotalSizeInBytes = 0;
-            currentResult.FailedImportCount = 0;
-            currentResult.SucceedImportCount = 0;
+            currentResult.TotalBytes = 0;
+            currentResult.FailedResources = 0;
+            currentResult.SucceedResources = 0;
 
             // split blobs by size
             var inputs = new List<Models.InputResource>();
             await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
-                currentResult.TotalSizeInBytes += blobLength;
+                currentResult.TotalBytes += blobLength;
                 var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
                 numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
                 for (var stream = 0; stream < numberOfStreams; stream++)
@@ -305,7 +300,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
             progress.Report(JsonConvert.SerializeObject(currentResult));
 
-            currentResult.CreatedJobCount = jobIds.Count;
+            currentResult.CreatedJobs = jobIds.Count;
 
             await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
         }
@@ -336,8 +331,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         if (jobInfo.Status == JobStatus.Completed)
                         {
                             var procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
-                            currentResult.SucceedImportCount += procesingJobResult.SucceedCount;
-                            currentResult.FailedImportCount += procesingJobResult.FailedCount;
+                            currentResult.SucceedResources += procesingJobResult.SucceedCount;
+                            currentResult.FailedResources += procesingJobResult.FailedCount;
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
@@ -368,61 +363,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
             }
             while (jobIds.Count > 0);
-        }
-
-        private async Task WaitRunningJobComplete(IProgress<string> progress, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
-        {
-            HashSet<long> completedJobIds = new HashSet<long>();
-            List<JobInfo> runningJobs = new List<JobInfo>();
-            try
-            {
-                runningJobs.AddRange(await _queueClient.GetJobsByIdsAsync(jobInfo.QueueType, currentResult.RunningJobIds.ToArray(), false, cancellationToken));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get running jobs.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-
-            foreach (JobInfo latestJobInfo in runningJobs)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException();
-                }
-
-                if (latestJobInfo.Status != JobStatus.Created && latestJobInfo.Status != JobStatus.Running)
-                {
-                    if (latestJobInfo.Status == JobStatus.Completed)
-                    {
-                        ImportProcessingJobResult procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(latestJobInfo.Result);
-                        currentResult.SucceedImportCount += procesingJobResult.SucceedCount;
-                        currentResult.FailedImportCount += procesingJobResult.FailedCount;
-                    }
-                    else if (latestJobInfo.Status == JobStatus.Failed)
-                    {
-                        ImportProcessingJobErrorResult procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobErrorResult>(latestJobInfo.Result);
-                        throw new ImportProcessingException(procesingJobResult.Message);
-                    }
-                    else if (latestJobInfo.Status == JobStatus.Cancelled)
-                    {
-                        throw new OperationCanceledException("Import operation cancelled by customer.");
-                    }
-
-                    completedJobIds.Add(latestJobInfo.Id);
-                }
-            }
-
-            if (completedJobIds.Count > 0)
-            {
-                currentResult.RunningJobIds.ExceptWith(completedJobIds);
-                progress.Report(JsonConvert.SerializeObject(currentResult));
-            }
-            else
-            {
-                // Only wait if no completed job (optimized for small jobs)
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
-            }
         }
 
         private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<Models.InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
