@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             case SqlErrorCodes.Conflict:
                                 // someone else beat us to it, re-read and try comparing again - Compared resource was updated
-                                _logger.LogInformation($"Conflict on {nameof(UpsertAsync)}. Trying again.");
+                                _logger.LogWarning($"Conflict on {nameof(UpsertAsync)}. Trying again.");
                                 continue;
                             default:
                                 // Exceptions should only be logged as errors if they cannot be handled.
