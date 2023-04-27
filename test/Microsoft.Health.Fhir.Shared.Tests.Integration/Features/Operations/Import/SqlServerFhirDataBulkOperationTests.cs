@@ -6,17 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -39,7 +34,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         private SqlServerFhirStorageTestsFixture _fixture;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
         private SchemaInformation _schemaInformation;
-        private static string _rawResourceTestValue = "{\"resourceType\": \"Parameters\",\"parameter\": []}";
 
         public SqlServerFhirDataBulkOperationTests(SqlServerFhirStorageTestsFixture fixture)
         {
@@ -73,28 +67,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 isDisabled = await GetIndexDisableStatus(index.indexName);
                 Assert.True(isDisabled);
             }
-        }
-
-        private static SqlBulkCopyDataWrapper CreateTestResource(string resourceId, long surrogateId)
-        {
-            SqlBulkCopyDataWrapper resource = new SqlBulkCopyDataWrapper();
-            resource.Resource =
-                new ResourceWrapper(
-                    resourceId,
-                    "0",
-                    "Dummy",
-                    new RawResource(_rawResourceTestValue, Fhir.Core.Models.FhirResourceFormat.Json, true),
-                    new ResourceRequest("PUT"),
-                    DateTimeOffset.UtcNow,
-                    false,
-                    null,
-                    null,
-                    null,
-                    "SearchParam");
-            resource.ResourceSurrogateId = surrogateId;
-            resource.ResourceTypeId = 0;
-            resource.BulkImportResource = new BulkImportResourceTypeV1Row(0, resourceId, 0, false, surrogateId, false, "POST", new MemoryStream(Encoding.UTF8.GetBytes("Test")), true, "Test");
-            return resource;
         }
 
         private async Task<bool> GetIndexDisableStatus(string indexName)
@@ -141,35 +113,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
                 return isExecuted;
             }
-        }
-
-        private async Task<int> GetResourceCountAsync(string tableName, long startSurrogateId, long endSurrogateId)
-        {
-            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
-            using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
-            using SqlCommandWrapper command = connection.CreateRetrySqlCommand();
-            command.CommandText = $"select count(*) from {tableName} where ResourceSurrogateId >= {startSurrogateId} and ResourceSurrogateId < {endSurrogateId}";
-
-            return (int)(await command.ExecuteScalarAsync(CancellationToken.None));
-        }
-
-        private async Task CheckTableDataAsync(DataTable table, long startSurrogateId, long endSurrogateId)
-        {
-            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
-            using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
-            using SqlDataAdapter adapter = new SqlDataAdapter();
-
-            DataColumn[] columns = new DataColumn[table.Columns.Count];
-            table.Columns.CopyTo(columns, 0);
-            string columnsString = string.Join(',', columns.Select(c => c.ColumnName));
-            string queryText = $"select {columnsString} from {table.TableName} where ResourceSurrogateId >= {startSurrogateId} and ResourceSurrogateId < {endSurrogateId}";
-            adapter.SelectCommand = new SqlCommand(queryText, connection.SqlConnection);
-
-            DataSet result = new DataSet();
-            adapter.Fill(result);
-
-            Assert.Equal(columns.Length, result.Tables[0].Columns.Count);
-            Assert.Equal(table.Rows.Count, result.Tables[0].Rows.Count);
         }
     }
 }

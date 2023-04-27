@@ -24,26 +24,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IImporter _resourceBulkImporter;
+        private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
-            IImporter resourceBulkImporter,
+            IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
-            EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
+            EnsureArg.IsNotNull(importer, nameof(importer));
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
-            _resourceBulkImporter = resourceBulkImporter;
+            _importer = importer;
             _importErrorStoreFactory = importErrorStoreFactory;
             _contextAccessor = contextAccessor;
 
@@ -55,14 +55,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            ImportProcessingJobDefinition inputData = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
-            ImportProcessingJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
+            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+            var currentResult = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
-                    uriString: inputData.UriString,
-                    baseUriString: inputData.BaseUriString,
-                    correlationId: inputData.JobId, // TODO: Replace by group id in stage 2
+                    uriString: definition.UriString,
+                    baseUriString: definition.BaseUriString,
+                    correlationId: jobInfo.Id.ToString(),
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {
@@ -74,9 +74,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             long succeedImportCount = currentResult.SucceedCount;
             long failedImportCount = currentResult.FailedCount;
 
-            currentResult.ResourceType = inputData.ResourceType;
-            currentResult.ResourceLocation = inputData.ResourceLocation;
-            progress.Report(JsonConvert.SerializeObject(currentResult));
+            currentResult.ResourceType = definition.ResourceType;
+            currentResult.ResourceLocation = definition.ResourceLocation;
 
             try
             {
@@ -85,17 +84,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
+                Func<long, long> sequenceIdGenerator = definition.EndSequenceId == 0 ? (index) => 0 : (index) => definition.BeginSequenceId + index;
 
                 // Initialize error store
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
+                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, inputData.Offset, inputData.BytesToRead, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken, inputData.EndSequenceId == 0);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, cancellationToken);
 
                 // Import to data store
-                (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
+                (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
 
                 // Update progress for checkpoints
                 await foreach (ImportProcessingProgress batchProgress in progressChannel.Reader.ReadAllAsync(cancellationToken))
@@ -150,19 +149,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (TaskCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, CancelledErrorMessage);
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = CancelledErrorMessage,
-                };
+                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = CancelledErrorMessage,
-                };
+                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (RetriableJobException retriableEx)
@@ -173,10 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Critical error in data processing job.");
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = ex.Message,
-                };
+                var error = new ImportProcessingJobErrorResult() { Message = ex.Message };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }

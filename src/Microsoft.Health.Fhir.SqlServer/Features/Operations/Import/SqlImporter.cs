@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using DotLiquid.Util;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -102,8 +103,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount)
         {
-            var resourcesWithError = resources.Where(r => r.ContainsError());
-            var resourcesWithoutError = resources.Where(r => !r.ContainsError()).ToList();
+            var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
+            var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.Resource.ToResourceKey()).Select(_ => _.First()).ToList();
             var mergedResources = _sqlImportOperation.MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
             var dupsNotMerged = resourcesWithoutError.Except(resourcesDedupped);
