@@ -779,7 +779,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                 ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
                 processingResult.FailedCount = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
@@ -937,7 +936,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                 ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
                 processingResult.FailedCount = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
@@ -971,17 +969,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         JobInfo jobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();
 
                         ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                        processingResult.ResourceType = "Resource";
                         processingResult.SucceedCount = 1;
                         processingResult.FailedCount = 1;
                         processingResult.ErrorLogLocation = "http://dummy/error";
-                        processingResult.ResourceLocation = location;
 
                         jobInfo.Result = JsonConvert.SerializeObject(processingResult);
                         if (i < completedCount)
                         {
                             jobInfo.Status = JobManagement.JobStatus.Completed;
-                            importOrchestratorJobResult.SucceedResources += 1;
+                            importOrchestratorJobResult.SucceededResources += 1;
                             importOrchestratorJobResult.FailedResources += 1;
                         }
                         else
@@ -1062,7 +1058,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                 ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                processingResult.ResourceType = processingInput.ResourceType;
                 processingResult.SucceedCount = 1;
                 processingResult.FailedCount = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
@@ -1103,17 +1098,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         JobInfo jobInfo = (await testQueueClient.EnqueueAsync(1, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();
 
                         ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                        processingResult.ResourceType = "Resource";
                         processingResult.SucceedCount = 1;
                         processingResult.FailedCount = 1;
                         processingResult.ErrorLogLocation = "http://dummy/error";
-                        processingResult.ResourceLocation = location;
 
                         jobInfo.Result = JsonConvert.SerializeObject(processingResult);
                         if (i < completedCount)
                         {
                             jobInfo.Status = JobManagement.JobStatus.Completed;
-                            importOrchestratorJobResult.SucceedResources += 1;
+                            importOrchestratorJobResult.SucceededResources += 1;
                             importOrchestratorJobResult.FailedResources += 1;
                         }
                         else

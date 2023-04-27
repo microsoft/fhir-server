@@ -10,7 +10,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using DotLiquid.Util;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -48,18 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = logger;
         }
 
-        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
-        {
-            var outputChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
-
-            var importTask = Task.Run(
-                async () => { await ImportInternalAsync(inputChannel, outputChannel, importErrorStore, cancellationToken); },
-                cancellationToken);
-
-            return (outputChannel, importTask);
-        }
-
-        private async Task ImportInternalAsync(Channel<ImportResource> inputChannel, Channel<ImportProcessingProgress> outputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
             try
             {
@@ -91,12 +79,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeededCount, ref failedCount);
 
-                var progress = await UploadImportErrorsAsync(importErrorStore, succeededCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
-                await outputChannel.Writer.WriteAsync(progress, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
             }
             finally
             {
-                outputChannel.Writer.Complete();
                 _logger.LogInformation("Import data to SQL data store complete.");
             }
         }
@@ -141,7 +127,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var progress = new ImportProcessingProgress();
             progress.SucceedImportCount = succeededCount;
             progress.FailedImportCount = failedCount;
-            progress.CurrentIndex = lastIndex + 1;
 
             return progress;
         }

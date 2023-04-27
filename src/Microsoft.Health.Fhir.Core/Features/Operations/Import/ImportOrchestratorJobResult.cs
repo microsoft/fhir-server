@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Resource count succeed to import
         /// </summary>
-        public long SucceedResources { get; set; }
+        public long SucceededResources { get; set; }
 
         /// <summary>
         /// Resource count failed to import
@@ -46,5 +46,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Orchestrator job progress.
         /// </summary>
         public ImportOrchestratorJobProgress Progress { get; set; }
+
+        public long SucceedImportCount { get; set; } // TODO: remove in stage 3
+
+        public long FailedImportCount { get; set; } // TODO: remove in stage 3
+
+        public int CreatedJobCount { get; set; } // TODO: remove in stage 3
+
+        public long? TotalSizeInBytes { get; set; } // TODO: remove in stage 3
     }
 }

@@ -52,11 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
+            // this job is not reporting any progress, so there is no need to check what is passed
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
-            var currentResult = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -71,12 +70,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _contextAccessor.RequestContext = fhirRequestContext;
 
-            long succeedImportCount = currentResult.SucceedCount;
-            long failedImportCount = currentResult.FailedCount;
-
-            currentResult.ResourceType = definition.ResourceType;
-            currentResult.ResourceLocation = definition.ResourceLocation;
-
             try
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -84,39 +77,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = definition.EndSequenceId == 0 ? (index) => 0 : (index) => definition.BeginSequenceId + index;
-
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
-                currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, cancellationToken);
 
-                // Import to data store
-                (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
-
-                // Update progress for checkpoints
-                await foreach (ImportProcessingProgress batchProgress in progressChannel.Reader.ReadAllAsync(cancellationToken))
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException("Import job is canceled by user.");
-                    }
-
-                    currentResult.SucceedCount = batchProgress.SucceedImportCount + succeedImportCount;
-                    currentResult.FailedCount = batchProgress.FailedImportCount + failedImportCount;
-                    currentResult.CurrentIndex = batchProgress.CurrentIndex;
-
-                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceedCount, currentResult.FailedCount);
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-                }
-
                 // Pop up exception during load & import
                 // Put import task before load task for resource channel full and blocking issue.
+                var currentResult = new ImportProcessingJobResult();
                 try
                 {
-                    await importTask;
+                    // Import to data store
+                    ImportProcessingProgress processingProgress = await _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
+
+                    currentResult.SucceedCount = processingProgress.SucceedImportCount;
+                    currentResult.FailedCount = processingProgress.FailedImportCount;
+                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+
+                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceedCount, currentResult.FailedCount);
+                }
+                catch (TaskCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -143,7 +126,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
 
                 jobInfo.Data = currentResult.SucceedCount + currentResult.FailedCount;
-
                 return JsonConvert.SerializeObject(currentResult);
             }
             catch (TaskCanceledException canceledEx)
