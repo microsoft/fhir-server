@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class TemplateProviderFactory : ITemplateProviderFactory
     {
-        private IServiceProvider _sp;
+        private readonly IServiceProvider _sp;
 
         public TemplateProviderFactory(IServiceProvider sp)
         {
