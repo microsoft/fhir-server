@@ -329,8 +329,7 @@
                             "value": "true"
                         }
                     ],
-                    "scmType": "None",
-                    "ftpsState": "Disabled"
+                    "scmType": "None"
                 }
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
