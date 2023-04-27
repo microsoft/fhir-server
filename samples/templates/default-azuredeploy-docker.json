@@ -365,6 +365,18 @@
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
                     }
+                },
+                {
+                    "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+                    "apiVersion": "2022-09-01",
+                    "name": "[concat(parameters('serviceName'), '/scm')]",
+                    "location": "South Central US",
+                    "dependsOn": [
+                        "Microsoft.Web/sites"
+                    ],
+                    "properties": {
+                        "allow": false
+                    }
                 }
             ]
         },
