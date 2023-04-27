@@ -87,5 +87,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             return wrapper;
         }
+
+        public static async Task<ResourceWrapperOperation> GetResourceWrapperOperationAsync(DomainResource resource, Guid bundleOperationId)
+        {
+            ResourceWrapper wrapper = await GetResourceWrapperAsync(resource);
+            return new ResourceWrapperOperation(wrapper, true, true, null, false, bundleOperationId);
+        }
     }
 }

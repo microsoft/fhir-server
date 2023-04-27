@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// List of resource to be sent to the data layer.
         /// </summary>
-        private readonly ConcurrentBag<ResourceWrapper> _resources;
+        private readonly ConcurrentBag<ResourceWrapperOperation> _resources;
 
         /// <summary>
         /// Thread safe locking object reference.
@@ -34,7 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Merge async task, only assigned and executed once.
         /// </summary>
-        private Task _mergeAsyncTask;
+        private Task<IDictionary<ResourceKey, UpsertOutcome>> _mergeAsyncTask;
+
+        /// <summary>
+        /// Current instance of data store in use.
+        /// </summary>
+        private IFhirDataStore _dataStore;
 
         public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
         {
@@ -50,11 +56,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             OriginalExpectedNumberOfResources = expectedNumberOfResources;
             _currentExpectedNumberOfResources = expectedNumberOfResources;
 
-            _resources = new ConcurrentBag<ResourceWrapper>();
+            _resources = new ConcurrentBag<ResourceWrapperOperation>();
 
             _lock = new object();
 
             _mergeAsyncTask = null;
+            _dataStore = null;
         }
 
         public Guid Id { get; private set; }
@@ -83,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             return $"[ Job: {Id}, Label: {Label}, OriginalExpectedNumberOfResources: {OriginalExpectedNumberOfResources}, CreationTime: {CreationTime.ToString("o")}, Status: {Status} ]";
         }
 
-        public async Task AppendResourceAsync(ResourceWrapper resource, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> AppendResourceAsync(ResourceWrapperOperation resource, IFhirDataStore dataStore, CancellationToken cancellationToken)
         {
             try
             {
@@ -92,9 +99,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     SetStatusSafe(BundleOrchestratorOperationStatus.WaitingForResources);
                 }
 
-                _resources.Add(resource);
+                InitializeMergeTaskSafe(dataStore, cancellationToken);
 
-                InitializeMergeTaskSafe(cancellationToken);
+                _resources.Add(resource);
             }
             catch (Exception)
             {
@@ -104,7 +111,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 throw;
             }
 
-            await _mergeAsyncTask;
+            var ingestedResources = await _mergeAsyncTask;
+
+            ResourceKey key = resource.Wrapper.ToResourceKey();
+            return ingestedResources[key];
         }
 
         public async Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken)
@@ -118,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 Interlocked.Decrement(ref _currentExpectedNumberOfResources);
 
-                InitializeMergeTaskSafe(cancellationToken);
+                InitializeMergeTaskSafe(dataStore: null, cancellationToken);
             }
             catch (Exception)
             {
@@ -131,10 +141,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             await _mergeAsyncTask;
         }
 
-        private void InitializeMergeTaskSafe(CancellationToken cancellationToken)
+        private void InitializeMergeTaskSafe(IFhirDataStore dataStore, CancellationToken cancellationToken)
         {
             lock (_lock)
             {
+                if (dataStore != null && _dataStore == null)
+                {
+                    _dataStore = dataStore;
+                }
+
                 // '_mergeAsyncTask' should be initialize only once per Back Orchestrator Operation.
                 if (_mergeAsyncTask == null)
                 {
@@ -143,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
         }
 
-        private async Task MergeAsync(CancellationToken cancellationToken)
+        private async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -158,17 +173,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 if (CurrentExpectedNumberOfResources == 0)
                 {
                     SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
+
+                    return null;
                 }
                 else
                 {
+                    if (_dataStore == null)
+                    {
+                        throw new BundleOrchestratorException($"Data Store was not initialized. Status can't be changed to processing and resources cannot be merged.");
+                    }
+
                     SetStatusSafe(BundleOrchestratorOperationStatus.Processing);
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
-                }
+                    IDictionary<ResourceKey, UpsertOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
 
-                await Task.CompletedTask; // To be removed.
+                    SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
+
+                    return response;
+                }
             }
             catch (OperationCanceledException)
             {

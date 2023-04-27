@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -160,6 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory);
 
+            IBundleOrchestrator bundleOrchestrator = new BundleOrchestrator(isEnabled: false);
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
             _fhirDataStore = new CosmosFhirDataStore(
@@ -170,6 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 retryExceptionPolicyFactory,
                 NullLogger<CosmosFhirDataStore>.Instance,
                 options,
+                bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(_supportedSearchParameterDefinitionManager),
                 ModelInfoProvider.Instance);
 

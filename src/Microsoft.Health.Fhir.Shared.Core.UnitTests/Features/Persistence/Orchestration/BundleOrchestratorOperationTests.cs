@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -32,6 +33,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
+            var dataStore = Substitute.For<IFhirDataStore>();
+
             var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
 
@@ -42,9 +45,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             for (int i = 0; i < numberOfResources; i++)
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapper resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperAsync(resource);
+                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
 
-                Task appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, cts.Token);
+                Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync[i] = appendedResourceTask;
 
                 if (i == (numberOfResources - 1))
@@ -74,6 +77,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
+            var dataStore = Substitute.For<IFhirDataStore>();
+
             var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
@@ -85,9 +90,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Parallel.For(0, numberOfResources, async (i, task) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapper resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperAsync(resource);
+                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
 
-                Task appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, cts.Token);
+                Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync.Add(appendedResourceTask);
             });
 
@@ -141,6 +146,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
+            var dataStore = Substitute.For<IFhirDataStore>();
+
             var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
@@ -159,9 +166,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 else
                 {
                     DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                    ResourceWrapper resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperAsync(resource);
+                    ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
 
-                    appendTask = operation.AppendResourceAsync(resourceWrapper, cts.Token);
+                    appendTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 }
 
                 tasksWaitingForMergeAsync.Add(appendTask);
@@ -184,6 +191,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             // Short cancellation time. This test should fail fast and throw a TaskCanceledException.
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
+            var dataStore = Substitute.For<IFhirDataStore>();
+
             var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
@@ -194,11 +203,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
 
             DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-            ResourceWrapper resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperAsync(resource);
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
 
             // A single resource will be appended to this operation.
             // In this test, we are forcing the operation to timeout while waiting for the remain resources.
-            tasksWaitingForMergeAsync.Add(operation.AppendResourceAsync(resourceWrapper, cts.Token));
+            tasksWaitingForMergeAsync.Add(operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token));
 
             AggregateException age = Assert.Throws<AggregateException>(() => Task.WaitAll(tasksWaitingForMergeAsync.ToArray()));
 

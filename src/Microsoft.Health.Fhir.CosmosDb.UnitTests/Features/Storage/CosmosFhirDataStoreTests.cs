@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -48,6 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly CosmosFhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
         private readonly IScoped<Container> _container;
+        private readonly IBundleOrchestrator _bundleOrchestrator;
 
         public CosmosFhirDataStoreTests()
         {
@@ -57,6 +59,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             fhirRequestContext.ExecutingBatchOrTransaction.Returns(true);
             var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             requestContextAccessor.RequestContext.Returns(fhirRequestContext);
+            _bundleOrchestrator = new BundleOrchestrator(isEnabled: false);
+
             _dataStore = new CosmosFhirDataStore(
                 _container,
                 _cosmosDataStoreConfiguration,
@@ -65,6 +69,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
+                _bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
                 ModelInfoProvider.Instance);
         }
