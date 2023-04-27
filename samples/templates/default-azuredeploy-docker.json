@@ -329,8 +329,8 @@
                             "value": "true"
                         }
                     ],
-                    "scmType": "None"
-                }
+                    "scmType": "None",
+                    "ftpsState": "Disabled"
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "clientAffinityEnabled": false
