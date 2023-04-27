@@ -367,12 +367,10 @@
                     }
                 },
                 {
-                    "type": "basicPublishingCredentialsPolicies",
-                    "apiVersion": "2022-09-01",
-                    "name": "[concat(variables('serviceName'), '/scm')]",
-                    "dependsOn": [
-                        "Microsoft.Web/sites"
-                    ],
+                    "type": "Microsoft.Web/sites/slots/basicPublishingCredentialsPolicies",
+                    "apiVersion": "2020-12-01",
+                    "name": "scm",
+                    "kind": "string",
                     "properties": {
                         "allow": false
                     }
