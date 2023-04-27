@@ -367,10 +367,9 @@
                     }
                 },
                 {
-                    "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+                    "type": "basicPublishingCredentialsPolicies",
                     "apiVersion": "2022-09-01",
                     "name": "[concat(variables('serviceName'), '/scm')]",
-                    "location": "South Central US",
                     "dependsOn": [
                         "Microsoft.Web/sites"
                     ],
