@@ -328,9 +328,7 @@
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "true"
                         }
-                    ],
-                    "scmType": "None",
-                    "ftpsState": "Disabled"
+                    ]
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "clientAffinityEnabled": false
