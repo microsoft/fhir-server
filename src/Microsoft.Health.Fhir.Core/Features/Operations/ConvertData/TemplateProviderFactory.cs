@@ -15,9 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public TemplateProviderFactory(IServiceProvider sp)
         {
-            EnsureArg.IsNotNull(sp, nameof(sp));
-
-            _sp = sp;
+            _sp = EnsureArg.IsNotNull(sp, nameof(sp));
         }
 
         public IConvertDataTemplateProvider GetContainerRegistryTemplateProvider()

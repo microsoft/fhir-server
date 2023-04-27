@@ -59,8 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// <returns>Template collection.</returns>
         public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
-            var accessToken = string.Empty;
-
             _logger.LogInformation("Using a custom template collection for data conversion.");
 
             async Task<string> TokenEntryFactory(ICacheEntry entry)
@@ -71,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 return token;
             }
 
-            accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), TokenEntryFactory);
+            var accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), TokenEntryFactory);
 
             try
             {
