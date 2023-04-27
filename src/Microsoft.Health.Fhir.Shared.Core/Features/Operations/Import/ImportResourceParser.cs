@@ -6,29 +6,24 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
-        private IResourceMetaPopulator _resourceMetaPopulator;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
         private ICompressedRawResourceConverter _compressedRawResourceConverter;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IResourceMetaPopulator resourceMetaPopulator, ICompressedRawResourceConverter compressedRawResourceConverter)
+        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, ICompressedRawResourceConverter compressedRawResourceConverter)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
@@ -36,26 +31,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _parser = parser;
             _resourceFactory = resourceFactory;
-            _resourceMetaPopulator = resourceMetaPopulator;
             _compressedRawResourceConverter = compressedRawResourceConverter;
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public ImportResource Parse(long id, long index, long offset, string rawContent)
+        public ImportResource Parse(long index, long offset, int length, string rawContent)
         {
-            Resource resource = _parser.Parse<Resource>(rawContent);
+            var resource = _parser.Parse<Resource>(rawContent);
             CheckConditionalReferenceInResource(resource);
 
-            _resourceMetaPopulator.Populate(id, resource);
+            var resourceElement = resource.ToResourceElement();
+            var resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            ResourceElement resourceElement = resource.ToResourceElement();
-            ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
-
-            return new ImportResource(id, index, offset, resourceWapper)
-            {
-                // this is temp hack as compressed stream goes away in stage 2
-                CompressedStream = id == 0 ? null : GenerateCompressedRawResource(resourceWapper.RawResource.Data),
-            };
+            return new ImportResource(index, offset, length, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)

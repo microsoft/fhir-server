@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 string content = null;
                 long currentIndex = 0;
                 long currentBytesRead = 0;
-                List<(string content, long index)> buffer = new List<(string content, long index)>();
+                var buffer = new List<(string content, long index, int length)>();
 
                 var skipFirstLine = true;
 #pragma warning disable CA2016
@@ -93,11 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         continue;
                     }
 
-                    currentBytesRead += Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
+                    var length = Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
+                    currentBytesRead += length;
 
                     currentIndex++;
 
-                    buffer.Add((content, currentIndex));
+                    buffer.Add((content, currentIndex, length));
 
                     if (buffer.Count < MaxBatchSize)
                     {
@@ -130,17 +131,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index)> rawContents, long offset)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index, int length)> rawContents, long offset)
         {
             return await Task.Run(() =>
             {
                 var result = new List<ImportResource>();
 
-                foreach ((string content, long index) in rawContents)
+                foreach ((string content, long index, int length) in rawContents)
                 {
                     try
                     {
-                        ImportResource importResource = _importResourceParser.Parse(index, index, offset, content);
+                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content);
 
                         if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
                         {
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     catch (Exception ex)
                     {
                         // May contains customer's data, no error logs here.
-                        result.Add(new ImportResource(index, index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
+                        result.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
                     }
                 }
 

@@ -121,8 +121,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
-            long succeedCountFromProgress = currentResult.SucceedCount;
-            long failedCountFromProgress = currentResult.FailedCount;
+            long succeedCountFromProgress = currentResult.SucceededResources;
+            long failedCountFromProgress = currentResult.FailedResources;
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IImporter importer = Substitute.For<IImporter>();
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             "SearchParam");
 
                         await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, resourceWrapper));
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(1, 1, 0, "Error"));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(1, 0, "Error"));
                         resourceChannel.Writer.Complete();
                     });
 
@@ -168,11 +168,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     {
                         if (string.IsNullOrEmpty(resource.ImportError))
                         {
-                            progress.SucceedImportCount++;
+                            progress.SucceededResources++;
                         }
                         else
                         {
-                            progress.FailedImportCount++;
+                            progress.FailedResources++;
                         }
                     }
 
@@ -185,8 +185,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
-            Assert.Equal(1 + failedCountFromProgress, result.FailedCount);
-            Assert.Equal(1 + succeedCountFromProgress, result.SucceedCount);
+            Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
+            Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
         }
 
         private ImportProcessingJobDefinition GetInputData()

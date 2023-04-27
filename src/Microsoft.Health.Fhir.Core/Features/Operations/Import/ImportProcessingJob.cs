@@ -91,11 +91,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     // Import to data store
                     ImportProcessingProgress processingProgress = await _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
 
-                    currentResult.SucceedCount = processingProgress.SucceedImportCount;
-                    currentResult.FailedCount = processingProgress.FailedImportCount;
+                    currentResult.SucceededResources = processingProgress.SucceededResources;
+                    currentResult.FailedResources = processingProgress.FailedResources;
                     currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                    currentResult.ProcessedBytes = processingProgress.ProcessedBytes;
 
-                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceedCount, currentResult.FailedCount);
+                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceededResources, currentResult.FailedResources);
                 }
                 catch (TaskCanceledException)
                 {
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new RetriableJobException("Failed to load data", ex);
                 }
 
-                jobInfo.Data = currentResult.SucceedCount + currentResult.FailedCount;
+                jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
                 return JsonConvert.SerializeObject(currentResult);
             }
             catch (TaskCanceledException canceledEx)

@@ -10,11 +10,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Succeeded resource count
         /// </summary>
-        public long SucceedImportCount { get; set; }
+        public long SucceededResources { get; set; }
 
         /// <summary>
         /// Failed resource count
         /// </summary>
-        public long FailedImportCount { get; set; }
+        public long FailedResources { get; set; }
+
+        /// <summary>
+        /// Processed blob/file bytes
+        /// </summary>
+        public long ProcessedBytes { get; set; }
     }
 }

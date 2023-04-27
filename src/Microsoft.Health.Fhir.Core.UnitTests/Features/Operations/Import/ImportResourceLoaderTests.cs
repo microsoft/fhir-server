@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException(errorMessage);
@@ -72,8 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return ex.Message;
                 });
 
-            Func<long, long> idGenerator = (i) => i;
-            ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
+            var loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, CancellationToken.None);
 
@@ -105,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     ImportResource importResource = new ImportResource(null);
@@ -159,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     resetEvent1.Set();
@@ -227,11 +226,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    long surrogatedId = (long)callInfo[0];
-                    long index = (long)callInfo[1];
+                    long index = (long)callInfo[0];
                     string content = (string)callInfo[3];
                     ResourceWrapper resourceWrapper = new ResourceWrapper(
                             content,
@@ -245,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(surrogatedId, index, 0, resourceWrapper);
+                    return new ImportResource(index, 0, 0, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();

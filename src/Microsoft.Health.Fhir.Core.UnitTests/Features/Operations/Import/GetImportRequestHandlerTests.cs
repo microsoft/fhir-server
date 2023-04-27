@@ -61,8 +61,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             var processingJobResult = new ImportProcessingJobResult()
             {
-                SucceedCount = 1,
-                FailedCount = 1,
+                SucceededResources = 1,
+                FailedResources = 1,
                 ErrorLogLocation = "http://ResourceErrorLogLocation",
             };
 
@@ -134,8 +134,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             var processingJobResult = new ImportProcessingJobResult()
             {
-                SucceedCount = 1,
-                FailedCount = 1,
+                SucceededResources = 1,
+                FailedResources = 1,
                 ErrorLogLocation = "http://ResourceErrorLogLocation",
             };
 

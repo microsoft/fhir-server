@@ -128,13 +128,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     continue;
                 }
 
-                var jobDefinition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
-                var jobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
+                var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
+                var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
 
-                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = jobDefinition.ResourceType, Count = jobResult.SucceedCount, InputUrl = new Uri(jobDefinition.ResourceLocation) });
-                if (jobResult.FailedCount > 0)
+                var succeeded = result.SucceededResources == 0 ? result.SucceedCount : result.SucceededResources;
+                var failed = result.FailedResources == 0 ? result.FailedCount : result.FailedResources;
+                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = succeeded, InputUrl = new Uri(definition.ResourceLocation) });
+                if (failed > 0)
                 {
-                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = jobDefinition.ResourceType, Count = jobResult.FailedCount, InputUrl = new Uri(jobDefinition.ResourceLocation), Url = jobResult.ErrorLogLocation });
+                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = failed, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                 }
             }
 

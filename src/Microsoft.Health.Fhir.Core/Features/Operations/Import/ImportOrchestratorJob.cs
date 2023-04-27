@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var completedJobIds = new HashSet<long>();
                 var jobIdsToCheck = jobIds.Take(20).ToList();
                 var jobInfos = new List<JobInfo>();
-                var duration = 0D;
+                double duration;
                 try
                 {
                     var start = Stopwatch.StartNew();
@@ -335,8 +335,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         if (jobInfo.Status == JobStatus.Completed)
                         {
                             var procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
-                            currentResult.SucceededResources += procesingJobResult.SucceedCount;
-                            currentResult.FailedResources += procesingJobResult.FailedCount;
+                            currentResult.SucceededResources += procesingJobResult.SucceededResources == 0 ? procesingJobResult.SucceedCount : procesingJobResult.SucceededResources;
+                            currentResult.FailedResources += procesingJobResult.FailedResources == 0 ? procesingJobResult.FailedCount : procesingJobResult.FailedResources;
+                            currentResult.ProcessedBytes += procesingJobResult.ProcessedBytes;
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
@@ -359,6 +360,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         jobIds.Remove(jobId);
                     }
 
+                    currentResult.CompletedJobs += completedJobIds.Count;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
                     await Task.Delay(TimeSpan.FromSeconds(duration * 10), cancellationToken); // throttle to avoid high database utilization.
