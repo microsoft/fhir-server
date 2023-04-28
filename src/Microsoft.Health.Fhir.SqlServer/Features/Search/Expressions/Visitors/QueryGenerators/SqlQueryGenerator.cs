@@ -478,7 +478,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (searchParamTableExpression.QueryGenerator.Table == VLatest.ReferenceSearchParam.TableName)
+            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
             }
@@ -487,7 +487,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && searchParamTableExpression.QueryGenerator.Table != VLatest.ReferenceSearchParam.TableName)
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
                 {
                     // if chainLevel > 0 or if in sort mode or if ReferenceSearchParam, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -1034,7 +1034,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (searchParamTableExpression.QueryGenerator.Table == VLatest.ReferenceSearchParam.TableName)
+                if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1061,7 +1061,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (searchParamTableExpression.QueryGenerator.Table != VLatest.ReferenceSearchParam.TableName)
+                    if (searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1083,7 +1083,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (searchParamTableExpression.QueryGenerator.Table == VLatest.ReferenceSearchParam.TableName)
+                if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1110,7 +1110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (searchParamTableExpression.QueryGenerator.Table != VLatest.ReferenceSearchParam.TableName)
+                    if (searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
