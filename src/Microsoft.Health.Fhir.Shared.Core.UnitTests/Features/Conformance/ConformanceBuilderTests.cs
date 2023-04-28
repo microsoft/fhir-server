@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISupportedProfilesStore _supportedProfiles;
+        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public ConformanceBuilderTests()
         {
@@ -44,11 +46,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
+            _urlResolver = Substitute.For<IUrlResolver>();
+
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
                 configuration,
-                _supportedProfiles);
+                _supportedProfiles,
+                _urlResolver);
         }
 
         [Fact]
@@ -88,7 +93,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
                 configuration,
-                supportedProfiles);
+                supportedProfiles,
+                _urlResolver);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -118,7 +124,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
                 configuration,
-                supportedProfiles);
+                supportedProfiles,
+                _urlResolver);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -147,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
                 configuration,
-                supportedProfiles);
+                supportedProfiles,
+                _urlResolver);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
