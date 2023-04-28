@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _modelInfoProvider = modelInfoProvider;
-            _urlResolver = urlResolver;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _capabilityProviders = capabilityProviders;
             _configuration = configuration;
