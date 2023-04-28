@@ -116,13 +116,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(convertDataConfig);
 
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
-
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
+            ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            templateProviderFactory.GetDefaultTemplateProvider().Returns(templateProvider);
 
             var convertDataEngine = new ConvertDataEngine(
-                templateProvider,
+                templateProviderFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
 
