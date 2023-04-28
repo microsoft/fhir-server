@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
+        /// <param name="bundleOrchestrator">Bundle orchestrator</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
         /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
         public CosmosFhirDataStore(

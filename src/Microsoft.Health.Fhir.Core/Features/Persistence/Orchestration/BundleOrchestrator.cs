@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -20,12 +22,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Creates a new instance of <see cref="BundleOrchestrator"/>.
         /// </summary>
-        /// <param name="isEnabled">Enables or disables the Bundle Orchestrator functionality.</param>
-        public BundleOrchestrator(bool isEnabled)
+        /// <param name="bundleConfiguration">Bundle configuration.</param>
+        public BundleOrchestrator(IOptions<BundleConfiguration> bundleConfiguration)
         {
-            _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
+            EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
 
-            IsEnabled = isEnabled;
+            IsEnabled = bundleConfiguration.Value.SupportsBundleOrchestrator;
+
+            _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
         }
 
         public bool IsEnabled { get; }

@@ -8,7 +8,10 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -25,6 +28,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             JsonSerializer = new FhirJsonSerializer();
             ResourceDeserializer = Deserializers.ResourceDeserializer;
+        }
+
+        public static IBundleOrchestrator GetBundleOrchestrator(bool isBundleOrchestratorEnabled = true)
+        {
+            return new BundleOrchestrator(GetBundleConfiguration(isBundleOrchestratorEnabled));
+        }
+
+        public static IOptions<BundleConfiguration> GetBundleConfiguration(bool isBundleOrchestratorEnabled = true)
+        {
+            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = isBundleOrchestratorEnabled };
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+
+            bundleOptions.Value.Returns(bundleConfiguration);
+
+            return bundleOptions;
         }
 
         public static DomainResource GetSamplePatient(Guid id)

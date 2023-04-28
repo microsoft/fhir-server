@@ -112,7 +112,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
 
             var ingestedResources = await _mergeAsyncTask;
-
             ResourceKey key = resource.Wrapper.ToResourceKey();
             return ingestedResources[key];
         }

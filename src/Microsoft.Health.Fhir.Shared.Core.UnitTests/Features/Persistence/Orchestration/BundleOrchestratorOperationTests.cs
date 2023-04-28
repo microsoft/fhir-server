@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             var dataStore = Substitute.For<IFhirDataStore>();
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
 
             Assert.Equal(BundleOrchestratorOperationStatus.Open, operation.Status);
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             var dataStore = Substitute.For<IFhirDataStore>();
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(operationType, "POST", numberOfResources);
 
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             var dataStore = Substitute.For<IFhirDataStore>();
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", numberOfResources);
 
@@ -193,7 +193,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             var dataStore = Substitute.For<IFhirDataStore>();
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "POST", expectedNumberOfResources: numberOfResources);
 

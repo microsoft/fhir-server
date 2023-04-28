@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             const string label = "label";
             const int expectedNumberOfResources = 100;
 
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(operationType, label, expectedNumberOfResources);
 
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         [Fact]
         public void GivenAnOrchestrator_WhenAskedForAJobWithInvalidParameters_ReceiveArgumentExpections()
         {
-            var batchOrchestrator = new BundleOrchestrator(isEnabled: true);
+            var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
             // Fail: Providing invalid labels.
             Assert.Throws<ArgumentNullException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, null, expectedNumberOfResources: 100));

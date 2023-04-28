@@ -59,7 +59,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             fhirRequestContext.ExecutingBatchOrTransaction.Returns(true);
             var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             requestContextAccessor.RequestContext.Returns(fhirRequestContext);
-            _bundleOrchestrator = new BundleOrchestrator(isEnabled: false);
+
+            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(bundleConfiguration);
+
+            _bundleOrchestrator = new BundleOrchestrator(bundleOptions);
 
             _dataStore = new CosmosFhirDataStore(
                 _container,

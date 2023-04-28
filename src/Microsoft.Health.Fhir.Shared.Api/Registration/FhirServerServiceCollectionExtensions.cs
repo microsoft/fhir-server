@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -142,15 +143,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
         public static IFhirServerBuilder AddBundleOrchestrator(
             this IFhirServerBuilder fhirServerBuilder,
-            bool enabledBundleOrchestratorOperations)
+            IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator>(sp =>
-            {
-                return new BundleOrchestrator(
-                    isEnabled: enabledBundleOrchestratorOperations);
-            });
+            fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
 
             return fhirServerBuilder;
         }

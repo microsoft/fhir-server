@@ -21,12 +21,11 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -85,8 +84,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
-            // TODO: Make 'isEnabled' a parameter.
-            var bundleOrchestrator = new BundleOrchestrator(isEnabled: false);
+            _bundleConfiguration = new BundleConfiguration();
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(_bundleConfiguration);
+
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions);
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
@@ -105,10 +107,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var resourceIdProvider = new ResourceIdProvider();
 
             IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
-
-            _bundleConfiguration = new BundleConfiguration();
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(_bundleConfiguration);
 
             _mediator = Substitute.For<IMediator>();
 

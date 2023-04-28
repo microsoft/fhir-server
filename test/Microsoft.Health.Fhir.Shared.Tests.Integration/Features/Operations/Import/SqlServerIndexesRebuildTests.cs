@@ -244,7 +244,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
-            var bundleOrchestrator = new BundleOrchestrator(isEnabled: true);
+
+            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(bundleConfiguration);
+
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions);
 
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
