@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             else if (thisVersion.Version < CollectionSettingsVersion)
             {
                 await _updateSP.Execute(container.Scripts, cancellationToken);
-                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
                 thisVersion.Version = CollectionSettingsVersion;
+                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
         }
 
