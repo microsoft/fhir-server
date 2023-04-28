@@ -365,17 +365,21 @@
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
                     }
-                },
-                {
-                    "apiVersion": "2020-12-01",
-                    "name": "scm",
-                    "type": "Microsoft.Web/sites/slots/basicPublishingCredentialsPolicies",
-                    "kind": "string",
-                    "properties": {
-                        "allow": false
-                    }
                 }
             ]
+        },
+        {
+            "apiVersion": "2020-12-01",
+            "name": "[concat(parameters('serviceName'), '/scm')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('serviceName'))]"
+            ],
+            "type": "Microsoft.Web/sites/slots/basicPublishingCredentialsPolicies",
+            "kind": "string",
+            "properties": {
+                "allow": false
+            }
         },
         {
             "apiVersion": "2015-05-01",
