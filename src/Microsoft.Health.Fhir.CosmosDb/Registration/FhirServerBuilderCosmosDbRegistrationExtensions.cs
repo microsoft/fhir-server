@@ -160,12 +160,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
-
-            services.Add<FhirCollectionSettingsUpdater>()
+            services.Add<StoredProcedureInstaller>()
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
-            services.Add<StoredProcedureInstaller>()
+            services.Add<FhirCollectionSettingsUpdater>()
                 .Transient()
                 .AsService<ICollectionUpdater>();
 

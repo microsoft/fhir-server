@@ -7,7 +7,6 @@ using System.Threading;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
@@ -41,7 +40,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         private readonly CollectionUpgradeManager _manager;
         private readonly Container _client;
         private readonly ContainerResponse _containerResponse;
-        private readonly IScoped<Container> _container = Substitute.For<IScoped<Container>>();
 
         public CollectionUpgradeManagerTests()
         {
@@ -64,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             collectionVersionWrappers.ReadNextAsync(Arg.Any<CancellationToken>())
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
-            var updaters = new ICollectionUpdater[] { new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance, _container), };
+            var updaters = new ICollectionUpdater[] { new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance), };
             _manager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
 
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();

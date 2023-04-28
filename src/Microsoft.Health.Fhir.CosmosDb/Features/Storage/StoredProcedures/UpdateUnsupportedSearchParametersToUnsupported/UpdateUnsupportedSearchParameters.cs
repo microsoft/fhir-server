@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,11 +13,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Updat
 {
     internal class UpdateUnsupportedSearchParameters : StoredProcedureBase
     {
-        public async Task<StoredProcedureExecuteResponse<IList<string>>> Execute(Scripts client, CancellationToken cancellationToken)
+        public async Task<StoredProcedureExecuteResponse<string>> Execute(Scripts client, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
 
-            return await ExecuteStoredProc<IList<string>>(client, CosmosDbReindexConstants.SearchParameterStatusPartitionKey, cancellationToken);
+            return await ExecuteStoredProc<string>(client, CosmosDbReindexConstants.SearchParameterStatusPartitionKey, cancellationToken);
         }
     }
 }
