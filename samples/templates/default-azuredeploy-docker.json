@@ -371,6 +371,7 @@
                     "name": "scm",
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
+                    "location": "[resourceGroup().location]",
                     "dependsOn":[
                         "[variables('serviceName')]"
                     ],
@@ -383,6 +384,7 @@
                     "name": "ftp",
                     "type": "basicPublishingCredentialsPolicies",
                     "kind": "string",
+                    "location": "[resourceGroup().location]",
                     "dependsOn":[
                         "[variables('serviceName')]"
                     ],
