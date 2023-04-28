@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex
     public static class CosmosDbReindexConstants
     {
         public const string ReindexJobPartitionKey = "ReindexJob";
+        public const string SearchParameterStatusPartitionKey = "__searchparameterstatus__";
     }
 }
