@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISupportedProfilesStore _supportedProfiles;
-        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
+        private readonly IUrlResolver _urlResolver;
 
         public ConformanceBuilderTests()
         {
@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             _urlResolver = Substitute.For<IUrlResolver>();
+            _urlResolver.ResolveMetadataUrl(Arg.Any<bool>()).Returns(new System.Uri("https://test.com"));
 
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
