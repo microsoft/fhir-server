@@ -52,8 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
-            // this job is not reporting any progress, so there is no need to check what is passed
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+            EnsureArg.IsNotNull(progress, nameof(progress));
+            progress.Report(JsonConvert.SerializeObject(new ImportProcessingJobResult())); // TODO: this is not correct, but should keep heartbeats healthy
 
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
 
