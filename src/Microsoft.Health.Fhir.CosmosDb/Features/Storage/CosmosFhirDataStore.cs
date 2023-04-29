@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -114,22 +115,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
-        {
-            var results = new Dictionary<ResourceKey, UpsertOutcome>();
-            if (resources == null || resources.Count == 0)
-            {
-                return results;
-            }
-
-            foreach (var resource in resources)
-            {
-                results.Add(resource.Wrapper.ToResourceKey(), await UpsertAsync(resource, cancellationToken));
-            }
-
-            return results;
-        }
-
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
             var results = new List<ResourceWrapper>();
@@ -143,6 +128,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        {
+            if (resources == null || resources.Count == 0)
+            {
+                return new Dictionary<ResourceKey, UpsertOutcome>();
+            }
+
+            var results = new ConcurrentDictionary<ResourceKey, UpsertOutcome>();
+            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
+            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
+            {
+                UpsertOutcome upsertOutcome = await InternalUpsertAsync(
+                    resource.Wrapper,
+                    resource.WeakETag,
+                    resource.AllowCreate,
+                    resource.KeepHistory,
+                    cancellationToken,
+                    resource.RequireETagOnUpdate);
+
+                ResourceKey key = resource.Wrapper.ToResourceKey();
+                results.TryAdd(key, upsertOutcome);
+            });
+
+            return results;
+        }
+
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
@@ -151,15 +162,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
 
+                // Internally Bundle Operation calls UpsertAsync.
                 return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
+                return await InternalUpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
             }
         }
 
-        private async Task<UpsertOutcome> UpsertAsync(
+        private async Task<UpsertOutcome> InternalUpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,
