@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             RaiseExceptionOnConflict: true,
                             IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                             tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                        cmd.CommandTimeout = 180 + (int)(3600.0 / 5000 * mergeWrappers.Count);
+                        cmd.CommandTimeout = 180 + (int)(3600.0 / 10000 * mergeWrappers.Count);
                         await cmd.ExecuteNonQueryAsync(cancellationToken);
                     }
 
@@ -243,7 +243,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     // we cannot retry on connection loss as this call might be in outer transaction.
                     // TODO: Add retries when set bundle processing is in place.
-                    if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                        || e.IsRetriable() // this shouls allow to deal with intermittent database errors
+                        || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await Task.Delay(5000, cancellationToken);
