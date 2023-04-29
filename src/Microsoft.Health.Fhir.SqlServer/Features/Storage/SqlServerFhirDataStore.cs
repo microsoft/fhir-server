@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             RaiseExceptionOnConflict: true,
                             IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                             tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                        cmd.CommandTimeout = 180 + (int)(3600.0 / 10000 * mergeWrappers.Count);
+                        cmd.CommandTimeout = 180 + (int)(3600.0 / 5000 * mergeWrappers.Count);
                         await cmd.ExecuteNonQueryAsync(cancellationToken);
                     }
 
