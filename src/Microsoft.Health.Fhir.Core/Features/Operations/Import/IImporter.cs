@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// <summary>
     /// Importer for ImportResoruce into data store.
     /// </summary>
-    public interface IResourceBulkImporter
+    public interface IImporter
     {
         /// <summary>
         /// Import resource into data store.
@@ -20,6 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <param name="inputChannel">Input channel for resource.</param>
         /// <param name="importErrorStore">Import error store.</param>
         /// <param name="cancellationToken">Cancellation Token.</param>
-        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken);
+        public Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken);
     }
 }

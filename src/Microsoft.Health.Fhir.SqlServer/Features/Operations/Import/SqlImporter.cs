@@ -19,7 +19,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    internal class SqlImporter : IResourceBulkImporter
+    internal class SqlImporter : IImporter
     {
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private ISqlImportOperation _sqlImportOperation;
@@ -86,37 +86,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = logger;
         }
 
-        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
-        {
-            Channel<ImportProcessingProgress> outputChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
-
-            Task importTask = Task.Run(
-                async () =>
-                {
-                    await ImportInternalAsync(inputChannel, outputChannel, importErrorStore, cancellationToken);
-                },
-                cancellationToken);
-
-            return (outputChannel, importTask);
-        }
-
-        private async Task ImportInternalAsync(Channel<ImportResource> inputChannel, Channel<ImportProcessingProgress> outputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
             try
             {
-                _logger.LogInformation("Start to import data to SQL data store.");
-
-                var checkpointTask = Task.FromResult<ImportProcessingProgress>(null);
+                _logger.LogInformation("Starting import to SQL data store...");
 
                 long succeedCount = 0;
                 long failedCount = 0;
-                long? lastCheckpointIndex = null;
                 long currentIndex = -1;
-                var resourceParamsBuffer = new Dictionary<string, DataTable>();
                 var importErrorBuffer = new List<string>();
-                var importTasks = new Queue<Task<ImportProcessingProgress>>();
+                var resourceBuffer = new List<ImportResource>();
 
-                List<ImportResource> resourceBuffer = new List<ImportResource>();
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
@@ -125,7 +106,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
-                    lastCheckpointIndex = lastCheckpointIndex ?? resource.Index - 1;
                     currentIndex = resource.Index;
 
                     resourceBuffer.Add(resource);
@@ -139,14 +119,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeedCount, ref failedCount);
 
-                // Upload remain error logs
-                ImportProcessingProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
-                await outputChannel.Writer.WriteAsync(progress, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
             }
             finally
             {
-                outputChannel.Writer.Complete();
-                _logger.LogInformation("Import data to SQL data store complete.");
+                _logger.LogInformation("Import to SQL data store completed.");
             }
         }
 
@@ -187,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 throw;
             }
 
-            ImportProcessingProgress progress = new ImportProcessingProgress();
+            var progress = new ImportProcessingProgress();
             progress.SucceedImportCount = succeedCount;
             progress.FailedImportCount = failedCount;
             progress.CurrentIndex = lastIndex + 1;

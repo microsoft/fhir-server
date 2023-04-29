@@ -24,14 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IResourceBulkImporter _resourceBulkImporter;
+        private readonly IImporter _resourceBulkImporter;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
-            IResourceBulkImporter resourceBulkImporter,
+            IImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
@@ -71,9 +71,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _contextAccessor.RequestContext = fhirRequestContext;
 
-            long succeedImportCount = currentResult.SucceedCount;
-            long failedImportCount = currentResult.FailedCount;
-
             currentResult.ResourceType = inputData.ResourceType;
             currentResult.ResourceLocation = inputData.ResourceLocation;
             progress.Report(JsonConvert.SerializeObject(currentResult));
@@ -95,29 +92,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, inputData.Offset, inputData.BytesToRead, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken, inputData.EndSequenceId == 0);
 
                 // Import to data store
-                (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
-
-                // Update progress for checkpoints
-                await foreach (ImportProcessingProgress batchProgress in progressChannel.Reader.ReadAllAsync(cancellationToken))
+                try
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException("Import job is canceled by user.");
-                    }
+                    var importProgress = await _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
-                    currentResult.SucceedCount = batchProgress.SucceedImportCount + succeedImportCount;
-                    currentResult.FailedCount = batchProgress.FailedImportCount + failedImportCount;
-                    currentResult.CurrentIndex = batchProgress.CurrentIndex;
+                    currentResult.SucceedCount = importProgress.SucceedImportCount;
+                    currentResult.FailedCount = importProgress.FailedImportCount;
+                    currentResult.CurrentIndex = importProgress.CurrentIndex;
 
                     _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceedCount, currentResult.FailedCount);
                     progress.Report(JsonConvert.SerializeObject(currentResult));
-                }
-
-                // Pop up exception during load & import
-                // Put import task before load task for resource channel full and blocking issue.
-                try
-                {
-                    await importTask;
                 }
                 catch (Exception ex)
                 {
