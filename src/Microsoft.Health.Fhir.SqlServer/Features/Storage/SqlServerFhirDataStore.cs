@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var mergeStart = (DateTime?)null;
                 try
                 {
                     // ignore input resource version to get latest version from the store
@@ -223,6 +224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
                     {
+                        mergeStart = DateTime.UtcNow;
                         using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                         using var cmd = conn.CreateNonRetrySqlCommand();
                         VLatest.MergeResources.PopulateCommand(
@@ -243,11 +245,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     // we cannot retry on connection loss as this call might be in outer transaction.
                     // TODO: Add retries when set bundle processing is in place.
+                    var isExecutonTimeout = false;
                     if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                         || e.IsRetriable() // this shouls allow to deal with intermittent database errors
-                        || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
+                        || ((isExecutonTimeout = e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
+                        if (isExecutonTimeout)
+                        {
+                            await TryLogEvent(nameof(MergeAsync), "Warn", $"Execution timeout, retries={retries}", mergeStart, cancellationToken);
+                        }
+
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
@@ -255,6 +263,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                     throw;
                 }
+            }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                VLatest.LogEvent.PopulateCommand(cmd, process, status, null, null, null, null, startDate, text, null, null);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // do nothing;
             }
         }
 
