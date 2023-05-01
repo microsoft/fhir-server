@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
             _searchService = _fixture.GetService<ISearchService>();
             _operationDataStore = _fixture.GetService<SqlServerFhirOperationDataStore>();
-            _queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            _queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryPolicyFactory, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
         }
 
         [Fact]

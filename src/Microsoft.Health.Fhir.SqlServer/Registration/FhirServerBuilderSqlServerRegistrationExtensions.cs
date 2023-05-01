@@ -257,7 +257,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
             services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
-            services.AddSingleton<ISqlRetryService, SqlRetryService>();
+            services.AddSingleton<ISqlRetryPolicyFactory, SqlRetryPolicyFactory>();
 
             return fhirServerBuilder;
         }

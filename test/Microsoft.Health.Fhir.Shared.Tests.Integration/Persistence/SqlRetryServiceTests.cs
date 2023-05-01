@@ -268,7 +268,7 @@ END
             }
         }
 
-        private async Task<SqlRetryService> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionNoPooling, bool testConnectionInitializationFailure, bool testConnectionInitializationAllRetriesFail)
+        private async Task<SqlRetryPolicyFactory> InitializeTest(int? sqlErrorNumber, Func<string, string, Task> testStoredProc, string storedProcedureName, string testTableName, bool testConnectionNoPooling, bool testConnectionInitializationFailure, bool testConnectionInitializationAllRetriesFail)
         {
             await CreateTestTable(testTableName);
             await testStoredProc(storedProcedureName, testTableName);
@@ -283,15 +283,15 @@ END
             sqlRetryServiceOptions.MaxRetries = 3;
             if (testConnectionNoPooling)
             {
-                return new SqlRetryService(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryPolicyFactory(new SqlConnectionBuilderNoPooling(_fixture.SqlConnectionBuilder), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else if (testConnectionInitializationFailure)
             {
-                return new SqlRetryService(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryPolicyFactory(new SqlConnectionBuilderWithConnectionInitializationFailure(_fixture.SqlConnectionBuilder, testConnectionInitializationAllRetriesFail), _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
             else
             {
-                return new SqlRetryService(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
+                return new SqlRetryPolicyFactory(_fixture.SqlConnectionBuilder, _fixture.SqlServerDataStoreConfiguration, Microsoft.Extensions.Options.Options.Create(sqlRetryServiceOptions), new SqlRetryServiceDelegateOptions());
             }
         }
 
@@ -372,16 +372,14 @@ END
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, false);
+                SqlRetryPolicyFactory sqlRetryPolicyFactory = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
-                List<long> result = await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                List<long> result = await sqlRetryPolicyFactory.CreateRetryPolicy().ExecuteReaderAsync<long>(
                     sqlCommand,
                     testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
-                    logger,
-                    "log message",
                     CancellationToken.None);
 
                 const int resultCount = 10;
@@ -407,7 +405,7 @@ END
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, true);
+                SqlRetryPolicyFactory sqlRetryPolicyFactory = await InitializeTest(null, testStoredProc, storedProcedureName, testTableName, !testConnectionInitializationFailure, testConnectionInitializationFailure, true);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -415,11 +413,9 @@ END
                 try
                 {
                     _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
-                    await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                    await sqlRetryPolicyFactory.CreateRetryPolicy().ExecuteReaderAsync<long>(
                         sqlCommand,
                         testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
-                        logger,
-                        "log message",
                         CancellationToken.None);
                     _output.WriteLine($"{DateTime.Now:O}: End executing ExecuteSqlDataReader.");
 
@@ -455,7 +451,7 @@ END
             MakeStoredProcedureAndTableName(false, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
+                SqlRetryPolicyFactory sqlRetryPolicyFactory = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
                 var logger = new TestLogger();
 
                 using var sqlCommand = new SqlCommand();
@@ -463,11 +459,9 @@ END
 
                 if (func)
                 {
-                    List<long> result = await sqlRetryService.ExecuteSqlDataReader(
+                    List<long> result = await sqlRetryPolicyFactory.CreateRetryPolicy().ExecuteReaderAsync<long>(
                         sqlCommand,
                         ReaderToResult,
-                        logger,
-                        "log message",
                         CancellationToken.None);
 
                     Assert.Equal(resultCount, result.Count);
@@ -478,11 +472,9 @@ END
                 }
                 else
                 {
-                    await sqlRetryService.ExecuteSql(
+                    await sqlRetryPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                         sqlCommand,
                         SqlCommandActionWithRetries,
-                        logger,
-                        "log message",
                         CancellationToken.None);
                 }
 
@@ -503,8 +495,8 @@ END
             MakeStoredProcedureAndTableName(true, out string storedProcedureName, out string testTableName);
             try
             {
-                SqlRetryService sqlRetryService = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
-                var logger = new TestLogger();
+                SqlRetryPolicyFactory sqlRetryPolicyFactory = await InitializeTest(sqlErrorNumber, testStoredProc, storedProcedureName, testTableName, false, false, false);
+                var retry = sqlRetryPolicyFactory.CreateRetryPolicy();
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
@@ -512,37 +504,20 @@ END
                 SqlException ex;
                 if (func)
                 {
-                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader(
+                    ex = await Assert.ThrowsAsync<SqlException>(() => retry.ExecuteReaderAsync(
                         sqlCommand,
                         ReaderToResult,
-                        logger,
-                        "log message",
                         CancellationToken.None));
                 }
                 else
                 {
-                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSql(
+                    ex = await Assert.ThrowsAsync<SqlException>(() => retry.ExecuteAsync(
                         sqlCommand,
                         SqlCommandActionWithRetries,
-                        logger,
-                        "log message",
                         CancellationToken.None));
                 }
 
                 Assert.Equal(sqlErrorNumber, ex.Number);
-                Assert.Equal(3, logger.LogRecords.Count);
-
-                Assert.Equal(LogLevel.Information, logger.LogRecords[0].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[0].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[0].Exception).Number);
-
-                Assert.Equal(LogLevel.Information, logger.LogRecords[1].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[1].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[1].Exception).Number);
-
-                Assert.Equal(LogLevel.Error, logger.LogRecords[2].LogLevel);
-                Assert.IsType<SqlException>(logger.LogRecords[2].Exception);
-                Assert.Equal(sqlErrorNumber, ((SqlException)logger.LogRecords[2].Exception).Number);
             }
             finally
             {
@@ -656,7 +631,7 @@ END
             }
         }
 
-        private class TestLogger : ILogger<SqlRetryService>
+        private class TestLogger : ILogger<SqlRetryPolicyFactory>
         {
             internal List<LogRecord> LogRecords { get; } = new List<LogRecord>();
 

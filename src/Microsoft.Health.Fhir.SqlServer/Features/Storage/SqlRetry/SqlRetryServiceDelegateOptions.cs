@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryService;
+using static Microsoft.Health.Fhir.SqlServer.Features.Storage.SqlRetryPolicyFactory;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public bool DefaultIsExceptionRetriableOff { get; init; }
 
         /// <summary>
-        /// If set then this delegate provides logic that determines if the thrown exception represents a retriable error. <see cref="SqlRetryService.IsExceptionRetriable"/>
+        /// If set then this delegate provides logic that determines if the thrown exception represents a retriable error. <see cref="SqlRetryPolicyFactory.IsExceptionRetriable"/>
         /// </summary>
         public IsExceptionRetriable CustomIsExceptionRetriable { get; init; }
     }
