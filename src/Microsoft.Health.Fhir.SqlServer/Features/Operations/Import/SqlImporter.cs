@@ -15,35 +15,30 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlImporter : IImporter
     {
-        private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
-        private ISqlImportOperation _sqlImportOperation;
+        private readonly SqlServerFhirModel _model;
+        private readonly ISqlImportOperation _sqlImportOperation;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
-        private IImportErrorSerializer _importErrorSerializer;
-        private ILogger<SqlImporter> _logger;
+        private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly ILogger<SqlImporter> _logger;
 
         public SqlImporter(
             ISqlImportOperation sqlImportOperation,
-            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            SqlServerFhirModel model,
             IImportErrorSerializer importErrorSerializer,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImporter> logger)
         {
-            EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
-            EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
-            EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _sqlImportOperation = sqlImportOperation;
-            _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
-            _importErrorSerializer = importErrorSerializer;
-            _importTaskConfiguration = operationsConfig.Value.Import;
-            _logger = logger;
+            _sqlImportOperation = EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
+            _model = EnsureArg.IsNotNull(model, nameof(model));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
@@ -52,13 +47,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogInformation("Starting import to SQL data store...");
 
+                await _model.EnsureInitialized();
+
                 long succeedCount = 0;
                 long failedCount = 0;
                 long currentIndex = -1;
                 var importErrorBuffer = new List<string>();
                 var resourceBuffer = new List<ImportResource>();
-
-                await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -89,8 +84,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, CancellationToken cancellationToken, ref long succeedCount, ref long failedCount)
         {
-            var resourcesWithError = resources.Where(r => r.ContainsError());
-            var resourcesWithoutError = resources.Where(r => !r.ContainsError()).ToList();
+            var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
+            var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.Resource.ToResourceKey()).Select(_ => _.First()).ToList();
             var mergedResources = _sqlImportOperation.MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
             var dupsNotMerged = resourcesWithoutError.Except(resourcesDedupped);

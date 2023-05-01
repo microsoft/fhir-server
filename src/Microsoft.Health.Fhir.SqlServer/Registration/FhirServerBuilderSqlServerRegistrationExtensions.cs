@@ -152,11 +152,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlBulkCopyDataWrapperFactory>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();
