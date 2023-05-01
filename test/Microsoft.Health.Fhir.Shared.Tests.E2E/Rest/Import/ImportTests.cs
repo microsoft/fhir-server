@@ -110,7 +110,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            request.Mode = ImportConstants.InitialLoadMode;
             request.Force = true;
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.StartsWith(ForbiddenMessage, fhirException.Message);
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThenDataShouldBeImported()
+        public async Task GivenImportTriggered_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -158,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
+        public async Task GivenImportTriggeredWithoutEtag_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -197,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportResourceWithWrongType_ThenErrorLogShouldBeUploaded()
+        public async Task GivenImportResourceWithWrongType_ThenErrorLogShouldBeUploaded()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -248,7 +247,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithMultipleFiles_ThenDataShouldBeImported()
+        public async Task GivenImportTriggeredWithMultipleFiles_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
@@ -297,7 +296,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThenErrorLogsShouldBeOutput()
+        public async Task GivenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
@@ -353,7 +352,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
+        public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
@@ -403,7 +402,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenCancelImportTask_ThenTaskShouldBeCanceled()
+        public async Task GivenImportWithCancel_ThenTaskShouldBeCanceled()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -486,7 +485,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportInvalidETag_ThenBadRequestShouldBeReturned()
+        public async Task GivenImportInvalidETag_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -536,7 +535,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportInvalidResourceType_ThenBadRequestShouldBeReturned()
+        public async Task GivenImportInvalidResourceType_ThenBadRequestShouldBeReturned()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
