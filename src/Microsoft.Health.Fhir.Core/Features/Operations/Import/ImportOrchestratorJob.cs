@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -265,7 +266,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 jobInfo.CreateDate,
                 Clock.UtcNow,
                 currentResult.TotalBytes,
-                currentResult.SucceedResources,
+                currentResult.SucceededResources,
                 currentResult.FailedResources);
 
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             currentResult.TotalBytes = 0;
             currentResult.FailedResources = 0;
-            currentResult.SucceedResources = 0;
+            currentResult.SucceededResources = 0;
 
             // split blobs by size
             var inputs = new List<Models.InputResource>();
@@ -314,9 +315,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 var completedJobIds = new HashSet<long>();
                 var jobIdsToCheck = jobIds.Take(20).ToList();
                 var jobInfos = new List<JobInfo>();
+                double duration;
                 try
                 {
+                    var start = Stopwatch.StartNew();
                     jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken));
+                    duration = start.Elapsed.TotalSeconds;
                 }
                 catch (Exception ex)
                 {
@@ -331,8 +335,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         if (jobInfo.Status == JobStatus.Completed)
                         {
                             var procesingJobResult = JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
-                            currentResult.SucceedResources += procesingJobResult.SucceedCount;
-                            currentResult.FailedResources += procesingJobResult.FailedCount;
+                            currentResult.SucceededResources += procesingJobResult.SucceededResources == 0 ? procesingJobResult.SucceedCount : procesingJobResult.SucceededResources;
+                            currentResult.FailedResources += procesingJobResult.FailedResources == 0 ? procesingJobResult.FailedCount : procesingJobResult.FailedResources;
+                            currentResult.ProcessedBytes += procesingJobResult.ProcessedBytes;
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
@@ -355,7 +360,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         jobIds.Remove(jobId);
                     }
 
+                    currentResult.CompletedJobs += completedJobIds.Count;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
+
+                    await Task.Delay(TimeSpan.FromSeconds(duration * 10), cancellationToken); // throttle to avoid high database utilization.
                 }
                 else
                 {

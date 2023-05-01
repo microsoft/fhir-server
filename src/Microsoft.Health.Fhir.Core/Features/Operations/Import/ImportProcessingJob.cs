@@ -55,14 +55,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            ImportProcessingJobDefinition inputData = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
-            ImportProcessingJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportProcessingJobResult() : JsonConvert.DeserializeObject<ImportProcessingJobResult>(jobInfo.Result);
+            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+            var currentResult = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
-                    uriString: inputData.UriString,
-                    baseUriString: inputData.BaseUriString,
-                    correlationId: inputData.JobId, // TODO: Replace by group id in stage 2
+                    uriString: definition.UriString,
+                    baseUriString: definition.BaseUriString,
+                    correlationId: definition.JobId, // TODO: Replace by group id in stage 2
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {
@@ -71,8 +71,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _contextAccessor.RequestContext = fhirRequestContext;
 
-            currentResult.ResourceType = inputData.ResourceType;
-            currentResult.ResourceLocation = inputData.ResourceLocation;
             progress.Report(JsonConvert.SerializeObject(currentResult));
 
             try
@@ -82,25 +80,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = inputData.EndSequenceId == 0 ? (index) => 0 : (index) => inputData.BeginSequenceId + index;
+                Func<long, long> sequenceIdGenerator = definition.EndSequenceId == 0 ? (index) => 0 : (index) => definition.BeginSequenceId + index;
 
                 // Initialize error store
-                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(inputData.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
+                IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(inputData.ResourceLocation, inputData.Offset, inputData.BytesToRead, currentResult.CurrentIndex, inputData.ResourceType, sequenceIdGenerator, cancellationToken, inputData.EndSequenceId == 0);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, currentResult.CurrentIndex, definition.ResourceType, sequenceIdGenerator, cancellationToken, definition.EndSequenceId == 0);
 
                 // Import to data store
                 try
                 {
                     var importProgress = await _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
-                    currentResult.SucceedCount = importProgress.SucceedImportCount;
-                    currentResult.FailedCount = importProgress.FailedImportCount;
+                    currentResult.SucceededResources = importProgress.SucceededResources;
+                    currentResult.FailedResources = importProgress.FailedResources;
                     currentResult.CurrentIndex = importProgress.CurrentIndex;
 
-                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceedCount, currentResult.FailedCount);
+                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceededResources, currentResult.FailedResources);
                     progress.Report(JsonConvert.SerializeObject(currentResult));
                 }
                 catch (Exception ex)
@@ -127,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new RetriableJobException("Failed to load data", ex);
                 }
 
-                jobInfo.Data = currentResult.SucceedCount + currentResult.FailedCount;
+                jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
 
                 return JsonConvert.SerializeObject(currentResult);
             }

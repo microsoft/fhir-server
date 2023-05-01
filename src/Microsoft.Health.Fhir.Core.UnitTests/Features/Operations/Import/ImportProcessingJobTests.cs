@@ -124,8 +124,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
             long startIndexFromProgress = currentResult.CurrentIndex;
-            long succeedCountFromProgress = currentResult.SucceedCount;
-            long failedCountFromProgress = currentResult.FailedCount;
+            long succeedCountFromProgress = currentResult.SucceededResources;
+            long failedCountFromProgress = currentResult.FailedResources;
 
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IImporter importer = Substitute.For<IImporter>();
@@ -175,11 +175,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     {
                         if (string.IsNullOrEmpty(resource.ImportError))
                         {
-                            progress.SucceedImportCount++;
+                            progress.SucceededResources++;
                         }
                         else
                         {
-                            progress.FailedImportCount++;
+                            progress.FailedResources++;
                         }
                     }
 
@@ -192,13 +192,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
-            Assert.Equal(1 + failedCountFromProgress, result.FailedCount);
-            Assert.Equal(1 + succeedCountFromProgress, result.SucceedCount);
+            Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
+            Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
 
             await Task.Delay(TimeSpan.FromMilliseconds(100));
             ImportProcessingJobResult progressForContext = JsonConvert.DeserializeObject<ImportProcessingJobResult>(progressResult);
-            Assert.Equal(progressForContext.SucceedCount, result.SucceedCount);
-            Assert.Equal(progressForContext.FailedCount, result.FailedCount);
+            Assert.Equal(progressForContext.SucceededResources, result.SucceededResources);
+            Assert.Equal(progressForContext.FailedResources, result.FailedResources);
 
             Assert.Equal(startIndexFromProgress, cleanStart);
             Assert.Equal(inputData.EndSequenceId, cleanEnd);

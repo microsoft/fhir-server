@@ -120,8 +120,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
 
             var progress = new ImportProcessingProgress();
-            progress.SucceedImportCount = succeedCount;
-            progress.FailedImportCount = failedCount;
+            progress.SucceededResources = succeedCount;
+            progress.FailedResources = failedCount;
             progress.CurrentIndex = lastIndex + 1;
 
             // Return progress for checkpoint progress
