@@ -332,7 +332,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
         }
 
-        [Fact]
+        [Fact(Skip ="Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
             await this.RetryAsync(
@@ -381,7 +381,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
         }
 
-        [Fact]
+        [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeavyHeartbeats_ThenHeavyHeartbeatsAreRecorded()
         {
             await this.RetryAsync(

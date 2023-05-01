@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public static class ImportConstants
+    public interface ITemplateProviderFactory
     {
-        public const string InitialLoadMode = "InitialLoad";
+        public IConvertDataTemplateProvider GetContainerRegistryTemplateProvider();
+
+        public IConvertDataTemplateProvider GetDefaultTemplateProvider();
     }
 }

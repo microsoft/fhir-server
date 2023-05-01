@@ -143,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // update job record to running
                     _reindexJobRecord.Status = OperationStatus.Running;
                     _reindexJobRecord.StartTime = Clock.UtcNow;
+                    _logger.LogInformation("Starting reindex job with id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
                     await UpdateJobAsync();
                 }
 
@@ -161,11 +162,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (JobConflictException)
             {
                 // The reindex job was updated externally.
-                _logger.LogInformation("The job was updated by another process.");
+                _logger.LogInformation("The job was updated by another process, id: {Id}.", _reindexJobRecord.Id);
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("The reindex job was canceled.");
+                _logger.LogInformation("The reindex job was canceled, id: {Id}", _reindexJobRecord.Id);
             }
             catch (Exception ex)
             {
@@ -576,6 +577,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 q.Status == OperationStatus.Queued ||
                 q.Status == OperationStatus.Running).Any())
             {
+                _logger.LogInformation("Reindex job status update, id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
                 return;
             }
             else
@@ -779,13 +781,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            _logger.LogTrace("Completing reindex job. Updating the status of the fully indexed search parameters: '{ParamUris}'", string.Join("', '", fullyIndexedParamUris));
+            _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameters: '{ParamUris}'", _reindexJobRecord.Id, string.Join("', '", fullyIndexedParamUris));
             (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexedParamUris, _cancellationToken);
 
             if (success)
             {
                 await MoveToFinalStatusAsync(OperationStatus.Completed);
-                _logger.LogInformation("Reindex job successfully completed, id {Id}.", _reindexJobRecord.Id);
+                _logger.LogInformation("Reindex job successfully completed, id: {Id}.", _reindexJobRecord.Id);
             }
             else
             {
@@ -794,8 +796,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     OperationOutcomeConstants.IssueType.Exception,
                     error);
                 _reindexJobRecord.Error.Add(issue);
-                _logger.LogError("{Error}", error);
-
+                _logger.LogError("Reindex with id {Id}, failed. Error: {Error}", _reindexJobRecord.Id, error);
+                _logger.LogInformation("Reindex job failed to complete. id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
                 await MoveToFinalStatusAsync(OperationStatus.Failed);
             }
         }

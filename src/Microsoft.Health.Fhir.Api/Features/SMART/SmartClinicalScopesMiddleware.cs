@@ -77,47 +77,54 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     // examine the scopes claim for any SMART on FHIR clinical scopes
                     DataActions permittedDataActions = 0;
-                    foreach (Claim claim in principal.FindAll(authorizationConfiguration.ScopesClaim))
+                    string scopeClaims = string.Empty;
+
+                    foreach (string singleScope in authorizationConfiguration.ScopesClaim)
                     {
-                        var matches = ClinicalScopeRegEx.Matches(claim.Value);
-                        foreach (Match match in matches)
+                        foreach (Claim claim in principal.FindAll(singleScope))
                         {
-                            fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
+                            scopeClaims += " " + string.Join(" ", claim.Value);
+                        }
+                    }
 
-                            var id = match.Groups["id"]?.Value;
-                            var resource = match.Groups["resource"]?.Value;
-                            var accessLevel = match.Groups["accessLevel"]?.Value;
+                    var matches = ClinicalScopeRegEx.Matches(scopeClaims);
+                    foreach (Match match in matches)
+                    {
+                        fhirRequestContext.AccessControlContext.ClinicalScopes.Add(match.Value);
 
-                            switch (accessLevel)
+                        var id = match.Groups["id"]?.Value;
+                        var resource = match.Groups["resource"]?.Value;
+                        var accessLevel = match.Groups["accessLevel"]?.Value;
+
+                        switch (accessLevel)
+                        {
+                            case "read":
+                                permittedDataActions |= DataActions.Read;
+                                break;
+                            case "write":
+                                permittedDataActions |= DataActions.Write;
+                                break;
+                            case "*":
+                            case AllDataActions:
+                                permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
+                                break;
+                        }
+
+                        if (!string.IsNullOrEmpty(resource)
+                            && !string.IsNullOrEmpty(id))
+                        {
+                            if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
                             {
-                                case "read":
-                                    permittedDataActions |= DataActions.Read;
-                                    break;
-                                case "write":
-                                    permittedDataActions |= DataActions.Write;
-                                    break;
-                                case "*":
-                                case AllDataActions:
-                                    permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
-                                    break;
+                                resource = KnownResourceTypes.All;
                             }
 
-                            if (!string.IsNullOrEmpty(resource)
-                                && !string.IsNullOrEmpty(id))
+                            fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
+
+                            scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
+
+                            if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
                             {
-                                if (resource.Equals("*", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    resource = KnownResourceTypes.All;
-                                }
-
-                                fhirRequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(resource, permittedDataActions, id));
-
-                                scopeRestrictions.Append($" ( {resource}-{permittedDataActions} ) ");
-
-                                if (string.Equals("system", id, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
-                                }
+                                includeFhirUserClaim = false; // we skip fhirUser claim for system scopes
                             }
                         }
                     }
