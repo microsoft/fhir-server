@@ -47,11 +47,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    long startIndex = (long)callInfo[3];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[5];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(async () =>
@@ -103,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    if (callInfo[2] != null)
+                    if (callInfo[2] != null) // always true
                     {
                         throw new OperationCanceledException();
                     }
@@ -123,7 +121,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
         private static async Task VerifyCommonImportAsync(ImportProcessingJobDefinition inputData, ImportProcessingJobResult currentResult)
         {
-            long startIndexFromProgress = currentResult.CurrentIndex;
             long succeedCountFromProgress = currentResult.SucceededResources;
             long failedCountFromProgress = currentResult.FailedResources;
 
@@ -134,13 +131,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            long cleanStart = 0;
-            long cleanEnd = 0;
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>(), Arg.Any<bool>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    long startIndex = (long)callInfo[3];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[5];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(async () =>
@@ -158,8 +151,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             "SearchParam");
 
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, 0, resourceWrapper));
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex + 1), startIndex + 1, 0, "Error"));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, resourceWrapper));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(1, 0, "Error"));
                         resourceChannel.Writer.Complete();
                     });
 
@@ -194,19 +187,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
             Assert.Equal(1 + failedCountFromProgress, result.FailedResources);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceededResources);
-
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-            ImportProcessingJobResult progressForContext = JsonConvert.DeserializeObject<ImportProcessingJobResult>(progressResult);
-            Assert.Equal(progressForContext.SucceededResources, result.SucceededResources);
-            Assert.Equal(progressForContext.FailedResources, result.FailedResources);
-
-            Assert.Equal(startIndexFromProgress, cleanStart);
-            Assert.Equal(inputData.EndSequenceId, cleanEnd);
         }
 
         private ImportProcessingJobDefinition GetInputData()
         {
-            ImportProcessingJobDefinition inputData = new ImportProcessingJobDefinition();
+            var inputData = new ImportProcessingJobDefinition();
             inputData.BaseUriString = "http://dummy";
             inputData.ResourceLocation = "http://dummy";
             inputData.ResourceType = "Patient";

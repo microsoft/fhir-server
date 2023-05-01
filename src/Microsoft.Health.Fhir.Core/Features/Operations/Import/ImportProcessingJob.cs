@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, currentResult.CurrentIndex, definition.ResourceType, sequenceIdGenerator, cancellationToken, definition.EndSequenceId == 0);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, cancellationToken);
 
                 // Import to data store
                 try
@@ -96,7 +96,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     currentResult.SucceededResources = importProgress.SucceededResources;
                     currentResult.FailedResources = importProgress.FailedResources;
-                    currentResult.CurrentIndex = importProgress.CurrentIndex;
+                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                    currentResult.ProcessedBytes = importProgress.ProcessedBytes;
 
                     _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceededResources, currentResult.FailedResources);
                     progress.Report(JsonConvert.SerializeObject(currentResult));

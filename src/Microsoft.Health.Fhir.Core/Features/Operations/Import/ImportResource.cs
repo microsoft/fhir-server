@@ -3,18 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.IO;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long id, long index, long offset, ResourceWrapper resource)
+        public ImportResource(long index, long offset, int length, ResourceWrapper resource)
         {
-            Id = id;
             Index = index;
             Offset = offset;
+            Length = length;
             Resource = resource;
         }
 
@@ -23,11 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
         }
 
-        public ImportResource(long id, long index, long offset, string importError)
+        public ImportResource(long index, long offset, string importError)
         {
-            Id = id;
             Index = index;
             Offset = offset;
+            Length = 0;
             ImportError = importError;
         }
 
@@ -37,14 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long Index { get; set; }
 
         /// <summary>
-        /// Resource sequence id
-        /// </summary>
-        public long Id { get; set; }
-
-        /// <summary>
         /// Read stream offset in bytes
         /// </summary>
         public long Offset { get; set; }
+
+        /// <summary>
+        /// Json length including EOL
+        /// </summary>
+        public int Length { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content
@@ -55,10 +54,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Processing error
         /// </summary>
         public string ImportError { get; set; }
-
-        /// <summary>
-        /// Compressed raw resource stream
-        /// </summary>
-        public Stream CompressedStream { get; set; }
     }
 }
