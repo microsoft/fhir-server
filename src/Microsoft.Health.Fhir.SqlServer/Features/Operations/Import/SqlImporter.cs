@@ -15,7 +15,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
@@ -31,45 +30,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             ISqlImportOperation sqlImportOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             IImportErrorSerializer importErrorSerializer,
-            List<TableBulkCopyDataGenerator> generators, // TODO: Remove
-            IOptions<OperationsConfiguration> operationsConfig,
-            ILogger<SqlImporter> logger)
-        {
-            EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
-            EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
-            EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            EnsureArg.IsNotNull(generators, nameof(generators));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _sqlImportOperation = sqlImportOperation;
-            _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
-            _importErrorSerializer = importErrorSerializer;
-            _importTaskConfiguration = operationsConfig.Value.Import;
-            _logger = logger;
-        }
-
-        // TODO: Remove this constructor
-        public SqlImporter(
-            ISqlImportOperation sqlImportOperation,
-            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
-            IImportErrorSerializer importErrorSerializer,
-            CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
-            ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,
-            DateTimeSearchParamsTableBulkCopyDataGenerator dateTimeSearchParamsTableBulkCopyDataGenerator,
-            NumberSearchParamsTableBulkCopyDataGenerator numberSearchParamsTableBulkCopyDataGenerator,
-            QuantitySearchParamsTableBulkCopyDataGenerator quantitySearchParamsTableBulkCopyDataGenerator,
-            ReferenceSearchParamsTableBulkCopyDataGenerator referenceSearchParamsTableBulkCopyDataGenerator,
-            ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator referenceTokenCompositeSearchParamsTableBulkCopyDataGenerator,
-            StringSearchParamsTableBulkCopyDataGenerator stringSearchParamsTableBulkCopyDataGenerator,
-            TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator tokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator,
-            TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator tokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator,
-            TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator tokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator,
-            TokenSearchParamsTableBulkCopyDataGenerator tokenSearchParamsTableBulkCopyDataGenerator,
-            TokenStringCompositeSearchParamsTableBulkCopyDataGenerator tokenStringCompositeSearchParamsTableBulkCopyDataGenerator,
-            TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
-            TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
-            UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImporter> logger)
         {

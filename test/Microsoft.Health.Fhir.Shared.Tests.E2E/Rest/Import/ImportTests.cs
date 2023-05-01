@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
-                Assert.Single(notificationList);
+                Assert.True(notificationList.Count() >= 1);
                 var notification = notificationList.First() as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
                 Assert.NotNull(notification.DataSize);

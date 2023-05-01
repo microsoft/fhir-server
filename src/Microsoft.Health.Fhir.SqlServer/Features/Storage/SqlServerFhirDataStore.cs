@@ -243,11 +243,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException e)
                 {
-                    // we cannot retry on connection loss as this call might be in outer transaction.
-                    // TODO: Add retries when set bundle processing is in place.
                     var isExecutonTimeout = false;
                     if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
-                        || e.IsRetriable() // this shouls allow to deal with intermittent database errors
+                        //// we cannot retry on connection loss as this call might be in outer transaction.
+                        //// TODO: Add retries when set bundle processing is in place.
+                        || e.IsRetriable() // this should allow to deal with intermittent database errors.
                         || ((isExecutonTimeout = e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
