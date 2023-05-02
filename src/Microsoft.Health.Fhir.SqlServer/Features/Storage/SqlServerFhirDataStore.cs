@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const string InitialVersion = "1";
         public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
         private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
+        private static MergeResourcesRetriesFlag _mergeResourcesRetriesFlag;
         private static object _mergeResourcesFeatureFlagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -96,6 +97,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 lock (_mergeResourcesFeatureFlagLocker)
                 {
                     _mergeResourcesFeatureFlag ??= new MergeResourcesFeatureFlag(_sqlConnectionWrapperFactory);
+                }
+            }
+
+            if (_mergeResourcesRetriesFlag == null)
+            {
+                lock (_mergeResourcesFeatureFlagLocker)
+                {
+                    _mergeResourcesRetriesFlag ??= new MergeResourcesRetriesFlag(_sqlConnectionWrapperFactory);
                 }
             }
         }
@@ -244,16 +253,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (SqlException e)
                 {
                     var isExecutonTimeout = false;
-                    if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    var isConflict = false;
+                    if (((isConflict = e.Number == SqlErrorCodes.Conflict) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
                         //// we cannot retry on connection loss as this call might be in outer transaction.
                         //// TODO: Add retries when set bundle processing is in place.
-                        || e.IsRetriable() // this should allow to deal with intermittent database errors.
-                        || ((isExecutonTimeout = e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
+                        || (_mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
+                        || ((isExecutonTimeout = _mergeResourcesRetriesFlag.IsEnabled() && e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        if (isExecutonTimeout)
+                        if (isConflict || isExecutonTimeout)
                         {
-                            await TryLogEvent(nameof(MergeAsync), "Warn", $"Execution timeout, retries={retries}", mergeStart, cancellationToken);
+                            await TryLogEvent(nameof(MergeAsync), "Warn", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken);
                         }
 
                         await Task.Delay(5000, cancellationToken);
@@ -861,6 +871,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
+        }
+
+        private class MergeResourcesRetriesFlag
+        {
+            private const string FlagId = "MergeResources.RetriesOnRetriableErrors.IsEnabled";
+            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public MergeResourcesRetriesFlag(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            {
+                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    _isEnabled = IsEnabledInDatabase();
+                    _lastUpdated = DateTime.UtcNow;
+                }
+
+                return _isEnabled;
+            }
+
+            private bool IsEnabledInDatabase()
+            {
+                using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+                using var cmd = conn.CreateRetrySqlCommand();
+                cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
+                cmd.Parameters.AddWithValue("@Id", FlagId);
+                var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+                return value != null && (double)value == 1;
+            }
         }
 
         private class MergeResourcesFeatureFlag
