@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.Resource, true, true, null, false)).ToList();
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false)).ToList();
                 var result = await _store.MergeAsync(input, cancellationToken);
                 return resources;
             }

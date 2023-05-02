@@ -9,12 +9,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long index, long offset, int length, ResourceWrapper resource)
+        public ImportResource(long index, long offset, int length, ResourceWrapper resourceWrapper)
         {
             Index = index;
             Offset = offset;
             Length = length;
-            Resource = resource;
+            ResourceWrapper = resourceWrapper;
         }
 
         public ImportResource(ResourceWrapper resource)
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Resource wrapper from raw content
         /// </summary>
-        public ResourceWrapper Resource { get; set; }
+        public ResourceWrapper ResourceWrapper { get; set; }
 
         /// <summary>
         /// Processing error

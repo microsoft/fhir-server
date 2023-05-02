@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
             var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.Resource.ToResourceKey()).Select(_ => _.First()).ToList();
+            var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
             var mergedResources = _sqlImportOperation.MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
             var dupsNotMerged = resourcesWithoutError.Except(resourcesDedupped);
 
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             foreach (var resource in resources)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.Resource.ResourceId, resource.Index), resource.Offset));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
             }
         }
 

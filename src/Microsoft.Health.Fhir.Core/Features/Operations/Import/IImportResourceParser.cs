@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         /// <param name="index">index of the resource.</param>
         /// <param name="offset">Read stream offset in blob/file.</param>
-        /// <param name="length">Json length in bytes includind EOL</param>
-        /// <param name="rawContent">raw content in string format.</param>
+        /// <param name="length">Raw resource Json length in bytes including EOL</param>
+        /// <param name="rawResource">raw content in string format.</param>
         /// <returns>ImportResource</returns>
-        public ImportResource Parse(long index, long offset, int length, string rawContent);
+        public ImportResource Parse(long index, long offset, int length, string rawResource);
     }
 }

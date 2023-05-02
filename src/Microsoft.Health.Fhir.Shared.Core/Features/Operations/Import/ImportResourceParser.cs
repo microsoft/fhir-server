@@ -25,9 +25,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
         }
 
-        public ImportResource Parse(long index, long offset, int length, string rawContent)
+        public ImportResource Parse(long index, long offset, int length, string rawResource)
         {
-            var resource = _parser.Parse<Resource>(rawContent);
+            var resource = _parser.Parse<Resource>(rawResource);
             CheckConditionalReferenceInResource(resource);
 
             var resourceElement = resource.ToResourceElement();

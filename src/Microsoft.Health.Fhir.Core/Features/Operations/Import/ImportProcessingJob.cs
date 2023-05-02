@@ -24,30 +24,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const string CancelledErrorMessage = "Data processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
-        private readonly IImporter _resourceBulkImporter;
+        private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
-            IImporter resourceBulkImporter,
+            IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
-            EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
-            EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
-            EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
-            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
-
-            _importResourceLoader = importResourceLoader;
-            _resourceBulkImporter = resourceBulkImporter;
-            _importErrorStoreFactory = importErrorStoreFactory;
-            _contextAccessor = contextAccessor;
-
-            _logger = loggerFactory.CreateLogger<ImportProcessingJob>();
+            _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
+            _importer = EnsureArg.IsNotNull(importer, nameof(importer));
+            _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -80,8 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                Func<long, long> sequenceIdGenerator = definition.EndSequenceId == 0 ? (index) => 0 : (index) => definition.BeginSequenceId + index;
-
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
@@ -92,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Import to data store
                 try
                 {
-                    var importProgress = await _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
+                    var importProgress = await _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
 
                     currentResult.SucceededResources = importProgress.SucceededResources;
                     currentResult.FailedResources = importProgress.FailedResources;

@@ -142,11 +142,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlResourceMetaPopulator>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<CompressedRawResourceConverter>()
                 .Transient()
                 .AsSelf()

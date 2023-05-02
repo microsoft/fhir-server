@@ -32,15 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IImportErrorSerializer importErrorSerializer,
             ILogger<ImportResourceLoader> logger)
         {
-            EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
-            EnsureArg.IsNotNull(importResourceParser, nameof(importResourceParser));
-            EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _integrationDataStoreClient = integrationDataStoreClient;
-            _importResourceParser = importResourceParser;
-            _importErrorSerializer = importErrorSerializer;
-            _logger = logger;
+            _integrationDataStoreClient = EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
+            _importResourceParser = EnsureArg.IsNotNull(importResourceParser, nameof(importResourceParser));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
@@ -143,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     {
                         ImportResource importResource = _importResourceParser.Parse(index, offset, length, content);
 
-                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
+                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
                         {
                             throw new FormatException("Resource type not match.");
                         }
