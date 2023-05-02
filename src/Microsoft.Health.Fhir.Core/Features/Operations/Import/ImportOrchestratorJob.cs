@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IImportOrchestratorJobDataStoreOperation _importOrchestratorJobDataStoreOperation;
         private readonly IQueueClient _queueClient;
-        private ImportTaskConfiguration _importConfiguration;
+        private ImportJobConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IImportOrchestratorJobDataStoreOperation importOrchestratorJobDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
-            IOptions<ImportTaskConfiguration> importConfiguration,
+            IOptions<ImportJobConfiguration> importConfiguration,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -64,10 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _importConfiguration = importConfiguration.Value;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
 
-            PollingFrequencyInSeconds = _importConfiguration.PollingFrequencyInSeconds;
+            PollingPeriodSec = _importConfiguration.PollingPeriodSec;
         }
 
-        public int PollingFrequencyInSeconds { get; set; }
+        public int PollingPeriodSec { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
-            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
+            await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
 
             do
             {
@@ -367,7 +367,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 else
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken);
                 }
             }
             while (jobIds.Count > 0);

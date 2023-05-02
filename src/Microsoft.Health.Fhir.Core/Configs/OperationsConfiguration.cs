@@ -21,6 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public IntegrationDataStoreConfiguration IntegrationDataStore { get; set; } = new IntegrationDataStoreConfiguration();
 
-        public ImportTaskConfiguration Import { get; set; } = new ImportTaskConfiguration();
+        public ImportJobConfiguration Import { get; set; } = new ImportJobConfiguration();
     }
 }

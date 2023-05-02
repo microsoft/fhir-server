@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerFhirModel _model;
-        private readonly ImportTaskConfiguration _importTaskConfiguration;
+        private readonly ImportJobConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
         private IFhirDataStore _store;
@@ -196,16 +196,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                // Not rerebuild index by default
                 if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
-                    await SwitchPartitionsOutAllTables(_importTaskConfiguration.RebuildClustered, cancellationToken);
-                    var commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(_importTaskConfiguration.RebuildClustered, cancellationToken);
-                    if (_importTaskConfiguration.RebuildClustered)
-                    {
-                        commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
-                    }
-
+                    await SwitchPartitionsOutAllTables(false, cancellationToken);
+                    var commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
                     await RunCommandForRebuildIndexes(commandsForRebuildIndexes, cancellationToken);
                     await SwitchPartitionsInAllTables(cancellationToken);
                 }
@@ -227,8 +221,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
                 VLatest.InitializeIndexProperties.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -240,8 +232,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
                 VLatest.GetCommandsForRebuildIndexes.PopulateCommand(sqlCommandWrapper, rebuildClustered);
                 using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
                 while (await sqlDataReader.ReadAsync(cancellationToken))
@@ -268,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         throw new OperationCanceledException("Operation Cancel");
                     }
 
-                    while (tasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                    while (tasks.Count >= _importTaskConfiguration.SqlIndexRebuildThreads)
                     {
                         await tasks.First();
                         _ = tasks.Dequeue();
@@ -303,7 +293,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
                 {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlLongRunningOperationTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlTimeoutSec;
 
                     VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command);
                     using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
@@ -329,8 +319,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
                 VLatest.SwitchPartitionsOutAllTables.PopulateCommand(sqlCommandWrapper, rebuildClustered);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
@@ -341,8 +329,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
             {
-                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
                 VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
