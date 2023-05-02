@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public DataStoreOperationOutcome(UpsertOutcome outcome)
         {
-            // Outcome can be null.
+            // Outcome can be null as the result of a DELETE operation.
 
             UpsertOutcome = outcome;
             Exception = null;
