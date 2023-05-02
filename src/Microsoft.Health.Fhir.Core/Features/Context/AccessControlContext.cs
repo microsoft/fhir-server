@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public class AccessControlContext
+    public class AccessControlContext : ICloneable
     {
         /// <summary>
         /// Value indicated whether or not fine grained access control policies should be applied
@@ -40,5 +40,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// identifies the user's compartment.  Searches will be restricted to this compartment.
         /// </summary>
         public string CompartmentId { get; set; } = null;
+
+        public object Clone()
+        {
+            AccessControlContext clone = new AccessControlContext()
+            {
+                ApplyFineGrainedAccessControl = ApplyFineGrainedAccessControl,
+                FhirUserClaim = FhirUserClaim,
+                CompartmentResourceType = CompartmentResourceType,
+                CompartmentId = CompartmentId,
+            };
+
+            foreach (string clinicalScope in ClinicalScopes)
+            {
+                clone.ClinicalScopes.Add(clinicalScope);
+            }
+
+            foreach (ScopeRestriction scopeRestriction in AllowedResourceActions)
+            {
+                clone.AllowedResourceActions.Add(scopeRestriction);
+            }
+
+            return clone;
+        }
     }
 }

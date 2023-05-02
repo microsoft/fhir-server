@@ -106,12 +106,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
             {
-                var results = new Dictionary<ResourceKey, DataStoreOperationOutcome>();
+                var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
                 if (resources == null || resources.Count == 0)
                 {
                     return results;
@@ -137,6 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
                         var resource = resourceExt.Wrapper;
+                        var identifier = resourceExt.GetIdentifier();
                         var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                         existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
 
@@ -148,12 +149,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
-                                    results.Add(resourceKey, new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
+                                    results.Add(identifier, new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
                                     continue;
                                 }
 
                                 results.Add(
-                                    resourceKey,
+                                    identifier,
                                     new DataStoreOperationOutcome(
                                         new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
                                 continue;
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (resource.IsDeleted)
                             {
                                 // Don't bother marking the resource as deleted since it already does not exist.
-                                results.Add(resourceKey, null);
+                                results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                                 continue;
                             }
 
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 if (weakETag != null)
                                 {
                                     results.Add(
-                                        resourceKey,
+                                        identifier,
                                         new DataStoreOperationOutcome(
                                             new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
                                     continue;
@@ -186,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (!resourceExt.AllowCreate)
                             {
                                 results.Add(
-                                    resourceKey,
+                                    identifier,
                                     new DataStoreOperationOutcome(
                                         new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
                                 continue;
@@ -204,14 +205,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
                                     results.Add(
-                                        resourceKey,
+                                        identifier,
                                         new DataStoreOperationOutcome(
                                             new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                                     continue;
                                 }
 
                                 results.Add(
-                                    resourceKey,
+                                    identifier,
                                     new DataStoreOperationOutcome(
                                         new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                                 continue;
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (resource.IsDeleted && existingResource.IsDeleted)
                             {
                                 // Already deleted - don't create a new version
-                                results.Add(resourceKey, null);
+                                results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                                 continue;
                             }
 
@@ -232,7 +233,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 {
                                     // Send the existing resource in the response
                                     results.Add(
-                                        resourceKey,
+                                        identifier,
                                         new DataStoreOperationOutcome(
                                             new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                                     continue;
@@ -249,7 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
                         results.Add(
-                            resourceKey,
+                            identifier,
                             new DataStoreOperationOutcome(
                                 new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
                     }

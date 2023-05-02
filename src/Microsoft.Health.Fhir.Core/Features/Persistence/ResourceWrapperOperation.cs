@@ -21,21 +21,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
-            WeakETag = weakETag;
+            WeakETag = weakETag; // weakETag can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
             BundleOperationId = bundleOperationId;
         }
 
-        public ResourceWrapper Wrapper { get; private set; }
+        public ResourceWrapper Wrapper { get; }
 
-        public bool AllowCreate { get; private set; }
+        public bool AllowCreate { get; }
 
-        public bool KeepHistory { get; private set; }
+        public bool KeepHistory { get; }
 
-        public WeakETag WeakETag { get; private set; }
+        public WeakETag WeakETag { get; }
 
-        public bool RequireETagOnUpdate { get; private set; }
+        public bool RequireETagOnUpdate { get; }
 
-        public Guid? BundleOperationId { get; private set; }
+        public Guid? BundleOperationId { get; }
+
+        public DataStoreOperationIdentifier GetIdentifier()
+        {
+            /// BundleOperationId does not need to be part of <see cref="DataStoreOperationIdentifier"/>.
+
+            ResourceKey resourceKey = Wrapper.ToResourceKey();
+            return new DataStoreOperationIdentifier(resourceKey, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+        }
     }
 }

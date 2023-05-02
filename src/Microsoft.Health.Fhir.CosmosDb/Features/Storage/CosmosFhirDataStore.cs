@@ -128,41 +128,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
-        public async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             if (resources == null || resources.Count == 0)
             {
-                return new Dictionary<ResourceKey, DataStoreOperationOutcome>();
+                return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             }
 
-            var results = new ConcurrentDictionary<ResourceKey, DataStoreOperationOutcome>();
-            foreach (var resource in resources)
-            {
-                ResourceKey key = resource.Wrapper.ToResourceKey();
-
-                try
-                {
-                    UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                        resource.Wrapper,
-                        resource.WeakETag,
-                        resource.AllowCreate,
-                        resource.KeepHistory,
-                        cancellationToken,
-                        resource.RequireETagOnUpdate);
-
-                    results.TryAdd(key, new DataStoreOperationOutcome(upsertOutcome));
-                }
-                catch (FhirException fhirException)
-                {
-                    results.TryAdd(key, new DataStoreOperationOutcome(fhirException));
-                }
-            }
-
-            /*
+            var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
             {
-                ResourceKey key = resource.Wrapper.ToResourceKey();
+                DataStoreOperationIdentifier identifier = resource.GetIdentifier();
 
                 try
                 {
@@ -174,14 +151,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         cancellationToken,
                         resource.RequireETagOnUpdate);
 
-                    results.TryAdd(key, new DataStoreOperationOutcome(upsertOutcome));
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
                 }
                 catch (FhirException fhirException)
                 {
-                    results.TryAdd(key, new DataStoreOperationOutcome(fhirException));
+                    // This block catches only FhirExceptions. FhirException can be thrown by the data store layer
+                    // in different situations, like: Failed pre-conditions, bad requests, resource not found, etc.
+
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(fhirException));
                 }
             });
-            */
 
             return results;
         }

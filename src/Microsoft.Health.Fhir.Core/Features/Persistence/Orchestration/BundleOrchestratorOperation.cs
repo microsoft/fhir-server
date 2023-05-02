@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Merge async task, only assigned and executed once.
         /// </summary>
-        private Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> _mergeAsyncTask;
+        private Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> _mergeAsyncTask;
 
         /// <summary>
         /// Current instance of data store in use.
@@ -112,8 +112,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
 
             var ingestedResources = await _mergeAsyncTask;
-            ResourceKey key = resource.Wrapper.ToResourceKey();
-            DataStoreOperationOutcome dataStoreOperationOutcome = ingestedResources[key];
+            DataStoreOperationIdentifier identifier = resource.GetIdentifier();
+            DataStoreOperationOutcome dataStoreOperationOutcome = ingestedResources[identifier];
             if (!dataStoreOperationOutcome.IsOperationSuccessful)
             {
                 throw dataStoreOperationOutcome.Exception;
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
         }
 
-        private async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(CancellationToken cancellationToken)
+        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    IDictionary<ResourceKey, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
+                    IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 
