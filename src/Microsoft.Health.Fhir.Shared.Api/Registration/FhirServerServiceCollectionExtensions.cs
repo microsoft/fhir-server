@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
@@ -198,6 +199,8 @@ namespace Microsoft.Extensions.DependencyInjection
                     app.UseFhirRequestContextAuthentication();
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
+
+                    app.UseInitialImportLock();
 
                     // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
                     // It should also be after authentication

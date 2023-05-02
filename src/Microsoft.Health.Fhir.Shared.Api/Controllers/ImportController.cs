@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
@@ -91,6 +92,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
+
+            if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
+            {
+                throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
+            }
+
+            if (!importRequest.Force && !_importConfig.InitialImportMode)
+            {
+                throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
+            }
 
             CreateImportResponse response = await _mediator.ImportAsync(
                  _fhirRequestContextAccessor.RequestContext.Uri,
