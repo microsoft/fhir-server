@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             statement.FhirVersion = modelInfoProvider.SupportedVersion.VersionString;
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
-            statement.Url = statement.Url = urlResolver.ResolveMetadataUrl(false);
+            statement.Url = urlResolver.ResolveMetadataUrl(false);
 
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }
