@@ -4,15 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -21,25 +17,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     [JobTypeId((int)JobType.ImportProcessing)]
     public class ImportProcessingJob : IJob
     {
-        private const string CancelledErrorMessage = "Data processing job is canceled.";
+        private const string CancelledErrorMessage = "Import processing job is canceled.";
 
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
-            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
         }
 
@@ -50,21 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
             var currentResult = new ImportProcessingJobResult();
-
-            var fhirRequestContext = new FhirRequestContext(
-                    method: "Import",
-                    uriString: definition.UriString,
-                    baseUriString: definition.BaseUriString,
-                    correlationId: definition.JobId, // TODO: Replace by group id in stage 2
-                    requestHeaders: new Dictionary<string, StringValues>(),
-                    responseHeaders: new Dictionary<string, StringValues>())
-            {
-                IsBackgroundTask = true,
-            };
-
-            _contextAccessor.RequestContext = fhirRequestContext;
-
-            progress.Report(JsonConvert.SerializeObject(currentResult));
 
             try
             {
@@ -118,46 +96,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
 
                 jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
-
                 return JsonConvert.SerializeObject(currentResult);
             }
             catch (TaskCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, CancelledErrorMessage);
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = CancelledErrorMessage,
-                };
+                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Data processing task is canceled.");
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = CancelledErrorMessage,
-                };
+                _logger.LogInformation(canceledEx, "Import processing operation is canceled.");
+                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (RetriableJobException retriableEx)
             {
-                _logger.LogInformation(retriableEx, "Error in data processing job.");
+                _logger.LogInformation(retriableEx, "Error in import processing job.");
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Critical error in data processing job.");
-                ImportProcessingJobErrorResult error = new ImportProcessingJobErrorResult()
-                {
-                    Message = ex.Message,
-                };
+                _logger.LogInformation(ex, "Critical error in import processing job.");
+                var error = new ImportProcessingJobErrorResult() { Message = ex.Message };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }
 
         private static string GetErrorFileName(string resourceType, long groupId, long jobId)
         {
-            return $"{resourceType}{groupId}_{jobId}.ndjson"; // jobId instead of resources surrogate id
+            return $"{resourceType}{groupId}_{jobId}.ndjson"; // jobId instead of surrogate id
         }
     }
 }

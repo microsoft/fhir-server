@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             return await Task.Run(() =>
             {
-                var result = new List<ImportResource>();
+                var results = new List<ImportResource>();
 
                 foreach ((string content, long index, int length) in rawContents)
                 {
@@ -143,18 +143,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                             throw new FormatException("Resource type not match.");
                         }
 
-                        result.Add(importResource);
+                        results.Add(importResource);
                     }
                     catch (Exception ex)
                     {
                         // May contains customer's data, no error logs here.
-                        result.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
+                        results.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
                     }
                 }
 
                 rawContents.Clear();
 
-                return result;
+                return results;
             });
         }
     }

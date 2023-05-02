@@ -79,7 +79,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
-                                    contextAccessor,
                                     loggerFactory);
 
             await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), progress, CancellationToken.None));
@@ -113,7 +112,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
-                                    contextAccessor,
                                     loggerFactory);
 
             await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), new Progress<string>(), CancellationToken.None));
@@ -128,7 +126,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImporter importer = Substitute.For<IImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -181,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             string progressResult = null;
             var progress = new Progress<string>((r) => { progressResult = r; });
-            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory);
+            var job = new ImportProcessingJob(loader, importer, importErrorStoreFactory, loggerFactory);
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), progress, CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);
