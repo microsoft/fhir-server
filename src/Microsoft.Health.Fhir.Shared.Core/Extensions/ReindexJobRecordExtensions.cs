@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -36,6 +37,18 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 }
 
                 parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Output, Part = outputMessages });
+            }
+
+            List<ReindexJobQueryStatus> queryErrors = job.QueryList.Keys.Where(e => !string.IsNullOrWhiteSpace(e.Error)).ToList();
+            if (queryErrors.Any())
+            {
+                var outputMessages = new HashSet<string>();
+                foreach (ReindexJobQueryStatus key in queryErrors)
+                {
+                    outputMessages.Add($"{key.ResourceType}: {key.Error}");
+                }
+
+                parametersResource.Add($"{JobRecordProperties.QueryListErrors}", new FhirString(string.Join(" ", outputMessages)));
             }
 
             if (job.StartTime.HasValue)
