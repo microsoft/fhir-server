@@ -17,6 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool Enabled { get; set; }
 
+        /// <summary>
+        /// Initial import mode
+        /// </summary>
+        public bool InitialImportMode { get; set; }
+
         public int InfinitySqlTimeoutSec { get; set; } = DefaultInfinitySqlTimeoutSec;
 
         /// <summary>

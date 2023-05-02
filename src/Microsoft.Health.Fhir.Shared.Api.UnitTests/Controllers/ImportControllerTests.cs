@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(ValidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenRequestWithoutMode_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
+            var bulkImportController = GetController(new ImportJobConfiguration() { Enabled = true });
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }

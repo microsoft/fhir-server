@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenPostResourceRequest_WhenInitialImportModeEnabled_Then423ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenCustomErrorRequest_WhenInitialImportModeEnabled_Then423ShouldNotBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/CustomError";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenGetResourceRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/patient";
             httpContext.Request.Method = HttpMethods.Get.ToString();
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenStartImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/$import";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/prefix/$import";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenCancelImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/_operations/import/abc";
             httpContext.Request.Method = HttpMethods.Delete.ToString();
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenCancelImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/prefix/_operations/import/abc";
             httpContext.Request.Method = HttpMethods.Delete.ToString();
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenPostResourceRequest_WhenImportNotEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenPostResourceRequest_WhenInitialImportModeNotEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = false });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = false });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [InlineData("/Observation", "Delete")]
         public async Task GivenLockedRequests_WhenInitialImportModeEnabled_Then423ShouldBeReturned(string path, string method)
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = path;
             httpContext.Request.Method = method;
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [InlineData("/_operations/import/123", "Delete")]
         public async Task GivenAllowedRequests_WhenInitialImportModeEnabled_Then200ShouldBeReturned(string path, string method)
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportJobConfiguration() { Enabled = true, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = path;
             httpContext.Request.Method = method;
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        private InitialImportLockMiddleware CreateInitialImportLockMiddleware(ImportTaskConfiguration importTaskConfiguration)
+        private InitialImportLockMiddleware CreateInitialImportLockMiddleware(ImportJobConfiguration importJobConfiguration)
         {
             return new InitialImportLockMiddleware(
                     async x =>
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
                         x.Response.StatusCode = 200;
                         await Task.CompletedTask;
                     },
-                    Options.Create(importTaskConfiguration));
+                    Options.Create(importJobConfiguration));
         }
     }
 }
