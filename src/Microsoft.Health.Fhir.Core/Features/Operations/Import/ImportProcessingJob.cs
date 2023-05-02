@@ -4,11 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -22,17 +26,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
 
         public ImportProcessingJob(
             IImportResourceLoader importResourceLoader,
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
         }
 
@@ -43,6 +50,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
             var currentResult = new ImportProcessingJobResult();
+
+            var fhirRequestContext = new FhirRequestContext(
+                    method: "Import",
+                    uriString: definition.UriString,
+                    baseUriString: definition.BaseUriString,
+                    correlationId: definition.JobId, // TODO: Replace by group id in stage 2
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+
+            _contextAccessor.RequestContext = fhirRequestContext;
 
             try
             {
