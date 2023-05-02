@@ -478,7 +478,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
+            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName
+                && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
             }
