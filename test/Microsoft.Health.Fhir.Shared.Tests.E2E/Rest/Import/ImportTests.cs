@@ -110,6 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
+            request.Mode = ImportConstants.InitialLoadMode;
             request.Force = true;
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.StartsWith(ForbiddenMessage, fhirException.Message);
@@ -157,7 +158,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportTriggeredWithoutEtag_ThenDataShouldBeImported()
+        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredBeforePreviousTaskCompleted_ThenConflictShouldBeReturned()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            request.Mode = ImportConstants.InitialLoadMode;
+            request.Force = true;
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.ImportAsync(request.ToParameters(), CancellationToken.None));
+            Assert.Equal(HttpStatusCode.Conflict, fhirException.StatusCode);
+
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");

@@ -554,6 +554,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     query.Status = OperationStatus.Failed;
+                    _reindexJobRecord.Status = OperationStatus.Failed;
                 }
                 else
                 {
