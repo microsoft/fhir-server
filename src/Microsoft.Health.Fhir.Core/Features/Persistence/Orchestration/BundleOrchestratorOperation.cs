@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// Merge async task, only assigned and executed once.
         /// </summary>
-        private Task<IDictionary<ResourceKey, UpsertOutcome>> _mergeAsyncTask;
+        private Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> _mergeAsyncTask;
 
         /// <summary>
         /// Current instance of data store in use.
@@ -113,7 +113,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
             var ingestedResources = await _mergeAsyncTask;
             ResourceKey key = resource.Wrapper.ToResourceKey();
-            return ingestedResources[key];
+            DataStoreOperationOutcome dataStoreOperationOutcome = ingestedResources[key];
+            if (!dataStoreOperationOutcome.IsOperationSuccessful)
+            {
+                throw dataStoreOperationOutcome.Exception;
+            }
+
+            return dataStoreOperationOutcome.UpsertOutcome;
         }
 
         public async Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken)
@@ -157,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             }
         }
 
-        private async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(CancellationToken cancellationToken)
+        private async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -186,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    IDictionary<ResourceKey, UpsertOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
+                    IDictionary<ResourceKey, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 

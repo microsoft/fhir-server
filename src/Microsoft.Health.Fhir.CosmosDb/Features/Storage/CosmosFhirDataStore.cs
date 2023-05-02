@@ -128,28 +128,60 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
-        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             if (resources == null || resources.Count == 0)
             {
-                return new Dictionary<ResourceKey, UpsertOutcome>();
+                return new Dictionary<ResourceKey, DataStoreOperationOutcome>();
             }
 
-            var results = new ConcurrentDictionary<ResourceKey, UpsertOutcome>();
+            var results = new ConcurrentDictionary<ResourceKey, DataStoreOperationOutcome>();
+            foreach (var resource in resources)
+            {
+                ResourceKey key = resource.Wrapper.ToResourceKey();
+
+                try
+                {
+                    UpsertOutcome upsertOutcome = await InternalUpsertAsync(
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        cancellationToken,
+                        resource.RequireETagOnUpdate);
+
+                    results.TryAdd(key, new DataStoreOperationOutcome(upsertOutcome));
+                }
+                catch (FhirException fhirException)
+                {
+                    results.TryAdd(key, new DataStoreOperationOutcome(fhirException));
+                }
+            }
+
+            /*
             ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
             {
-                UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                    resource.Wrapper,
-                    resource.WeakETag,
-                    resource.AllowCreate,
-                    resource.KeepHistory,
-                    cancellationToken,
-                    resource.RequireETagOnUpdate);
-
                 ResourceKey key = resource.Wrapper.ToResourceKey();
-                results.TryAdd(key, upsertOutcome);
+
+                try
+                {
+                    UpsertOutcome upsertOutcome = await InternalUpsertAsync(
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        cancellationToken,
+                        resource.RequireETagOnUpdate);
+
+                    results.TryAdd(key, new DataStoreOperationOutcome(upsertOutcome));
+                }
+                catch (FhirException fhirException)
+                {
+                    results.TryAdd(key, new DataStoreOperationOutcome(fhirException));
+                }
             });
+            */
 
             return results;
         }

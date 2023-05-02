@@ -106,12 +106,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
             {
-                var results = new Dictionary<ResourceKey, UpsertOutcome>();
+                var results = new Dictionary<ResourceKey, DataStoreOperationOutcome>();
                 if (resources == null || resources.Count == 0)
                 {
                     return results;
@@ -148,10 +148,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
-                                    throw new ResourceConflictException(weakETag);
+                                    results.Add(resourceKey, new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
+                                    continue;
                                 }
 
-                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                                results.Add(
+                                    resourceKey,
+                                    new DataStoreOperationOutcome(
+                                        new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                                continue;
                             }
                         }
 
@@ -170,13 +175,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 // You can't update a resource with a specified version if the resource does not exist
                                 if (weakETag != null)
                                 {
-                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                                    results.Add(
+                                        resourceKey,
+                                        new DataStoreOperationOutcome(
+                                            new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
+                                    continue;
                                 }
                             }
 
                             if (!resourceExt.AllowCreate)
                             {
-                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                                results.Add(
+                                    resourceKey,
+                                    new DataStoreOperationOutcome(
+                                        new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
+                                continue;
                             }
 
                             resource.Version = InitialVersion;
@@ -190,10 +203,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                                 {
-                                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                                    results.Add(
+                                        resourceKey,
+                                        new DataStoreOperationOutcome(
+                                            new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                                    continue;
                                 }
 
-                                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                                results.Add(
+                                    resourceKey,
+                                    new DataStoreOperationOutcome(
+                                        new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                                continue;
                             }
 
                             if (resource.IsDeleted && existingResource.IsDeleted)
@@ -210,7 +231,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 if (ExistingRawResourceIsEqualToInput(resource, existingResource))
                                 {
                                     // Send the existing resource in the response
-                                    results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
+                                    results.Add(
+                                        resourceKey,
+                                        new DataStoreOperationOutcome(
+                                            new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                                     continue;
                                 }
                             }
@@ -224,7 +248,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         ReplaceVersionIdAndLastUpdatedInMeta(resource);
                         mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
-                        results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
+                        results.Add(
+                            resourceKey,
+                            new DataStoreOperationOutcome(
+                                new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
                     }
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
@@ -269,7 +296,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // TODO: Remove it when Merge is min supported version
             if (_schemaInformation.Current >= SchemaVersionConstants.Merge && _mergeResourcesFeatureFlag.IsEnabled() && !isBundleOperation)
             {
-                return (await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken)).First().Value;
+                var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
+                DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
+
+                if (dataStoreOperationOutcome.IsOperationSuccessful)
+                {
+                    return dataStoreOperationOutcome.UpsertOutcome;
+                }
+                else
+                {
+                    throw dataStoreOperationOutcome.Exception;
+                }
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.Merge && _mergeResourcesFeatureFlag.IsEnabled() && isBundleOperation)
             {
