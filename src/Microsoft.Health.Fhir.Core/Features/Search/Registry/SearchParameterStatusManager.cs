@@ -219,10 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     param.IsSupported = tempStatus.IsSupported;
                     param.IsPartiallySupported = tempStatus.IsPartiallySupported;
                     param.SortStatus = paramStatus.SortStatus;
-
+                    param.SearchParameterStatus = paramStatus.Status;
                     updated.Add(param);
                 }
-                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && p.Status == SearchParameterStatus.Deleted))
+                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && (p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled)))
                 {
                     // if we cannot find the search parameter in the search parameter definition manager
                     // and there is an entry in the list of updates with a delete status then it indicates

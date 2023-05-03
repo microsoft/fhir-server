@@ -14,6 +14,7 @@ using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -124,6 +125,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </summary>
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
 
+        /// <summary>
+        /// Current state of the search parameter in the search parameter registry
+        /// </summary>
+        public SearchParameterStatus SearchParameterStatus { get; set; }
+
         public bool Equals([AllowNull] SearchParameterInfo other)
         {
             if (other == null)
@@ -160,7 +166,8 @@ namespace Microsoft.Health.Fhir.Core.Models
                 Url?.GetHashCode(),
                 Code?.GetHashCode(StringComparison.OrdinalIgnoreCase),
                 Type.GetHashCode(),
-                Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                SearchParameterStatus.GetHashCode());
         }
     }
 }

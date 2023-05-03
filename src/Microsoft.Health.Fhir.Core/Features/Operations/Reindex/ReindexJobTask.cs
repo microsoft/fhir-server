@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
@@ -34,7 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IReindexUtilities _reindexUtilities;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IReindexJobThrottleController _throttleController;
@@ -51,33 +53,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
-            ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IReindexJobThrottleController throttleController,
             IModelInfoProvider modelInfoProvider,
-            ILogger<ReindexJobTask> logger)
+            ILogger<ReindexJobTask> logger,
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(throttleController, nameof(throttleController));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
             _contextAccessor = fhirRequestContextAccessor;
             _throttleController = throttleController;
             _modelInfoProvider = modelInfoProvider;
             _logger = logger;
+            _searchParameterStatusManager = searchParameterStatusManager;
         }
 
         /// <inheritdoc />
@@ -152,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await _jobSemaphore.WaitAsync(_cancellationToken);
                 try
                 {
-                    await CheckJobCompletionStatus();
+                    await CheckJobCompletionStatus(cancellationToken);
                 }
                 finally
                 {
@@ -182,8 +187,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task<bool> TryPopulateNewJobFields(CancellationToken cancellationToken)
         {
             // Build query based on new search params
-            // Find supported, but not yet searchable params
-            var possibleNotYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
+            // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
+            List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
+            var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(searchParamStatusCollection.First(p => p.Uri == sp.Url).Status) || sp.IsSearchable == false || sp.SortStatus == SortParameterStatus.Supported);
             var notYetIndexedParams = new List<SearchParameterInfo>();
 
             var resourceList = new HashSet<string>();
@@ -257,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     Core.Resources.NoResourcesNeedToBeReindexed));
-                await UpdateParametersAndCompleteJob();
+                await UpdateParametersAndCompleteJob(cancellationToken);
                 return false;
             }
 
@@ -570,7 +577,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return query;
         }
 
-        private async Task CheckJobCompletionStatus()
+        private async Task CheckJobCompletionStatus(CancellationToken cancellationToken)
         {
             // If any query still in progress then we are not done
             if (_reindexJobRecord.QueryList.Keys.Where(q =>
@@ -589,7 +596,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // on a SearchParameterHash because we never used that as a filter to start the reindex job with
                     if (_reindexJobRecord.ForceReindex)
                     {
-                        await UpdateParametersAndCompleteJob();
+                        await UpdateParametersAndCompleteJob(cancellationToken);
                         return;
                     }
 
@@ -610,7 +617,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        await UpdateParametersAndCompleteJob();
+                        await UpdateParametersAndCompleteJob(cancellationToken);
                     }
                 }
                 else
@@ -765,19 +772,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             return (totalCount, resourcesTypes);
         }
 
-        private async Task UpdateParametersAndCompleteJob()
+        private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)
         {
             // here we check if all the resource types which are base types of the search parameter
             // were reindexed by this job.  If so, then we should mark the search parameters
             // as fully reindexed
             var fullyIndexedParamUris = new List<string>();
             var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
+            var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
-                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(searchParam);
+                // go to base search param definition manager
+                var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParam);
+
                 if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
                 {
                     fullyIndexedParamUris.Add(searchParam);
+                }
+
+                // Adding the below to explicitly update from their pending states to their final states.
+                if (searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.PendingDisable)
+                {
+                    await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
+                }
+
+                if (searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.PendingDelete)
+                {
+                    await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
                 }
             }
 
