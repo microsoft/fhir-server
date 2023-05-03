@@ -45,6 +45,7 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
@@ -73,6 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private SearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
+        private readonly ITestOutputHelper _output;
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
 
@@ -82,10 +84,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
 
-        public ReindexJobTests(FhirStorageTestsFixture fixture)
+        public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _testHelper = _fixture.TestHelper;
+            _output = output;
         }
 
         public async Task InitializeAsync()
@@ -837,6 +840,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}.");
                 }
             }
+
+            var serializer = new FhirJsonSerializer();
+            _output.WriteLine(serializer.SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>()));
 
             Assert.True(
                 operationStatus == reindexJobWrapper.JobRecord.Status,
