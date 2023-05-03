@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var isExecutonTimeout = false;
                     var isConflict = false;
-                    if (((isConflict = e.Number == SqlErrorCodes.Conflict) && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    if (((isConflict = e.Number == SqlErrorCodes.Conflict) && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
                         //// we cannot retry on connection loss as this call might be in outer transaction.
                         //// TODO: Add retries when set bundle processing is in place.
                         || (_mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
