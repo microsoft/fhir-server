@@ -45,7 +45,6 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
@@ -835,11 +834,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     // Fail-fast.
                     // If the expected status is 'Completed', and the job failed or if it was canceled, then stop the test quickly.
-                    Assert.Fail($"Fail-fast. {GetReindexJobWrapperContent(reindexJobWrapper)}");
+                    Assert.Fail($"Fail-fast. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}. JobWrapper Details: {GetReindexJobWrapperContent(reindexJobWrapper)}");
                 }
             }
 
-            Assert.True(operationStatus == reindexJobWrapper.JobRecord.Status, GetReindexJobWrapperContent(reindexJobWrapper));
+            Assert.True(
+                operationStatus == reindexJobWrapper.JobRecord.Status,
+                $" Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}. JobWrapper Details: {GetReindexJobWrapperContent(reindexJobWrapper)}");
 
             return reindexJobWrapper;
         }
