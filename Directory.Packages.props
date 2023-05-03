@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.78</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.81</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -55,7 +55,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.32.3" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.33.0" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -91,7 +91,7 @@
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
-    <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.14" />
+    <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.0.0" />
     <PackageVersion Include="Polly" Version="7.2.3" />

@@ -8,9 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Features.Operations;
@@ -92,6 +95,30 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
             Assert.NotNull(jobs);
             Assert.Empty(jobs);
+        }
+
+        [Fact]
+        public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreDisplayed()
+        {
+            string queryListError = "An unhandled error has occurred.";
+            string resourceType = KnownResourceTypes.Device;
+            string errorResult = $"{resourceType}: {queryListError}";
+
+            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(jobRecord => jobRecord.Status = OperationStatus.Completed);
+            ReindexJobWrapper job = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, default);
+
+            var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType, null)
+            {
+                Error = queryListError,
+                FailureCount = new ReindexJobConfiguration().ConsecutiveFailuresThreshold,
+            };
+            job.JobRecord.QueryList.TryAdd(reindexJobQueryStatus, 1);
+
+            ResourceElement resp = job.ToParametersResourceElement();
+            var parms = resp.ResourceInstance as Hl7.Fhir.Model.Parameters;
+            var parm = parms.Parameter.Where(e => e.Name == JobRecordProperties.QueryListErrors).First();
+
+            Assert.Equal(parm.Value.ToString(), errorResult);
         }
 
         [Theory]
