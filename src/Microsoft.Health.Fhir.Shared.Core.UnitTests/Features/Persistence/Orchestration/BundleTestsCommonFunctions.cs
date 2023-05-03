@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
+using NSubstitute.Core;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orchestration
 {
@@ -33,6 +35,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         public static IBundleOrchestrator GetBundleOrchestrator(bool isBundleOrchestratorEnabled = true)
         {
             return new BundleOrchestrator(GetBundleConfiguration(isBundleOrchestratorEnabled));
+        }
+
+        public static IFhirDataStore GetSubstituteForIFhirDataStore()
+        {
+            var dataStore = Substitute.For<IFhirDataStore>();
+
+            /// In this parg of the code I'm replacing the default behavior of <see cref="Substitute"/> for the method 'MergeAsync'.
+            /// I've added a validation to Bundle Orchestrator Operation to avoid null instances of DataStoreOperationOutcome.
+            /// To make the tests operating as expected, I've overrided the default behavior of <see cref="Substitute"/> and set the mock
+            /// version of 'MergeAsync' to return some basic values for tests.
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
+
+            return dataStore;
         }
 
         public static IOptions<BundleConfiguration> GetBundleConfiguration(bool isBundleOrchestratorEnabled = true)
@@ -110,6 +125,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             ResourceWrapper wrapper = await GetResourceWrapperAsync(resource);
             return new ResourceWrapperOperation(wrapper, true, true, null, false, bundleOperationId);
+        }
+
+        private static Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MockMergeAsync(CallInfo arg)
+        {
+            IReadOnlyList<ResourceWrapperOperation> operations = arg.Arg<IReadOnlyList<ResourceWrapperOperation>>();
+            IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> outcomes = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>(operations.Count);
+
+            foreach (ResourceWrapperOperation operation in operations)
+            {
+                outcomes.Add(operation.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
+            }
+
+            return System.Threading.Tasks.Task.FromResult(outcomes);
         }
     }
 }

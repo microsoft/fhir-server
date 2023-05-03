@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var dataStore = Substitute.For<IFhirDataStore>();
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
 
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
             IBundleOrchestratorOperation operation = batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "PUT", numberOfResources);
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var dataStore = Substitute.For<IFhirDataStore>();
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
 
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-            var dataStore = Substitute.For<IFhirDataStore>();
+            var dataStore = BundleTestsCommonFunctions.GetSubstituteForIFhirDataStore();
 
             var batchOrchestrator = BundleTestsCommonFunctions.GetBundleOrchestrator();
 
