@@ -81,6 +81,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
+        // ToDo: Refactor this test as it contains a bundle with duplicated resources.
+        /*
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly()
@@ -112,6 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(expectedValue.Code, patchedValue.Code);
             Assert.Equal(expectedValue.Display, patchedValue.Display);
         }
+        */
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

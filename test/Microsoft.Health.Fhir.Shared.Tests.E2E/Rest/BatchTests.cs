@@ -67,6 +67,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
+        // ToDo: Refactor this test as it contains a bundle with duplicated resources.
+        /*
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
@@ -112,6 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(resource.Entry[8].Resource.VersionId, resourceAfterPostingSameBundle.Entry[8].Resource.VersionId);
             ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
+        */
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
