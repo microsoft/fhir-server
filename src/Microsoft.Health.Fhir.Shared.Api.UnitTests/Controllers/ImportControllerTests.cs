@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(ValidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new ImportJobConfiguration() { Enabled = false });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = false });
 
             body.Mode = ImportConstants.InitialLoadMode;
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(InValidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenRequestConfigurationNotValid_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new ImportJobConfiguration() { Enabled = true });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
             body.Mode = ImportConstants.InitialLoadMode;
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [MemberData(nameof(ValidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenRequestWithoutMode_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new ImportJobConfiguration() { Enabled = true });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAnBulkImportRequest_WhenRequestWithNullParameters_ThenRequestNotValidExceptionShouldBeThrown()
         {
             Parameters parameters = null;
-            var bulkImportController = GetController(new ImportJobConfiguration() { Enabled = true });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(parameters));
         }
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             return new CreateImportResponse("123");
         }
 
-        private ImportController GetController(ImportJobConfiguration bulkImportConfig)
+        private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
         {
             var operationConfig = new OperationsConfiguration()
             {

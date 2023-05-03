@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class ImportJobConfiguration
+    public class ImportTaskConfiguration // This class name is inconistent with others which use Job instrad of Task.
     {
         private const int DefaultTransactionSize = 1000;
         private const int DefaultSqlIndexRebuildThreads = 3;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// How often polling for new import jobs happens.
         /// </summary>
-        public int PollingPeriodSec { get; set; } = DefaultPollingPeriodSec;
+        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingPeriodSec; // FYI By definition, frequency cannot be measured in time units.
 
         /// <summary>
         /// Disable optional index during import data.

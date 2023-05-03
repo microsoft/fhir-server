@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
-        private readonly ImportJobConfiguration _importConfig;
+        private readonly ImportTaskConfiguration _importConfig;
 
         public ImportController(
             IMediator mediator,

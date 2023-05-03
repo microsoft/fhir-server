@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IImportOrchestratorJobDataStoreOperation _importOrchestratorJobDataStoreOperation;
         private readonly IQueueClient _queueClient;
-        private ImportJobConfiguration _importConfiguration;
+        private ImportTaskConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IImportOrchestratorJobDataStoreOperation importOrchestratorJobDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
-            IOptions<ImportJobConfiguration> importConfiguration,
+            IOptions<ImportTaskConfiguration> importConfiguration,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _importConfiguration = importConfiguration.Value;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
 
-            PollingPeriodSec = _importConfiguration.PollingPeriodSec;
+            PollingPeriodSec = _importConfiguration.PollingFrequencyInSeconds;
         }
 
         public int PollingPeriodSec { get; set; }

@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerFhirModel _model;
-        private readonly ImportJobConfiguration _importTaskConfiguration;
+        private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
         private IFhirDataStore _store;

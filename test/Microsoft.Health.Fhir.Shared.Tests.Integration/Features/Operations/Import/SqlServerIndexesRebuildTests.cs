@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration()
             {
-                Import = new ImportJobConfiguration()
+                Import = new ImportTaskConfiguration()
                 {
                     DisableOptionalIndexesForImport = true,
                 },
