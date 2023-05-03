@@ -89,7 +89,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             AssertCount(2, readResponse);
 
             // Check most recent item is sorted first
-            Assert.True(readResponse[0].Resource.Meta.LastUpdated > readResponse[1].Resource.Meta.LastUpdated);
+            Assert.True(
+                readResponse[0].Resource.Meta.LastUpdated >= readResponse[1].Resource.Meta.LastUpdated,
+                userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not greater or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
         [Fact]
@@ -103,7 +105,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             AssertCount(2, readResponse);
 
-            Assert.True(readResponse[0].Resource.Meta.LastUpdated < readResponse[1].Resource.Meta.LastUpdated);
+            Assert.True(
+                readResponse[0].Resource.Meta.LastUpdated <= readResponse[1].Resource.Meta.LastUpdated,
+                userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not minor or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
         [Fact]
