@@ -64,19 +64,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Add(JobRecordProperties.LastModified, new FhirDateTime(job.LastModified));
 
             decimal progress = 0;
+            decimal rounded = 0;
             if (job.Count > 0 && job.Progress > 0)
             {
                 progress = (decimal)job.Progress / job.Count * 100;
+                rounded = Math.Round(progress, 1);
             }
             else
             {
                 progress = 0;
             }
 
+            if (rounded == 100.0M && job.Count != job.Progress)
+            {
+                rounded = 99.9M;
+            }
+
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
             parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
-            parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(Math.Round(progress, 1)));
+            parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(rounded));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
             parametersResource.Add(JobRecordProperties.MaximumConcurrency, new FhirDecimal(job.MaximumConcurrency));
 

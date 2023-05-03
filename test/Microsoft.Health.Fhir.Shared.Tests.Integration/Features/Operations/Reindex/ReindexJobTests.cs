@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private SearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
-        private readonly ITestOutputHelper _output;
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
 
@@ -84,11 +83,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
 
-        public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
+        public ReindexJobTests(FhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
             _testHelper = _fixture.TestHelper;
-            _output = output;
         }
 
         public async Task InitializeAsync()
@@ -837,18 +835,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 {
                     // Fail-fast.
                     // If the expected status is 'Completed', and the job failed or if it was canceled, then stop the test quickly.
-                    Assert.Fail($"Fail-fast. Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}.");
+                    Assert.Fail($"Fail-fast. {GetReindexJobWrapperContent(reindexJobWrapper)}");
                 }
             }
 
-            var serializer = new FhirJsonSerializer();
-            _output.WriteLine(serializer.SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>()));
-
-            Assert.True(
-                operationStatus == reindexJobWrapper.JobRecord.Status,
-                $"Current job status '{reindexJobWrapper.JobRecord.Status}'. Expected job status '{operationStatus}'. Number of attempts: {delayCount}. Time elapsed: {stopwatch.Elapsed}.");
+            Assert.True(operationStatus == reindexJobWrapper.JobRecord.Status, GetReindexJobWrapperContent(reindexJobWrapper));
 
             return reindexJobWrapper;
+        }
+
+        private static string GetReindexJobWrapperContent(ReindexJobWrapper reindexJobWrapper)
+        {
+            return "Number of attempts: {MaxNumberOfAttempts}. Time elapsed: {stopwatch.Elapsed}. JobWrapper Details: " + new FhirJsonSerializer().SerializeToString(reindexJobWrapper.ToParametersResourceElement().ToPoco<Parameters>());
         }
 
         private async Task<CreateReindexResponse> SetUpForReindexing(CreateReindexRequest request = null)
