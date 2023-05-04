@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
                     // assume that most likely case is that all resources should be updated
-                    var minSurrId = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+                    (var minSurrId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
                     var index = 0;
                     var mergeWrappers = new List<MergeResourceWrapper>();
@@ -223,8 +223,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
                         }
 
-                        var surrId = minSurrId + index;
-                        resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                        ////var surrId = minSurrId + index;
+                        ////resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                        var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
+                        var surrId = surrIdBase + minSequenceId + index;
                         ReplaceVersionIdAndLastUpdatedInMeta(resource);
                         mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
@@ -807,7 +809,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<long> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        internal async Task<(long SurrId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
@@ -816,8 +818,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);
+            var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(sequenceParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return (long)surrogateIdParam.Value;
+            return ((long)surrogateIdParam.Value, (int)sequenceParam.Value);
         }
 
         internal async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, CancellationToken cancellationToken)
