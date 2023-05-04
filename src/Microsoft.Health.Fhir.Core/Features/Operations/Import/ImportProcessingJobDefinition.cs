@@ -44,5 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// FHIR resource type
         /// </summary>
         public string ResourceType { get; set; }
+
+        /// <summary>
+        /// Group id
+        /// </summary>
+        public long GroupId { get; set; }
     }
 }
