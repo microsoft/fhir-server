@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
+--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -61,7 +61,7 @@ BEGIN CATCH
 END CATCH
 GO
 --DECLARE @SurrogateIdRangeFirstValue bigint
---EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = 0, @SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue OUT
+--EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue OUT
 --SELECT @SurrogateIdRangeFirstValue
 --SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
 --SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC
