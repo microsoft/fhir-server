@@ -23,6 +23,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Api" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.IdentityModel.S2S" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
