@@ -33,13 +33,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
             catch (S2SAuthenticationException ex)
             {
-                if (ex.InnerException is SecurityTokenInvalidAudienceException)
+                if (ex.InnerException is SecurityTokenInvalidAudienceException || ex.InnerException is SecurityTokenInvalidIssuerException)
                 {
-                    throw new SecurityTokenInvalidAudienceException(ex.InnerException.Message, ex.InnerException);
-                }
-                else if (ex.InnerException is SecurityTokenInvalidIssuerException)
-                {
-                    throw new SecurityTokenInvalidIssuerException(ex.InnerException.Message, ex.InnerException);
+                    throw ex.InnerException;
                 }
                 else
                 {
