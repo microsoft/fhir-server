@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 }
                 else
                 {
-                    throw ex;
+                    throw;
                 }
             }
         }
