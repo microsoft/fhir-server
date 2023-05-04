@@ -1082,6 +1082,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             UriString = importOrchestratorJobInputData.RequestUri.ToString(),
                             BaseUriString = importOrchestratorJobInputData.BaseUri.ToString(),
                             ResourceType = "Resource",
+                            GroupId = 1,
                         };
 
                         JobInfo jobInfo = (await testQueueClient.EnqueueAsync(1, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();
