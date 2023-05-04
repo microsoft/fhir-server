@@ -725,7 +725,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
         {
-            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
+            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
             string rawResourceData;
             if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
@@ -734,7 +734,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
+                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
                 rawResourceData = resourceWrapper.RawResource.Data
                                     .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
                                     .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
@@ -745,9 +745,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
-            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated");
-            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated");
-            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId");
+            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
+            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
+            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
             if (existingVersion != InitialVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
@@ -763,12 +763,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         // This method relies on current raw resource string formatting, i.e. no extra spaces.
         // This logic should be removed once "resource.meta not available" bug is fixed.
-        private string GetJsonValue(string json, string propName)
+        private string GetJsonValue(string json, string propName, bool isExisting)
         {
             var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
             if (startIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} from {json}");
+                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 
@@ -776,7 +776,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var endIndex = json.IndexOf("\"", startIndex, StringComparison.Ordinal);
             if (endIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} value from {json}");
+                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 

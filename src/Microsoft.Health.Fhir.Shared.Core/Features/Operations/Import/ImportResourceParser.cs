@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -29,6 +30,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             var resource = _parser.Parse<Resource>(rawResource);
             CheckConditionalReferenceInResource(resource);
+
+            if (resource.Meta == null)
+            {
+                resource.Meta = new Meta();
+            }
+
+            if (resource.Meta.LastUpdated == null)
+            {
+                resource.Meta.LastUpdated = Clock.UtcNow;
+            }
 
             var resourceElement = resource.ToResourceElement();
             var resourceWapper = _resourceFactory.Create(resourceElement, false, true);
