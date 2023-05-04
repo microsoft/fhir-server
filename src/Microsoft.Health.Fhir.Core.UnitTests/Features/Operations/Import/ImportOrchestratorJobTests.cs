@@ -761,7 +761,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
             TestQueueClient testQueueClient = new TestQueueClient();
             testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
             {
@@ -782,7 +781,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
-                surrogatedIdRanges.Add((processingInput.BeginSequenceId, processingInput.EndSequenceId));
 
                 jobInfo.Result = JsonConvert.SerializeObject(processingResult);
                 jobInfo.Status = JobManagement.JobStatus.Completed;
@@ -909,7 +907,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
 
             TestQueueClient testQueueClient = new TestQueueClient();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
             testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
             {
                 JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
@@ -939,7 +936,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
-                surrogatedIdRanges.Add((processingInput.BeginSequenceId, processingInput.EndSequenceId));
 
                 jobInfo.Result = JsonConvert.SerializeObject(processingResult);
                 jobInfo.Status = JobManagement.JobStatus.Completed;
@@ -962,8 +958,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         ImportProcessingJobDefinition processingInput = new ImportProcessingJobDefinition()
                         {
                             ResourceLocation = "http://test",
-                            BeginSequenceId = i,
-                            EndSequenceId = i + 1,
                         };
 
                         JobInfo jobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();
@@ -1041,7 +1035,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorJobResult importOrchestratorJobResult = new ImportOrchestratorJobResult();
 
             TestQueueClient testQueueClient = new TestQueueClient();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
             testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
             {
                 JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
@@ -1061,7 +1054,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;
                 processingResult.ErrorLogLocation = "http://dummy/error";
-                surrogatedIdRanges.Add((processingInput.BeginSequenceId, processingInput.EndSequenceId));
 
                 jobInfo.Result = JsonConvert.SerializeObject(processingResult);
                 jobInfo.Status = JobManagement.JobStatus.Completed;
@@ -1086,13 +1078,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         {
                             TypeId = 1,
                             ResourceLocation = location,
-                            BeginSequenceId = 0,
-                            EndSequenceId = 0,
                             BytesToRead = ImportOrchestratorJob.BytesToRead,
                             UriString = importOrchestratorJobInputData.RequestUri.ToString(),
                             BaseUriString = importOrchestratorJobInputData.BaseUri.ToString(),
                             ResourceType = "Resource",
-                            JobId = "1",
                         };
 
                         JobInfo jobInfo = (await testQueueClient.EnqueueAsync(1, new string[] { JsonConvert.SerializeObject(processingInput) }, 1, false, false, CancellationToken.None)).First();

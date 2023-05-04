@@ -195,7 +195,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             inputData.BaseUriString = "http://dummy";
             inputData.ResourceLocation = "http://dummy";
             inputData.ResourceType = "Patient";
-            inputData.JobId = Guid.NewGuid().ToString("N");
             inputData.UriString = "http://dummy";
 
             return inputData;

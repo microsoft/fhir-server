@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     method: "Import",
                     uriString: definition.UriString,
                     baseUriString: definition.BaseUriString,
-                    correlationId: definition.JobId, // TODO: Replace by group id in stage 2
+                    correlationId: jobInfo.GroupId.ToString(),
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {

@@ -387,7 +387,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     UriString = coordDefinition.RequestUri.ToString(),
                     BaseUriString = coordDefinition.BaseUri.ToString(),
                     ResourceType = input.Type,
-                    JobId = $"{groupId}", // TODO: remove in stage 2
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(importJobPayload));

@@ -44,20 +44,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// FHIR resource type
         /// </summary>
         public string ResourceType { get; set; }
-
-        /// <summary>
-        /// Data processing job id
-        /// </summary>
-        public string JobId { get; set; }
-
-        /// <summary>
-        /// Begine sequence id
-        /// </summary>
-        public long BeginSequenceId { get; set; }
-
-        /// <summary>
-        /// End sequence id
-        /// </summary>
-        public long EndSequenceId { get; set; }
     }
 }
