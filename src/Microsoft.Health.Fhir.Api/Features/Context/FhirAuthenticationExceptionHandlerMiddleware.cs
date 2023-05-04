@@ -6,7 +6,6 @@
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.IdentityModel.S2S;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
