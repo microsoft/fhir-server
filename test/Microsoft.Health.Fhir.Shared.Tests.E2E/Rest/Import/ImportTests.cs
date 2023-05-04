@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath.Sprache;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -378,7 +379,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request, errorCount: 1);
-            request.InputSource = new Uri("https://other-server.example2.org"); // $import registration calls are idempotent.
+            //// we have to re-create file as processing jobs are idempotent
+            (Uri location2, string etag2) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            request.Input = new List<InputResource>()
+            {
+                new InputResource()
+                {
+                    Url = location2,
+                    Etag = etag2,
+                    Type = "Patient",
+                },
+            };
             await ImportCheckAsync(request, errorCount: 1); // importing already existing resource is success in merge.
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
