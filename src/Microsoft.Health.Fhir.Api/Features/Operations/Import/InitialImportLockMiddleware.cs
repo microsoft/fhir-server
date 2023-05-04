@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
     public sealed class InitialImportLockMiddleware
     {
         private RequestDelegate _next;
-        private ImportTaskConfiguration _importJobConfiguration;
+        private ImportTaskConfiguration _importTaskConfiguration;
         private readonly HashSet<(string method, string pathRegex)> _excludedEndpoints;
         private readonly HashSet<(string method, string pathRegex)> _filteredEndpoints;
 
@@ -30,10 +30,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public InitialImportLockMiddleware(
             RequestDelegate next,
-            IOptions<ImportTaskConfiguration> importJobConfiguration)
+            IOptions<ImportTaskConfiguration> importTaskConfiguration)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
-            _importJobConfiguration = EnsureArg.IsNotNull(importJobConfiguration?.Value, nameof(importJobConfiguration));
+            _importTaskConfiguration = EnsureArg.IsNotNull(importTaskConfiguration?.Value, nameof(importTaskConfiguration));
 
             _excludedEndpoints = new HashSet<(string method, string pathRegex)>()
             {
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public async Task Invoke(HttpContext context)
         {
-            if (!context.Request.IsFhirRequest() || !_importJobConfiguration.Enabled || !_importJobConfiguration.InitialImportMode)
+            if (!context.Request.IsFhirRequest() || !_importTaskConfiguration.Enabled || !_importTaskConfiguration.InitialImportMode)
             {
                 await _next(context);
                 return;
