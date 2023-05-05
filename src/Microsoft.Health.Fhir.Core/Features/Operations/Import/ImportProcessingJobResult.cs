@@ -8,24 +8,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportProcessingJobResult
     {
         /// <summary>
-        /// Input File location
+        /// Succeeded imported resource count
         /// </summary>
-        public string ResourceLocation { get; set; }
-
-        /// <summary>
-        /// FHIR resource type
-        /// </summary>
-        public string ResourceType { get; set; }
-
-        /// <summary>
-        /// Succeed imported resource count
-        /// </summary>
-        public long SucceedCount { get; set; }
+        public long SucceededResources { get; set; }
 
         /// <summary>
         /// Failed processing resource count
         /// </summary>
-        public long FailedCount { get; set; }
+        public long FailedResources { get; set; }
+
+        /// <summary>
+        /// Processed bytes from blob/file
+        /// </summary>
+        public long ProcessedBytes { get; set; }
 
         /// <summary>
         /// If any failure processing resource, error log would be uploaded.
@@ -35,7 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Critical error during data processing.
         /// </summary>
-        public string ImportError { get; set; }
+        public string ErrorDetails { get; set; }
+
+        public long SucceedCount { get; set; } // TODO: Remove in stage 3
+
+        public long FailedCount { get; set; } // TODO: Remove in stage 3
 
         /// <summary>
         /// Current index for last checkpoint

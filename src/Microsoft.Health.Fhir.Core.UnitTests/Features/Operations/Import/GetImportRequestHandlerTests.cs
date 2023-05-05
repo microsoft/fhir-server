@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -46,31 +45,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            ImportOrchestratorJobResult orchestratorJobResult = new ImportOrchestratorJobResult()
+            var coordResult = new ImportOrchestratorJobResult()
             {
-                TransactionTime = DateTime.Now,
                 Request = "Request",
             };
 
-            JobInfo orchestratorJob = new JobInfo()
+            var orchestratorJob = new JobInfo()
             {
+                Id = 0,
+                GroupId = 0,
                 Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(orchestratorJobResult),
+                Result = JsonConvert.SerializeObject(coordResult),
+                Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()),
             };
 
-            ImportProcessingJobResult processingJobResult = new ImportProcessingJobResult()
+            var processingJobResult = new ImportProcessingJobResult()
             {
-                ResourceLocation = "http://ResourceLocation",
-                ResourceType = "Patient",
-                SucceedCount = 1,
-                FailedCount = 1,
-                ErrorLogLocation = "http://ResourceLocation",
+                SucceededResources = 1,
+                FailedResources = 1,
+                ErrorLogLocation = "http://ResourceErrorLogLocation",
             };
 
-            JobInfo processingJob = new JobInfo()
+            var processingJob = new JobInfo()
             {
+                Id = 1,
+                GroupId = 0,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(processingJobResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
             };
 
             GetImportResponse result = await SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>() { processingJob });
@@ -83,13 +85,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnCompletedImportJobWithFailure_ThenHttpResponseCodeShouldBeExpected()
         {
-            ImportOrchestratorJobErrorResult orchestratorJobResult = new ImportOrchestratorJobErrorResult()
+            var orchestratorJobResult = new ImportOrchestratorJobErrorResult()
             {
                 HttpStatusCode = HttpStatusCode.BadRequest,
                 ErrorMessage = "error",
             };
 
-            JobInfo orchestratorJob = new JobInfo()
+            var orchestratorJob = new JobInfo()
             {
                 Status = JobStatus.Failed,
                 Result = JsonConvert.SerializeObject(orchestratorJobResult),
@@ -104,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
         {
-            JobInfo orchestratorJob = new JobInfo()
+            var orchestratorJob = new JobInfo()
             {
                 Status = JobStatus.Cancelled,
             };
@@ -116,51 +118,52 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            ImportOrchestratorJobResult orchestratorJobResult = new ImportOrchestratorJobResult()
+            var orchestratorJobResult = new ImportOrchestratorJobResult()
             {
-                TransactionTime = DateTime.Now,
                 Request = "Request",
             };
 
-            JobInfo orchestratorJob = new JobInfo()
+            var orchestratorJob = new JobInfo()
             {
                 Id = 1,
                 GroupId = 1,
                 Status = JobStatus.Running,
                 Result = JsonConvert.SerializeObject(orchestratorJobResult),
+                Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()),
             };
 
-            ImportProcessingJobResult processingJobResult = new ImportProcessingJobResult()
+            var processingJobResult = new ImportProcessingJobResult()
             {
-                ResourceLocation = "http://ResourceLocation",
-                ResourceType = "Patient",
-                SucceedCount = 1,
-                FailedCount = 1,
-                ErrorLogLocation = "http://ResourceLocation",
+                SucceededResources = 1,
+                FailedResources = 1,
+                ErrorLogLocation = "http://ResourceErrorLogLocation",
             };
 
-            JobInfo processingJob1 = new JobInfo()
+            var processingJob1 = new JobInfo()
             {
                 Id = 2,
                 GroupId = 1,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(processingJobResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
             };
 
-            JobInfo processingJob2 = new JobInfo()
+            var processingJob2 = new JobInfo()
             {
                 Id = 3,
                 GroupId = 1,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(processingJobResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
             };
 
-            JobInfo processingJob3 = new JobInfo()
+            var processingJob3 = new JobInfo()
             {
                 Id = 4,
                 GroupId = 1,
                 Status = JobStatus.Running,
                 Result = JsonConvert.SerializeObject(processingJobResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
             };
 
             GetImportResponse result = await SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>() { processingJob1, processingJob2, processingJob3 });
@@ -180,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             _queueClient.GetJobByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(orchestratorJobInfo);
 
-            List<JobInfo> allJobs = new List<JobInfo>(processingJobInfos);
+            var allJobs = new List<JobInfo>(processingJobInfos);
             allJobs.Add(orchestratorJobInfo);
             _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(allJobs);
 
