@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -157,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -221,7 +222,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -286,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -365,7 +366,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -462,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -529,7 +530,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -596,7 +597,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -664,7 +665,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -731,7 +732,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1 }),
+                Options.Create(new Core.Configs.ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -820,7 +821,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Core.Configs.ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -886,7 +887,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = 1}),
+                Options.Create(new Core.Configs.ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
 
@@ -1008,7 +1009,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Configs.ImportTaskConfiguration()),
+                Options.Create(new ImportTaskConfiguration()),
                 loggerFactory);
             orchestratorJob.PollingPeriodSec = 0;
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
@@ -1136,7 +1137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration() { MaxRunningProcessingJobCount = concurrentCount}),
+                Options.Create(new Core.Configs.ImportTaskConfiguration()),
                 loggerFactory)
             {
                 PollingPeriodSec = 0,

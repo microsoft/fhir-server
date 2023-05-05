@@ -24,7 +24,7 @@ public interface ILegacyExportOperationDataStore
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>An instance of the existing export job.</returns>
     /// <exception cref="JobNotFoundException"> thrown when the specific <paramref name="id"/> is not found. </exception>
-    Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken);
+    Task<ExportJobOutcome> GetLegacyExportJobByIdAsync(string id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an existing export job.
@@ -33,7 +33,7 @@ public interface ILegacyExportOperationDataStore
     /// <param name="eTag">The eTag used for optimistic concurrency.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>An instance of the updated export job.</returns>
-    Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
+    Task<ExportJobOutcome> UpdateLegacyExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
 
     /// <summary>
     /// Acquires export jobs.
@@ -42,5 +42,5 @@ public interface ILegacyExportOperationDataStore
     /// <param name="jobHeartbeatTimeoutThreshold">The job heartbeat timeout threshold.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A list of acquired export job.</returns>
-    Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<ExportJobOutcome>> AcquireLegacyExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
 }
