@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(jobRecord => jobRecord.Status = OperationStatus.Completed);
             ReindexJobWrapper job = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, default);
 
-            var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType, null)
+            var reindexJobQueryStatus = new ReindexJobQueryStatus(resourceType)
             {
                 Error = queryListError,
                 FailureCount = new ReindexJobConfiguration().ConsecutiveFailuresThreshold,

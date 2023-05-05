@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";
 
-        public const string ContinuationToken = "continuationToken";
+        public const string ResourceReindexProgressByResource = "resourceReindexProgressByResource";
 
         public const string GroupId = "groupId";
 
@@ -134,8 +134,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TargetSearchParameterTypes = "targetSearchParameterTypes";
 
         public const string SearchParameterResourceTypes = "searchParameterResourceTypes";
-
-        public const string CreatedChild = "createdChild";
 
         public const string Till = "till";
 

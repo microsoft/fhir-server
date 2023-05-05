@@ -14,21 +14,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobQueryStatus
     {
-        public ReindexJobQueryStatus(string resourceType, string continuationToken)
+        public ReindexJobQueryStatus(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             ResourceType = resourceType;
-            ContinuationToken = continuationToken;
         }
 
         [JsonConstructor]
         protected ReindexJobQueryStatus()
         {
         }
-
-        [JsonProperty(JobRecordProperties.ContinuationToken)]
-        public string ContinuationToken { get; set; }
 
         /// <summary>
         /// The point at which to start a query
@@ -50,8 +46,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
-
-        [JsonProperty(JobRecordProperties.CreatedChild)]
-        public bool CreatedChild { get; set; }
     }
 }

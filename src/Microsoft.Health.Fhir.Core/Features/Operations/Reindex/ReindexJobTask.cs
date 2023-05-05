@@ -262,12 +262,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // Generate separate queries for each resource type and add them to query list.
+            // This is the starting point for what essentially kicks off the reindexing job
             foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
-                var query = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
+                var query = new ReindexJobQueryStatus(resourceType.Key)
                 {
                     LastModified = Clock.UtcNow,
                     Status = OperationStatus.Queued,
+                    StartResourceSurrogateId = GetSearchResultReindex(resourceType.Key).StartResourceSurrogateId,
                 };
                 _reindexJobRecord.QueryList.TryAdd(query, 1);
             }
@@ -441,20 +443,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
-                    // If continuation token then update next query but only if parent query haven't been in pipeline.
-                    // For cases like retry or stale query we don't want to start another chain.
-                    if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
-                    {
-                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
-                        var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
-                        {
-                            LastModified = Clock.UtcNow,
-                            Status = OperationStatus.Queued,
-                        };
-                        _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
-                        query.CreatedChild = true;
-                    }
-                    else if (results?.MaxResourceSurrogateId > 0 && !query.CreatedChild)
+                    // since reindex won't have a continuation token we need to check that
+                    // we have more to query by checking MaxResourceSurrogateId > 0 which means at least
+                    // one more query is needed. Note that the SearchBySurrogateIdRange only sets
+                    // MaxResourceSurrogateId if it has results otherwise it's 0
+                    if (results?.MaxResourceSurrogateId > 0)
                     {
                         SearchResultReindex searchResultReindex = GetSearchResultReindex(query.ResourceType);
                         searchResultReindex.CurrentResourceSurrogateId = results.MaxResourceSurrogateId;
@@ -462,16 +455,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // reindex has more work to do at this point
                         if (results.MaxResourceSurrogateId < searchResultReindex.EndResourceSurrogateId)
                         {
-                            // since reindex won't have a continuation token we need to check that
-                            // we have more to query by checking MaxResourceSurrogateId
-                            var nextQuery = new ReindexJobQueryStatus(query.ResourceType, null)
+                            var nextQuery = new ReindexJobQueryStatus(query.ResourceType)
                             {
                                 LastModified = Clock.UtcNow,
                                 Status = OperationStatus.Queued,
                                 StartResourceSurrogateId = results.MaxResourceSurrogateId + 1,
                             };
                             _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
-                            query.CreatedChild = true;
                         }
                     }
 
@@ -496,13 +486,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             _reindexJobRecord.Progress += results.Results.Count();
                             _logger.LogInformation("Reindex job updating progress, current result progress: {Progress}", _reindexJobRecord.Progress);
+                            SearchResultReindex searchResultReindex = GetSearchResultReindex(query.ResourceType);
+                            searchResultReindex.CountReindexed += (long)(results?.TotalCount != null ? results.TotalCount : 0);
                         }
 
                         query.Status = OperationStatus.Completed;
 
-                        // Remove oldest completed queryStatus object if count > 10
-                        // to ensure reindex job document doesn't grow too large
-                        if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).Count() > 10)
+                        // Remove oldest completed queryList item if count of all items > 10
+                        // Note that if there are numerous errors across many resource types then the json will be unnecessarily large
+                        if (_reindexJobRecord.QueryList.Count > 10)
                         {
                             var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
                             _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
@@ -634,13 +626,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // This should never be cosmos
             if (searchResultReindex != null && searchResultReindex.CurrentResourceSurrogateId > 0)
             {
-                // if queryStatus has value then it's a continuation otherwise first time for the resource type
-                long startResourceSurrogateId = Math.Max(queryStatus.StartResourceSurrogateId, searchResultReindex.CurrentResourceSurrogateId);
-
+                // Always use the queryStatus.StartResourceSurrogateId for the start of the range
+                // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine
+                // how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
+                // When this function returns, it knows what the next starting value to use in
+                // searching for the next block of results and will use that as the queryStatus starting point
                 queryParametersList.AddRange(new[]
                 {
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
-                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, startResourceSurrogateId.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, queryStatus.StartResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 });
 
@@ -648,11 +642,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
                 }
-            }
-
-            if (queryStatus.ContinuationToken != null)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
             }
 
             string searchParameterHash = string.Empty;
@@ -697,12 +686,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        /// <summary>
+        /// This is the starting point for how many resources per resource type are found
+        /// No change to these ResourceCounts occurs after this initial setup
+        /// We also store the total # of resources to be reindexed
+        /// </summary>
+        /// <returns>Task</returns>
         private async Task CalculateAndSetTotalAndResourceCounts()
         {
             long totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
             {
-                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                var queryForCount = new ReindexJobQueryStatus(resourceType)
                 {
                     LastModified = Clock.UtcNow,
                     Status = OperationStatus.Queued,
@@ -722,14 +717,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         StartResourceSurrogateId = reindexResults.StartResourceSurrogateId,
                     });
                 }
-                else if (searchResult?.TotalCount != null && searchResult.TotalCount.Value > 0)
-                {
-                    // No action needs to be taken if an entry for this resource fails to get added to the dictionary
-                    // We will reindex all resource types that do not have a dictionary entry
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex(searchResult.TotalCount.Value));
-                }
                 else
                 {
+                    // no resources found, so this becomes a no-op entry just to show we did look it up but found no resources
                     _reindexJobRecord.ResourceCounts.TryAdd(resourceType, new SearchResultReindex(0));
                 }
             }
@@ -748,7 +738,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (KeyValuePair<string, SearchResultReindex> resourceType in _reindexJobRecord.ResourceCounts.Where(e => e.Value.Count > 0))
             {
-                var queryForCount = new ReindexJobQueryStatus(resourceType.Key, continuationToken: null)
+                var queryForCount = new ReindexJobQueryStatus(resourceType.Key)
                 {
                     LastModified = Clock.UtcNow,
                     Status = OperationStatus.Queued,
