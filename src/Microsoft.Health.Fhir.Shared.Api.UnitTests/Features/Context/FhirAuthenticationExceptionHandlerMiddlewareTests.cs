@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.IdentityModel.S2S;
 using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -22,9 +21,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
     public class FhirAuthenticationExceptionHandlerMiddlewareTests
     {
         [Fact]
-        public async Task Invoke_WhenNextMiddlewareThrowsS2SAuthenticationExceptionWithInvalidAudience_ShouldThrowSecurityTokenInvalidAudienceException()
+        public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithInvalidAudience_ShouldThrowSecurityTokenInvalidAudienceException()
         {
-            var ex = new S2SAuthenticationException("Invalid audience", new SecurityTokenInvalidAudienceException("Invalid audience"));
+            var ex = new Exception("Invalid audience", new SecurityTokenInvalidAudienceException("Invalid audience"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
             next.Invoke(context).Throws(ex);
@@ -33,9 +32,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
-        public async Task Invoke_WhenNextMiddlewareThrowsS2SAuthenticationExceptionWithInvalidIssuer_ShouldThrowSecurityTokenInvalidIssuerException()
+        public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithInvalidIssuer_ShouldThrowSecurityTokenInvalidIssuerException()
         {
-            var ex = new S2SAuthenticationException("Invalid issuer", new SecurityTokenInvalidIssuerException("Invalid issuer"));
+            var ex = new Exception("Invalid issuer", new SecurityTokenInvalidIssuerException("Invalid issuer"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
             next.Invoke(context).Throws(ex);
@@ -44,14 +43,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
-        public async Task Invoke_WhenNextMiddlewareThrowsS2SAuthenticationExceptionWithOtherInnerException_ShouldRethrowException()
+        public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithOtherInnerException_ShouldRethrowException()
         {
-            var ex = new S2SAuthenticationException("Some error", new Exception("Some error"));
+            var ex = new Exception("Some error", new Exception("Some error"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
             next.Invoke(context).Throws(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
-            await Assert.ThrowsAsync<S2SAuthenticationException>(() => middleware.Invoke(context));
+            await Assert.ThrowsAsync<Exception>(() => middleware.Invoke(context));
         }
 
         [Fact]

@@ -3,10 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.IdentityModel.S2S;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             {
                 await _next(context);
             }
-            catch (S2SAuthenticationException ex)
+            catch (Exception ex)
             {
                 if (ex.InnerException is SecurityTokenInvalidAudienceException || ex.InnerException is SecurityTokenInvalidIssuerException)
                 {
