@@ -18,6 +18,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                    || HasDeadlockErrorPattern(str);
         }
 
+        internal static bool IsExecutionTimeout(this Exception e)
+        {
+            var str = e.ToString().ToLowerInvariant();
+            return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool HasDeadlockErrorPattern(string str)
         {
             return str.Contains("deadlock", StringComparison.OrdinalIgnoreCase);

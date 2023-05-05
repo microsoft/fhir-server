@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// <summary>
     /// Import job input payload
     /// </summary>
-    public class ImportOrchestratorJobInputData : IJobData
+    public class ImportOrchestratorJobDefinition : IJobData
     {
         public int TypeId { get; set; }
 
@@ -46,15 +46,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Resource storage details.
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; set; }
-
-        /// <summary>
-        /// Job create time.
-        /// </summary>
-        public DateTimeOffset CreateTime { get; set; }
-
-        /// <summary>
-        /// Start sequence id
-        /// </summary>
-        public long StartSequenceId { get; set; }
     }
 }
