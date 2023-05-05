@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
@@ -33,9 +34,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
             catch (Exception ex)
             {
-                if (ex.InnerException is SecurityTokenInvalidAudienceException || ex.InnerException is SecurityTokenInvalidIssuerException)
+                if (ex.InnerException is SecurityTokenException)
                 {
-                    throw ex.InnerException;
+                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
                 }
                 else
                 {
