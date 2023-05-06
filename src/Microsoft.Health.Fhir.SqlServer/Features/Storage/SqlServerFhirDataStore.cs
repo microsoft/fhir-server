@@ -15,7 +15,6 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -26,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -215,8 +213,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
-                        var surrId = surrIdBase + minSequenceId + index;
-                        ReplaceVersionIdInMeta(resource);
+                        var surrId = _schemaInformation.Current >= SchemaVersionConstants.IncrementalImport ? surrIdBase + minSequenceId + index : minSurrId + index;
+                        if (_schemaInformation.Current >= SchemaVersionConstants.IncrementalImport)
+                        {
+                            ReplaceVersionIdInMeta(resource);
+                        }
+                        else
+                        {
+                            ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                        }
+
                         mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
@@ -519,10 +525,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);
-            var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(sequenceParam);
+            SqlParameter sequenceParam = null;
+            if (_schemaInformation.Current >= SchemaVersionConstants.IncrementalImport)
+            {
+                sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                cmd.Parameters.Add(sequenceParam);
+            }
+
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return ((long)surrogateIdParam.Value, (int)sequenceParam.Value);
+            return _schemaInformation.Current >= SchemaVersionConstants.IncrementalImport ? ((long)surrogateIdParam.Value, (int)sequenceParam.Value) : ((long)surrogateIdParam.Value, 0);
         }
 
         internal async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, CancellationToken cancellationToken)
