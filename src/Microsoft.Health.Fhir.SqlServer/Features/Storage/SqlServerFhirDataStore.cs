@@ -220,6 +220,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else
                         {
+                            resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                             ReplaceVersionIdAndLastUpdatedInMeta(resource);
                         }
 
