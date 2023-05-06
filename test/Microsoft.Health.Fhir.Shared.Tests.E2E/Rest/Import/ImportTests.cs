@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            request.Mode = ImportConstants.InitialLoadMode;
+            request.Mode = ImportMode.InitialLoad.ToString();
             request.Force = true;
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.StartsWith(ForbiddenMessage, fhirException.Message);

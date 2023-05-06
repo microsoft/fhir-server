@@ -93,12 +93,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
-            if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
+            var initialLoad = ImportMode.InitialLoad.ToString().Equals(importRequest.Mode, StringComparison.OrdinalIgnoreCase);
+            if (!initialLoad
+                && !ImportMode.IncrementalLoad.ToString().Equals(importRequest.Mode, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(importRequest.Mode))
             {
-                throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
+                throw new RequestNotValidException(Resources.ImportModeIsNotRecognized);
             }
 
-            if (!importRequest.Force && !_importConfig.InitialImportMode)
+            if (initialLoad && !importRequest.Force && !_importConfig.InitialImportMode)
             {
                 throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
             }
@@ -109,6 +112,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.InputSource,
                  importRequest.Input,
                  importRequest.StorageDetail,
+                 initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();

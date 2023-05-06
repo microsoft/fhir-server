@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 await _model.EnsureInitialized();
 
-                long succeedCount = 0;
+                long succeededCount = 0;
                 long failedCount = 0;
                 long processedBytes = 0;
                 long currentIndex = -1;
@@ -70,12 +70,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeedCount, ref failedCount, ref processedBytes);
+                    ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
                 }
 
-                ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeedCount, ref failedCount, ref processedBytes);
+                ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
 
-                return await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, failedCount, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
             }
             finally
             {
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, CancellationToken cancellationToken, ref long succeedCount, ref long failedCount, ref long processedBytes)
+        private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount, ref long processedBytes)
         {
             var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
             var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             errors.AddRange(resourcesWithError.Select(r => r.ImportError));
             AppendDuplicateErrorsToBuffer(dupsNotMerged, errors);
 
-            succeedCount += mergedResources.Count();
+            succeededCount += mergedResources.Count();
             failedCount += resourcesWithError.Count() + dupsNotMerged.Count();
             processedBytes += resources.Sum(_ => (long)_.Length);
 
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, CancellationToken cancellationToken)
+        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, CancellationToken cancellationToken)
         {
             try
             {
@@ -122,12 +122,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
 
             var progress = new ImportProcessingProgress();
-            progress.SucceededResources = succeedCount;
+            progress.SucceededResources = succeededCount;
             progress.FailedResources = failedCount;
             progress.ProcessedBytes = processedBytes;
             progress.CurrentIndex = lastIndex + 1;
 
-            // Return progress for checkpoint progress
             return progress;
         }
     }

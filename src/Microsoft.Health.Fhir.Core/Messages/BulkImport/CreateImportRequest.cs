@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Import
@@ -18,7 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             string inputFormat,
             Uri inputSource,
             IReadOnlyList<InputResource> input,
-            ImportRequestStorageDetail storageDetail)
+            ImportRequestStorageDetail storageDetail,
+            ImportMode importMode)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -27,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             InputSource = inputSource;
             Input = input;
             StorageDetail = storageDetail;
+            ImportMode = importMode;
         }
 
         /// <summary>
@@ -53,5 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Storage details
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; }
+
+        /// <summary>
+        /// Import mode
+        /// </summary>
+        public ImportMode ImportMode { get; }
     }
 }

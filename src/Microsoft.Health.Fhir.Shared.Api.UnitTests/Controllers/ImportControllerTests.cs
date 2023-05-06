@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = false });
 
-            body.Mode = ImportConstants.InitialLoadMode;
+            body.Mode = ImportMode.InitialLoad.ToString();
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
@@ -69,16 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
-            body.Mode = ImportConstants.InitialLoadMode;
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
-        }
-
-        [Theory]
-        [MemberData(nameof(ValidBody), MemberType = typeof(ImportControllerTests))]
-        public async Task GivenAnBulkImportRequest_WhenRequestWithoutMode_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
-        {
-            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
-
+            body.Mode = ImportMode.InitialLoad.ToString();
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
@@ -88,11 +80,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Parameters parameters = null;
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(parameters));
-        }
-
-        private static CreateImportResponse CreateBulkImportResponse()
-        {
-            return new CreateImportResponse("123");
         }
 
         private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
