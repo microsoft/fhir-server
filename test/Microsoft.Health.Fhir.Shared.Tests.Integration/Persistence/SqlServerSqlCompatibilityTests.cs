@@ -80,58 +80,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgradedAndMergeDisabled_WhenUpsertingAfter_OperationSucceeds()
-        {
-            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-            var insertedElements = new List<string>();
-
-            FhirStorageTestsFixture fhirStorageTestsFixture = null;
-            try
-            {
-                for (int i = Math.Max(SchemaVersionConstants.Merge, SchemaVersionConstants.Max - 5); i <= SchemaVersionConstants.Max; i++)
-                {
-                    try
-                    {
-                        fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
-                        await fhirStorageTestsFixture.InitializeAsync(); // this will either create the database or upgrade the schema.
-
-                        await fhirStorageTestsFixture.SqlHelper.ExecuteSqlCmd($"INSERT INTO dbo.Parameters (Id, Number) SELECT '{SqlServerFhirDataStore.MergeResourcesDisabledFlagId}', 1");
-
-                        Mediator mediator = fhirStorageTestsFixture.Mediator;
-
-                        foreach (string id in insertedElements)
-                        {
-                            // verify that we can read entries from previous versions
-                            var readResult = (await mediator.GetResourceAsync(new ResourceKey("Observation", id))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
-                            Assert.Equal(id, readResult.Id);
-                        }
-
-                        // add a new entry
-
-                        var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                        var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
-                        var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
-
-                        Assert.NotNull(result);
-                        Assert.Equal(deserialized.Id, result.Id);
-                        insertedElements.Add(result.Id);
-                    }
-                    catch (Exception e)
-                    {
-                        throw new InvalidOperationException($"Failure using schema version {i}", e);
-                    }
-                }
-            }
-            finally
-            {
-                if (fhirStorageTestsFixture != null)
-                {
-                    await fhirStorageTestsFixture.DisposeAsync();
-                }
-            }
-        }
-
         /// <summary>
         /// A basic smoke test verifying that the code is compatible with schema versions
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
