@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -213,17 +212,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
-                        var surrId = _schemaInformation.Current >= SchemaVersionConstants.IncrementalImport ? surrIdBase + minSequenceId + index : minSurrId + index;
-                        if (_schemaInformation.Current >= SchemaVersionConstants.IncrementalImport)
-                        {
-                            ReplaceVersionIdInMeta(resource);
-                        }
-                        else
-                        {
-                            resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                            ReplaceVersionIdAndLastUpdatedInMeta(resource);
-                        }
-
+                        var surrId = surrIdBase + minSequenceId + index;
+                        ReplaceVersionIdInMeta(resource);
                         mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
@@ -413,7 +403,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
         }
 
-        // TODO: Remove when Merge is min supported version
         private static string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
         {
             var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
@@ -430,26 +419,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
             var rawResourceData = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal);
-            resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
-        }
-
-        private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
-        {
-            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
-            string rawResourceData;
-            if (resourceWrapper.Version == InitialVersion) // version is already correct
-            {
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
-            }
-            else
-            {
-                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
-            }
-
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
@@ -526,15 +495,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(surrogateIdParam);
-            SqlParameter sequenceParam = null;
-            if (_schemaInformation.Current >= SchemaVersionConstants.IncrementalImport)
-            {
-                sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                cmd.Parameters.Add(sequenceParam);
-            }
-
+            var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(sequenceParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return _schemaInformation.Current >= SchemaVersionConstants.IncrementalImport ? ((long)surrogateIdParam.Value, (int)sequenceParam.Value) : ((long)surrogateIdParam.Value, 0);
+            return ((long)surrogateIdParam.Value, (int)sequenceParam.Value);
         }
 
         internal async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, CancellationToken cancellationToken)
