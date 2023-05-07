@@ -9,16 +9,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long index, long offset, int length, ResourceWrapper resourceWrapper)
+        public ImportResource(long index, long offset, int length, bool honorVersion, ResourceWrapper resourceWrapper)
         {
             Index = index;
             Offset = offset;
             Length = length;
+            HonorVersion = honorVersion;
             ResourceWrapper = resourceWrapper;
         }
 
         public ImportResource(ResourceWrapper resource)
-            : this(0, 0, 0, resource)
+            : this(0, 0, 0, false, resource)
         {
         }
 
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Index = index;
             Offset = offset;
             Length = 0;
+            HonorVersion = false;
             ImportError = importError;
         }
 
@@ -44,6 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Json length including EOL
         /// </summary>
         public int Length { get; set; }
+
+        /// <summary>
+        /// Flag indicating whether version was provided on input
+        /// </summary>
+        public bool HonorVersion { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content

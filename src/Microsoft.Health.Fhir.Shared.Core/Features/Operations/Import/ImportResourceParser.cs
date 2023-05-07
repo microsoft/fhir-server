@@ -41,10 +41,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 resource.Meta.LastUpdated = Clock.UtcNow;
             }
 
+            var honorVersion = true;
+            if (resource.Meta.VersionId == null)
+            {
+                resource.Meta.VersionId = "1";
+                honorVersion = false;
+            }
+
             var resourceElement = resource.ToResourceElement();
             var resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new ImportResource(index, offset, length, resourceWapper);
+            return new ImportResource(index, offset, length, honorVersion, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)

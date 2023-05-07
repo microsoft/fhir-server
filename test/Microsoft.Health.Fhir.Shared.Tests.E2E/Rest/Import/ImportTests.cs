@@ -47,6 +47,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenIninitoalLoad_ThenInputLastUpdatedAndVersionShouldBeHonored()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+            ndJson = ndJson + ndJson;
+            ndJson = ndJson.Replace("##PatientID##", id);
+            var versionId = 1.ToString(); // TODO: Replace by 2 when code is ready
+            ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{versionId}\"");
+            var lastUpdated = DateTimeOffset.Parse("2020-01-01T00:00+00:00");
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Patient",
+                    },
+                },
+                Mode = "InitialLoad",
+            };
+
+            await ImportCheckAsync(request, null, 1);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.Equal(id, result.Resource.Id);
+            Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
+            Assert.Equal(versionId, result.Resource.Meta.VersionId);
+        }
+
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
         {
@@ -579,7 +616,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
             HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }

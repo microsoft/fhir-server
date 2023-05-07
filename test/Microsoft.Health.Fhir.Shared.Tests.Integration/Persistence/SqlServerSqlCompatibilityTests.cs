@@ -12,7 +12,6 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -56,7 +55,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         }
 
                         // add a new entry
-
                         var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
                         var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
                         var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);

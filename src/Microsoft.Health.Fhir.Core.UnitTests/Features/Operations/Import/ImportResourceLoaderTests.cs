@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             content,
                             "0",
                             "Dummy",
-                            new RawResource(content, Fhir.Core.Models.FhirResourceFormat.Json, true),
+                            new RawResource(content, Core.Models.FhirResourceFormat.Json, true),
                             new ResourceRequest("POST"),
                             DateTimeOffset.UtcNow,
                             false,
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(index, 0, 0, resourceWrapper);
+                    return new ImportResource(index, 0, 0, false, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
