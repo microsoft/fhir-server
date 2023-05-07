@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(
-                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()), // First call checks how many resources need to be reindexed
+                    CreateSearchResultCountOnly(_mockedSearchCount, expectedResourceType), // First call checks how many resources need to be reindexed
                     new SearchResult(0, new List<Tuple<string, string>>())); // Second call checks that there are no resources left to be reindexed
 
             _searchService.SearchForReindexAsync(
@@ -134,9 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(_mockedSearchCount, job.Count);
             Assert.Equal(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
-            Assert.Collection(
-                job.QueryList.Keys,
-                item => Assert.True(item.Status == OperationStatus.Completed));
+            Assert.Collection(job.QueryList.Keys, item => Assert.True(item.Status == OperationStatus.Completed));
 
             param.IsSearchable = true;
         }
@@ -169,8 +167,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(
-                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()), // First two calls check how many resources need to be reindexed
-                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()),
+                    CreateSearchResultCountOnly(_mockedSearchCount, "Appointment"),
+                    CreateSearchResultCountOnly(_mockedSearchCount, "AppointmentResponse"),
                     new SearchResult(0, new List<Tuple<string, string>>()), // Last two calls check that there are no resources left to be reindexed
                     new SearchResult(0, new List<Tuple<string, string>>()));
 
@@ -322,7 +320,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             }
 
             var searchResult = new SearchResult(resultList, null, null, new List<Tuple<string, string>>());
-            searchResult.MaxResourceSurrogateId = 1;
+
+            return searchResult;
+        }
+
+        private static SearchResult CreateSearchResultCountOnly(int searchResultCount, string resourceType)
+        {
+            var searchResult = new SearchResult(searchResultCount, new List<Tuple<string, string>>());
+            searchResult.ReindexResult = new SearchResultReindex()
+            {
+                Count = searchResultCount,
+                StartResourceSurrogateId = 1,
+                EndResourceSurrogateId = int.MaxValue,
+                CurrentResourceSurrogateId = 1,
+            };
+
             return searchResult;
         }
 
