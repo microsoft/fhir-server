@@ -15,8 +15,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
@@ -27,26 +25,20 @@ using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorJobDataStoreOperation
+    public class SqlImportOperation : IImportOrchestratorJobDataStoreOperation
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private ISqlServerFhirModel _model;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
         private ILogger<SqlImportOperation> _logger;
-        private IFhirDataStore _store;
 
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            IFhirDataStore store,
-            ISqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,
             ILogger<SqlImportOperation> logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            _store = EnsureArg.IsNotNull(store, nameof(store));
-            _model = EnsureArg.IsNotNull(model, nameof(model));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -55,21 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalUniqueIndexesForImport { get; private set; }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalIndexesForImport { get; private set; }
-
-        public async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false)).ToList();
-                var result = await _store.MergeAsync(input, cancellationToken);
-                return resources;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "MergeResourcesAsync failed.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-        }
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> UniqueIndexesList()
         {

@@ -15,26 +15,28 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlImporter : IImporter
     {
         private readonly SqlServerFhirModel _model;
-        private readonly ISqlImportOperation _sqlImportOperation;
+        private readonly IFhirDataStore _store;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly IImportErrorSerializer _importErrorSerializer;
         private readonly ILogger<SqlImporter> _logger;
 
         public SqlImporter(
-            ISqlImportOperation sqlImportOperation,
+            IFhirDataStore store,
             SqlServerFhirModel model,
             IImportErrorSerializer importErrorSerializer,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImporter> logger)
         {
-            _sqlImportOperation = EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
+            _store = EnsureArg.IsNotNull(store, nameof(store));
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
@@ -88,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
             var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-            var mergedResources = _sqlImportOperation.MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
+            var mergedResources = MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
             var dupsNotMerged = resourcesWithoutError.Except(resourcesDedupped);
 
             errors.AddRange(resourcesWithError.Select(r => r.ImportError));
@@ -99,6 +101,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             processedBytes += resources.Sum(_ => (long)_.Length);
 
             resources.Clear();
+        }
+
+        private async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false)).ToList();
+                var result = await _store.MergeAsync(input, cancellationToken);
+                return resources;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "MergeResourcesAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
         }
 
         private void AppendDuplicateErrorsToBuffer(IEnumerable<ImportResource> resources, List<string> importErrorBuffer)

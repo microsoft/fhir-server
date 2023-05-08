@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson + ndJson;
             ndJson = ndJson.Replace("##PatientID##", id);
-            var versionId = 1.ToString(); // TODO: Replace by 2 when code is ready
+            var versionId = 1.ToString(); // TODO: Replace by 2 when code is ready "value\":\"654321\"
             ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{versionId}\"");
             var lastUpdated = DateTimeOffset.Parse("2020-01-01T00:00+00:00");
             (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
