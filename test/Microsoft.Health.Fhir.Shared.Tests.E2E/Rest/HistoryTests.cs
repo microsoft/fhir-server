@@ -370,7 +370,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             AssertCount(11, readResponse);
 
-            var obsHistory = readResponse.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
+            // Making sure the observation was updated properly.
+            var obsHistory = readResponse.Where(o => o.Resource.Id == _createdResource.Resource.Id).ToList()[0].Resource as Observation;
             Assert.NotNull(obsHistory);
             Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 
