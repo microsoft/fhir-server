@@ -56,26 +56,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public IReadOnlyList<(Table table, Index index, bool pageCompression)> OptionalIndexesForImport { get; private set; }
 
-        public static IReadOnlyList<string> SearchParameterTables { get; } =
-            new List<string>()
-            {
-                VLatest.CompartmentAssignment.TableName,
-                VLatest.ReferenceSearchParam.TableName,
-                VLatest.TokenSearchParam.TableName,
-                VLatest.TokenText.TableName,
-                VLatest.StringSearchParam.TableName,
-                VLatest.UriSearchParam.TableName,
-                VLatest.NumberSearchParam.TableName,
-                VLatest.QuantitySearchParam.TableName,
-                VLatest.DateTimeSearchParam.TableName,
-                VLatest.ReferenceTokenCompositeSearchParam.TableName,
-                VLatest.TokenTokenCompositeSearchParam.TableName,
-                VLatest.TokenDateTimeCompositeSearchParam.TableName,
-                VLatest.TokenQuantityCompositeSearchParam.TableName,
-                VLatest.TokenStringCompositeSearchParam.TableName,
-                VLatest.TokenNumberNumberCompositeSearchParam.TableName,
-            };
-
         public async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
         {
             try
