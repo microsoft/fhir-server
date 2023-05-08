@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -631,7 +630,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void LogReindexJobRecordErrorMessage()
         {
-            var ser = JsonConvert.SerializeObject(_reindexJobRecord);
+            var ser = System.Text.Json.JsonSerializer.Serialize(_reindexJobRecord);
             _logger.LogError($"ReindexJob Error: Current ReindexJobRecord: {ser}");
         }
 
