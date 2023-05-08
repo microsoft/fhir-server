@@ -10,20 +10,21 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public abstract class Watchdog<T> : FhirTimer<T>
     {
-        private Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly IBackgroundScopeProvider<SqlConnectionWrapperFactory> _sqlConnectionWrapperFactory;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private bool _disposed = false;
         private double _periodSec;
         private double _leasePeriodSec;
 
-        protected Watchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<T> logger)
+        protected Watchdog(IBackgroundScopeProvider<SqlConnectionWrapperFactory> sqlConnectionWrapperFactory, ILogger<T> logger)
             : base(logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));

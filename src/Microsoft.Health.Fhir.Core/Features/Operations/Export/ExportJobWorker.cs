@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -23,15 +25,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ExportJobWorker : INotificationHandler<StorageInitializedNotification>
     {
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly IBackgroundScopeProvider<IFhirOperationDataStore> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly Func<IExportJobTask> _exportJobTaskFactory;
+        private readonly IBackgroundScopeProvider<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
         private bool _storageReady;
 
         private const int MaximumDelayInSeconds = 3600;
 
-        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public ExportJobWorker(IBackgroundScopeProvider<IFhirOperationDataStore> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, IBackgroundScopeProvider<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -46,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            var runningTasks = new List<Task>();
+            var runningTasks = new List<(Task Task, IScoped<IExportJobTask> Scope)>();
             TimeSpan delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
 
             while (!cancellationToken.IsCancellationRequested)
@@ -56,25 +58,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     try
                     {
                         // Remove all completed tasks.
-                        runningTasks.RemoveAll(task => task.IsCompleted);
+                        foreach (var task in runningTasks.Where(task => task.Task.IsCompleted).ToList())
+                        {
+                            task.Scope.Dispose();
+                            runningTasks.Remove(task);
+                        }
 
                         // Get list of available jobs.
                         if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance)
                         {
-                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                            using IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke();
+                            ushort numberOfJobsToAcquire = (ushort)(_exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance - runningTasks.Count);
+                            IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
+                                numberOfJobsToAcquire,
+                                _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                cancellationToken);
+
+                            foreach (ExportJobOutcome job in jobs)
                             {
-                                ushort numberOfJobsToAcquire = (ushort)(_exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance - runningTasks.Count);
-                                IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                    numberOfJobsToAcquire,
-                                    _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
-                                    cancellationToken);
+                                _logger.LogTrace("Picked up job: {JobId}.", job.JobRecord.Id);
 
-                                foreach (ExportJobOutcome job in jobs)
-                                {
-                                    _logger.LogTrace("Picked up job: {JobId}.", job.JobRecord.Id);
-
-                                    runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
-                                }
+                                IScoped<IExportJobTask> taskScope = _exportJobTaskFactory.Invoke();
+                                runningTasks.Add((taskScope.Value.ExecuteAsync(job.JobRecord, job.ETag, cancellationToken), taskScope));
                             }
                         }
 

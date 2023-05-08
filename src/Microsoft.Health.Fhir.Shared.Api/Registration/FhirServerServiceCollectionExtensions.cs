@@ -9,6 +9,8 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using EnsureThat;
+using MediatR;
+using MediatR.Pipeline;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +28,8 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Api.Modules;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
@@ -91,6 +95,25 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
+
+            services.AddMediatR(cfg =>
+                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All)
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPreProcessorBehavior<,>))
+                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPostProcessorBehavior<,>)));
+
+            // Allows handlers to provide capabilities
+            var openRequestInterfaces = new[]
+            {
+                typeof(IRequestHandler<,>),
+                typeof(INotificationHandler<>),
+            };
+
+            services.TypesInSameAssembly(KnownAssemblies.All)
+                .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
+                .Transient()
+                .AsImplementedInterfaces(x => x == typeof(IProvideCapability));
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
 

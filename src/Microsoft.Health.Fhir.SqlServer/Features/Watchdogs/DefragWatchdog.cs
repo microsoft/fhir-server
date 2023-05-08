@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
@@ -27,13 +28,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private int _heartbeatTimeoutSec;
         private CancellationToken _cancellationToken;
 
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
-        private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
+        private readonly IBackgroundScopeProvider<SqlConnectionWrapperFactory> _sqlConnectionWrapperFactory;
+        private readonly IBackgroundScopeProvider<SqlQueueClient> _sqlQueueClient;
         private readonly ILogger<DefragWatchdog> _logger;
 
         public DefragWatchdog(
-            Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
-            Func<IScoped<SqlQueueClient>> sqlQueueClient,
+            IBackgroundScopeProvider<SqlConnectionWrapperFactory> sqlConnectionWrapperFactory,
+            IBackgroundScopeProvider<SqlQueueClient> sqlQueueClient,
             ILogger<DefragWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
         {

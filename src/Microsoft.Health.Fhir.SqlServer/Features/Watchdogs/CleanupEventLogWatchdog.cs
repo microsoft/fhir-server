@@ -3,26 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
     {
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly IBackgroundScopeProvider<SqlConnectionWrapperFactory> _sqlConnectionWrapperFactory;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
         private CancellationToken _cancellationToken;
         private const double _periodSec = 12 * 3600;
         private const double _leasePeriodSec = 3600;
 
-        public CleanupEventLogWatchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<CleanupEventLogWatchdog> logger)
+        public CleanupEventLogWatchdog(IBackgroundScopeProvider<SqlConnectionWrapperFactory> sqlConnectionWrapperFactory, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));

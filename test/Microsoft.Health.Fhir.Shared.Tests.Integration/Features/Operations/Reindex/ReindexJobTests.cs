@@ -864,9 +864,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
 
             _reindexJobWorker = new ReindexJobWorker(
-                () => _scopedOperationDataStore,
+                _scopedOperationDataStore.CreateMockBackgroundScopeProviderFromScoped(),
                 Options.Create(_jobConfiguration),
-                InitializeReindexJobTask,
+                InitializeReindexJobTask(),
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
@@ -905,7 +905,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return searchParam;
         }
 
-        private ReindexJobTask InitializeReindexJobTask()
+        private IBackgroundScopeProvider<IReindexJobTask> InitializeReindexJobTask()
         {
             return new ReindexJobTask(
                 () => _scopedOperationDataStore,
@@ -917,7 +917,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _contextAccessor,
                 _throttleController,
                 ModelInfoProvider.Instance,
-                NullLogger<ReindexJobTask>.Instance);
+                NullLogger<ReindexJobTask>.Instance).CreateMockBackgroundScopeProvider<IReindexJobTask>();
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
@@ -1001,7 +1001,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var mediator = new Mediator(services);
 
-            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockBackgroundScopeProviderFromScoped(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

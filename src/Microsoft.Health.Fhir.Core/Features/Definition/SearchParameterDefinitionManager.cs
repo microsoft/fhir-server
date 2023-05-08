@@ -18,6 +18,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -35,13 +36,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IMediator _mediator;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IBackgroundScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ILogger _logger;
 
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IBackgroundScopeProvider<ISearchService> searchServiceFactory,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private const double TimeoutFactor = 0.25;
         private readonly object _locker = new object();
 
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly IBackgroundScopeProvider<SqlConnectionWrapperFactory> _sqlConnectionWrapperFactory;
         private readonly ILogger<T> _logger;
         private DateTime _leaseEndTime;
         private double _leaseTimeoutSec;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly string _watchdogName;
         private bool _allowRebalance;
 
-        internal WatchdogLease(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<T> logger)
+        internal WatchdogLease(IBackgroundScopeProvider<SqlConnectionWrapperFactory> sqlConnectionWrapperFactory, ILogger<T> logger)
             : base(logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));

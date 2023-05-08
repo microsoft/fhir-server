@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -24,17 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     /// </summary>
     public class ReindexJobWorker : INotificationHandler<SearchParametersInitializedNotification>
     {
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly IBackgroundScopeProvider<IFhirOperationDataStore> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
-        private readonly Func<IReindexJobTask> _reindexJobTaskFactory;
+        private readonly IBackgroundScopeProvider<IReindexJobTask> _reindexJobTaskFactory;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger _logger;
         private bool _searchParametersInitialized = false;
 
         public ReindexJobWorker(
-            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            IBackgroundScopeProvider<IFhirOperationDataStore> fhirOperationDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
-            Func<IReindexJobTask> reindexJobTaskFactory,
+            IBackgroundScopeProvider<IReindexJobTask> reindexJobTaskFactory,
             ISearchParameterOperations searchParameterOperations,
             ILogger<ReindexJobWorker> logger)
         {
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
-            var runningTasks = new List<Task>();
+            var runningTasks = new List<(Task Task, IScoped<IReindexJobTask> Scope)>();
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -78,26 +79,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     try
                     {
                         // Remove all completed tasks.
-                        runningTasks.RemoveAll(task => task.IsCompleted);
+                        foreach (var task in runningTasks.Where(task => task.Task.IsCompleted).ToList())
+                        {
+                            task.Scope.Dispose();
+                            runningTasks.Remove(task);
+                        }
 
                         // Get list of available jobs.
                         if (runningTasks.Count < _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                         {
-                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke())
+                            using IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke();
+                            _logger.LogTrace("Querying datastore for reindex jobs.");
+
+                            IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
+                                _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                cancellationToken);
+
+                            foreach (ReindexJobWrapper job in jobs)
                             {
-                                _logger.LogTrace("Querying datastore for reindex jobs.");
+                                _logger.LogTrace("Picked up reindex job: {JobId}.", job.JobRecord.Id);
 
-                                IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
-                                    _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
-                                    _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
-                                    cancellationToken);
-
-                                foreach (ReindexJobWrapper job in jobs)
-                                {
-                                    _logger.LogTrace("Picked up reindex job: {JobId}.", job.JobRecord.Id);
-
-                                    runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
-                                }
+                                IScoped<IReindexJobTask> scope = _reindexJobTaskFactory.Invoke();
+                                runningTasks.Add((scope.Value.ExecuteAsync(job.JobRecord, job.ETag, cancellationToken), scope));
                             }
                         }
                     }

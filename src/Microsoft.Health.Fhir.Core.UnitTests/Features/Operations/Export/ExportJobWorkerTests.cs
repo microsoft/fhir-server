@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
-        private readonly Func<IExportJobTask> _exportJobTaskFactory = Substitute.For<Func<IExportJobTask>>();
+        private readonly IScoped<IExportJobTask> _exportJobTaskFactory = Substitute.For<IScoped<IExportJobTask>>();
         private readonly IExportJobTask _task = Substitute.For<IExportJobTask>();
 
         private readonly ExportJobWorker _exportJobWorker;
@@ -48,14 +49,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.JobHeartbeatTimeoutThreshold = DefaultJobHeartbeatTimeoutThreshold;
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
-            _exportJobTaskFactory().Returns(_task);
+            _exportJobTaskFactory.Value.Returns(_task);
+
             var scopedOperationDataStore = Substitute.For<IScoped<IFhirOperationDataStore>>();
             scopedOperationDataStore.Value.Returns(_fhirOperationDataStore);
 
             _exportJobWorker = new ExportJobWorker(
-                () => scopedOperationDataStore,
+                scopedOperationDataStore.CreateMockBackgroundScopeProviderFromScoped(),
                 Options.Create(_exportJobConfiguration),
-                _exportJobTaskFactory,
+                _exportJobTaskFactory.CreateMockBackgroundScopeProviderFromScoped(),
                 NullLogger<ExportJobWorker>.Instance);
 
             _exportJobWorker.Handle(new StorageInitializedNotification(), CancellationToken.None);
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobWorker.ExecuteAsync(_cancellationToken);
 
-            _exportJobTaskFactory().Received(1);
+            _exportJobTaskFactory.Value.Received(1);
         }
 
         [Fact]

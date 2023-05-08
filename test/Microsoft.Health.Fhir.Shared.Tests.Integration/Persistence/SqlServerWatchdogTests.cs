@@ -54,8 +54,8 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
 
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
-                () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
-                () => queueClient.CreateMockScope(),
+                _fixture.SqlConnectionWrapperFactory.CreateMockBackgroundScopeProvider(),
+                queueClient.CreateMockBackgroundScopeProvider(),
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
@@ -104,7 +104,7 @@ END
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount()}.");
 
             var wd = new CleanupEventLogWatchdog(
-                () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
+                _fixture.SqlConnectionWrapperFactory.CreateMockBackgroundScopeProvider(),
                 XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();

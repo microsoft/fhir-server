@@ -21,6 +21,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 
@@ -31,16 +32,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// </summary>
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
     {
-        private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private static HashSet<string> _supportedTypes = new() { "ValueSet", "StructureDefinition", "CodeSystem" };
+        private readonly IBackgroundScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly IMediator _mediator;
-        private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
+        private List<ArtifactSummary> _summaries = new();
         private DateTime _expirationTime;
-        private object _lockSummaries = new object();
+        private readonly object _lockSummaries = new();
 
         public ServerProvideProfileValidation(
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IBackgroundScopeProvider<ISearchService> searchServiceFactory,
             IOptions<ValidateOperationConfiguration> options,
             IMediator mediator)
         {
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private async Task<List<ArtifactSummary>> GetSummaries()
         {
             var result = new Dictionary<string, ArtifactSummary>();
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            using (IScoped<ISearchService> searchService = _searchServiceFactory.Invoke())
             {
                 foreach (var type in _supportedTypes)
                 {
