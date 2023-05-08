@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
             Results = results;
+            TotalCount = results.Count();
             UnsupportedSearchParameters = unsupportedSearchParameters;
             ContinuationToken = continuationToken;
             SortOrder = sortOrder;
