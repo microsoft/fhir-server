@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                         var searchValue = (TSearchValue)v.Value;
 
                         // save an array allocation
-                        if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, resultsForDedupping, out TRow row))
+                        if (TryGenerateRow(typeId, merge.ResourceWrapper.ResourceSurrogateId, searchParamId, searchValue, resultsForDedupping, out TRow row))
                         {
                             yield return row;
                         }
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (TryGenerateRow(typeId, merge.ResourceSurrogateId, searchParamId, searchValue, resultsForDedupping, out TRow row))
+                            if (TryGenerateRow(typeId, merge.ResourceWrapper.ResourceSurrogateId, searchParamId, searchValue, resultsForDedupping, out TRow row))
                             {
                                 yield return row;
                             }

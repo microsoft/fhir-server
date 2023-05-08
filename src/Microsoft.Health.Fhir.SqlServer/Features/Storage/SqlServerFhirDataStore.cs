@@ -214,7 +214,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                         var surrId = surrIdBase + minSequenceId + index;
                         ReplaceVersionIdInMeta(resource);
-                        mergeWrappers.Add(new MergeResourceWrapper(resource, surrId, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
+                        resource.ResourceSurrogateId = surrId;
+                        mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
                     }

@@ -9,12 +9,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long index, long offset, int length, bool honorVersion, ResourceWrapper resourceWrapper)
+        public ImportResource(long index, long offset, int length, bool keepVersion, ResourceWrapper resourceWrapper)
         {
             Index = index;
             Offset = offset;
             Length = length;
-            HonorVersion = honorVersion;
+            KeepVersion = keepVersion;
             ResourceWrapper = resourceWrapper;
         }
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Index = index;
             Offset = offset;
             Length = 0;
-            HonorVersion = false;
+            KeepVersion = false;
             ImportError = importError;
         }
 
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Flag indicating whether version was provided on input
         /// </summary>
-        public bool HonorVersion { get; set; }
+        public bool KeepVersion { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content

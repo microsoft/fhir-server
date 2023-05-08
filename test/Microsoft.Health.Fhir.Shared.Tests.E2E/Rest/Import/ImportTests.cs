@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenIninitoalLoad_ThenInputLastUpdatedAndVersionShouldBeHonored()
+        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKep()
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");

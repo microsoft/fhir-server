@@ -46,9 +46,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 var resultsForDedupping = new HashSet<ResourceWriteClaimListRow>();
                 foreach (var claim in writeClaims)
                 {
-                    if (resultsForDedupping.Add(new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value?.ToLowerInvariant())))
+                    if (resultsForDedupping.Add(new ResourceWriteClaimListRow(merge.ResourceWrapper.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value?.ToLowerInvariant())))
                     {
-                        yield return new ResourceWriteClaimListRow(merge.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value);
+                        yield return new ResourceWriteClaimListRow(merge.ResourceWrapper.ResourceSurrogateId, _model.GetClaimTypeId(claim.Key), claim.Value);
                     }
                 }
             }
