@@ -36,13 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 resource.Meta = new Meta();
             }
 
-            if (resource.Meta.LastUpdated == null)
+            bool lastUpdatedIsNull;
+            if (lastUpdatedIsNull = resource.Meta.LastUpdated == null)
             {
                 resource.Meta.LastUpdated = Clock.UtcNow;
             }
 
             var keepVersion = true;
-            if (string.IsNullOrEmpty(resource.Meta.VersionId))
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId)) // do not trust input version if input last updated is not set
             {
                 resource.Meta.VersionId = "1";
                 keepVersion = false;
