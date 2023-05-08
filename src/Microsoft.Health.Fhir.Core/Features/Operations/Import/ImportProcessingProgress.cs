@@ -10,21 +10,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Succeed import resource count
         /// </summary>
-        public long SucceedImportCount { get; set; }
+        public long SucceededResources { get; set; }
 
         /// <summary>
         /// Failed processing resource count
         /// </summary>
-        public long FailedImportCount { get; set; }
+        public long FailedResources { get; set; }
+
+        /// <summary>
+        /// Processed blob/file bytes
+        /// </summary>
+        public long ProcessedBytes { get; set; }
 
         /// <summary>
         /// Current index for last checkpoint
         /// </summary>
         public long CurrentIndex { get; set; }
-
-        /// <summary>
-        /// Importer initialized status
-        /// </summary>
-        public bool NeedCleanData { get; set; }
     }
 }

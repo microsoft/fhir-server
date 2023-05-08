@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const string InitialVersion = "1";
         public const string MergeResourcesDisabledFlagId = "MergeResources.IsDisabled";
         private static MergeResourcesFeatureFlag _mergeResourcesFeatureFlag;
+        private static MergeResourcesRetriesFlag _mergeResourcesRetriesFlag;
         private static object _mergeResourcesFeatureFlagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -98,6 +99,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _mergeResourcesFeatureFlag ??= new MergeResourcesFeatureFlag(_sqlConnectionWrapperFactory);
                 }
             }
+
+            if (_mergeResourcesRetriesFlag == null)
+            {
+                lock (_mergeResourcesFeatureFlagLocker)
+                {
+                    _mergeResourcesRetriesFlag ??= new MergeResourcesRetriesFlag(_sqlConnectionWrapperFactory);
+                }
+            }
         }
 
         public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
@@ -113,6 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var mergeStart = (DateTime?)null;
                 try
                 {
                     // ignore input resource version to get latest version from the store
@@ -223,6 +233,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (mergeWrappers.Count > 0) // do not call db with empty input
                     {
+                        mergeStart = DateTime.UtcNow;
                         using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                         using var cmd = conn.CreateNonRetrySqlCommand();
                         VLatest.MergeResources.PopulateCommand(
@@ -241,18 +252,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException e)
                 {
-                    // we cannot retry on connection loss as this call might be in outer transaction.
-                    // TODO: Add retries when set bundle processing is in place.
-                    if (e.Number == SqlErrorCodes.Conflict && retries++ < 10) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                    var isExecutionTimeout = false;
+                    var isConflict = false;
+                    if (((isConflict = e.Number == SqlErrorCodes.Conflict) && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                        //// we cannot retry today on connection loss as this call might be in outer transaction, hence _mergeResourcesRetriesFlag
+                        //// TODO: remove _mergeResourcesRetriesFlag when set bundle processing is in place.
+                        || (_mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
+                        || ((isExecutionTimeout = _mergeResourcesRetriesFlag.IsEnabled() && e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
+                        if (isConflict || isExecutionTimeout)
+                        {
+                            await TryLogEvent(nameof(MergeAsync), "Warn", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken);
+                        }
+
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
+                    await TryLogEvent(nameof(MergeAsync), "Error", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken);
                     throw;
                 }
+            }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                VLatest.LogEvent.PopulateCommand(cmd, process, status, null, null, null, null, startDate, text, null, null);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // do nothing;
             }
         }
 
@@ -689,7 +725,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
         {
-            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated");
+            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
             string rawResourceData;
             if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
@@ -698,7 +734,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId");
+                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
                 rawResourceData = resourceWrapper.RawResource.Data
                                     .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
                                     .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
@@ -709,9 +745,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
-            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated");
-            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated");
-            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId");
+            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
+            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
+            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
             if (existingVersion != InitialVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
@@ -727,12 +763,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         // This method relies on current raw resource string formatting, i.e. no extra spaces.
         // This logic should be removed once "resource.meta not available" bug is fixed.
-        private string GetJsonValue(string json, string propName)
+        private string GetJsonValue(string json, string propName, bool isExisting)
         {
             var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
             if (startIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} from {json}");
+                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 
@@ -740,7 +776,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var endIndex = json.IndexOf("\"", startIndex, StringComparison.Ordinal);
             if (endIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} value from {json}");
+                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 
@@ -836,6 +872,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
+        }
+
+        private class MergeResourcesRetriesFlag
+        {
+            private const string FlagId = "MergeResources.RetriesOnRetriableErrors.IsEnabled";
+            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public MergeResourcesRetriesFlag(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            {
+                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    _isEnabled = IsEnabledInDatabase();
+                    _lastUpdated = DateTime.UtcNow;
+                }
+
+                return _isEnabled;
+            }
+
+            private bool IsEnabledInDatabase()
+            {
+                using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+                using var cmd = conn.CreateRetrySqlCommand();
+                cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
+                cmd.Parameters.AddWithValue("@Id", FlagId);
+                var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+                return value != null && (double)value == 1;
+            }
         }
 
         private class MergeResourcesFeatureFlag

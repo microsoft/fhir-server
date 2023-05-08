@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
             Assert.Equal(200, httpContext.Response.StatusCode);
         }
 
-        private InitialImportLockMiddleware CreateInitialImportLockMiddleware(ImportTaskConfiguration importTaskConfiguration)
+        private InitialImportLockMiddleware CreateInitialImportLockMiddleware(ImportTaskConfiguration importJobConfiguration)
         {
             return new InitialImportLockMiddleware(
                     async x =>
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
                         x.Response.StatusCode = 200;
                         await Task.CompletedTask;
                     },
-                    Options.Create(importTaskConfiguration));
+                    Options.Create(importJobConfiguration));
         }
     }
 }
