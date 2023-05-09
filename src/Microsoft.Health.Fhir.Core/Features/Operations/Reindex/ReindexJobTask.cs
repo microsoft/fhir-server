@@ -445,7 +445,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
-                    // If continuation token then update next query but only if parent query haven't been in pipeline.
+                    // If continuation token then update next query but only if parent query hasn't been in pipeline.
                     // For cases like retry or stale query we don't want to start another chain.
                     if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
