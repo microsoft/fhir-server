@@ -18,8 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="resource">The resource to be wrapped.</param>
         /// <param name="deleted">A flag indicating whether the resource is deleted or not.</param>
         /// <param name="keepMeta">A flag indicating whether to keep the metadata section or clear it.</param>
+        /// <param name="keepVersion">A flag indicating whether to keep the versionb or set it to 1.</param>
         /// <returns>An instance of <see cref="ResourceWrapper"/>.</returns>
-        ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta);
+        ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta, bool keepVersion = false);
 
         /// <summary>
         /// Updates the search index on <see cref="ResourceWrapper"/>.

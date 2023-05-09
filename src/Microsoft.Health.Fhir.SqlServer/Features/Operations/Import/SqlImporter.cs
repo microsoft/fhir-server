@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public async Task<ImportProcessingProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, ImportMode importMode, CancellationToken cancellationToken)
         {
             try
             {
@@ -72,10 +72,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
+                    ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
                 }
 
-                ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
+                ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
 
                 return await UploadImportErrorsAsync(importErrorStore, succeededCount, failedCount, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
             }
@@ -85,19 +85,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount, ref long processedBytes)
+        private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount, ref long processedBytes)
         {
-            var resourcesWithError = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
-            var resourcesWithoutError = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var resourcesDedupped = resourcesWithoutError.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-            var mergedResources = MergeResourcesAsync(resourcesDedupped, cancellationToken).Result;
-            var dupsNotMerged = resourcesWithoutError.Except(resourcesDedupped);
+            var errorResources = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
+            var goodResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
+            List<ImportResource> dedupped;
+            IEnumerable<ImportResource> merged;
+            if (importMode == ImportMode.InitialLoad)
+            {
+                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
+                var existing = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(false)));
+                dedupped = inputDedupped.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)).ToList();
+                merged = MergeResourcesAsync(dedupped, cancellationToken).Result;
+            }
+            else
+            {
+                var inputDedupped = goodResources.GroupBy(_ => (_.ResourceWrapper.ToResourceKey(true), _.ResourceWrapper.LastModified)).Select(_ => _.First()).ToList();
 
-            errors.AddRange(resourcesWithError.Select(r => r.ImportError));
-            AppendDuplicateErrorsToBuffer(dupsNotMerged, errors);
+                // 2 paths:
+                // 1 - if versions were specified on input then dups need to be checked within input and database
+                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
+                var existing = new HashSet<ResourceKey>(GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey()));
+                dedupped = inputDeduppedWithVersions.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).ToList();
+                var mergedWithVersions = MergeResourcesAsync(dedupped, cancellationToken).Result;
 
-            succeededCount += mergedResources.Count();
-            failedCount += resourcesWithError.Count() + dupsNotMerged.Count();
+                // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
+                // for simlicity assume that ony one unassigned version is provided for a given resource
+                var inputDeduppedNoVersions = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First());
+                var mergedNoVersions = MergeResourcesAsync(inputDeduppedNoVersions, cancellationToken).Result;
+                dedupped.AddRange(inputDeduppedNoVersions);
+                merged = mergedWithVersions.Union(mergedNoVersions);
+            }
+
+            var dups = goodResources.Except(dedupped);
+
+            errors.AddRange(errorResources.Select(r => r.ImportError));
+            AppendDuplicateErrorsToBuffer(dups, errors);
+
+            succeededCount += merged.Count();
+            failedCount += errorResources.Count() + dups.Count();
             processedBytes += resources.Sum(_ => (long)_.Length);
 
             resources.Clear();
@@ -107,13 +133,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false)).ToList();
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion)).ToList();
                 var result = await _store.MergeAsync(input, cancellationToken);
                 return resources;
             }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "MergeResourcesAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+        }
+
+        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> resourceKeys, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _store.GetAsync(resourceKeys, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "GetAsync failed.");
                 throw new RetriableJobException(ex.Message, ex);
             }
         }

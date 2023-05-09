@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Import to data store
                 try
                 {
-                    var importProgress = await _importer.Import(importResourceChannel, importErrorStore, cancellationToken);
+                    var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
 
                     currentResult.SucceededResources = importProgress.SucceededResources;
                     currentResult.FailedResources = importProgress.FailedResources;

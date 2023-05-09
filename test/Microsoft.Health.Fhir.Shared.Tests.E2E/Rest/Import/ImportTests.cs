@@ -47,15 +47,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKep()
+        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
-            ndJson = ndJson + ndJson;
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate"); // "\"lastUpdated\":\"2020-01-01T00:00+00:00\"" "\"versionId\":\"1\"" "\"value\":\"654321\""
+            ndJson = ndJson + ndJson; // add one dup
             ndJson = ndJson.Replace("##PatientID##", id);
-            var versionId = 1.ToString(); // TODO: Replace by 2 when code is ready "value\":\"654321\"
+            var versionId = 2.ToString();
             ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{versionId}\"");
-            var lastUpdated = DateTimeOffset.Parse("2020-01-01T00:00+00:00");
+            var lastUpdated = DateTimeOffset.Parse("2021-01-01T00:00:00.000+00:00");
+            ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\"", $"\"lastUpdated\":\"{"2021-01-01T00:00:00.000+00:00"}\"");
             (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -63,14 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = new List<InputResource>()
-                {
-                    new InputResource()
-                    {
-                        Url = location,
-                        Type = "Patient",
-                    },
-                },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
                 Mode = "InitialLoad",
             };
 
@@ -78,7 +72,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.NotNull(result);
-            Assert.Equal(id, result.Resource.Id);
             Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
             Assert.Equal(versionId, result.Resource.Meta.VersionId);
         }

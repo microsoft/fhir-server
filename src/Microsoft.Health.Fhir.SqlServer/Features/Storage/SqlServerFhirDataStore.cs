@@ -131,6 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var resource = resourceExt.Wrapper;
                         var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                         existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
+                        var hasVersionToCompare = false;
 
                         // Check for any validation errors
                         if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -171,7 +172,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             }
 
-                            resource.Version = InitialVersion;
+                            resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
+                            if (resource.Version == InitialVersion)
+                            {
+                                hasVersionToCompare = true;
+                            }
                         }
                         else
                         {
@@ -207,15 +212,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 }
                             }
 
-                            // existing version in the SQL db should never be null
-                            resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                            var plusOneVersion = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                            if (!resourceExt.KeepVersion) // version is set on input
+                            {
+                                resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                            }
+
+                            if (resource.Version == plusOneVersion)
+                            {
+                                hasVersionToCompare = true;
+                            }
                         }
 
                         var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                         var surrId = surrIdBase + minSequenceId + index;
                         ReplaceVersionIdInMeta(resource);
                         resource.ResourceSurrogateId = surrId;
-                        mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, true)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
+                        mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
                         index++;
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
                     }
