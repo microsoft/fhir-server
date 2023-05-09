@@ -47,16 +47,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
+        public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate"); // "\"lastUpdated\":\"2020-01-01T00:00+00:00\"" "\"versionId\":\"1\"" "\"value\":\"654321\""
-            ndJson = ndJson + ndJson; // add one dup
-            ndJson = ndJson.Replace("##PatientID##", id);
             var versionId = 2.ToString();
-            ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{versionId}\"");
-            var lastUpdated = DateTimeOffset.Parse("2021-01-01T00:00:00.000+00:00");
-            ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\"", $"\"lastUpdated\":\"{"2021-01-01T00:00:00.000+00:00"}\"");
+            var lastUpdatedStr = "2021-01-01T00:00:00.000+00:00";
+            var lastUpdated = DateTimeOffset.Parse(lastUpdatedStr);
+            var ndJson = PrepareResource(id, versionId, lastUpdatedStr);
+            ndJson = ndJson + ndJson; // add one dup
             (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -65,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
                 Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
-                Mode = "InitialLoad",
+                Mode = ImportMode.IncrementalLoad.ToString(),
             };
 
             await ImportCheckAsync(request, null, 1);
@@ -74,6 +72,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotNull(result);
             Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
             Assert.Equal(versionId, result.Resource.Meta.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var versionId = 2.ToString();
+            var lastUpdatedStr = "2021-01-01T00:00:00.000+00:00";
+            var lastUpdated = DateTimeOffset.Parse(lastUpdatedStr);
+            var ndJson = PrepareResource(id, versionId, lastUpdatedStr);
+            ndJson = ndJson + ndJson; // add one dup
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            await ImportCheckAsync(request, null, 1);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
+            Assert.Equal(versionId, result.Resource.Meta.VersionId);
+        }
+
+        private static string PrepareResource(string id, string version, string lastUpdated)
+        {
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate"); // "\"lastUpdated\":\"2020-01-01T00:00+00:00\"" "\"versionId\":\"1\"" "\"value\":\"654321\""
+            ndJson = ndJson.Replace("##PatientID##", id);
+            ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{version}\"");
+            ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\"", $"\"lastUpdated\":\"{lastUpdated}\"");
+            return ndJson;
         }
 
         [Fact]
@@ -99,6 +134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request, tempClient);
@@ -138,6 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             request.Mode = ImportMode.InitialLoad.ToString();
@@ -169,6 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -208,6 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -248,6 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Observation", // not match the resource
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -308,6 +348,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -348,6 +389,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -405,6 +447,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request, errorCount: 1);
@@ -464,6 +507,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -497,6 +541,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -547,6 +592,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -595,6 +641,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Invalid",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
