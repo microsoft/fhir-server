@@ -14,9 +14,20 @@
 @contentType = application/json
 
 ###
+# @name bearer
+POST {{baseUrl}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
 # Create a patient resource.
 # @name patient
 POST {{baseUrl}}/Patient HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
 content-type: {{contentType}}
 
 < ./Data/ReindexPatient.json
@@ -29,6 +40,7 @@ content-type: {{contentType}}
 # Copy the observation's ID in the response body and paste it in the observationId variable.
 # @name observation
 POST {{baseUrl}}/Observation HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
 content-type: {{contentType}}
 
 < ./Data/ReindexObservation.json
@@ -40,6 +52,7 @@ content-type: {{contentType}}
 # Create a new search parameter that will return the resource ID.
 # This will have the same behaviour as the existing search parameter, "_id".
 POST {{baseUrl}}/SearchParameter HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
 content-type: {{contentType}}
 
 < ./Data/ReindexSearchParameter.json
@@ -48,6 +61,7 @@ content-type: {{contentType}}
 # Trigger a reindexing operation.
 # @name reindex
 POST {{baseUrl}}/$reindex HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
 content-type: {{contentType}}
 
 {  "resourceType": "Parameters", "parameter": [] }
