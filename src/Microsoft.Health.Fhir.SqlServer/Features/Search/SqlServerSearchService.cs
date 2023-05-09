@@ -644,6 +644,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     searchResult = new SearchResult(resources, null, null, new List<Tuple<string, string>>());
+                    searchResult.TotalCount = resources.Count;
                     return;
                 },
                 cancellationToken);
