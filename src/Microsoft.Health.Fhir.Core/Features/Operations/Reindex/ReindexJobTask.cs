@@ -508,8 +508,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // Note that if there are numerous errors across many resource types then the json will be unnecessarily large
                         if (_reindexJobRecord.QueryList.Count > 10)
                         {
-                            // var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
-                            // _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
+                            var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
+                            _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
                         }
 
                         await UpdateJobAsync();
@@ -630,7 +630,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void LogReindexJobRecordErrorMessage()
         {
-            var ser = System.Text.Json.JsonSerializer.Serialize(_reindexJobRecord);
+            var ser = Newtonsoft.Json.JsonConvert.SerializeObject(_reindexJobRecord);
             _logger.LogError($"ReindexJob Error: Current ReindexJobRecord: {ser}");
         }
 
