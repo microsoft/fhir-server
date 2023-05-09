@@ -13,20 +13,6 @@
 @baseUrl = https://localhost:44348
 @contentType = application/json
 
-
-###
-# @name bearer
-POST {{baseUrl}}/connect/token
-content-type: application/x-www-form-urlencoded
-
-grant_type=client_credentials
-&client_id=globalAdminServicePrincipal
-&client_secret=globalAdminServicePrincipal
-&scope=fhir-api
-
-
-
-
 ###
 # Create a patient resource.
 # @name patient
@@ -53,100 +39,27 @@ content-type: {{contentType}}
 ###
 # Create a new search parameter that will return the resource ID.
 # This will have the same behaviour as the existing search parameter, "_id".
-POST {{baseUrl}}/SearchParameter
+POST {{baseUrl}}/SearchParameter HTTP/1.1
 content-type: {{contentType}}
 
 < ./Data/ReindexSearchParameter.json
 
-
-
-
-
-
 ###
 # Trigger a reindexing operation.
-#  HTTP/1.1
 # @name reindex
-POST {{baseUrl}}/$reindex
+POST {{baseUrl}}/$reindex HTTP/1.1
 content-type: {{contentType}}
 
-{"resourceType": "Parameters", "parameter": [] }
+{  "resourceType": "Parameters", "parameter": [] }
 
 ### Records the reindex job location
 @reindexLocation = {{reindex.response.headers.Content-Location}}
 
 ###
 # Check the status of the reindexing operation (scroll down in the response body to see the status).
-GET {{reindexLocation}}
-Authorization: Bearer {{bearer.response.body.access_token}}
+GET {{reindexLocation}} HTTP/1.1
 
-### get a completed reindex job
-GET https://localhost:44348/_operations/reindex/0280a980-4e9c-4f7f-bc2e-07b91aa47cb3
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### reindex
-GET https://localhost:44348/_operations/reindex/9e91cb6d-ac5b-41e2-bfcb-1462c61fdd92
-
-### delete
-DELETE https://localhost:44348/_operations/reindex/661eb12e-fbb4-484e-bf82-0c58c0f3fadd
-
-
-### posting to a single reindex resource
-POST {{baseUrl}}/Patient/searchpatient1/$reindex
-content-type: {{contentType}}
-
-{"resourceType": "Parameters", "parameter": [] }
-
-
-
-
-###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
-# using the new search parameter before it is indexed
-# @name reindex
-POST {{baseUrl}}/$reindex
-content-type: application/json
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-{
-  "resourceType": "Parameters",
-  "parameter": [
-    {
-      "name": "maximumConcurrency",
-      "valueInteger": "1"
-    },
-    {
-      "name": "targetDataStoreUsagePercentage",
-      "valueInteger": "100"
-    },
-    {
-      "name": "queryDelayIntervalInMilliseconds",
-      "valueInteger": "300"
-    },
-    {
-      "name": "maximumNumberOfResourcesPerQuery",
-      "valueInteger": "100"
-    },
-    {
-      "name": "targetSearchParameterTypes",
-      "valueString": "http://hl7.org/fhir/SearchParameter/Device-identifier"
-    }
-  ]
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### 7f50c86d-a1ab-4831-b6ec-349bf874492a
+###
 # This should return a single patient.
 GET {{baseUrl}}/Patient?test-id-code={{patientId}}&_total=accurate HTTP/1.1
 
