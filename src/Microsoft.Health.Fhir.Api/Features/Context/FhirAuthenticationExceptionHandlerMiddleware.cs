@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 }
                 else
                 {
-                    throw;
+                    ExceptionDispatchInfo.Capture(ex).Throw();
                 }
             }
         }
