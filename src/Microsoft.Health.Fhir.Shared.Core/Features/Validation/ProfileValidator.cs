@@ -125,8 +125,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             var corePackageName = coreField?.GetValue(null) as string;
             var expansionsPackageName = expansionsField?.GetValue(null) as string;
-            corePackageName = corePackageName.Replace("@", "-", StringComparison.OrdinalIgnoreCase).Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
-            expansionsPackageName = expansionsPackageName.Replace("@", "-", StringComparison.OrdinalIgnoreCase).Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
+
+            corePackageName = corePackageName.Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
+            expansionsPackageName = expansionsPackageName.Replace("xml", string.Empty, StringComparison.OrdinalIgnoreCase);
 
             return (serverField?.GetValue(null) as string, corePackageName, expansionsPackageName);
         }
