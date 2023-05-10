@@ -13,12 +13,14 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -35,14 +37,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly CoreFeatureConfiguration _coreFeaturesConfig;
+        private bool _isAzureApiForFhir = false;
 
-        public SearchParameterController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures)
+        public SearchParameterController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures, IOptions<ThrottlingConfiguration> throttlingConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
+            EnsureArg.IsNotNull(throttlingConfig?.Value, nameof(throttlingConfig));
 
             _mediator = mediator;
             _coreFeaturesConfig = coreFeatures.Value;
+
+            // Used to prevent Azure Api for Fhir from using this controller.
+            _isAzureApiForFhir = throttlingConfig.Value.DataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -56,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateSearchParameterStateRequestAtrribute]
         public async Task<IActionResult> GetSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -75,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> PostSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -94,7 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
             SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
 
@@ -104,9 +111,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Provide appropriate response if Search Parameter Status feature is not enabled
         /// </summary>
-        private void CheckIfSearchParameterStatusIsEnabledAndRespond()
+        private void CheckIfSearchParameterStatusIsEnabledOrADHS()
         {
-            if (!_coreFeaturesConfig.SupportsSelectableSearchParameters)
+            if (!_coreFeaturesConfig.SupportsSelectableSearchParameters || _isAzureApiForFhir)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.SearchParameterStatus));
             }
