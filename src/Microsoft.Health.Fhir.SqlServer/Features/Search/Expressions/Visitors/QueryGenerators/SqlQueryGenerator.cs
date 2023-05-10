@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("Sid2");
                 }
             }
-            else
+            else if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
             }
@@ -736,6 +736,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" IN (")
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
+
+                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                {
+                    // if > 1, the intersection is handled by the JOIN
+                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                }
 
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
                 {
