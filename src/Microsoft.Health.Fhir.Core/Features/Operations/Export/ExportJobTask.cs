@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     exportJobConfiguration = new ExportJobConfiguration();
                     exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
                     exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
+                    exportJobConfiguration.StorageAccountConnection = _exportJobConfiguration.StorageAccountConnection;
                 }
 
                 if (_exportJobRecord.Filters != null &&
