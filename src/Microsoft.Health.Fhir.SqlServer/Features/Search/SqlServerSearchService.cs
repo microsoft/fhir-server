@@ -579,7 +579,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
                     using SqlCommand sqlCommand = connection.CreateCommand();
@@ -664,7 +664,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             List<(long StartId, long EndId)> searchList = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
                     using SqlCommand sqlCommand = connection.CreateCommand();
@@ -702,7 +702,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypes = new List<(short ResourceTypeId, string Name)>();
 
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
                     using SqlCommand sqlCommand = connection.CreateCommand();
@@ -1002,7 +1002,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SearchResult searchResult = null;
 
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     while (true)
                     {
@@ -1094,7 +1094,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
                     using SqlCommand sqlCommand = connection.CreateCommand();
