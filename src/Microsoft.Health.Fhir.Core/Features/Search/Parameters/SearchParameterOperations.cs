@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
 
-            // First process any deletes or disableds, then we will do any adds or updates
+            // First process any deletes or disables, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
