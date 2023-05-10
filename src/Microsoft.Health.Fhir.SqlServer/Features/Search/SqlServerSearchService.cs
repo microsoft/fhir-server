@@ -1063,7 +1063,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
 
-                    var searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
+                    searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
                     searchResult.ReindexResult = new SearchResultReindex()
                     {
                         Count = totalCount,
