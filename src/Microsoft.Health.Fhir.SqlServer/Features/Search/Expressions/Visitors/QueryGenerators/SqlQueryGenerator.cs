@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -19,6 +20,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -48,6 +51,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private HashSet<int> _cteToLimit = new HashSet<int>();
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
+        private bool previousSqlQueryGeneratorFailure = false;
+        private int maxTableExpressionCountLimitForExists = 8;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -55,7 +60,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             ISqlServerFhirModel model,
             SqlSearchType searchType,
             SchemaInformation schemaInfo,
-            string searchParameterHash)
+            string searchParameterHash,
+            SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -68,6 +74,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _searchType = searchType;
             _schemaInfo = schemaInfo;
             _searchParameterHash = searchParameterHash;
+
+            if (sqlException?.ErrorCode == SqlErrorCodes.QueryProcessorNoQueryPlan)
+            {
+                previousSqlQueryGeneratorFailure = true;
+            }
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -1035,7 +1046,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
+                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1062,7 +1073,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
+                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1084,7 +1095,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName)
+                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1111,7 +1122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
+                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1195,6 +1206,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             sb.Append(")");
+        }
+
+        private bool CheckAppendWithJoin(string tableName)
+        {
+            // if this is an inner join on the Reference Search Param table, and either:
+            // 1. the number of table expressions is greater than the limit indicating a complex query
+            // 2. the previous query generator failed to generate a query
+            // then we will use the EXISTS clause instead of the inner join
+            if (tableName == VLatest.ReferenceSearchParam.TableName &&
+                (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
+                previousSqlQueryGeneratorFailure))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)

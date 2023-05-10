@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken) =>
+                async (cancellationToken, sqlException) =>
                 {
                     using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
@@ -345,7 +345,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 _model,
                                 searchType,
                                 _schemaInformation,
-                                currentSearchParameterHash);
+                                currentSearchParameterHash,
+                                sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
