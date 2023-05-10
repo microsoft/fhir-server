@@ -212,15 +212,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 }
                             }
 
-                            var plusOneVersion = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                            var existingVersion = int.Parse(existingResource.Version);
+                            var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                             if (!resourceExt.KeepVersion) // version is set on input
                             {
-                                resource.Version = (int.Parse(existingResource.Version) + 1).ToString(CultureInfo.InvariantCulture);
+                                resource.Version = versionPlusOne;
                             }
 
-                            if (resource.Version == plusOneVersion)
+                            if (resource.Version == versionPlusOne)
                             {
                                 hasVersionToCompare = true;
+                            }
+
+                            if (int.Parse(resource.Version) < existingVersion) // is history
+                            {
+                                resource.IsHistory = true;
                             }
                         }
 
@@ -228,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var surrId = surrIdBase + minSequenceId + index;
                         ReplaceVersionIdInMeta(resource);
                         resource.ResourceSurrogateId = surrId;
-                        mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare)); // TODO: When multiple versions for a resource are supported use correct value instead of last true.
+                        mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                         index++;
                         results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
                     }
@@ -244,7 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             RaiseExceptionOnConflict: true,
                             IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                             tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                        cmd.CommandTimeout = 180 + (int)(3600.0 / 10000 * mergeWrappers.Count);
+                        cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count);
                         await cmd.ExecuteNonQueryAsync(cancellationToken);
                     }
 
