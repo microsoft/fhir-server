@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             if (importMode == ImportMode.InitialLoad)
             {
                 var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                var existing = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(false)));
+                var existing = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(true)));
                 dedupped = inputDedupped.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)).ToList();
                 merged = MergeResourcesAsync(dedupped, cancellationToken).Result;
             }

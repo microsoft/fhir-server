@@ -484,7 +484,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
+        public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeReported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
@@ -510,7 +510,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request, errorCount: 1);
-            //// we have to re-create file as processing jobs are idempotent
+            //// we have to re-create file as import registration is idempotent
             (Uri location2, string etag2) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
             request.Input = new List<InputResource>()
             {
@@ -521,7 +521,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     Type = "Patient",
                 },
             };
-            await ImportCheckAsync(request, errorCount: 1); // importing already existing resource is success in merge.
+            await ImportCheckAsync(request, errorCount: 2);
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
             Assert.Equal(resourceId, patient.Id);
@@ -539,8 +539,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
                 var notification2 = notificationList[1] as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
-                Assert.Equal(1, notification2.SucceededCount);
-                Assert.Equal(1, notification2.FailedCount);
+                Assert.Equal(0, notification2.SucceededCount);
+                Assert.Equal(2, notification2.FailedCount);
             }
         }
 
