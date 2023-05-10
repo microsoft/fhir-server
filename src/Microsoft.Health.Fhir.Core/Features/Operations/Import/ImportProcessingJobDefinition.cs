@@ -7,7 +7,7 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProcessingJobInputData : IJobData
+    public class ImportProcessingJobDefinition : IJobData
     {
         public int TypeId { get; set; }
 
@@ -46,18 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public string ResourceType { get; set; }
 
         /// <summary>
-        /// Data processing job id
+        /// Group id
         /// </summary>
-        public string JobId { get; set; }
-
-        /// <summary>
-        /// Begine sequence id
-        /// </summary>
-        public long BeginSequenceId { get; set; }
-
-        /// <summary>
-        /// End sequence id
-        /// </summary>
-        public long EndSequenceId { get; set; }
+        public long GroupId { get; set; }
     }
 }

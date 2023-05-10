@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public long Count { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
-        public int Progress { get; set; }
+        public long Progress { get; set; }
 
         [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
         public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; private set; }

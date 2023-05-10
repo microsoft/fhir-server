@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex
+namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public static class CosmosDbReindexConstants
+    public interface ITemplateProviderFactory
     {
-        public const string ReindexJobPartitionKey = "ReindexJob";
-        public const string SearchParameterStatusPartitionKey = "__searchparameterstatus__";
+        public IConvertDataTemplateProvider GetContainerRegistryTemplateProvider();
+
+        public IConvertDataTemplateProvider GetDefaultTemplateProvider();
     }
 }

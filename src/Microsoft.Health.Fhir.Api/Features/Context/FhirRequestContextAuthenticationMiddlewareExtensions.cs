@@ -18,6 +18,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             builder.UseMiddleware<FhirRequestContextBeforeAuthenticationMiddleware>();
 
+            builder.UseMiddleware<FhirAuthenticationExceptionHandlerMiddleware>();
+
             builder.UseAuthentication();
 
             builder.UseMiddleware<FhirRequestContextAfterAuthenticationMiddleware>();
