@@ -103,6 +103,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ContinuationToken = "continuationToken";
 
+        public const string ResourceReindexProgressByResource = "resourceReindexProgressByResource";
+
         public const string GroupId = "groupId";
 
         public const string StorageAccountContainerName = "storageAccountContainerName";
