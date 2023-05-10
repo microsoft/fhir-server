@@ -3,12 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
+namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public sealed class BundleOrchestratorNamingConventions
+    public enum BundleProcessingLogic
     {
-        public const string HttpHeaderBundleProcessingLogic = "X-Bundle-Processing-Logic";
-
-        public const string HttpHeaderOperationTag = "X-BundleOperation-Id";
+        Sequential = 0,
+        Parallel = 1,
     }
 }

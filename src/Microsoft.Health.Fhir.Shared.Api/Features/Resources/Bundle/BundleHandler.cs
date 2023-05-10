@@ -48,6 +48,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Namotion.Reflection;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -58,6 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private const BundleProcessingLogic DefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
+
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
@@ -82,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
+        private readonly BundleProcessingLogic _bundleProcessingLogic;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -149,6 +153,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
+        }
+
+        private static BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
+        {
+            if (outerHttpContext.Request.HasProperty(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic))
+            {
+                string processingLogicAsString = outerHttpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic].First();
+
+                try
+                {
+                    BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString);
+                    return processingLogic;
+                }
+                catch (Exception e)
+                {
+                    logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
+
+                    return DefaultBundleProcessingLogic;
+                }
+            }
+
+            return DefaultBundleProcessingLogic;
         }
 
         /// <summary>
