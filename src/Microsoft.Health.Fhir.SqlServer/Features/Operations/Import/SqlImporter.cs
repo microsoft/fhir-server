@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // 1 - if versions were specified on input then dups need to be checked within input and database
                 var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
                 var existing = new HashSet<ResourceKey>(GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey()));
-                dedupped = inputDeduppedWithVersions.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).ToList();
+                dedupped = inputDeduppedWithVersions.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified).ToList();
                 var mergedWithVersions = MergeResourcesAsync(dedupped, cancellationToken).Result;
 
                 // 2 - if versions were not specified they have to be assigned as next based on union of input and database.

@@ -121,8 +121,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     var index = 0;
                     var mergeWrappers = new List<MergeResourceWrapper>();
-                    foreach (var resourceExt in resources)
+                    var prevResourceId = string.Empty;
+                    foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
                     {
+                        var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
+                        prevResourceId = resourceExt.Wrapper.ResourceId;
                         var weakETag = resourceExt.WeakETag;
                         int? eTag = weakETag == null
                             ? null
@@ -177,6 +180,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             {
                                 hasVersionToCompare = true;
                             }
+
+                            resource.IsHistory = setAsHistory;
                         }
                         else
                         {
@@ -224,7 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 hasVersionToCompare = true;
                             }
 
-                            if (int.Parse(resource.Version) < existingVersion) // is history
+                            if (int.Parse(resource.Version) < existingVersion || setAsHistory) // is history
                             {
                                 resource.IsHistory = true;
                             }
