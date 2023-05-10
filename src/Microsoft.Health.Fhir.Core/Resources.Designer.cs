@@ -602,15 +602,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The [_include]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
-        /// </summary>
-        internal static string IncludeIncorrectParameterType {
-            get {
-                return ResourceManager.GetString("IncludeIncorrectParameterType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The parameter {0}={1} with circular reference is executed once (a single iteration)..
         /// </summary>
         internal static string IncludeIterateCircularReferenceExecutedOnce {
@@ -1210,15 +1201,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReverseChainMissingType {
             get {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The [_revinclude]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
-        /// </summary>
-        internal static string RevIncludeIncorrectParameterType {
-            get {
-                return ResourceManager.GetString("RevIncludeIncorrectParameterType", resourceCulture);
             }
         }
         
