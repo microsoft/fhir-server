@@ -226,13 +226,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // First process any deletes or disableds, then we will do any adds or updates
             // this way any deleted or params which might have the same code or name as a new
             // parameter will not cause conflicts. Disabled params just need to be removed when calculating the hash.
-            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled))
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
                 DeleteSearchParameter(searchParam.Uri.OriginalString);
             }
 
             var paramsToAdd = new List<ITypedElement>();
-            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted && p.Status != SearchParameterStatus.Disabled))
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported))
             {
                 var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.OriginalString, cancellationToken);
 
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(
-                updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted && p.Status != SearchParameterStatus.Disabled).ToList(),
+                updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Enabled || p.Status == SearchParameterStatus.Supported).ToList(),
                 cancellationToken);
         }
 

@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
         {
             var searchParamUris = new List<string>() { url };
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.PendingDelete, cancellationToken);
         }
 
         internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)

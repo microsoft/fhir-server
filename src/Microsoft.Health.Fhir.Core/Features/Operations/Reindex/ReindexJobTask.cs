@@ -786,20 +786,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // go to base search param definition manager
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParam);
 
-                if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
-                {
-                    fullyIndexedParamUris.Add(searchParam);
-                }
-
                 // Adding the below to explicitly update from their pending states to their final states.
                 if (searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.PendingDisable)
                 {
+                    _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Disabled.", _reindexJobRecord.Id, searchParam);
                     await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
                 }
-
-                if (searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.PendingDelete)
+                else if (searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.PendingDelete)
                 {
+                    _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Deleted.", _reindexJobRecord.Id, searchParam);
                     await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
+                }
+                else if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes) && searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status == Search.Registry.SearchParameterStatus.Supported)
+                {
+                    fullyIndexedParamUris.Add(searchParam);
                 }
             }
 
