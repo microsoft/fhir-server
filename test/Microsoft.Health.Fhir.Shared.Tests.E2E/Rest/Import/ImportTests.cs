@@ -47,6 +47,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, null, "2002");
+            var ndJson3 = PrepareResource(id, "2", "2003");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request2, null);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
