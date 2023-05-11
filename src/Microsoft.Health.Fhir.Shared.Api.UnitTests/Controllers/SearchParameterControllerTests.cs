@@ -12,15 +12,14 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -34,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     public class SearchParameterControllerTests
     {
         private readonly CoreFeatureConfiguration _coreFeaturesConfiguration = new CoreFeatureConfiguration();
-        private readonly ThrottlingConfiguration _throttlingConfiguration = new ThrottlingConfiguration();
+        private readonly IFhirRuntimeConfiguration _fhirConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
         private readonly SearchParameterController _controller;
@@ -48,11 +47,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _coreFeaturesConfiguration.SupportsSelectableSearchParameters = true;
             _mediator.Send(Arg.Any<SearchParameterStateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateResponse());
             _mediator.Send(Arg.Any<SearchParameterStateUpdateRequest>(), default(CancellationToken)).Returns(new SearchParameterStateUpdateResponse());
-            _throttlingConfiguration.DataStore = KnownDataStores.SqlServer;
             _controller = new SearchParameterController(
                 _mediator,
                 Options.Create(_coreFeaturesConfiguration),
-                Options.Create(_throttlingConfiguration));
+                _fhirConfiguration);
             _controller.ControllerContext = controllerContext;
         }
 
@@ -62,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), Options.Create(_throttlingConfiguration));
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration);
 
             Func<System.Threading.Tasks.Task> act = () => controller.GetSearchParametersStatus(default(CancellationToken));
 
@@ -99,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             CoreFeatureConfiguration coreFeaturesConfiguration = new CoreFeatureConfiguration();
             coreFeaturesConfiguration.SupportsSelectableSearchParameters = false;
 
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), Options.Create(_throttlingConfiguration));
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(coreFeaturesConfiguration), _fhirConfiguration);
             var requestBody = CreateValidRequestBody();
             Func<System.Threading.Tasks.Task> act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
 
@@ -109,9 +107,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async void GivenAValidSearchParameterStatusUpdateRequest_WhenServiceIsAzureApiForFhir_ThenRequestNotValidExceptionShouldBeReturned()
         {
-            ThrottlingConfiguration throttlingConfiguration = new ThrottlingConfiguration();
-            throttlingConfiguration.DataStore = KnownDataStores.CosmosDb;
-            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), Options.Create(throttlingConfiguration));
+            AzureApiForFhirRuntimeConfiguration azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            SearchParameterController controller = new SearchParameterController(_mediator, Options.Create(_coreFeaturesConfiguration), azureApiForFhirConfiguration);
             var requestBody = CreateValidRequestBody();
             Func<System.Threading.Tasks.Task> act = () => controller.UpdateSearchParametersStatus(requestBody, default(CancellationToken));
 
