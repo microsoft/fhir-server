@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Client
 {
     public class FhirClient : IFhirClient
     {
-        private const string BundleProcessingLogicHeader = "X-Bundle-Processing-Logic";
+        private const string BundleProcessingLogicHeader = "x-bundle-processing-logic";
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
