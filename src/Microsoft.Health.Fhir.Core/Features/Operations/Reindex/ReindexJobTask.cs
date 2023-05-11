@@ -783,24 +783,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
-                // go to base search param definition manager
+                // Use base search param definition manager
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParam);
                 var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status;
+                bool allResourcesForSearchParamIndexed = reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes);
 
-                // Adding the below to explicitly update from their pending states to their final states.
-                if (spStatus == Search.Registry.SearchParameterStatus.PendingDisable)
+                // Check to see if all resources associated with the search parameter are indexed before proceeding with status updates.
+                if (allResourcesForSearchParamIndexed)
                 {
-                    _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Disabled.", _reindexJobRecord.Id, searchParam);
-                    await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
-                }
-                else if (spStatus == Search.Registry.SearchParameterStatus.PendingDelete)
-                {
-                    _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Deleted.", _reindexJobRecord.Id, searchParam);
-                    await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
-                }
-                else if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes) && (spStatus == SearchParameterStatus.Supported || spStatus == SearchParameterStatus.Enabled))
-                {
-                    fullyIndexedParamUris.Add(searchParam);
+                    // Adding the below to explicitly update from their pending states to their final states.
+                    if (spStatus == Search.Registry.SearchParameterStatus.PendingDisable)
+                    {
+                        _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Disabled.", _reindexJobRecord.Id, searchParam);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
+                    }
+                    else if (spStatus == Search.Registry.SearchParameterStatus.PendingDelete)
+                    {
+                        _logger.LogInformation("Reindex job updating the status of the fully indexed search, id: {Id}, parameter: '{ParamUri}' to Deleted.", _reindexJobRecord.Id, searchParam);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
+                    }
+                    else if (spStatus == SearchParameterStatus.Supported || spStatus == SearchParameterStatus.Enabled)
+                    {
+                        fullyIndexedParamUris.Add(searchParam);
+                    }
                 }
             }
 
