@@ -917,7 +917,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _contextAccessor,
                 _throttleController,
                 ModelInfoProvider.Instance,
-                NullLogger<ReindexJobTask>.Instance);
+                NullLogger<ReindexJobTask>.Instance,
+                _searchParameterStatusManager);
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
