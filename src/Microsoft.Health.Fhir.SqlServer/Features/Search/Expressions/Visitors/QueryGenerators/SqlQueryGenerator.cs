@@ -714,7 +714,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("Sid2");
                 }
             }
-            else if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+
+            // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
+            else if (CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
             }
@@ -737,7 +739,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
                 {
                     // if > 1, the intersection is handled by the JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
