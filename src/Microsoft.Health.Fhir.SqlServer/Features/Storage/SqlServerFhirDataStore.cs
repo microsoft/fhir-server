@@ -292,28 +292,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
-
             // TODO: Remove it when Merge is min supported version
-            if (_schemaInformation.Current >= SchemaVersionConstants.Merge && _mergeResourcesFeatureFlag.IsEnabled() && !isBundleOperation)
+            if (_schemaInformation.Current >= SchemaVersionConstants.Merge && _mergeResourcesFeatureFlag.IsEnabled())
             {
-                var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
-                DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
+                bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
 
-                if (dataStoreOperationOutcome.IsOperationSuccessful)
+                if (isBundleOperation)
                 {
-                    return dataStoreOperationOutcome.UpsertOutcome;
+                    IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
+                    return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    throw dataStoreOperationOutcome.Exception;
-                }
-            }
-            else if (_schemaInformation.Current >= SchemaVersionConstants.Merge && _mergeResourcesFeatureFlag.IsEnabled() && isBundleOperation)
-            {
-                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
+                    var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
+                    DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
-                return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
+                    if (dataStoreOperationOutcome.IsOperationSuccessful)
+                    {
+                        return dataStoreOperationOutcome.UpsertOutcome;
+                    }
+                    else
+                    {
+                        throw dataStoreOperationOutcome.Exception;
+                    }
+                }
             }
             else
             {
