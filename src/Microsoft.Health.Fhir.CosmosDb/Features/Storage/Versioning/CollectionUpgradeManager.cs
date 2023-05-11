@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         /// <summary>
         /// This integer should be incremented in the derived instance when changing any configuration in the derived CollectionUpgradeManager
         /// </summary>
-        public int CollectionSettingsVersion { get; } = 2;
+        public int CollectionSettingsVersion { get; } = 3;
 
         public async Task SetupContainerAsync(Container container)
         {

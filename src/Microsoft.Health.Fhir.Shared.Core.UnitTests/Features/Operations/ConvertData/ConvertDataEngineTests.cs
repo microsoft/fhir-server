@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("¶Š™œãý£¾.com/template:default")]
         public async Task GivenConvertDataRequest_WithUnconfiguredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
-            var convertDataEngine = GetDefaultEngine();
+            var convertDataEngine = GetCustomEngine();
             var hl7v2Request = GetHl7V2RequestWithTemplateReference(templateReference);
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(hl7v2Request, CancellationToken.None));
 
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "ADT_A01", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetHl7V2RequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "CCD", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetCcdaRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "ExamplePatient", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetJsonRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                     { "Patient", Template.Parse(@"""a"":""b""") },
                 },
             };
-            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var convertDataEngine = GetDefaultEngineWithTemplates(wrongTemplateCollection);
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
@@ -393,22 +393,51 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         private IConvertDataEngine GetDefaultEngine()
         {
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
 
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
+            ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
 
             return new ConvertDataEngine(
-                templateProvider,
+                templateProviderFactory,
+                convertDataConfiguration,
+                new NullLogger<ConvertDataEngine>());
+        }
+
+        private IConvertDataEngine GetDefaultEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
+        {
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+
+            IConvertDataTemplateProvider templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+        }
+
+        private IConvertDataEngine GetCustomEngine()
+        {
+            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
+            IContainerRegistryTokenProvider containerRegistryTokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            containerRegistryTokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
+
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(containerRegistryTokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
+
+            return new ConvertDataEngine(
+                templateProviderFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
         }
 
         private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
         {
-            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+            var templateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
-            return new ConvertDataEngine(templateProvider, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.

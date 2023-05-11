@@ -3,11 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex
+namespace Microsoft.Health.Fhir.Client
 {
-    public static class CosmosDbReindexConstants
+    public enum FhirBundleProcessingLogic
     {
-        public const string ReindexJobPartitionKey = "ReindexJob";
-        public const string SearchParameterStatusPartitionKey = "__searchparameterstatus__";
+        Sequential = 0,
+        Parallel = 1,
     }
 }

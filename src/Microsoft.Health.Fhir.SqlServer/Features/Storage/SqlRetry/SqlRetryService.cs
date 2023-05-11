@@ -223,12 +223,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
                     using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-                    // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
+                    // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                     // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                     sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                     await sqlConnection.OpenAsync(cancellationToken);
 
-                    sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+                    sqlCommand.CommandTimeout = Math.Max(sqlCommand.CommandTimeout, (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds);
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);

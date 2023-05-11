@@ -148,6 +148,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         QueueType = queueType,
                     };
 
+                    if (newJob.Status == JobStatus.Created)
+                    {
+                        newJob.CreateDate = DateTime.Now;
+                    }
+
                     result.Add(newJob);
                     jobInfos.Add(newJob);
                 }

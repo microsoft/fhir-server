@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -23,8 +24,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
+        private readonly UpdateUnsupportedSearchParameters _updateSP = new UpdateUnsupportedSearchParameters();
 
-        private const int CollectionSettingsVersion = 2;
+        private const int CollectionSettingsVersion = 3;
 
         public FhirCollectionSettingsUpdater(
             CosmosDataStoreConfiguration configuration,
@@ -46,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
-            if (thisVersion.Version < CollectionSettingsVersion)
+            if (thisVersion.Version < 2)
             {
                 var containerResponse = await container.ReadContainerAsync(cancellationToken: cancellationToken);
 
@@ -70,6 +72,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                 await container.ReplaceContainerAsync(containerResponse, cancellationToken: cancellationToken);
 
+                thisVersion.Version = CollectionSettingsVersion;
+                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
+            }
+            else if (thisVersion.Version < CollectionSettingsVersion)
+            {
+                await _updateSP.Execute(container.Scripts, cancellationToken);
                 thisVersion.Version = CollectionSettingsVersion;
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }

@@ -50,7 +50,7 @@ content-type: {{contentType}}
 POST {{baseUrl}}/$reindex HTTP/1.1
 content-type: {{contentType}}
 
-{  "resourceType": "Parameters", "parameter": [] }
+{  "resourceType": "Parameters", "parameter": [] }
 
 ### Records the reindex job location
 @reindexLocation = {{reindex.response.headers.Content-Location}}

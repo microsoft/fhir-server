@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public sealed class BundleOrchestratorNamingConventions
     {
-        public const string HttpHeaderOperationTag = "X-BundleOperation";
+        public const string HttpHeaderBundleProcessingLogic = "x-bundle-processing-logic";
+
+        public const string HttpHeaderOperationTag = "x-bundle-operation-id";
     }
 }
