@@ -124,6 +124,9 @@
     <value>Only a bundle can be submitted for batch or transaction processing.</value>
     <comment>Bundle is a FHIR resource type.</comment>
   </data>
+  <data name="CannotGetContainerRegistryAccessToken" xml:space="preserve">
+    <value>Failed to get access token for the requested Container Registry. Please check your configuration.</value>
+  </data>
   <data name="ChainedParameterMustBeReferenceSearchParamType" xml:space="preserve">
     <value>The chained parameter must be a reference search parameter type.</value>
   </data>

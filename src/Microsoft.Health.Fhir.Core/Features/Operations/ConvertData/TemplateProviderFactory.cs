@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
@@ -20,7 +22,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         public IConvertDataTemplateProvider GetContainerRegistryTemplateProvider()
         {
-            return _sp.GetRequiredService<ContainerRegistryTemplateProvider>();
+            IConvertDataTemplateProvider templateProvider;
+
+            try
+            {
+                templateProvider = _sp.GetRequiredService<ContainerRegistryTemplateProvider>();
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new AzureContainerRegistryTokenException(Core.Resources.CannotGetContainerRegistryAccessToken, HttpStatusCode.Unauthorized, ex);
+            }
+
+            return templateProvider;
         }
 
         public IConvertDataTemplateProvider GetDefaultTemplateProvider()

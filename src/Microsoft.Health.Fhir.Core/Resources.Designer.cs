@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to get access token for the requested Container Registry. Please check your configuration..
+        /// </summary>
+        internal static string CannotGetContainerRegistryAccessToken {
+            get {
+                return ResourceManager.GetString("CannotGetContainerRegistryAccessToken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Can&apos;t find &apos;{0}&apos; in type &apos;{1}&apos;.
         /// </summary>
         internal static string CantResolveExpressionForAType {
