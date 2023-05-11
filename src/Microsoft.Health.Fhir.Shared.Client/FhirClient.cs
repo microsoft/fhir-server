@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Client
 {
     public class FhirClient : IFhirClient
     {
+        private const string BundleProcessingLogicHeader = "X-Bundle-Processing-Logic";
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
@@ -480,7 +481,7 @@ namespace Microsoft.Health.Fhir.Client
             return response;
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
@@ -488,6 +489,7 @@ namespace Microsoft.Health.Fhir.Client
             };
 
             message.Headers.Accept.Add(_mediaType);
+            message.Headers.Add(BundleProcessingLogicHeader, processingLogic.ToString());
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
@@ -496,7 +498,7 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Bundle>> PostBundleWithValidationHeaderAsync(Resource bundle, bool profileValidation, FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Parallel, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
@@ -504,6 +506,7 @@ namespace Microsoft.Health.Fhir.Client
             };
             message.Headers.Add(ProfileValidation, profileValidation.ToString());
             message.Headers.Accept.Add(_mediaType);
+            message.Headers.Add(BundleProcessingLogicHeader, processingLogic.ToString());
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 

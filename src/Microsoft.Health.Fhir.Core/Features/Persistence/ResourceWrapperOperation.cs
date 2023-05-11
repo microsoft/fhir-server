@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DataStoreOperationIdentifier GetIdentifier()
         {
             /// BundleOperationId does not need to be part of <see cref="DataStoreOperationIdentifier"/>.
-
             ResourceKey resourceKey = Wrapper.ToResourceKey();
             return new DataStoreOperationIdentifier(resourceKey, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
         }

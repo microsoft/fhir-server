@@ -65,8 +65,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        // ToDo: Refactor this test as it contains a bundle with duplicated resources.
-        /*
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly()
@@ -75,7 +73,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-BinaryPatch").ToPoco<Bundle>();
 
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
+            // This test required sequential bundle processing.
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Sequential);
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 
@@ -83,7 +82,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.IsType<Patient>(patched.Resource.Entry[1].Resource);
             Assert.Equal(AdministrativeGender.Female, ((Patient)patched.Resource.Entry[1].Resource).Gender);
         }
-        */
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

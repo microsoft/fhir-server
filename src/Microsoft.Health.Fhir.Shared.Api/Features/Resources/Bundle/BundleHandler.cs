@@ -48,7 +48,6 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Namotion.Reflection;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -157,32 +156,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
         }
 
-        private static BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
-        {
-            if (outerHttpContext.Request.HasProperty(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic))
-            {
-                string processingLogicAsString = outerHttpContext.Request.Headers[BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic].First();
-
-                try
-                {
-                    BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString);
-                    return processingLogic;
-                }
-                catch (Exception e)
-                {
-                    logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
-
-                    return DefaultBundleProcessingLogic;
-                }
-            }
-
-            return DefaultBundleProcessingLogic;
-        }
-
-        /// <summary>
-        /// To be deprecated after migrating to Bundle Orchestrator.
-        /// </summary>
-        private async Task ExecuteAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        private async Task ExecuteAllRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
             responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
@@ -205,7 +179,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = await ExecuteRequests(responseBundle, verb, throttledEntryComponent);
+                throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent);
             }
         }
 
@@ -243,13 +217,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    if (_bundleOrchestrator.IsEnabled)
+                    if (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel)
                     {
                         await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
                     }
                     else
                     {
-                        await ExecuteAllRequests(responseBundle);
+                        await ExecuteAllRequestsInSequenceAsync(responseBundle);
                     }
 
                     var response = new BundleResponse(responseBundle.ToResourceElement());
@@ -286,6 +260,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
+        private static BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
+        {
+            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            {
+                string processingLogicAsString = headerValues.FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(processingLogicAsString))
+                {
+                    return DefaultBundleProcessingLogic;
+                }
+
+                try
+                {
+                    BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString.Trim(), ignoreCase: true);
+                    return processingLogic;
+                }
+                catch (Exception e)
+                {
+                    logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
+
+                    return DefaultBundleProcessingLogic;
+                }
+            }
+
+            return DefaultBundleProcessingLogic;
+        }
+
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
         {
             var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
-                    await ExecuteAllRequests(responseBundle);
+                    await ExecuteAllRequestsInSequenceAsync(responseBundle);
 
                     transaction.Complete();
                 }
@@ -464,10 +464,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        /// <summary>
-        /// To be deprecated after migrating to Bundle Orchestrator.
-        /// </summary>
-        private async Task<EntryComponent> ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
+        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
             const int GCCollectTrigger = 150;
 
