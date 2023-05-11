@@ -3,56 +3,56 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportOrchestratorJobResult
     {
-        /// <summary>
-        /// Transaction time for import job created
-        /// </summary>
-        public DateTimeOffset TransactionTime { get; set; }
-
         /// <summary>
         /// Request Uri for the import opearion
         /// </summary>
         public string Request { get; set; }
 
         /// <summary>
-        /// Import total file size
+        /// Resource count succeeded to import
         /// </summary>
-        public long? TotalSizeInBytes { get; set; }
-
-        /// <summary>
-        /// Resource count succeed to import
-        /// </summary>
-        public long SucceedImportCount { get; set; }
+        public long SucceededResources { get; set; }
 
         /// <summary>
         /// Resource count failed to import
         /// </summary>
-        public long FailedImportCount { get; set; }
+        public long FailedResources { get; set; }
 
         /// <summary>
-        /// Created job count for all blob files
+        /// Count of jobs created for all blobs/files
         /// </summary>
-        public int CreatedJobCount { get; set; }
+        public int CreatedJobs { get; set; }
 
         /// <summary>
-        /// Current end sequence id
+        /// Count of completed jobs
         /// </summary>
-        public long CurrentSequenceId { get; set; }
+        public int CompletedJobs { get; set; }
 
         /// <summary>
-        /// Current running job id list
+        /// Total size of blobs/files to import
         /// </summary>
-        public ISet<long> RunningJobIds { get; } = new HashSet<long>();
+        public long TotalBytes { get; set; }
+
+        /// <summary>
+        /// Processed size of blobs/files
+        /// </summary>
+        public long ProcessedBytes { get; set; }
 
         /// <summary>
         /// Orchestrator job progress.
         /// </summary>
         public ImportOrchestratorJobProgress Progress { get; set; }
+
+        public long SucceedImportCount { get; set; } // TODO: remove in stage 3
+
+        public long FailedImportCount { get; set; } // TODO: remove in stage 3
+
+        public int CreatedJobCount { get; set; } // TODO: remove in stage 3
+
+        public long? TotalSizeInBytes { get; set; } // TODO: remove in stage 3
     }
 }

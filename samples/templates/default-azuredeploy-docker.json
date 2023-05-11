@@ -328,7 +328,9 @@
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "true"
                         }
-                    ]
+                    ],
+                    "scmType": "None",
+                    "ftpsState": "Disabled"
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "clientAffinityEnabled": false
@@ -362,6 +364,32 @@
                         "appCommandLine": "azure-fhir-api",
                         "alwaysOn": true,
                         "healthCheckPath": "/health/check"
+                    }
+                },
+                {
+                    "apiVersion": "2020-12-01",
+                    "name": "scm",
+                    "type": "basicPublishingCredentialsPolicies",
+                    "kind": "string",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn":[
+                        "[variables('serviceName')]"
+                    ],
+                    "properties": {
+                        "allow": false
+                    }
+                },
+                                {
+                    "apiVersion": "2020-12-01",
+                    "name": "ftp",
+                    "type": "basicPublishingCredentialsPolicies",
+                    "kind": "string",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn":[
+                        "[variables('serviceName')]"
+                    ],
+                    "properties": {
+                        "allow": false
                     }
                 }
             ]

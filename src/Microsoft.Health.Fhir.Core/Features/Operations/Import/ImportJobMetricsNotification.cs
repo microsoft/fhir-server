@@ -14,10 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportJobMetricsNotification(
             string id,
             string status,
-            DateTimeOffset createdTime,
+            DateTimeOffset createTime,
             DateTimeOffset endTime,
             long? dataSize,
-            long? succeedCount,
+            long? succeededCount,
             long? failedCount)
         {
             FhirOperation = AuditEventSubType.Import;
@@ -25,10 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             Id = id;
             Status = status;
-            CreatedTime = createdTime;
+            CreateTime = createTime;
             EndTime = endTime;
             DataSize = dataSize;
-            SucceedCount = succeedCount;
+            SucceededCount = succeededCount;
             FailedCount = failedCount;
         }
 
@@ -40,13 +40,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string Status { get; }
 
-        public DateTimeOffset CreatedTime { get; }
+        public DateTimeOffset CreateTime { get; }
 
         public DateTimeOffset EndTime { get; }
 
         public long? DataSize { get; }
 
-        public long? SucceedCount { get; }
+        public long? SucceededCount { get; }
 
         public long? FailedCount { get; }
     }

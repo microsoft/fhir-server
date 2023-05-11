@@ -16,7 +16,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
-            fhirServerBuilder.AddConvertDataTemplateProvider()
+            fhirServerBuilder.AddConvertDataTemplateProviders()
                 .AddConvertDataEngine();
 
             return fhirServerBuilder;
@@ -29,9 +29,11 @@ namespace Microsoft.Extensions.DependencyInjection
             return fhirServerBuilder;
         }
 
-        private static IFhirServerBuilder AddConvertDataTemplateProvider(this IFhirServerBuilder fhirServerBuilder)
+        private static IFhirServerBuilder AddConvertDataTemplateProviders(this IFhirServerBuilder fhirServerBuilder)
         {
-            fhirServerBuilder.Services.AddSingleton<IConvertDataTemplateProvider, ContainerRegistryTemplateProvider>();
+            fhirServerBuilder.Services.AddSingleton<DefaultTemplateProvider>();
+            fhirServerBuilder.Services.AddSingleton<ContainerRegistryTemplateProvider>();
+            fhirServerBuilder.Services.AddSingleton<ITemplateProviderFactory, TemplateProviderFactory>();
 
             return fhirServerBuilder;
         }
