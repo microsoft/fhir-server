@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateSearchParameterStateRequestAtrribute]
         public async Task<IActionResult> GetSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledOrADHS();
+            CheckIfSearchParameterStatusIsEnabledOrAHDS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> PostSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledOrADHS();
+            CheckIfSearchParameterStatusIsEnabledOrAHDS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledOrADHS();
+            CheckIfSearchParameterStatusIsEnabledOrAHDS();
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
             SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Provide appropriate response if Search Parameter Status feature is not enabled
         /// </summary>
-        private void CheckIfSearchParameterStatusIsEnabledOrADHS()
+        private void CheckIfSearchParameterStatusIsEnabledOrAHDS()
         {
             if (!_coreFeaturesConfig.SupportsSelectableSearchParameters || !_isSelectSearchParameterSupported)
             {
