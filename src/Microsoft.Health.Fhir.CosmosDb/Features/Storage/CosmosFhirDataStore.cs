@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (!_resourceKeysInMergeOperation.TryAdd(resourceKey, 0))
                 {
                     // Identify duplicated resources in the same bundle.
-                    throw new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicated);
+                    throw new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicate);
                 }
             }
 

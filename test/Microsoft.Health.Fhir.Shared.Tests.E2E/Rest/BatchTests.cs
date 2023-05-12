@@ -45,26 +45,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
-            var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
 
-            await _client.UpdateAsync(requestBundle.Entry[2].Resource as Patient);
+            await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: FhirBundleProcessingLogic.Parallel);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
             Bundle resource = fhirResponse.Resource;
 
             Assert.Equal("201", resource.Entry[0].Response.Status);
-            Assert.Equal("201", resource.Entry[1].Response.Status);
-            Assert.Equal("200", resource.Entry[2].Response.Status);
-            Assert.Equal("201", resource.Entry[3].Response.Status);
-            Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resource.Entry[4].Response.Status);
-            Assert.Equal("204", resource.Entry[5].Response.Status);
-            Assert.Equal("204", resource.Entry[6].Response.Status);
-            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
-            Assert.Equal("200", resource.Entry[8].Response.Status);
-            ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+
+            Assert.Equal("200", resource.Entry[1].Response.Status);
+            Assert.Equal("201", resource.Entry[2].Response.Status);
+
+            Assert.Equal("204", resource.Entry[3].Response.Status);
+            Assert.Equal("204", resource.Entry[4].Response.Status);
+
+            ValidateOperationOutcome(resource.Entry[5].Response.Status, resource.Entry[5].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            Assert.Equal("200", resource.Entry[6].Response.Status);
+            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Fact]
@@ -72,10 +73,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatchTwiceWithAndWithoutChanges_ThenVersionIsCreatedWhenDataIsChanged()
         {
+            // This test has a dependency to bundle sequential processing logic.
+            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Sequential;
+
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic: FhirBundleProcessingLogic.Sequential); // This test has a dependency to bundle sequential processing logic.
+                processingLogic: processingLogic);
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -95,7 +99,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
 
             // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
-            using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(requestBundle);
+            using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(
+                requestBundle,
+                processingLogic);
+
             Assert.NotNull(fhirResponseAfterPostingSameBundle);
             Assert.Equal(HttpStatusCode.OK, fhirResponseAfterPostingSameBundle.StatusCode);
 

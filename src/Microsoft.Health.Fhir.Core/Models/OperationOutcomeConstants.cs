@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public static class IssueType
         {
             public const string Conflict = nameof(Conflict);
-            public const string Duplicated = nameof(Duplicated);
+            public const string Duplicate = nameof(Duplicate);
             public const string Exception = nameof(Exception);
             public const string Forbidden = nameof(Forbidden);
             public const string Incomplete = nameof(Incomplete);

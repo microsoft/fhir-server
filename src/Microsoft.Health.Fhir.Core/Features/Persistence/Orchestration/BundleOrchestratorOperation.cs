@@ -113,18 +113,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
             var ingestedResources = await _mergeAsyncTask;
             DataStoreOperationIdentifier identifier = resource.GetIdentifier();
-            DataStoreOperationOutcome dataStoreOperationOutcome = ingestedResources[identifier];
-            if (dataStoreOperationOutcome == null)
+            if (ingestedResources.TryGetValue(identifier, out DataStoreOperationOutcome dataStoreOperationOutcome))
+            {
+                if (!dataStoreOperationOutcome.IsOperationSuccessful)
+                {
+                    throw dataStoreOperationOutcome.Exception;
+                }
+
+                return dataStoreOperationOutcome.UpsertOutcome;
+            }
+            else
             {
                 throw new BundleOrchestratorException($"The {nameof(DataStoreOperationOutcome)} returned for the resource was null. Null instances of {nameof(DataStoreOperationOutcome)} are not expected.");
             }
-
-            if (!dataStoreOperationOutcome.IsOperationSuccessful)
-            {
-                throw dataStoreOperationOutcome.Exception;
-            }
-
-            return dataStoreOperationOutcome.UpsertOutcome;
         }
 
         public async Task ReleaseResourceAsync(string reason, CancellationToken cancellationToken)

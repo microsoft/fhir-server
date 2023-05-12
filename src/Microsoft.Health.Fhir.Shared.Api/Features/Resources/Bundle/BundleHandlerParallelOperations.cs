@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
             FhirJsonParser fhirJsonParser = _fhirJsonParser;
-            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor; // No thread-safe
+            IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
 
             _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.", totalNumberOfRequests, httpVerb);
 

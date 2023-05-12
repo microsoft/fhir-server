@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             results.Add(
                               identifier,
                               new DataStoreOperationOutcome(
-                                  new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicated)));
+                                  new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicate)));
                             continue;
                         }
                         else
