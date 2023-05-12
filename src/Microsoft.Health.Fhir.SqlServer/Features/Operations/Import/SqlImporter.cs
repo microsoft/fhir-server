@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
@@ -23,14 +24,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlImporter : IImporter
     {
+        private readonly SqlServerFhirDataStore _store;
         private readonly SqlServerFhirModel _model;
-        private readonly IFhirDataStore _store;
-        private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly IImportErrorSerializer _importErrorSerializer;
+        private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly ILogger<SqlImporter> _logger;
 
         public SqlImporter(
-            IFhirDataStore store,
+            SqlServerFhirDataStore store,
             SqlServerFhirModel model,
             IImportErrorSerializer importErrorSerializer,
             IOptions<OperationsConfiguration> operationsConfig,
@@ -91,36 +92,74 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var goodResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             List<ImportResource> dedupped;
             IEnumerable<ImportResource> merged;
+            var conflicts = new List<ImportResource>();
             if (importMode == ImportMode.InitialLoad)
             {
                 var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                var existing = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(true)));
-                dedupped = inputDedupped.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)).ToList();
+                var current = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(true)));
+                dedupped = inputDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)).ToList();
                 merged = MergeResourcesAsync(dedupped, cancellationToken).Result;
             }
             else
             {
-                var inputDedupped = goodResources.GroupBy(_ => (_.ResourceWrapper.ToResourceKey(true), _.ResourceWrapper.LastModified)).Select(_ => _.First()).ToList();
+                // dedup by last updated
+                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey()).Select(_ => _.First()).ToList();
 
                 // 2 paths:
                 // 1 - if versions were specified on input then dups need to be checked within input and database
                 var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-                var existing = new HashSet<ResourceKey>(GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey()));
-                dedupped = inputDeduppedWithVersions.Where(i => !existing.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified).ToList();
-                var mergedWithVersions = MergeResourcesAsync(dedupped, cancellationToken).Result;
+                var current = new HashSet<ResourceKey>(GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey()));
+                dedupped = inputDeduppedWithVersions.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified).ToList();
+                var mergedWithVersion = MergeResourcesAsync(dedupped, cancellationToken).Result;
 
                 // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
-                // for simlicity assume that ony one unassigned version is provided for a given resource
-                var inputDeduppedNoVersions = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First());
-                var mergedNoVersions = MergeResourcesAsync(inputDeduppedNoVersions, cancellationToken).Result;
-                dedupped.AddRange(inputDeduppedNoVersions);
-                merged = mergedWithVersions.Union(mergedNoVersions);
+                // for simlicity assume that only one unassigned version is provided for a given resource
+                var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
+                //// check whether record can fit
+                var currentDates = GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
+                var inputDeduppedNoVersionForCheck = new List<ImportResource>();
+                foreach (var resource in inputDeduppedNoVersion)
+                {
+                    if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
+                        && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
+                    {
+                        inputDeduppedNoVersionForCheck.Add(resource);
+                    }
+                }
+
+                var belowVersions = GetAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken).Result.ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
+                foreach (var resource in inputDeduppedNoVersionForCheck)
+                {
+                    var resourceKey = resource.ResourceWrapper.ToResourceKey(true);
+                    currentDates.TryGetValue(resourceKey, out var currentDateKey);
+                    var belowVersion = "0";
+                    if (belowVersions.TryGetValue(resourceKey, out var belowDateKey))
+                    {
+                        belowVersion = belowDateKey.VersionId;
+                    }
+
+                    if (int.Parse(belowVersion, CultureInfo.InvariantCulture) + 1 == int.Parse(currentDateKey.VersionId, CultureInfo.InvariantCulture)) // no version slot available
+                    {
+                        conflicts.Add(resource);
+                    }
+                    else
+                    {
+                        resource.KeepVersion = true;
+                        resource.ResourceWrapper.Version = (int.Parse(currentDateKey.VersionId, CultureInfo.InvariantCulture) - 1).ToString(CultureInfo.InvariantCulture);
+                    }
+                }
+
+                var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts); // some resources might get version assigned
+                var mergedNoVersionWithVersionAssigned = MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion), cancellationToken).Result;
+                var mergedNoVersion = MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion), cancellationToken).Result;
+                dedupped.AddRange(inputDeduppedNoVersionNoConflict);
+                merged = mergedWithVersion.Union(mergedNoVersionWithVersionAssigned).Union(mergedNoVersion);
             }
 
             var dups = goodResources.Except(dedupped);
 
             errors.AddRange(errorResources.Select(r => r.ImportError));
-            AppendDuplicateErrorsToBuffer(dups, errors);
+            AppendErrorsToBuffer(dups, conflicts, errors);
 
             succeededCount += merged.Count();
             failedCount += errorResources.Count() + dups.Count();
@@ -157,9 +196,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private void AppendDuplicateErrorsToBuffer(IEnumerable<ImportResource> resources, List<string> importErrorBuffer)
+        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> resourceKeys, CancellationToken cancellationToken)
         {
-            foreach (var resource in resources)
+            try
+            {
+                return await _store.GetAsync(resourceKeys, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "GetAsync failed.");
+                throw new RetriableJobException(ex.Message, ex);
+            }
+        }
+
+        private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
+        {
+            foreach (var resource in dups)
+            {
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+            }
+
+            foreach (var resource in conflicts)
             {
                 importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
             }

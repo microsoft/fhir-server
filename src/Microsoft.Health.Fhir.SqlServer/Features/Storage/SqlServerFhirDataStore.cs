@@ -320,10 +320,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateRetrySqlCommand();
-            VLatest.GetResources.PopulateCommand(cmd, keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue))); // put min value when cannot parse so resource will be not found
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetResources";
+            var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
+            new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
             cmd.CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count);
 
             using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+
+            var resources = await ReadWrappers(reader, cancellationToken);
+
+            return resources;
+        }
+
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
+        {
+            var results = new List<ResourceWrapper>();
+            if (keys == null || keys.Count == 0)
+            {
+                return results;
+            }
+
+            using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetResources";
+            var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.ResourceSurrogateId));
+            new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
+            cmd.CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count);
+
+            using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+
+            var resources = await ReadWrappers(reader, cancellationToken);
+
+            return resources;
+        }
+
+        private async Task<IReadOnlyList<ResourceWrapper>> ReadWrappers(SqlDataReader reader, CancellationToken cancellationToken)
+        {
             var resources = new List<ResourceWrapper>();
             while (await reader.ReadAsync(cancellationToken))
             {

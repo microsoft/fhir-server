@@ -1,3 +1,118 @@
+--DROP TYPE dbo.ResourceDateKeyList
+GO
+IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'ResourceDateKeyList')
+CREATE TYPE dbo.ResourceDateKeyList AS TABLE
+(
+    ResourceTypeId       smallint            NOT NULL
+   ,ResourceId           varchar(64)         COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,ResourceSurrogateId  bigint              NOT NULL
+
+    PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId)
+)
+GO
+--DROP PROCEDURE dbo.GetResources
+GO
+CREATE OR ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY, @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+AS
+set nocount on
+DECLARE @st datetime = getUTCdate()
+       ,@SP varchar(100) = 'GetResources'
+       ,@InputRows int
+       ,@InputDateRows int
+       ,@DummyTop bigint = 9223372036854775807
+       ,@NotNullVersionExists bit 
+       ,@NullVersionExists bit 
+
+SELECT @InputRows = count(*), @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END), @NullVersionExists = max(CASE WHEN Version IS NULL THEN 1 ELSE 0 END) FROM @ResourceKeys
+SET @InputDateRows = (SELECT count(*) FROM @ResourceDateKeys)
+
+DECLARE @Mode varchar(100) = 'Dats='+convert(varchar,@InputDateRows)+' Vers='+convert(varchar,@InputRows)+' NotNullVer='+convert(varchar,@NotNullVersionExists)+' NullVer='+convert(varchar,@NullVersionExists)
+
+BEGIN TRY
+  IF @InputRows > 0 AND @InputDateRows > 0 RAISERROR('Both input TVPs have data', 18, 127)
+
+  IF @InputDateRows > 0 -- find closest from the bottom
+    SELECT C.ResourceTypeId
+          ,C.ResourceId
+          ,C.ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+          ,IsHistory
+          ,RawResource
+          ,IsRawResourceMetaSet
+          ,SearchParamHash
+      FROM (SELECT TOP (@DummyTop) * FROM @ResourceDateKeys) A
+           CROSS APPLY (SELECT TOP 1 * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) C
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    IF @NotNullVersionExists = 1
+      IF @NullVersionExists = 0
+        SELECT B.ResourceTypeId
+              ,B.ResourceId
+              ,ResourceSurrogateId
+              ,B.Version
+              ,IsDeleted
+              ,IsHistory
+              ,RawResource
+              ,IsRawResourceMetaSet
+              ,SearchParamHash
+          FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
+               JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+          OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+      ELSE
+        SELECT *
+          FROM (SELECT B.ResourceTypeId
+                      ,B.ResourceId
+                      ,ResourceSurrogateId
+                      ,B.Version
+                      ,IsDeleted
+                      ,IsHistory
+                      ,RawResource
+                      ,IsRawResourceMetaSet
+                      ,SearchParamHash
+                  FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NOT NULL) A
+                       JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+              UNION ALL
+              SELECT B.ResourceTypeId
+                    ,B.ResourceId
+                    ,ResourceSurrogateId
+                    ,B.Version
+                    ,IsDeleted
+                    ,IsHistory
+                    ,RawResource
+                    ,IsRawResourceMetaSet
+                    ,SearchParamHash
+                FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NULL) A
+                     JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                WHERE IsHistory = 0
+             ) A
+          OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    ELSE
+      SELECT B.ResourceTypeId
+            ,B.ResourceId
+            ,ResourceSurrogateId
+            ,B.Version
+            ,IsDeleted
+            ,IsHistory
+            ,RawResource
+            ,IsRawResourceMetaSet
+            ,SearchParamHash
+        FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
+             JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+        WHERE IsHistory = 0
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+--DECLARE @ResourceKeys dbo.ResourceKeyList
+--INSERT INTO @ResourceKeys SELECT TOP 1 ResourceTypeId, ResourceId, NULL FROM Resource
+--EXECUTE dbo.GetResources @ResourceKeys
 --DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT
