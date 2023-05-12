@@ -3466,99 +3466,19 @@ FROM   dbo.ReindexJob
 WHERE  Id = @id;
 
 GO
-CREATE OR ALTER PROCEDURE dbo.GetResources
-@ResourceKeys dbo.ResourceKeyList READONLY, @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+CREATE PROCEDURE dbo.GetResources
+@ResourceKeys dbo.ResourceKeyList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResources', @InputRows AS INT, @InputDateRows AS INT, @DummyTop AS BIGINT = 9223372036854775807, @NotNullVersionExists AS BIT, @NullVersionExists AS BIT;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResources', @InputRows AS INT, @DummyTop AS BIGINT = 9223372036854775807, @NotNullVersionExists AS BIT, @NullVersionExists AS BIT;
 SELECT @InputRows = count(*),
        @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END),
        @NullVersionExists = max(CASE WHEN Version IS NULL THEN 1 ELSE 0 END)
 FROM   @ResourceKeys;
-SET @InputDateRows = (SELECT count(*)
-                      FROM   @ResourceDateKeys);
-DECLARE @Mode AS VARCHAR (100) = 'Dats=' + CONVERT (VARCHAR, @InputDateRows) + ' Vers=' + CONVERT (VARCHAR, @InputRows) + ' NotNullVer=' + CONVERT (VARCHAR, @NotNullVersionExists) + ' NullVer=' + CONVERT (VARCHAR, @NullVersionExists);
+DECLARE @Mode AS VARCHAR (100) = 'Cnt=' + CONVERT (VARCHAR, @InputRows) + ' NNVE=' + CONVERT (VARCHAR, @NotNullVersionExists) + ' NVE=' + CONVERT (VARCHAR, @NullVersionExists);
 BEGIN TRY
-    IF @InputRows > 0
-       AND @InputDateRows > 0
-        RAISERROR ('Both input TVPs have data', 18, 127);
-    IF @InputDateRows > 0
-        SELECT C.ResourceTypeId,
-               C.ResourceId,
-               C.ResourceSurrogateId,
-               Version,
-               IsDeleted,
-               IsHistory,
-               RawResource,
-               IsRawResourceMetaSet,
-               SearchParamHash
-        FROM   (SELECT TOP (@DummyTop) *
-                FROM   @ResourceDateKeys) AS A CROSS APPLY (SELECT   TOP 1 *
-                                                            FROM     dbo.Resource AS B
-                                                            WHERE    B.ResourceTypeId = A.ResourceTypeId
-                                                                     AND B.ResourceId = A.ResourceId
-                                                                     AND B.ResourceSurrogateId < A.ResourceSurrogateId
-                                                            ORDER BY B.ResourceSurrogateId DESC) AS C
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-    ELSE
-        IF @NotNullVersionExists = 1
-            IF @NullVersionExists = 0
-                SELECT B.ResourceTypeId,
-                       B.ResourceId,
-                       ResourceSurrogateId,
-                       B.Version,
-                       IsDeleted,
-                       IsHistory,
-                       RawResource,
-                       IsRawResourceMetaSet,
-                       SearchParamHash
-                FROM   (SELECT TOP (@DummyTop) *
-                        FROM   @ResourceKeys) AS A
-                       INNER JOIN
-                       dbo.Resource AS B
-                       ON B.ResourceTypeId = A.ResourceTypeId
-                          AND B.ResourceId = A.ResourceId
-                          AND B.Version = A.Version
-                OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-            ELSE
-                SELECT *
-                FROM   (SELECT B.ResourceTypeId,
-                               B.ResourceId,
-                               ResourceSurrogateId,
-                               B.Version,
-                               IsDeleted,
-                               IsHistory,
-                               RawResource,
-                               IsRawResourceMetaSet,
-                               SearchParamHash
-                        FROM   (SELECT TOP (@DummyTop) *
-                                FROM   @ResourceKeys
-                                WHERE  Version IS NOT NULL) AS A
-                               INNER JOIN
-                               dbo.Resource AS B
-                               ON B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.ResourceId = A.ResourceId
-                                  AND B.Version = A.Version
-                        UNION ALL
-                        SELECT B.ResourceTypeId,
-                               B.ResourceId,
-                               ResourceSurrogateId,
-                               B.Version,
-                               IsDeleted,
-                               IsHistory,
-                               RawResource,
-                               IsRawResourceMetaSet,
-                               SearchParamHash
-                        FROM   (SELECT TOP (@DummyTop) *
-                                FROM   @ResourceKeys
-                                WHERE  Version IS NULL) AS A
-                               INNER JOIN
-                               dbo.Resource AS B
-                               ON B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.ResourceId = A.ResourceId
-                        WHERE  IsHistory = 0) AS A
-                OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-        ELSE
+    IF @NotNullVersionExists = 1
+        IF @NullVersionExists = 0
             SELECT B.ResourceTypeId,
                    B.ResourceId,
                    ResourceSurrogateId,
@@ -3574,8 +3494,64 @@ BEGIN TRY
                    dbo.Resource AS B
                    ON B.ResourceTypeId = A.ResourceTypeId
                       AND B.ResourceId = A.ResourceId
-            WHERE  IsHistory = 0
+                      AND B.Version = A.Version
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+        ELSE
+            SELECT *
+            FROM   (SELECT B.ResourceTypeId,
+                           B.ResourceId,
+                           ResourceSurrogateId,
+                           B.Version,
+                           IsDeleted,
+                           IsHistory,
+                           RawResource,
+                           IsRawResourceMetaSet,
+                           SearchParamHash
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @ResourceKeys
+                            WHERE  Version IS NOT NULL) AS A
+                           INNER JOIN
+                           dbo.Resource AS B
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceId = A.ResourceId
+                              AND B.Version = A.Version
+                    UNION ALL
+                    SELECT B.ResourceTypeId,
+                           B.ResourceId,
+                           ResourceSurrogateId,
+                           B.Version,
+                           IsDeleted,
+                           IsHistory,
+                           RawResource,
+                           IsRawResourceMetaSet,
+                           SearchParamHash
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @ResourceKeys
+                            WHERE  Version IS NULL) AS A
+                           INNER JOIN
+                           dbo.Resource AS B
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceId = A.ResourceId
+                    WHERE  IsHistory = 0) AS A
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    ELSE
+        SELECT B.ResourceTypeId,
+               B.ResourceId,
+               ResourceSurrogateId,
+               B.Version,
+               IsDeleted,
+               IsHistory,
+               RawResource,
+               IsRawResourceMetaSet,
+               SearchParamHash
+        FROM   (SELECT TOP (@DummyTop) *
+                FROM   @ResourceKeys) AS A
+               INNER JOIN
+               dbo.Resource AS B
+               ON B.ResourceTypeId = A.ResourceTypeId
+                  AND B.ResourceId = A.ResourceId
+        WHERE  IsHistory = 0
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
 BEGIN CATCH
@@ -3718,6 +3694,44 @@ BEGIN CATCH
     IF error_number() = 1750
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.GetResourceVersions
+@ResourceDateKeys dbo.ResourceDateKeyList READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourceVersions', @Mode AS VARCHAR (100) = 'Rows=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                                                            FROM   @ResourceDateKeys)), @DummyTop AS BIGINT = 9223372036854775807;
+BEGIN TRY
+    SELECT A.ResourceTypeId,
+           A.ResourceId,
+           A.ResourceSurrogateId,
+           CASE WHEN EXISTS (SELECT *
+                             FROM   dbo.Resource AS B
+                             WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                    AND B.ResourceId = A.ResourceId
+                                    AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE 0 END AS Version
+    FROM   (SELECT TOP (@DummyTop) *
+            FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
+                                                        FROM     dbo.Resource AS B
+                                                        WHERE    B.ResourceTypeId = A.ResourceTypeId
+                                                                 AND B.ResourceId = A.ResourceId
+                                                                 AND B.ResourceSurrogateId < A.ResourceSurrogateId
+                                                        ORDER BY B.ResourceSurrogateId DESC) AS L OUTER APPLY (SELECT   TOP 1 *
+                                                                                                               FROM     dbo.Resource AS B
+                                                                                                               WHERE    B.ResourceTypeId = A.ResourceTypeId
+                                                                                                                        AND B.ResourceId = A.ResourceId
+                                                                                                                        AND B.ResourceSurrogateId > A.ResourceSurrogateId
+                                                                                                               ORDER BY B.ResourceSurrogateId) AS U
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH
 

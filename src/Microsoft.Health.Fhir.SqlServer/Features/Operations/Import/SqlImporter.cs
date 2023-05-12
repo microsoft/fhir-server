@@ -6,12 +6,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
@@ -88,17 +89,64 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount, ref long processedBytes)
         {
-            var errorResources = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
-            var goodResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            List<ImportResource> dedupped;
-            IEnumerable<ImportResource> merged;
+            var retries = 0;
+            var loaded = new List<ImportResource>();
             var conflicts = new List<ImportResource>();
+            while (true)
+            {
+                var mergeStart = (DateTime?)null;
+                try
+                {
+                    mergeStart = DateTime.UtcNow;
+                    loaded = new List<ImportResource>();
+                    conflicts = new List<ImportResource>();
+                    ImportResourcesInBufferMain(resources, loaded, conflicts, importMode, cancellationToken).Wait();
+                    break;
+                }
+                catch (SqlException e)
+                {
+                    if (((e.Number == SqlErrorCodes.Conflict || e.Number == 2601) && retries++ < 10)
+                        || e.IsRetriable() // this should allow to deal with intermittent database errors.
+                        || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
+                    {
+                        _logger.LogWarning(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
+                        _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken).Wait();
+
+                        Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+
+                    _logger.LogError(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken).Wait();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation(ex, "ImportResourcesInBuffer failed.");
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+            }
+
+            var errorResources = resources.Where(r => !string.IsNullOrEmpty(r.ImportError));
+            errors.AddRange(errorResources.Select(r => r.ImportError));
+            var dups = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).Except(loaded).Except(conflicts);
+            AppendErrorsToBuffer(dups, conflicts, errors);
+
+            succeededCount += loaded.Count;
+            failedCount += errorResources.Count() + dups.Count() + conflicts.Count;
+            processedBytes += resources.Sum(_ => (long)_.Length);
+
+            resources.Clear();
+        }
+
+        private async Task ImportResourcesInBufferMain(List<ImportResource> resources, List<ImportResource> loaded, List<ImportResource> conflicts, ImportMode importMode, CancellationToken cancellationToken)
+        {
+            var goodResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             if (importMode == ImportMode.InitialLoad)
             {
                 var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
-                var current = new HashSet<ResourceKey>(GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey(true)));
-                dedupped = inputDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)).ToList();
-                merged = MergeResourcesAsync(dedupped, cancellationToken).Result;
+                var current = new HashSet<ResourceKey>((await _store.GetAsync(inputDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
+                loaded.AddRange(inputDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
+                await MergeResourcesAsync(loaded, cancellationToken);
             }
             else
             {
@@ -108,15 +156,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // 2 paths:
                 // 1 - if versions were specified on input then dups need to be checked within input and database
                 var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-                var current = new HashSet<ResourceKey>(GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken).Result.Select(_ => _.ToResourceKey()));
-                dedupped = inputDeduppedWithVersions.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified).ToList();
-                var mergedWithVersion = MergeResourcesAsync(dedupped, cancellationToken).Result;
+                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
+                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
+                await MergeResourcesAsync(loaded, cancellationToken);
 
                 // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
-                // for simlicity assume that only one unassigned version is provided for a given resource
+                // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
                 var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
                 //// check whether record can fit
-                var currentDates = GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken).Result.ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
+                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
@@ -127,98 +175,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
-                var belowVersions = GetAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken).Result.ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
+                var versionSlots = (await _store.GetResourceVervionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_.ResourceType, _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
                     var resourceKey = resource.ResourceWrapper.ToResourceKey(true);
-                    currentDates.TryGetValue(resourceKey, out var currentDateKey);
-                    var belowVersion = "0";
-                    if (belowVersions.TryGetValue(resourceKey, out var belowDateKey))
-                    {
-                        belowVersion = belowDateKey.VersionId;
-                    }
+                    versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
 
-                    if (int.Parse(belowVersion, CultureInfo.InvariantCulture) + 1 == int.Parse(currentDateKey.VersionId, CultureInfo.InvariantCulture)) // no version slot available
+                    if (versionSlotKey.VersionId == "0") // no version slot available
                     {
                         conflicts.Add(resource);
                     }
                     else
                     {
                         resource.KeepVersion = true;
-                        resource.ResourceWrapper.Version = (int.Parse(currentDateKey.VersionId, CultureInfo.InvariantCulture) - 1).ToString(CultureInfo.InvariantCulture);
+                        resource.ResourceWrapper.Version = versionSlotKey.VersionId;
                     }
                 }
 
                 var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts); // some resources might get version assigned
-                var mergedNoVersionWithVersionAssigned = MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion), cancellationToken).Result;
-                var mergedNoVersion = MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion), cancellationToken).Result;
-                dedupped.AddRange(inputDeduppedNoVersionNoConflict);
-                merged = mergedWithVersion.Union(mergedNoVersionWithVersionAssigned).Union(mergedNoVersion);
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion), cancellationToken);
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion), cancellationToken);
+                loaded.AddRange(inputDeduppedNoVersionNoConflict);
             }
-
-            var dups = goodResources.Except(dedupped);
-
-            errors.AddRange(errorResources.Select(r => r.ImportError));
-            AppendErrorsToBuffer(dups, conflicts, errors);
-
-            succeededCount += merged.Count();
-            failedCount += errorResources.Count() + dups.Count();
-            processedBytes += resources.Sum(_ => (long)_.Length);
-
-            resources.Clear();
         }
 
         private async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
         {
-            try
-            {
-                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion)).ToList();
-                var result = await _store.MergeAsync(input, cancellationToken);
-                return resources;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "MergeResourcesAsync failed.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-        }
-
-        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> resourceKeys, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await _store.GetAsync(resourceKeys, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "GetAsync failed.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
-        }
-
-        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> resourceKeys, CancellationToken cancellationToken)
-        {
-            try
-            {
-                return await _store.GetAsync(resourceKeys, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "GetAsync failed.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
+            var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion)).ToList();
+            var result = await _store.MergeMainAsync(input, cancellationToken);
+            return resources;
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
         {
             foreach (var resource in dups)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportDuplicate, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
             }
 
             foreach (var resource in conflicts)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportForDuplicatedResource, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FaildToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
             }
         }
 
