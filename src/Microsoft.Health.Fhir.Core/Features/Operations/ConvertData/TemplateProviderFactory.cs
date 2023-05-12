@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             {
                 templateProvider = _sp.GetRequiredService<ContainerRegistryTemplateProvider>();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 throw new AzureContainerRegistryTokenException(Core.Resources.CannotGetContainerRegistryAccessToken, HttpStatusCode.Unauthorized, ex);
             }
