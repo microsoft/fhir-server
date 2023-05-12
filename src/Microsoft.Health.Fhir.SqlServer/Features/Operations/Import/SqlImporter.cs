@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             else
             {
                 // dedup by last updated
-                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey()).Select(_ => _.First()).ToList();
+                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(true)).Select(_ => _.First()).ToList();
 
                 // 2 paths:
                 // 1 - if versions were specified on input then dups need to be checked within input and database
