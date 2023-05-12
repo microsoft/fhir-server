@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                     },
                     new ResourceSearchParameterStatus
                     {
-                        Status = SearchParameterStatus.PendingDelete,
+                        Status = SearchParameterStatus.Deleted,
                         Uri = new Uri(ResourceQuery),
                     },
                     new ResourceSearchParameterStatus
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Parameters result = response.SearchParameters.ToPoco<Parameters>();
             Assert.Equal(8, result.Parameter.Count);
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDelete.ToString()).Any()).Any());
+            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceProfile).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Disabled.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceSecurity).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Supported.ToString()).Any()).Any());
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             Parameters result = response.SearchParameters.ToPoco<Parameters>();
             Assert.Equal(6, result.Parameter.Count);
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceId).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Enabled.ToString()).Any()).Any());
-            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDelete.ToString()).Any()).Any());
+            Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceQuery).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Deleted.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceLastUpdated).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.PendingDisable.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceProfile).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Disabled.ToString()).Any()).Any());
             Assert.True(result.Parameter.Where(p => p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Url && pt.Value.ToString() == ResourceSecurity).Any() && p.Part.Where(pt => pt.Name == SearchParameterStateProperties.Status && pt.Value.ToString() == SearchParameterStatus.Supported.ToString()).Any()).Any());

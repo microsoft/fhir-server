@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
                     },
                     new ResourceSearchParameterStatus
                     {
-                        Status = SearchParameterStatus.PendingDelete,
+                        Status = SearchParameterStatus.Deleted,
                         Uri = new Uri(ResourceQuery),
                     },
                     new ResourceSearchParameterStatus
