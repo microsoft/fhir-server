@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
         }
 
-        public ImportResource Parse(long index, long offset, int length, string rawResource)
+        public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
             CheckConditionalReferenceInResource(resource);
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             bool lastUpdatedIsNull;
-            if (lastUpdatedIsNull = resource.Meta.LastUpdated == null)
+            if (lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null)
             {
                 resource.Meta.LastUpdated = Clock.UtcNow;
             }

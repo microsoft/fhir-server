@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
                 try

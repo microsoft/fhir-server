@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();

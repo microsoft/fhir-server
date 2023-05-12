@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
+        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldNotBeKept()
         {
             var id = Guid.NewGuid().ToString("N");
             var versionId = 2.ToString();
@@ -212,8 +212,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.NotNull(result);
-            Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
-            Assert.Equal(versionId, result.Resource.Meta.VersionId);
+            Assert.NotEqual(lastUpdated, result.Resource.Meta.LastUpdated);
+            Assert.NotEqual(versionId, result.Resource.Meta.VersionId);
         }
 
         private static DateTimeOffset GetLastUpdated(string lastUpdatedYear)
