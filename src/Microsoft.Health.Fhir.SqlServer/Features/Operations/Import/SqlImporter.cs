@@ -117,11 +117,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken).Wait();
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={e}, retries={retries}", mergeStart, cancellationToken).Wait();
+                    throw new RetriableJobException(e.Message, e);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogInformation(ex, "ImportResourcesInBuffer failed.");
+                    _logger.LogInformation(ex, "ImportResourcesInBufferMain failed.");
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={ex}, retries={retries}", mergeStart, cancellationToken).Wait();
                     throw new RetriableJobException(ex.Message, ex);
                 }
             }
