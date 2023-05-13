@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception e)
                 {
-                    if ((e.Message.Contains("Resource has been recently updated", StringComparison.InvariantCultureIgnoreCase) && retries++ < 20)
+                    if ((e.Message.Contains("Resource has been recently updated", StringComparison.InvariantCultureIgnoreCase) && retries++ < 30)
                         || e.IsRetriable() // this should allow to deal with intermittent database errors.
                         || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
