@@ -105,26 +105,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (SqlException e)
                 {
-                    if (((e.Number == SqlErrorCodes.Conflict || e.Number == 2627) && retries++ < 10) // 2627 - primary key violation
+                    if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10)
                         || e.IsRetriable() // this should allow to deal with intermittent database errors.
                         || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                        _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken).Wait();
+                        _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"retries={retries} error={e.Message}", mergeStart, cancellationToken).Wait();
 
                         Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={e}, retries={retries}", mergeStart, cancellationToken).Wait();
-                    throw new RetriableJobException(e.Message, e);
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
+                    throw; // new RetriableJobException(e.Message, e);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogInformation(ex, "ImportResourcesInBufferMain failed.");
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"Error={ex}, retries={retries}", mergeStart, cancellationToken).Wait();
-                    throw new RetriableJobException(ex.Message, ex);
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={ex}", mergeStart, cancellationToken).Wait();
+                    throw; // new RetriableJobException(ex.Message, ex);
                 }
             }
 
