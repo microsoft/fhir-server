@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (SqlException e)
                 {
-                    if (((e.Number == SqlErrorCodes.Conflict || e.Number == 2601) && retries++ < 10)
+                    if (((e.Number == SqlErrorCodes.Conflict || e.Number == 2627) && retries++ < 10) // 2627 - primary key violation
                         || e.IsRetriable() // this should allow to deal with intermittent database errors.
                         || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
