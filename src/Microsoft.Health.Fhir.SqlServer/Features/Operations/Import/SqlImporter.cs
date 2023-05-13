@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (SqlException e)
                 {
-                    if ((e.Number == SqlErrorCodes.Conflict && retries++ < 10)
+                    if ((e.Number == SqlErrorCodes.Conflict && retries++ < 20)
                         || e.IsRetriable() // this should allow to deal with intermittent database errors.
                         || (e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
