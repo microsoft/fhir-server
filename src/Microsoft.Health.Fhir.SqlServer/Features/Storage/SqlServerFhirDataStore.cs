@@ -111,20 +111,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var results = await MergeMainAsync(resources, cancellationToken);
                     return results;
                 }
-                catch (SqlException e)
+                catch (Exception e)
                 {
+                    var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
                     var isExecutionTimeout = false;
-                    var isConflict = false;
-                    if (((isConflict = e.Number == SqlErrorCodes.Conflict) && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
-                                                                                              //// we cannot retry today on connection loss as this call might be in outer transaction, hence _mergeResourcesRetriesFlag
-                                                                                              //// TODO: remove _mergeResourcesRetriesFlag when set bundle processing is in place.
+                    var isConflict = sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict;
+                    if ((isConflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
+                        //// we cannot retry today on connection loss as this call might be in outer transaction, hence _mergeResourcesRetriesFlag
+                        //// TODO: remove _mergeResourcesRetriesFlag when set bundle processing is in place.
                         || (_mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
                         || ((isExecutionTimeout = _mergeResourcesRetriesFlag.IsEnabled() && e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        if (isConflict || isExecutionTimeout)
+                        if (isExecutionTimeout)
                         {
-                            await TryLogEvent(nameof(MergeAsync), "Warn", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken);
+                            await TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", mergeStart, cancellationToken);
                         }
 
                         await Task.Delay(5000, cancellationToken);
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    await TryLogEvent(nameof(MergeAsync), "Error", $"Error={e.Message}, retries={retries}", mergeStart, cancellationToken);
+                    await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={e}", mergeStart, cancellationToken);
                     throw;
                 }
             }
