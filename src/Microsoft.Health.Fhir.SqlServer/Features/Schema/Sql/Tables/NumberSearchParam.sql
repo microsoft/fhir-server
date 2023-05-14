@@ -3,9 +3,9 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) NOT NULL,
-    HighValue decimal(18,6) NOT NULL,
+    SingleValue decimal(36,18) NULL,
+    LowValue decimal(36,18) NOT NULL,
+    HighValue decimal(36,18) NOT NULL,
     IsHistory bit NOT NULL
 )
 
