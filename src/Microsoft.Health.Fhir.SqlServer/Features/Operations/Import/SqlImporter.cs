@@ -104,14 +104,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception e)
                 {
-                    var isExecutionTimeout = false;
                     var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
+                    var isRetriable = false;
+                    var isExecutionTimeout = false;
                     if ((sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
-                        || e.IsRetriable() // this should allow to deal with intermittent database errors.
+                        || (isRetriable = e.IsRetriable()) // this should allow to deal with intermittent database errors.
                         || (isExecutionTimeout = e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                        if (isExecutionTimeout)
+                        if (isRetriable || isExecutionTimeout)
                         {
                             _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
                         }
@@ -120,8 +121,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error from SQL database on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
+                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
+                    if (sqlEx != null)
+                    {
+                        _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
+                    }
+
                     throw;
                 }
             }

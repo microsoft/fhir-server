@@ -115,16 +115,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var trueEx = e is AggregateException ? e.InnerException : e;
                     var sqlEx = trueEx as SqlException;
+                    var isRetriable = false;
                     var isExecutionTimeout = false;
                     var isConflict = sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict;
                     if ((isConflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
                         //// we cannot retry today on connection loss as this call might be in outer transaction, hence _mergeResourcesRetriesFlag
                         //// TODO: remove _mergeResourcesRetriesFlag when set bundle processing is in place.
-                        || (_mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
+                        || (isRetriable = _mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
                         || ((isExecutionTimeout = _mergeResourcesRetriesFlag.IsEnabled() && e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        if (isExecutionTimeout)
+                        if (isRetriable || isExecutionTimeout)
                         {
                             await TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", mergeStart, cancellationToken);
                         }
@@ -134,7 +135,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={e}", mergeStart, cancellationToken);
+                    if (sqlEx != null)
+                    {
+                        await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", mergeStart, cancellationToken);
+                    }
+
                     throw trueEx;
                 }
             }
