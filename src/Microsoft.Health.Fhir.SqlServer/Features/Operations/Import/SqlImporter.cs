@@ -109,10 +109,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     var isExecutionTimeout = false;
                     if ((sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
                         || (isRetriable = e.IsRetriable()) // this should allow to deal with intermittent database errors.
-                        || (isExecutionTimeout = e.IsExecutionTimeout() && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
+                        || ((isExecutionTimeout = e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                        if (isRetriable || isExecutionTimeout)
+                        if (isRetriable || isExecutionTimeout) // others are logged in SQL by merge stored procedure
                         {
                             _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
                         }

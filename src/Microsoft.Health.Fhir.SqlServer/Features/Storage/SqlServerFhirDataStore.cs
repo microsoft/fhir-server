@@ -121,11 +121,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if ((isConflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
                         //// we cannot retry today on connection loss as this call might be in outer transaction, hence _mergeResourcesRetriesFlag
                         //// TODO: remove _mergeResourcesRetriesFlag when set bundle processing is in place.
-                        || (isRetriable = _mergeResourcesRetriesFlag.IsEnabled() && e.IsRetriable()) // this should allow to deal with intermittent database errors.
-                        || ((isExecutionTimeout = _mergeResourcesRetriesFlag.IsEnabled() && e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
+                        || (_mergeResourcesRetriesFlag.IsEnabled() && (isRetriable = e.IsRetriable())) // this should allow to deal with intermittent database errors.
+                        || (_mergeResourcesRetriesFlag.IsEnabled() && (isExecutionTimeout = e.IsExecutionTimeout()) && retries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        if (isRetriable || isExecutionTimeout)
+                        if (isRetriable || isExecutionTimeout) // others are logged in SQL by merge stored procedure
                         {
                             await TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", mergeStart, cancellationToken);
                         }
