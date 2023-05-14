@@ -113,7 +113,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
+                    var trueEx = e is AggregateException ? e.InnerException : e;
+                    var sqlEx = trueEx as SqlException;
                     var isExecutionTimeout = false;
                     var isConflict = sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict;
                     if ((isConflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                     await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={e}", mergeStart, cancellationToken);
-                    throw;
+                    throw trueEx;
                 }
             }
         }
