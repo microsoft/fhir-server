@@ -4,201 +4,193 @@ set @precision = (SELECT precision FROM sys.columns
                       AND name = 'SingleValue');
 IF (@precision != 36)
 BEGIN
-    DECLARE @logTime datetime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='Creating temp tables',@Status='Start',@Start=@logTime
+    INSERT INTO dbo.Parameters (Id, Char) SELECT 'Creating temp tables', 'LogEvent'
+    EXECUTE dbo.LogEvent @Process='Creating temp tables',@Status='Start'
     IF object_id('dbo.Tmp_NumberSearchParam') IS NULL
-        BEGIN
-            CREATE TABLE dbo.Tmp_NumberSearchParam (
-                ResourceTypeId      SMALLINT        NOT NULL,
-                ResourceSurrogateId BIGINT          NOT NULL,
-                SearchParamId       SMALLINT        NOT NULL,
-                SingleValue         DECIMAL (36, 18) NULL,
-                LowValue            DECIMAL (36, 18) NOT NULL,
-                HighValue           DECIMAL (36, 18) NOT NULL,
-                IsHistory           BIT             NOT NULL
-            );
-            IF object_id('DF_Tmp_NumberSearchParam_IsHistory') IS NULL
-                ALTER TABLE dbo.Tmp_NumberSearchParam
-                    ADD CONSTRAINT DF_Tmp_NumberSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+        CREATE TABLE dbo.Tmp_NumberSearchParam (
+            ResourceTypeId      SMALLINT        NOT NULL,
+            ResourceSurrogateId BIGINT          NOT NULL,
+            SearchParamId       SMALLINT        NOT NULL,
+            SingleValue         DECIMAL (36, 18) NULL,
+            LowValue            DECIMAL (36, 18) NOT NULL,
+            HighValue           DECIMAL (36, 18) NOT NULL,
+            IsHistory           BIT             NOT NULL
+        );
+    IF object_id('DF_Tmp_NumberSearchParam_IsHistory') IS NULL
+        ALTER TABLE dbo.Tmp_NumberSearchParam
+            ADD CONSTRAINT DF_Tmp_NumberSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
 
-            ALTER TABLE dbo.Tmp_NumberSearchParam SET (LOCK_ESCALATION = AUTO);
+    ALTER TABLE dbo.Tmp_NumberSearchParam SET (LOCK_ESCALATION = AUTO);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IXC_NumberSearchParam')
-                CREATE CLUSTERED INDEX IXC_NumberSearchParam
-                    ON dbo.Tmp_NumberSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
-                    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IXC_NumberSearchParam')
+        CREATE CLUSTERED INDEX IXC_NumberSearchParam
+            ON dbo.Tmp_NumberSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_SingleValue')
-                CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
-                    ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, SingleValue, ResourceSurrogateId) WHERE IsHistory = 0
-                                                                                                                    AND SingleValue IS NOT NULL
-                    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_SingleValue')
+        CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
+            ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, SingleValue, ResourceSurrogateId) WHERE IsHistory = 0
+                                                                                                            AND SingleValue IS NOT NULL
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
     
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_LowValue_HighValue')
-                CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
-                    ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
-                    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_LowValue_HighValue')
+        CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
+            ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_HighValue_LowValue')
-                CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
-                    ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
-                    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-        END
-
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_NumberSearchParam') AND name = 'IX_NumberSearchParam_SearchParamId_HighValue_LowValue')
+        CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
+            ON dbo.Tmp_NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
     IF object_id('dbo.Tmp_QuantitySearchParam') IS NULL
-        BEGIN
-            CREATE TABLE dbo.Tmp_QuantitySearchParam (
-                ResourceTypeId      SMALLINT        NOT NULL,
-                ResourceSurrogateId BIGINT          NOT NULL,
-                SearchParamId       SMALLINT        NOT NULL,
-                SystemId            INT             NULL,
-                QuantityCodeId      INT             NULL,
-                SingleValue         DECIMAL (36, 18) NULL,
-                LowValue            DECIMAL (36, 18) NOT NULL,
-                HighValue           DECIMAL (36, 18) NOT NULL,
-                IsHistory           BIT             NOT NULL
-            );
+        CREATE TABLE dbo.Tmp_QuantitySearchParam (
+            ResourceTypeId      SMALLINT        NOT NULL,
+            ResourceSurrogateId BIGINT          NOT NULL,
+            SearchParamId       SMALLINT        NOT NULL,
+            SystemId            INT             NULL,
+            QuantityCodeId      INT             NULL,
+            SingleValue         DECIMAL (36, 18) NULL,
+            LowValue            DECIMAL (36, 18) NOT NULL,
+            HighValue           DECIMAL (36, 18) NOT NULL,
+            IsHistory           BIT             NOT NULL
+        );
 
-            IF object_id('DF_Tmp_QuantitySearchParam_IsHistory') IS NULL
-            ALTER TABLE dbo.Tmp_QuantitySearchParam
-                ADD CONSTRAINT DF_Tmp_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+    IF object_id('DF_Tmp_QuantitySearchParam_IsHistory') IS NULL
+        ALTER TABLE dbo.Tmp_QuantitySearchParam
+            ADD CONSTRAINT DF_Tmp_QuantitySearchParam_IsHistory DEFAULT 0 FOR IsHistory;
 
-            ALTER TABLE dbo.Tmp_QuantitySearchParam SET (LOCK_ESCALATION = AUTO);
+    ALTER TABLE dbo.Tmp_QuantitySearchParam SET (LOCK_ESCALATION = AUTO);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IXC_QuantitySearchParam')
-            CREATE CLUSTERED INDEX IXC_QuantitySearchParam
-                ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IXC_QuantitySearchParam')
+        CREATE CLUSTERED INDEX IXC_QuantitySearchParam
+            ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue')
-            CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
-                ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, SingleValue, ResourceSurrogateId)
-                INCLUDE(SystemId) WHERE IsHistory = 0
-                                        AND SingleValue IS NOT NULL
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue')
+        CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
+            ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, SingleValue, ResourceSurrogateId)
+            INCLUDE(SystemId) WHERE IsHistory = 0
+                                    AND SingleValue IS NOT NULL
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue')
-            CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
-                ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
-                INCLUDE(SystemId) WHERE IsHistory = 0
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue')
+        CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
+            ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
+            INCLUDE(SystemId) WHERE IsHistory = 0
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue')
-            CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
-                ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
-                INCLUDE(SystemId) WHERE IsHistory = 0
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-        END
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_QuantitySearchParam') AND name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue')
+        CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
+            ON dbo.Tmp_QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
+            INCLUDE(SystemId) WHERE IsHistory = 0
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
     IF object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') IS NULL
-        BEGIN
-            CREATE TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam (
-                ResourceTypeId      SMALLINT        NOT NULL,
-                ResourceSurrogateId BIGINT          NOT NULL,
-                SearchParamId       SMALLINT        NOT NULL,
-                SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-                SingleValue2        DECIMAL (36, 18) NULL,
-                LowValue2           DECIMAL (36, 18) NULL,
-                HighValue2          DECIMAL (36, 18) NULL,
-                SingleValue3        DECIMAL (36, 18) NULL,
-                LowValue3           DECIMAL (36, 18) NULL,
-                HighValue3          DECIMAL (36, 18) NULL,
-                HasRange            BIT             NOT NULL,
-                IsHistory           BIT             NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
-            );
-            IF object_id('DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory') IS NULL
-            ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam
-                ADD CONSTRAINT DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+        CREATE TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam (
+            ResourceTypeId      SMALLINT        NOT NULL,
+            ResourceSurrogateId BIGINT          NOT NULL,
+            SearchParamId       SMALLINT        NOT NULL,
+            SystemId1           INT             NULL,
+            Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+            SingleValue2        DECIMAL (36, 18) NULL,
+            LowValue2           DECIMAL (36, 18) NULL,
+            HighValue2          DECIMAL (36, 18) NULL,
+            SingleValue3        DECIMAL (36, 18) NULL,
+            LowValue3           DECIMAL (36, 18) NULL,
+            HighValue3          DECIMAL (36, 18) NULL,
+            HasRange            BIT             NOT NULL,
+            IsHistory           BIT             NOT NULL,
+            CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
+        );
 
-            IF object_id('CHK_Tmp_TokenNumberNumberCompositeSearchParam_CodeOverflow1') IS NULL
-            ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam
-                ADD CONSTRAINT CHK_Tmp_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
-                                                                                                OR CodeOverflow1 IS NULL);
+    IF object_id('DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory') IS NULL
+        ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam
+            ADD CONSTRAINT DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
 
-            ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
-
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IXC_TokenNumberNumberCompositeSearchParam')
-            CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
-                ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2')
-            CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
-                ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, SingleValue3, ResourceSurrogateId)
-                INCLUDE(SystemId1) WHERE IsHistory = 0
-                                            AND HasRange = 0 WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3')
-            CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
-                ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, LowValue3, HighValue3, ResourceSurrogateId)
-                INCLUDE(SystemId1) WHERE IsHistory = 0
-                                            AND HasRange = 1 WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-        END
-
-    IF object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') IS NULL
-        BEGIN
-            CREATE TABLE dbo.Tmp_TokenQuantityCompositeSearchParam (
-                ResourceTypeId      SMALLINT        NOT NULL,
-                ResourceSurrogateId BIGINT          NOT NULL,
-                SearchParamId       SMALLINT        NOT NULL,
-                SystemId1           INT             NULL,
-                Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
-                SystemId2           INT             NULL,
-                QuantityCodeId2     INT             NULL,
-                SingleValue2        DECIMAL (36, 18) NULL,
-                LowValue2           DECIMAL (36, 18) NULL,
-                HighValue2          DECIMAL (36, 18) NULL,
-                IsHistory           BIT             NOT NULL,
-                CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
-            );
-            IF object_id('DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory') IS NULL
-            ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam
-                ADD CONSTRAINT DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
-
-            IF object_id('CHK_Tmp_TokenQuantityCompositeSearchParam_CodeOverflow1') IS NULL
-            ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam
-                ADD CONSTRAINT CHK_Tmp_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+    IF object_id('CHK_Tmp_TokenNumberNumberCompositeSearchParam_CodeOverflow1') IS NULL
+        ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam
+            ADD CONSTRAINT CHK_Tmp_TokenNumberNumberCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
                                                                                             OR CodeOverflow1 IS NULL);
 
-            ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
+    ALTER TABLE dbo.Tmp_TokenNumberNumberCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IXC_TokenQuantityCompositeSearchParam')
-            CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
-                ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IXC_TokenNumberNumberCompositeSearchParam')
+        CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
+            ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2')
+        CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
+            ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, SingleValue3, ResourceSurrogateId)
+            INCLUDE(SystemId1) WHERE IsHistory = 0
+                                        AND HasRange = 0 WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenNumberNumberCompositeSearchParam') AND name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3')
+        CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
+            ON dbo.Tmp_TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, LowValue3, HighValue3, ResourceSurrogateId)
+            INCLUDE(SystemId1) WHERE IsHistory = 0
+                                        AND HasRange = 1 WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+    IF object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') IS NULL
+        CREATE TABLE dbo.Tmp_TokenQuantityCompositeSearchParam (
+            ResourceTypeId      SMALLINT        NOT NULL,
+            ResourceSurrogateId BIGINT          NOT NULL,
+            SearchParamId       SMALLINT        NOT NULL,
+            SystemId1           INT             NULL,
+            Code1               VARCHAR (256)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+            SystemId2           INT             NULL,
+            QuantityCodeId2     INT             NULL,
+            SingleValue2        DECIMAL (36, 18) NULL,
+            LowValue2           DECIMAL (36, 18) NULL,
+            HighValue2          DECIMAL (36, 18) NULL,
+            IsHistory           BIT             NOT NULL,
+            CodeOverflow1       VARCHAR (MAX)   COLLATE Latin1_General_100_CS_AS NULL
+        );
+    IF object_id('DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory') IS NULL
+        ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam
+            ADD CONSTRAINT DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
+
+    IF object_id('CHK_Tmp_TokenQuantityCompositeSearchParam_CodeOverflow1') IS NULL
+        ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam
+            ADD CONSTRAINT CHK_Tmp_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
+                                                                                        OR CodeOverflow1 IS NULL);
+
+    ALTER TABLE dbo.Tmp_TokenQuantityCompositeSearchParam SET (LOCK_ESCALATION = AUTO);
+
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IXC_TokenQuantityCompositeSearchParam')
+        CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
+            ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2')
-            CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
-                ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, ResourceSurrogateId)
-                INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                                        AND SingleValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2')
+        CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
+            ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, ResourceSurrogateId)
+            INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
+                                                                    AND SingleValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2')
-            CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
-                ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, ResourceSurrogateId)
-                INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                                        AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2')
+        CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
+            ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, ResourceSurrogateId)
+            INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
+                                                                    AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
-            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2')
-            CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
-                ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, HighValue2, LowValue2, ResourceSurrogateId)
-                INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                                        AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
-                ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-        END
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('dbo.Tmp_TokenQuantityCompositeSearchParam') AND name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2')
+        CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
+            ON dbo.Tmp_TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, HighValue2, LowValue2, ResourceSurrogateId)
+            INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
+                                                                    AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+            ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
     IF NOT EXISTS (SELECT * FROM sys.types WHERE name = 'Tmp_NumberSearchParamList')
         CREATE TYPE dbo.Tmp_NumberSearchParamList AS TABLE (
@@ -252,12 +244,11 @@ BEGIN
             LowValue2           DECIMAL (36, 18) NULL,
             HighValue2          DECIMAL (36, 18) NULL);
 
-    SET @logTime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='Creating temp tables',@Status='End',@Start=@logTime
+    EXECUTE dbo.LogEvent @Process='Creating temp tables',@Status='End'
 
     BEGIN TRY
-        SET @logTime = getUTCdate()
-        EXECUTE dbo.LogEvent @Process='Alter Procedure',@Status='Start',@Start=@logTime
+        INSERT INTO dbo.Parameters (Id, Char) SELECT 'Alter Procedure', 'LogEvent'
+        EXECUTE dbo.LogEvent @Process='Alter Procedure',@Status='Start'
         EXECUTE(
 'ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
@@ -539,19 +530,14 @@ BEGIN CATCH
     ELSE
     THROW
 END CATCH')
-
-        SET @logTime = getUTCdate()
-        EXECUTE dbo.LogEvent @Process='Insert MaxSurrogateId',@Status='Start',@Start=@logTime
+        INSERT INTO dbo.Parameters (Id, Char) SELECT 'Insert MaxSurrogateId', 'LogEvent'
+        EXECUTE dbo.LogEvent @Process='Insert MaxSurrogateId',@Status='Start'
         INSERT INTO dbo.Parameters (Id, Bigint) SELECT 'PrecisionUpdate.MaxSurrogateId', max(ResourceSurrogateId) from resource
     END TRY
     BEGIN CATCH
-        declare @errorTime datetime = getUTCdate()
-        EXECUTE dbo.LogEvent @Process="First Alter",@Status="Error",@Start=@errorTime;
+        EXECUTE dbo.LogEvent @Process="Alter Procedure",@Status="Error"
         ROLLBACK TRANSACTION
     END CATCH
-
-    SET @logTime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='CopySearchParamData',@Status='Start',@Start=@logTime
 
     DECLARE @ProcessName varchar(100) = 'CopySearchParamData'
             ,@cst datetime = getUTCdate()
@@ -564,12 +550,8 @@ END CATCH')
             ,@CopiedResources int = 0
             ,@CopiedSearchParams int = 0
             ,@ReportDate datetime = getUTCdate()
-            ,@DisableLogEvent bit = 0
     BEGIN TRY
-        IF @DisableLogEvent = 0 
         INSERT INTO dbo.Parameters (Id, Char) SELECT @ProcessName, 'LogEvent'
-        ELSE 
-        DELETE FROM dbo.Parameters WHERE Id = @ProcessName
 
         EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Start'
 
@@ -705,12 +687,10 @@ END CATCH')
     END TRY
     BEGIN CATCH
         IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-            EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Error';
-            THROW
+        EXECUTE dbo.LogEvent @Process=@ProcessName,@Status='Error';
+        THROW
     END CATCH
 
-    SET @logTime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='DeleteSearchParamData',@Status='Start',@Start=@logTime
     DECLARE @SP varchar(100) = 'DeleteSearchParamData'
             ,@st datetime = getUTCdate()
             ,@SId varchar(100) = 'PrecisionUpdate.Sync.LastProcessed.TypeId'
@@ -720,12 +700,8 @@ END CATCH')
         SET @st = getUTCdate()
         SET @ProcessedResources  = 0
         SET @ReportDate = getUTCdate()
-        SET @DisableLogEvent = 0
 
-        IF @DisableLogEvent = 0 
         INSERT INTO dbo.Parameters (Id, Char) SELECT  @SP, 'LogEvent'
-        ELSE 
-        DELETE FROM dbo.Parameters WHERE Id =  @SP
 
         EXECUTE dbo.LogEvent @Process= @SP,@Status='Start'
 
@@ -790,9 +766,10 @@ END CATCH')
         EXECUTE dbo.LogEvent @Process=@SP,@Status='Error';
         THROW
     END CATCH
-    SET @logTime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='DeleteSearchParamData',@Status='End',@Start=@logTime
-    EXECUTE dbo.LogEvent @Process='Verification',@Status='Start',@Start=@logTime
+
+    EXECUTE dbo.LogEvent @Process=@SP,@Status='End'
+    INSERT INTO dbo.Parameters (Id, Char) SELECT 'Verification', 'LogEvent'
+    EXECUTE dbo.LogEvent @Process='Verification',@Status='Start'
     DECLARE @origNumberSearchParamRows bigint = 0
             ,@tmpNumberSearchParamRows bigint = 0
             ,@origQuantitySearchParamRows bigint = 0
@@ -845,40 +822,35 @@ END CATCH')
     DECLARE @message varchar(100) = '';
     IF (@origNumberSearchParamRows != @tmpNumberSearchParamRows)
         BEGIN
-            SET @logTime = getUTCdate()
             set @message = CONCAT(@origNumberSearchParamRows, @tmpNumberSearchParamRows,'NumberSearchParam rows does not match')
-            EXECUTE dbo.LogEvent @Process='Verification',@Status=@message,@Start=@logTime
-            RETURN;
+            EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+            THROW 5000, @message, 25;
         END
     IF (@origQuantitySearchParamRows != @tmpQuantitySearchParamRows)
             BEGIN
-                SET @logTime = getUTCdate()
                 set @message = CONCAT(@origQuantitySearchParamRows, @tmpQuantitySearchParamRows,'QuantitySearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message,@Start=@logTime
-                RETURN;
+                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                THROW 5000, @message, 25;
             END
     IF (@origTokenNumberNumberCompositeSearchParamRows != @tmpTokenNumberNumberCompositeSearchParamRows)
             BEGIN
-                SET @logTime = getUTCdate()
                 set @message = CONCAT(@origTokenNumberNumberCompositeSearchParamRows, @tmpTokenNumberNumberCompositeSearchParamRows,'TokenNumberNumberCompositeSearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message,@Start=@logTime
-                RETURN;
+                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                THROW 5000, @message, 25;
             END
     IF (@origTokenQuantityCompositeSearchParamRows != @tmpTokenQuantityCompositeSearchParamRows)
             BEGIN
-                SET @logTime = getUTCdate()
                 set @message = CONCAT(@origTokenQuantityCompositeSearchParamRows, @tmpTokenQuantityCompositeSearchParamRows,'TokenQuantityCompositeSearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message,@Start=@logTime
-                RETURN;
+                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                THROW 5000, @message, 25;
             END
     
-    SET @logTime = getUTCdate()
-    EXECUTE dbo.LogEvent @Process='Verification',@Status='End',@Start=@logTime
+    EXECUTE dbo.LogEvent @Process='Verification',@Status='End'
 
     IF (@precision != 36)
     BEGIN TRY
-        SET @logTime = getUTCdate()
-        EXECUTE dbo.LogEvent @Process='Alter Transaction',@Status='Start',@Start=@logTime
+        INSERT INTO dbo.Parameters (Id, Char) SELECT 'Alter Transaction', 'LogEvent'
+        EXECUTE dbo.LogEvent @Process='Alter Transaction',@Status='Start'
         BEGIN TRANSACTION
             DROP TYPE dbo.NumberSearchParamList
             DROP TYPE dbo.QuantitySearchParamList
@@ -1183,35 +1155,41 @@ BEGIN CATCH
     THROW
 END CATCH'
             )
-
-            SET @logTime = getUTCdate()
-            EXECUTE dbo.LogEvent @Process='Drop Temp Types',@Status='Start',@Start=@logTime
+            INSERT INTO dbo.Parameters (Id, Char) SELECT 'Drop Temp Types', 'LogEvent'
+            EXECUTE dbo.LogEvent @Process='Drop Temp Types',@Status='Start'
 
             DROP TYPE dbo.Tmp_NumberSearchParamList
             DROP TYPE dbo.Tmp_QuantitySearchParamList
             DROP TYPE dbo.Tmp_TokenNumberNumberCompositeSearchParamList
             DROP TYPE dbo.Tmp_TokenQuantityCompositeSearchParamList
 
-            SET @logTime = getUTCdate()
-            EXECUTE dbo.LogEvent @Process='Drop Temp Types',@Status='End',@Start=@logTime
+            EXECUTE dbo.LogEvent @Process='Drop Temp Types',@Status='End'
 
-            EXECUTE dbo.LogEvent @Process='Drop Orig Tables',@Status='Start',@Start=@logTime
-            drop table dbo.NumberSearchParam;
-            drop table dbo.QuantitySearchParam;
-            drop table dbo.TokenNumberNumberCompositeSearchParam;
-            drop table dbo.TokenQuantityCompositeSearchParam;
+            INSERT INTO dbo.Parameters (Id, Char) SELECT 'Drop Orig Tables', 'LogEvent'
+            EXECUTE dbo.LogEvent @Process='Drop Orig Tables',@Status='Start'
+            DROP TABLE dbo.NumberSearchParam;
+            DROP TABLE dbo.QuantitySearchParam;
+            DROP TABLE dbo.TokenNumberNumberCompositeSearchParam;
+            DROP TABLE dbo.TokenQuantityCompositeSearchParam;
 
-            SET @logTime = getUTCdate()
-            EXECUTE dbo.LogEvent @Process='Rename Temp Tables',@Status='Start',@Start=@logTime
+            INSERT INTO dbo.Parameters (Id, Char) SELECT 'Rename Temp Tables', 'LogEvent'
+            EXECUTE dbo.LogEvent @Process='Rename Temp Tables',@Status='Start'
             EXEC sp_rename 'Tmp_NumberSearchParam', 'NumberSearchParam';
             EXEC sp_rename 'Tmp_QuantitySearchParam', 'QuantitySearchParam';
             EXEC sp_rename 'Tmp_TokenNumberNumberCompositeSearchParam', 'TokenNumberNumberCompositeSearchParam';
             EXEC sp_rename 'Tmp_TokenQuantityCompositeSearchParam', 'TokenQuantityCompositeSearchParam';
+            EXEC sp_rename 'DF_Tmp_NumberSearchParam_IsHistory', 'DF_NumberSearchParam_IsHistory';
+            EXEC sp_rename 'DF_Tmp_QuantitySearchParam_IsHistory', 'DF_QuantitySearchParam_IsHistory';
+            EXEC sp_rename 'DF_Tmp_TokenNumberNumberCompositeSearchParam_IsHistory', 'DF_TokenNumberNumberCompositeSearchParam_IsHistory';
+            EXEC sp_rename 'CHK_Tmp_TokenNumberNumberCompositeSearchParam_CodeOverflow1', 'CHK_TokenNumberNumberCompositeSearchParam_CodeOverflow1';
+            EXEC sp_rename 'DF_Tmp_TokenQuantityCompositeSearchParam_IsHistory', 'DF_TokenQuantityCompositeSearchParam_IsHistory';
+            EXEC sp_rename 'CHK_Tmp_TokenQuantityCompositeSearchParam_CodeOverflow1', 'CHK_TokenQuantityCompositeSearchParam_CodeOverflow1';
         COMMIT TRANSACTION
     END TRY
     BEGIN CATCH
-        EXECUTE dbo.LogEvent @Process=@SP,@Status="Error",@Start=@st;
         ROLLBACK TRANSACTION
+        EXECUTE dbo.LogEvent @Process=@SP,@Status="Error",@Start=@st;
+        THROW 
     END CATCH
 END
 
