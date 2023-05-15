@@ -124,23 +124,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             resource.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
-
-        private void DisableMergeResources()
-        {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Number) SELECT @Id, 1";
-            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
-        }
-
-        private void EnableMergeResources()
-        {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "DELETE FROM dbo.Parameters WHERE Id = @Id";
-            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
-        }
     }
 }
