@@ -11,20 +11,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public sealed class DataStoreOperationIdentifier
     {
         public DataStoreOperationIdentifier(
-            ResourceKey resourceKey,
+            string id,
+            string resourceType,
             bool allowCreate,
             bool keepHistory,
             WeakETag weakETag,
             bool requireETagOnUpdate)
         {
-            ResourceKey = EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+            Id = EnsureArg.IsNotNull(id, nameof(id));
+            ResourceType = EnsureArg.IsNotNull(resourceType, nameof(resourceType));
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
-            WeakETag = weakETag;
+            WeakETag = weakETag; // Can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
         }
 
-        public ResourceKey ResourceKey { get; }
+        public string Id { get; }
+
+        public string ResourceType { get; }
 
         public bool AllowCreate { get; }
 
@@ -46,11 +50,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return true;
             }
 
-            return ResourceKey.Equals(other.ResourceKey) &&
-                   AllowCreate == other.AllowCreate &&
-                   KeepHistory == other.KeepHistory &&
-                   WeakETag == other.WeakETag &&
-                   RequireETagOnUpdate == other.RequireETagOnUpdate;
+            return Id == Id &&
+                ResourceType == ResourceType &&
+                AllowCreate == other.AllowCreate &&
+                KeepHistory == other.KeepHistory &&
+                WeakETag == other.WeakETag &&
+                RequireETagOnUpdate == other.RequireETagOnUpdate;
         }
 
         public override bool Equals(object obj)
@@ -75,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(ResourceKey, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return HashCode.Combine(Id, ResourceType, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
         }
     }
 }

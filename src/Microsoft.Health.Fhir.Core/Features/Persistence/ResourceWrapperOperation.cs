@@ -38,11 +38,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public Guid? BundleOperationId { get; }
 
+#pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()
         {
-            /// BundleOperationId does not need to be part of <see cref="DataStoreOperationIdentifier"/>.
-            ResourceKey resourceKey = Wrapper.ToResourceKey();
-            return new DataStoreOperationIdentifier(resourceKey, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return new DataStoreOperationIdentifier(Wrapper.ResourceId, Wrapper.ResourceTypeName, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
         }
+#pragma warning restore CA1024 // Use properties where appropriate
     }
 }

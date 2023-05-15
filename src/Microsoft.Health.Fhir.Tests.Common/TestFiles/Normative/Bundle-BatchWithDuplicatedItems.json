@@ -71,28 +71,29 @@
         {
             "fullUrl": "http://example.org/fhir/Patient/123",
             "resource": {
-                "resourceType": "Patient",
-                "id": "123",
-                "text": {
-                    "status": "generated",
-                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
-                },
-                "active": true,
-                "name": [
+                "resourceType": "Parameters",
+                "parameter": [
                     {
-                        "use": "official",
-                        "family": "Chalmers",
-                        "given": [
-                            "Peter",
-                            "James"
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.gender"
+                            },
+                            {
+                                "name": "value",
+                                "valueCode": "female"
+                            }
                         ]
                     }
-                ],
-                "gender": "male",
-                "birthDate": "1974-12-25"
+                ]
             },
             "request": {
-                "method": "PUT",
+                "method": "PATCH",
                 "url": "Patient/123"
             }
         },

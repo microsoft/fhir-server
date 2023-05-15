@@ -9,6 +9,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -45,6 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
             var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
 
             await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient);
@@ -58,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal("201", resource.Entry[0].Response.Status);
 
             Assert.Equal("200", resource.Entry[1].Response.Status);
-            Assert.Equal("201", resource.Entry[2].Response.Status);
+            Assert.Equal("200", resource.Entry[2].Response.Status);
 
             Assert.Equal("204", resource.Entry[3].Response.Status);
             Assert.Equal("204", resource.Entry[4].Response.Status);

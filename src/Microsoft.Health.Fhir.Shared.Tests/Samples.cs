@@ -93,11 +93,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
             batch.Entry[1].FullUrl = batch.Entry[1].FullUrl + updateIdGuid;
             var updateIdPatient = (Patient)batch.Entry[1].Resource;
             updateIdPatient.Id = updateIdPatient.Id + updateIdGuid;
-
-            updateIdGuid = Guid.NewGuid().ToString();
             batch.Entry[2].Request.Url = batch.Entry[2].Request.Url + updateIdGuid;
             batch.Entry[2].FullUrl = batch.Entry[2].FullUrl + updateIdGuid;
-            var updateIdIfMatchPatient = (Patient)batch.Entry[2].Resource;
+            var updateIdIfMatchPatient = (Parameters)batch.Entry[2].Resource;
             updateIdIfMatchPatient.Id = updateIdIfMatchPatient.Id + updateIdGuid;
 
             return batch.ToResourceElement();

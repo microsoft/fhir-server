@@ -31,7 +31,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenADataStoreOperationIdentifierDictionary_WhenRunningRegularOperations_EverythingShouldWorkAsExpected()
         {
             var identifier1 = new DataStoreOperationIdentifier(
-                new ResourceKey("Patient", "2112", versionId: null),
+                "2112",
+                "Patient",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
@@ -43,7 +44,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             Assert.True(dictionary.ContainsKey(identifier1));
 
             var identifier2 = new DataStoreOperationIdentifier(
-                new ResourceKey("Patient", "2112", versionId: null),
+                "2112",
+                "Patient",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
@@ -56,14 +58,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
         public void GivenTwoDataStoreOperationIdentifiersWithTheSameValues_WhenCompared_BothShouldBeEqual()
         {
             var identifier1 = new DataStoreOperationIdentifier(
-                new ResourceKey("Patient", "2112", versionId: null),
+                "2112",
+                "Patient",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
                 requireETagOnUpdate: false);
 
             var identifier2 = new DataStoreOperationIdentifier(
-                new ResourceKey("Patient", "2112", versionId: null),
+                "2112",
+                "Patient",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
