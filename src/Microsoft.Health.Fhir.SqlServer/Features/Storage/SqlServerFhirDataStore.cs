@@ -276,9 +276,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
 
-                var surrId = minSurrId + index;
-                resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
-                ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
+                var surrId = surrIdBase + minSequenceId + index;
+                ReplaceVersionIdInMeta(resource);
                 resource.ResourceSurrogateId = surrId;
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
@@ -493,26 +493,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
             var rawResourceData = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal);
-            resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
-        }
-
-        private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
-        {
-            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
-            string rawResourceData;
-            if (resourceWrapper.Version == InitialVersion) // version is already correct
-            {
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
-            }
-            else
-            {
-                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
-                rawResourceData = resourceWrapper.RawResource.Data
-                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
-            }
-
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
