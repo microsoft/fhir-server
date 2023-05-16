@@ -57,7 +57,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 // Additional Fhir Server errors:
                     SqlErrorCodes.QueryProcessorNoQueryPlan,   // The query processor ran out of internal resources and could not produce a query plan.
-                    SqlErrorCodes.TimeoutExpired,
             };
 
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
