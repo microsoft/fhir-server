@@ -1,4 +1,44 @@
-﻿declare @precision tinyint
+﻿/*************************************************************
+This migration script takes care of increasing precision and scale
+for Decimal value fields in below mentioned tables and table types to (36,18 ) from (18,6)
+
+Table that are modifed are 
+    NumberSearchParam
+    QuantitySearchParam
+    TokenNumberNumberCompositeSearchParam
+    TokenQuantityCompositeSearchParam
+
+Table types that are modified are:
+    NumberSearchParamList
+    QuantitySearchParamList
+    TokenNumberNumberCompositeSearchParamList
+    TokenQuantityCompositeSearchParamList
+
+Steps:
+    1.Create Temp versions of original tables that are identified along with constraints and indices.
+    2.Create Temp version of table types that are identified.
+    3.Alter MergeResources stored procedure to use temp table types created and insert/delete into temp tables along with original tables.
+    4.Identify Surrogate Id of resource at the time of alter store procedure. 
+    5.Copy data from the original search param tables (identified above) to temp tables from the begining to the Surrogate Id identified above.
+    6.Run Delete Search Parameters code to remove any additional records exist in temp tables that are deleted from original tables.
+    7.Verify if data in original and temp tables matches. If not throw error.
+    8.If data matches run below steps in single transctions.
+        a.Drop original table types identified above.
+        b.Create them again with Decimal values Precision and Scale (36,18)
+        c.Revert changes done to Merge Resources SP to use these new table types.
+        d.Drop temporary table types.
+        e.Drop original tables.
+        f.Rename temp tables to match original table names along with constraints.
+
+
+From basic tests we have identified it copies round 20K in 2 seconds.
+For the customer with larger database it could take upto 55 hours.
+
+We do have soft and hard limits on our Pipelines. We might need to run the script several times for customers
+with larger data. This scripts can run multiple times on an account. It picks up where it stopped.
+
+**************************************************************/
+declare @precision tinyint
 set @precision = (SELECT precision FROM sys.columns 
                       WHERE object_id  = (select object_id from sys.tables where name = 'NumberSearchParam') 
                       AND name = 'SingleValue');
