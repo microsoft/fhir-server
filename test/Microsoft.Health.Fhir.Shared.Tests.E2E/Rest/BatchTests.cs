@@ -60,15 +60,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal("201", resource.Entry[0].Response.Status);
 
-            Assert.Equal("200", resource.Entry[1].Response.Status);
-            Assert.Equal("200", resource.Entry[2].Response.Status);
+            Assert.Equal("200", resource.Entry[1].Response.Status); // PUT
 
-            Assert.Equal("204", resource.Entry[3].Response.Status);
+            // Duplicated records. Only one should successed. As the requests are processed in parallel,
+            // it's not possible to pick the one that will be processed.
+            if (resource.Entry[2].Response.Status == "200")
+            {
+                Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
+                Assert.Equal("400", resource.Entry[3].Response.Status); // PATCH (Duplicate)
+            }
+            else
+            {
+                Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
+                Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
+            }
+
             Assert.Equal("204", resource.Entry[4].Response.Status);
+            Assert.Equal("204", resource.Entry[5].Response.Status);
 
-            ValidateOperationOutcome(resource.Entry[5].Response.Status, resource.Entry[5].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
-            Assert.Equal("200", resource.Entry[6].Response.Status);
-            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            Assert.Equal("200", resource.Entry[7].Response.Status);
+            ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Fact]

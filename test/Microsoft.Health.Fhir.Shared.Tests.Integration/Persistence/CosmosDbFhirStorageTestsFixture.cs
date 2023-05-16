@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(bundleConfiguration);
 
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions);
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 

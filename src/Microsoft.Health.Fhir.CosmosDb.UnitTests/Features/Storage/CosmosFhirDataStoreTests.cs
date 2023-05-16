@@ -14,6 +14,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -64,7 +65,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(bundleConfiguration);
 
-            _bundleOrchestrator = new BundleOrchestrator(bundleOptions);
+            var logger = Substitute.For<ILogger<BundleOrchestrator>>();
+
+            _bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
 
             _dataStore = new CosmosFhirDataStore(
                 _container,

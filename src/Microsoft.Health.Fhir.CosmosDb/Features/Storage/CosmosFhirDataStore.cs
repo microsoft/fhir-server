@@ -65,7 +65,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ConcurrentDictionary<ResourceKey, byte> _resourceKeysInMergeOperation;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -114,7 +113,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _coreFeatures = coreFeatures.Value;
             _bundleOrchestrator = bundleOrchestrator;
             _modelInfoProvider = modelInfoProvider;
-            _resourceKeysInMergeOperation = new ConcurrentDictionary<ResourceKey, byte>();
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
@@ -137,8 +135,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             }
 
-            _resourceKeysInMergeOperation.Clear();
-
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
@@ -153,8 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.AllowCreate,
                         resource.KeepHistory,
                         cancellationToken,
-                        resource.RequireETagOnUpdate,
-                        requireResourceUniqueness: true);
+                        resource.RequireETagOnUpdate);
 
                     results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
                 }
@@ -189,8 +184,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     resource.AllowCreate,
                     resource.KeepHistory,
                     cancellationToken,
-                    resource.RequireETagOnUpdate,
-                    requireResourceUniqueness: false);
+                    resource.RequireETagOnUpdate);
             }
         }
 
@@ -200,23 +194,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool allowCreate,
             bool keepHistory,
             CancellationToken cancellationToken,
-            bool requireETagOnUpdate = false,
-            bool requireResourceUniqueness = false)
+            bool requireETagOnUpdate = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
-
-            if (requireResourceUniqueness)
-            {
-                ResourceKey resourceKey = resource.ToResourceKey();
-                if (!_resourceKeysInMergeOperation.TryAdd(resourceKey, 0))
-                {
-                    // Identify duplicated resources in the same bundle.
-                    throw new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicate);
-                }
-            }
 
             if (cosmosWrapper.SearchIndices == null || cosmosWrapper.SearchIndices.Count == 0)
             {

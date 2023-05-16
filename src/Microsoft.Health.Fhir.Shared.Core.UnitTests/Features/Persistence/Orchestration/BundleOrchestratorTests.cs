@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Throws<ArgumentOutOfRangeException>(() => batchOrchestrator.CreateNewOperation(BundleOrchestratorOperationType.Batch, "test", expectedNumberOfResources: 0));
 
             // Fail: Trying to complete an operation that does not exist in the BundleOrchestrator.
-            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100)));
+            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100, NullLogger<BundleOrchestrator>.Instance)));
         }
     }
 }

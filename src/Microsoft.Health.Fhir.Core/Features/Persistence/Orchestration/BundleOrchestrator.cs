@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 
@@ -19,16 +20,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private readonly ConcurrentDictionary<Guid, IBundleOrchestratorOperation> _operationsById;
 
+        private readonly ILogger<BundleOrchestrator> _logger;
+
         /// <summary>
         /// Creates a new instance of <see cref="BundleOrchestrator"/>.
         /// </summary>
         /// <param name="bundleConfiguration">Bundle configuration.</param>
-        public BundleOrchestrator(IOptions<BundleConfiguration> bundleConfiguration)
+        /// <param name="logger">Logging component.</param>
+        public BundleOrchestrator(IOptions<BundleConfiguration> bundleConfiguration, ILogger<BundleOrchestrator> logger)
         {
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             IsEnabled = bundleConfiguration.Value.SupportsBundleOrchestrator;
 
+            _logger = logger;
             _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();
         }
 
@@ -39,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
 
-            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources);
+            BundleOrchestratorOperation newOperation = new BundleOrchestratorOperation(type, label, expectedNumberOfResources, _logger);
 
             if (!_operationsById.TryAdd(newOperation.Id, newOperation))
             {

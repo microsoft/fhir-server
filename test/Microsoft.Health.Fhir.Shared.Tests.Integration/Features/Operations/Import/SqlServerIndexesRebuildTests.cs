@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(bundleConfiguration);
 
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions);
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,

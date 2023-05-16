@@ -98,6 +98,35 @@
             }
         },
         {
+            "fullUrl": "http://example.org/fhir/Patient/123",
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.birthDate"
+                            },
+                            {
+                                "name": "value",
+                                "valueDate": "1975-12-25"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/123"
+            }
+        },
+        {
             "request": {
                 "method": "DELETE",
                 "url": "Patient/234"

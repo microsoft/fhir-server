@@ -139,7 +139,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     var index = 0;
                     var mergeWrappers = new List<MergeResourceWrapper>();
-                    var resourceIdsUnderProgress = new HashSet<ResourceKey>();
                     foreach (var resourceExt in resources)
                     {
                         var weakETag = resourceExt.WeakETag;
@@ -151,20 +150,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var identifier = resourceExt.GetIdentifier();
                         var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                         existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
-
-                        if (resourceIdsUnderProgress.Contains(resourceKey))
-                        {
-                            // Identify duplicated resources in the same bundle.
-                            results.Add(
-                              identifier,
-                              new DataStoreOperationOutcome(
-                                  new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicate)));
-                            continue;
-                        }
-                        else
-                        {
-                            resourceIdsUnderProgress.Add(resourceKey);
-                        }
 
                         // Check for any validation errors
                         if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))

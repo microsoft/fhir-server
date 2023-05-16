@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ((int)HttpStatusCode.OK).ToString(),
             ((int)HttpStatusCode.Created).ToString(),
             ((int)HttpStatusCode.NoContent).ToString(),
+            ((int)HttpStatusCode.BadRequest).ToString(), // Duplicate
+            ((int)HttpStatusCode.NotFound).ToString(),
         };
 
         private readonly HTTPVerb[] _readOnlyHttpVerbs = new HTTPVerb[]

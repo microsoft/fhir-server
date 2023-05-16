@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
         public static IBundleOrchestrator GetBundleOrchestrator(bool isBundleOrchestratorEnabled = true)
         {
-            return new BundleOrchestrator(GetBundleConfiguration(isBundleOrchestratorEnabled));
+            return new BundleOrchestrator(GetBundleConfiguration(isBundleOrchestratorEnabled), NullLogger<BundleOrchestrator>.Instance);
         }
 
         public static IFhirDataStore GetSubstituteForIFhirDataStore()

@@ -10,6 +10,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
@@ -20,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// <summary>
         /// List of resource to be sent to the data layer.
         /// </summary>
-        private readonly ConcurrentBag<ResourceWrapperOperation> _resources;
+        private readonly ConcurrentDictionary<DataStoreOperationIdentifier, ResourceWrapperOperation> _resources;
 
         /// <summary>
         /// Thread safe locking object reference.
@@ -42,10 +45,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// </summary>
         private IFhirDataStore _dataStore;
 
-        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources)
+        /// <summary>
+        /// Logger.
+        /// </summary>
+        private readonly ILogger<BundleOrchestrator> _logger;
+
+        public BundleOrchestratorOperation(BundleOrchestratorOperationType type, string label, int expectedNumberOfResources, ILogger<BundleOrchestrator> logger)
         {
             EnsureArg.IsNotNullOrWhiteSpace(label, nameof(label));
             EnsureArg.IsGt(expectedNumberOfResources, 0, nameof(expectedNumberOfResources));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             Id = Guid.NewGuid();
             Type = type;
@@ -55,8 +64,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
             OriginalExpectedNumberOfResources = expectedNumberOfResources;
             _currentExpectedNumberOfResources = expectedNumberOfResources;
+            _logger = logger;
 
-            _resources = new ConcurrentBag<ResourceWrapperOperation>();
+            _resources = new ConcurrentDictionary<DataStoreOperationIdentifier, ResourceWrapperOperation>();
 
             _lock = new object();
 
@@ -85,13 +95,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
         public BundleOrchestratorOperationStatus Status { get; private set; }
 
-        public override string ToString()
-        {
-            return $"[ Job: {Id}, Label: {Label}, OriginalExpectedNumberOfResources: {OriginalExpectedNumberOfResources}, CreationTime: {CreationTime.ToString("o")}, Status: {Status} ]";
-        }
-
         public async Task<UpsertOutcome> AppendResourceAsync(ResourceWrapperOperation resource, IFhirDataStore dataStore, CancellationToken cancellationToken)
         {
+            DataStoreOperationIdentifier identifier = null;
             try
             {
                 if (!_resources.Any())
@@ -100,31 +106,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 }
 
                 InitializeMergeTaskSafe(dataStore, cancellationToken);
-
-                _resources.Add(resource);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                // Add logging.
+                _logger.LogError(ex, "Failed while appending a new resource in a Bundle Operation: {ErrorMessage}", e.Message);
                 throw;
             }
 
-            var ingestedResources = await _mergeAsyncTask;
-            DataStoreOperationIdentifier identifier = resource.GetIdentifier();
-            if (ingestedResources.TryGetValue(identifier, out DataStoreOperationOutcome dataStoreOperationOutcome))
+            identifier = resource.GetIdentifier();
+            if (_resources.TryAdd(identifier, resource))
             {
-                if (!dataStoreOperationOutcome.IsOperationSuccessful)
-                {
-                    throw dataStoreOperationOutcome.Exception;
-                }
+                // Await for the merge async task to complete merging all resources.
+                var ingestedResources = await _mergeAsyncTask;
 
-                return dataStoreOperationOutcome.UpsertOutcome;
+                if (ingestedResources.TryGetValue(identifier, out DataStoreOperationOutcome dataStoreOperationOutcome))
+                {
+                    if (!dataStoreOperationOutcome.IsOperationSuccessful)
+                    {
+                        throw dataStoreOperationOutcome.Exception;
+                    }
+
+                    return dataStoreOperationOutcome.UpsertOutcome;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
+                        nameof(DataStoreOperationOutcome),
+                        _resources.Count,
+                        ingestedResources?.Count);
+
+                    throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
+                }
             }
             else
             {
-                throw new BundleOrchestratorException($"The {nameof(DataStoreOperationOutcome)} returned for the resource was null. Null instances of {nameof(DataStoreOperationOutcome)} are not expected.");
+                // Identify duplicated resources in the same bundle.
+                throw new RequestNotValidException(Core.Resources.DuplicatedResourceInABundle, OperationOutcomeConstants.IssueType.Duplicate);
             }
         }
 
@@ -141,11 +161,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                 InitializeMergeTaskSafe(dataStore: null, cancellationToken);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                // Add logging.
+                _logger.LogError(ex, "Failed while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", e.Message);
                 throw;
             }
 
@@ -198,25 +218,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.ToList(), cancellationToken);
+                    IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 
                     return response;
                 }
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException oce)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
-                // Add logging.
+                _logger.LogError(oce, "Bundle Orchestrator Operation canceled: {ErrorMessage}", oce.Message);
                 throw;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                // Add logging.
+                _logger.LogError(ex, "Bundle Orchestrator Operation failed: {ErrorMessage}", ex.Message);
                 throw;
             }
         }

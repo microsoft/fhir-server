@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -88,7 +89,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(_bundleConfiguration);
 
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions);
+            var logger = Substitute.For<ILogger<BundleOrchestrator>>();
+
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
