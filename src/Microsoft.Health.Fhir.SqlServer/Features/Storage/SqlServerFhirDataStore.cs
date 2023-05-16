@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     mergeStart = DateTime.UtcNow;
-                    var results = await MergeMainAsync(resources, cancellationToken);
+                    var results = await MergeInternalAsync(resources, cancellationToken);
                     return results;
                 }
                 catch (Exception e)
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // split in a separate method to allow special logic in $import
-        internal async Task<Dictionary<ResourceKey, UpsertOutcome>> MergeMainAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        internal async Task<Dictionary<ResourceKey, UpsertOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             var results = new Dictionary<ResourceKey, UpsertOutcome>();
             if (resources == null || resources.Count == 0)

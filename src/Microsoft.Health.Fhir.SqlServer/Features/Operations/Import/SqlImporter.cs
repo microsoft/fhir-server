@@ -204,11 +204,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
+        private async Task MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
         {
             var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion)).ToList();
-            var result = await _store.MergeMainAsync(input, cancellationToken);
-            return resources;
+            await _store.MergeInternalAsync(input, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
@@ -232,7 +231,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Failed to upload error logs.");
+                _logger.LogError(ex, "Failed to upload error logs.");
                 throw;
             }
 
