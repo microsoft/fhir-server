@@ -14,13 +14,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool allowCreate,
             bool keepHistory,
             WeakETag weakETag,
-            bool requireETagOnUpdate)
+            bool requireETagOnUpdate,
+            bool keepVersion)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
             WeakETag = weakETag;
             RequireETagOnUpdate = requireETagOnUpdate;
+            KeepVersion = keepVersion;
         }
 
         public ResourceWrapper Wrapper { get; private set; }
@@ -32,5 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public WeakETag WeakETag { get; private set; }
 
         public bool RequireETagOnUpdate { get; private set; }
+
+        public bool KeepVersion { get; private set; }
     }
 }

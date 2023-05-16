@@ -250,6 +250,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import mode can be either &quot;InitialLoad&quot;or &quot;IncrementalLoad&quot;. Please add appropriate mode value to parameters..
+        /// </summary>
+        public static string ImportModeIsNotRecognized {
+            get {
+                return ResourceManager.GetString("ImportModeIsNotRecognized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {
@@ -489,15 +498,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotFoundException {
             get {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Only initial load import is supported. Please add &quot;InitialLoad&quot; mode to parameters..
-        /// </summary>
-        public static string OnlyInitialImportOperationSupported {
-            get {
-                return ResourceManager.GetString("OnlyInitialImportOperationSupported", resourceCulture);
             }
         }
         

@@ -9,10 +9,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class MergeResourceWrapper
     {
-        internal MergeResourceWrapper(ResourceWrapper resourceWrapper, long resourceSurrogateId, bool keepHistory, bool hasVersionToCompare)
+        internal MergeResourceWrapper(ResourceWrapper resourceWrapper, bool keepHistory, bool hasVersionToCompare)
         {
             ResourceWrapper = resourceWrapper;
-            ResourceSurrogateId = resourceSurrogateId;
             KeepHistory = keepHistory;
             HasVersionToCompare = hasVersionToCompare;
         }
@@ -21,11 +20,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// Resource wrapper
         /// </summary>
         public ResourceWrapper ResourceWrapper { get; private set; }
-
-        /// <summary>
-        /// Resource surrogate Id
-        /// </summary>
-        public long ResourceSurrogateId { get; private set; }
 
         /// <summary>
         /// Flag indicating whether resource history is meant to be kept
