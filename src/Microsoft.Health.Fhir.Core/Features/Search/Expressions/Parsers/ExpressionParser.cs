@@ -106,11 +106,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
 
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
-
-                if (refSearchParameter.Type != SearchParamType.Reference)
-                {
-                    throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeIncorrectParameterType : Core.Resources.IncludeIncorrectParameterType);
-                }
             }
 
             if (wildCard)
