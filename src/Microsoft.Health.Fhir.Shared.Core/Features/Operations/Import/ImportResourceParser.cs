@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             var keepVersion = true;
-            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId)) // do not trust input version if input last updated is not set
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version <= 1)
             {
                 resource.Meta.VersionId = "1";
                 keepVersion = false;
