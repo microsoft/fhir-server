@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -55,7 +56,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     233,    // A connection was successfully established with the server, but then an error occurred during the login process. (provider: Shared Memory Provider, error: 0 - No process is on the other end of the pipe.) (Microsoft SQL Server, Error: 233)
 
                 // Additional Fhir Server errors:
-                    8623,   // The query processor ran out of internal resources and could not produce a query plan.
+                    SqlErrorCodes.QueryProcessorNoQueryPlan,   // The query processor ran out of internal resources and could not produce a query plan.
+                    SqlErrorCodes.TimeoutExpired,
             };
 
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
@@ -185,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    if (!RetryTest(ex) || ++retry >= _maxRetries)
+                    if (++retry >= _maxRetries || !RetryTest(ex))
                     {
                         throw;
                     }
