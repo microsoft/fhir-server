@@ -65,10 +65,6 @@
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
-  <ItemGroup>
-    <None Remove="Features\Schema\Migrations\53.diff.sql" />
-    <None Remove="features\schema\sql\sprocs\DeleteSearchParameterReferences.sql" />
-  </ItemGroup>
 
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
