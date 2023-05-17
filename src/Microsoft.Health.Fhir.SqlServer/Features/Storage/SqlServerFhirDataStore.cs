@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (mergeWrappers.Count > 0) // do not call db with empty input
             {
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false); // TODO: Remove tran enlist when true bundle logic is in place.
                 using var cmd = conn.CreateNonRetrySqlCommand();
                 VLatest.MergeResources.PopulateCommand(
                     cmd,
