@@ -113,6 +113,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
+        /// <summary>
+        /// Marks the Search Parameter as PendingDelete.
+        /// </summary>
+        /// <param name="searchParamResource">Search Parameter to update to Pending Delete status.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
         public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken)
         {
             try
@@ -129,8 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
                 _logger.LogTrace("Deleting the search parameter '{Url}'", searchParameterUrl);
-                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl, cancellationToken);
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParameterUrl }, SearchParameterStatus.PendingDelete, cancellationToken);
             }
             catch (FhirException fex)
             {
