@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public interface ISqlRetryService
     {
-        Task ExecuteSql(Func<CancellationToken, Task> action, CancellationToken cancellationToken);
+        Task ExecuteSql(Func<CancellationToken, SqlException, Task> action, CancellationToken cancellationToken);
 
         Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken);
 
