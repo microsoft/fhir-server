@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Rest;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -76,15 +75,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Parallel);
-
-            // Besides the need to run requests in parallel, the verb execution order should still be respected.
-            EntryComponent throttledEntryComponent = null;
-            foreach (HTTPVerb verb in _verbExecutionOrder)
+            try
             {
-                throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                // Besides the need to run requests in parallel, the verb execution order should still be respected.
+                EntryComponent throttledEntryComponent = null;
+                foreach (HTTPVerb verb in _verbExecutionOrder)
+                {
+                    throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                }
             }
-
-            FinishCollectingBundleStatistics(statistics);
+            finally
+            {
+                FinishCollectingBundleStatistics(statistics);
+            }
         }
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInParallelAsync(
@@ -160,11 +163,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger,
                     ct);
 
+                statistics.RegisterNewEntry(httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
+
                 await SetResourceProcessingStatusAsync(httpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
                 watch.Stop();
                 _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
-                statistics.RegisterNewEntry(httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
             };
 
             Stopwatch stopwatch = Stopwatch.StartNew();

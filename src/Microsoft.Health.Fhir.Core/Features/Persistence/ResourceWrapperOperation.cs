@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 #pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()
         {
-            return new DataStoreOperationIdentifier(Wrapper.ResourceId, Wrapper.ResourceTypeName, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return new DataStoreOperationIdentifier(this);
         }
 #pragma warning restore CA1024 // Use properties where appropriate
     }

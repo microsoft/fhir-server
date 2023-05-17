@@ -54,9 +54,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public string GetStatisticsAsJson()
         {
             var finalStatistics = _entries
-                 .GroupBy(e => string.Concat(e.HttpVerb, " - ", e.HttpStatusCode))
-                 .Select(g => new { request = g.Key, count = g.Count(), avgExecutionTime = g.Average(r => r.ElapsedTime.TotalMilliseconds), maxExecutionTime = g.Max(r => r.ElapsedTime.TotalMilliseconds) })
-                 .ToArray();
+                .GroupBy(e => string.Concat(e.HttpVerb, " - ", e.HttpStatusCode))
+                .Select(g => new { request = g.Key, count = g.Count(), avgExecutionTime = g.Average(r => r.ElapsedTime.TotalMilliseconds), maxExecutionTime = g.Max(r => r.ElapsedTime.TotalMilliseconds) })
+                .ToArray();
 
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
             int customerFailedRequests = _entries.Count(e => e.HttpStatusCode >= 400 && e.HttpStatusCode < 499);

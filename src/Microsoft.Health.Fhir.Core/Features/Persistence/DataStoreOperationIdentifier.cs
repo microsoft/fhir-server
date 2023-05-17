@@ -10,9 +10,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public sealed class DataStoreOperationIdentifier
     {
+        public DataStoreOperationIdentifier(ResourceWrapperOperation resourceWrapperOperation)
+            : this(
+                  EnsureArg.IsNotNull(resourceWrapperOperation, nameof(resourceWrapperOperation)).Wrapper.ResourceId,
+                  resourceWrapperOperation.Wrapper.ResourceTypeName,
+                  resourceWrapperOperation.Wrapper.Version,
+                  resourceWrapperOperation.AllowCreate,
+                  resourceWrapperOperation.KeepHistory,
+                  resourceWrapperOperation.WeakETag,
+                  resourceWrapperOperation.RequireETagOnUpdate)
+        {
+        }
+
         public DataStoreOperationIdentifier(
             string id,
             string resourceType,
+            string version,
             bool allowCreate,
             bool keepHistory,
             WeakETag weakETag,
@@ -20,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             Id = EnsureArg.IsNotNull(id, nameof(id));
             ResourceType = EnsureArg.IsNotNull(resourceType, nameof(resourceType));
+            Version = version; // Can be null.
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
             WeakETag = weakETag; // Can be null.
@@ -29,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public string Id { get; }
 
         public string ResourceType { get; }
+
+        public string Version { get; }
 
         public bool AllowCreate { get; }
 
@@ -50,8 +66,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return true;
             }
 
-            return Id == Id &&
-                ResourceType == ResourceType &&
+            return Id == other.Id &&
+                ResourceType == other.ResourceType &&
+                Version == other.Version &&
                 AllowCreate == other.AllowCreate &&
                 KeepHistory == other.KeepHistory &&
                 WeakETag == other.WeakETag &&
@@ -80,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Id, ResourceType, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return HashCode.Combine(Id, ResourceType, Version, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
         }
     }
 }

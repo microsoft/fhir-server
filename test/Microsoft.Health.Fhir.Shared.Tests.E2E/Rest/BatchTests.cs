@@ -44,13 +44,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
-            CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
+            CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
             var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
 

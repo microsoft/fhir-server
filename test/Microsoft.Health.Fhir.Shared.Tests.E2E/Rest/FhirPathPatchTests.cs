@@ -90,34 +90,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
 
             // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Parallel);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Parallel);
 
-            Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, fhirResponse.Response.StatusCode);
 
-            // Get the final result of our patch
-            Assert.IsType<Patient>(patched.Resource.Entry.Last().Resource);
+            Bundle resource = fhirResponse.Resource;
 
-            // Current tests return two results.
+            Assert.Equal("200", resource.Entry[0].Response.Status);
 
-            /*
-
-            var patchedPatient = patched.Resource.Entry.Last().Resource as Patient;
-
-            // Check first patch
-            Assert.Equal(AdministrativeGender.Female, patchedPatient.Gender);
-
-            // Check second patch
-            Coding patchedValue = patchedPatient
-                                    .Extension.Single(x => x.Url == "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race")
-                                    .Extension.Single(x => x.Url == "ombCategory")
-                                    .Value as Coding;
-            Coding expectedValue = new Coding(system: "urn:oid:2.16.840.1.113883.6.238", code: "2054-5", display: "Black or African American");
-
-            // The base objects aren't equal so we have to compare the members we care about
-            Assert.Equal(expectedValue.System, patchedValue.System);
-            Assert.Equal(expectedValue.Code, patchedValue.Code);
-            Assert.Equal(expectedValue.Display, patchedValue.Display);
-            */
+            // Duplicated records. Only one should successed. As the requests are processed in parallel,
+            // it's not possible to pick the one that will be processed.
+            if (resource.Entry[1].Response.Status == "200")
+            {
+                Assert.Equal("200", resource.Entry[1].Response.Status); // PATCH
+                Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
+            }
+            else
+            {
+                Assert.Equal("400", resource.Entry[1].Response.Status); // PATCH (Duplicate)
+                Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
+            }
         }
 
         [SkippableFact]

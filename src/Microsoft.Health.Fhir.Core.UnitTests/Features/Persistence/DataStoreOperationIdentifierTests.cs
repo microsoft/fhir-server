@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             var identifier1 = new DataStoreOperationIdentifier(
                 "2112",
                 "Patient",
+                "1",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             var identifier2 = new DataStoreOperationIdentifier(
                 "2112",
                 "Patient",
+                "1",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
@@ -60,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             var identifier1 = new DataStoreOperationIdentifier(
                 "2112",
                 "Patient",
+                "1",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,
@@ -68,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
             var identifier2 = new DataStoreOperationIdentifier(
                 "2112",
                 "Patient",
+                "1",
                 allowCreate: true,
                 keepHistory: true,
                 weakETag: null,

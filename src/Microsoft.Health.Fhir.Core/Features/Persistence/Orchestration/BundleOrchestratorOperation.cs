@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -120,6 +121,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 // Await for the merge async task to complete merging all resources.
                 var ingestedResources = await _mergeAsyncTask;
+
+                /*
+                if (!resource.KeepVersion)
+                {
+                    var existingVersion = int.Parse(resource.Wrapper.Version);
+                    var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
+
+                    identifier = new DataStoreOperationIdentifier(
+                        resource.Wrapper.ResourceId,
+                        resource.Wrapper.ResourceTypeName,
+                        versionPlusOne,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        resource.WeakETag,
+                        resource.RequireETagOnUpdate);
+                }
+                */
 
                 if (ingestedResources.TryGetValue(identifier, out DataStoreOperationOutcome dataStoreOperationOutcome))
                 {

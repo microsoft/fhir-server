@@ -16,6 +16,7 @@ using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using MathNet.Numerics.Statistics;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -183,13 +184,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Sequential);
 
-            EntryComponent throttledEntryComponent = null;
-            foreach (HTTPVerb verb in _verbExecutionOrder)
+            try
             {
-                throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics);
+                EntryComponent throttledEntryComponent = null;
+                foreach (HTTPVerb verb in _verbExecutionOrder)
+                {
+                    throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics);
+                }
             }
-
-            FinishCollectingBundleStatistics(statistics);
+            finally
+            {
+                FinishCollectingBundleStatistics(statistics);
+            }
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -561,6 +567,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
                 }
 
+                statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
+
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
                     var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
@@ -574,8 +582,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
-
-                statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
            }
 
             return throttledEntryComponent;
