@@ -70,5 +70,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string PostSearchParameterState = "PostSearchParameterState";
 
         internal const string UpdateSearchParameterState = "UpdateSearchParameterState";
+
+        internal const string GetBulkDeleteStatusById = "GetBulkDeleteStatusById";
+
+        internal const string CancelBulkDelete = "CancelBulkDelete";
     }
 }
