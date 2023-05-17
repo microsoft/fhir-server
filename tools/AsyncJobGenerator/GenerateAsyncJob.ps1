@@ -54,7 +54,7 @@ function AppendToEnd($FilePath, $Content)
     $newFileContent = @()
     for ($i = 0; $i -lt $fileContent.Length; $i++)
     {
-        if (($inserted -eq $false) -and ($fileContent[$i] -like "*}*"))
+        if (($inserted -eq $false) -and ($fileContent[$i] -eq "    }"))
         {
             for ($k = 0; $k -lt $Content.Length; $k++)
             {
@@ -81,47 +81,47 @@ $templateBasePath = ".\tools\AsyncJobGenerator\Templates"
 
 # Controller
 FillTemplate -TemplatePath "$templateBasePath\Controller.template" -OutputPath ".\src\Microsoft.Health.Fhir.Shared.Api\Controllers\$($jobNamePascalCase)Controller.cs" -TemplateVariables $templateVariables
-AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.ValueSets\AuditEventSubType.cs" -Content @("","`t`tpublic const string $jobNamePascalCase = `"$jobNameSnakeCase`";")
-AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Api\Features\Routing\RouteNames.cs" -Content @("","\t\tpublic const string Get$($jobNamePascalCase)StatusById = `"Get$($jobNamePascalCase)StatusById`";","","`t`tpublic const string Cancel$($jobNamePascalCase) = `"Cancel$($jobNamePascalCase)`";")
+AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.ValueSets\AuditEventSubType.cs" -Content @("","        public const string $jobNamePascalCase = `"$jobNameSnakeCase`";")
+AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Api\Features\Routing\RouteNames.cs" -Content @("","        public const string Get$($jobNamePascalCase)StatusById = `"Get$($jobNamePascalCase)StatusById`";","","        public const string Cancel$($jobNamePascalCase) = `"Cancel$($jobNamePascalCase)`";")
 
 $operationConstantsContent = @()
-$knownRoutesContent = @("","`t`tpublic const string $jobNamePascalCase = `"`$$jobNameSnakeCase`";")
+$knownRoutesContent = @("","        public const string $jobNamePascalCase = `"`$$jobNameSnakeCase`";")
 
 if ($System -eq $true)
 {
     $operationConstantsContent += ""
-    $operationConstantsContent += "`t`tpublic const string $jobNamePascalCase = `"$jobNameSnakeCase`";"
+    $operationConstantsContent += "        public const string $jobNamePascalCase = `"$jobNameSnakeCase`";"
 }
 
 if ($ResourceType -eq $true)
 {
     $operationConstantsContent += ""
-    $operationConstantsContent += "`t`tpublic const string ResourceType$jobNamePascalCase = `"resource-type-$jobNameSnakeCase`";"
+    $operationConstantsContent += "        public const string ResourceType$jobNamePascalCase = `"resource-type-$jobNameSnakeCase`";"
 
-    $knownRoutesContent += "`t`tpublic const string $($jobNamePascalCase)ResourceType = ResourceType + `"/`" + $jobNamePascalCase;"
+    $knownRoutesContent += "        public const string $($jobNamePascalCase)ResourceType = ResourceType + `"/`" + $jobNamePascalCase;"
 }
 
 if ($ResourceTypeAndId -eq $true)
 {
     $operationConstantsContent += ""
-    $operationConstantsContent += "`t`tpublic const string ResourceTypeById$jobNamePascalCase = `"resource-type-$jobNameSnakeCase`";"
+    $operationConstantsContent += "        public const string ResourceTypeById$jobNamePascalCase = `"resource-type-$jobNameSnakeCase`";"
 
-    $knownRoutesContent += "`t`tpublic const string $($jobNamePascalCase)ResourceTypeById = ResourceTypeById + `"/`" + $jobNamePascalCase;"
+    $knownRoutesContent += "        public const string $($jobNamePascalCase)ResourceTypeById = ResourceTypeById + `"/`" + $jobNamePascalCase;"
 }
 
 if ($System -eq $true)
 {
-    $knownRoutesContent += "`t`tpublic const string $($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationConstants.$jobNamePascalCase;"
+    $knownRoutesContent += "        public const string $($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationsConstants.$jobNamePascalCase;"
 }
 
 if ($ResourceType -eq $true)
 {
-    $knownRoutesContent += "`t`tpublic const string ResourceType$($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationConstants.ResourceType$jobNamePascalCase;"
+    $knownRoutesContent += "        public const string ResourceType$($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationsConstants.ResourceType$jobNamePascalCase;"
 }
 
 if ($ResourceTypeAndId -eq $true)
 {
-    $knownRoutesContent += "`t`tpublic const string ResourceTypeById$($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationConstants.ResourceTypeById$jobNamePascalCase;"
+    $knownRoutesContent += "        public const string ResourceTypeById$($jobNamePascalCase)OperationDefinition = OperationDefinition + `"/`" + OperationsConstants.ResourceTypeById$jobNamePascalCase;"
 }
 
 AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\OperationsConstants.cs" -Content $operationConstantsContent
@@ -133,28 +133,28 @@ New-Item -ItemType Directory -Force -Path $mediatorFilePathBase
 FillTemplate -TemplatePath "$templateBasePath\MediatorExtensions.template" -OutputPath ".\src\Microsoft.Health.Fhir.Core\Extensions\$($jobNamePascalCase)MediatorExtensions.cs" -TemplateVariables $templateVariables
 foreach ($action in $mediatorActions)
 {
-    $templateVariables["<Action>"] = $action
+    $templateVariables["Action"] = $action
     FillTemplate -TemplatePath "$templateBasePath\MediatorHandler.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Handler.cs" -TemplateVariables $templateVariables
     FillTemplate -TemplatePath "$templateBasePath\MediatorResponse.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Response.cs" -TemplateVariables $templateVariables
 
     if ($action -eq "Create")
     {
-        FillTemplate -TemplatePath "$templateBasePath\MediatorCreateRequest.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Response.cs" -TemplateVariables $templateVariables
+        FillTemplate -TemplatePath "$templateBasePath\MediatorCreateRequest.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Request.cs" -TemplateVariables $templateVariables
     }
     else
     {
-        FillTemplate -TemplatePath "$templateBasePath\MediatorRequest.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Response.cs" -TemplateVariables $templateVariables
+        FillTemplate -TemplatePath "$templateBasePath\MediatorRequest.template" -OutputPath "$mediatorFilePathBase\$action$($jobNamePascalCase)Request.cs" -TemplateVariables $templateVariables
     }
 }
 
 # Background Job
 foreach ($jobType in $jobTypes)
 {
-    $templateVariables["<JobType>"] = $jobType
+    $templateVariables["JobType"] = $jobType
     FillTemplate -TemplatePath "$templateBasePath\Job.template" -OutputPath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\$jobNamePascalCase\$($jobNamePascalCase)$($jobType)Job.cs" -TemplateVariables $templateVariables
-    AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\JobType.cs" -Content @("`t`t$jobNamePascalCase$jobType = ,")
+    AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\JobType.cs" -Content @("        $jobNamePascalCase$jobType = ,")
 }
-AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\QueueType.cs" -Content @("`t`t$jobNamePascalCase = ,")
+AppendToEnd -FilePath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\QueueType.cs" -Content @("        $jobNamePascalCase = ,")
 FillTemplate -TemplatePath "$templateBasePath\JobDescription.template" -OutputPath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\$jobNamePascalCase\$($jobNamePascalCase)Description.cs" -TemplateVariables $templateVariables
 FillTemplate -TemplatePath "$templateBasePath\JobResult.template" -OutputPath ".\src\Microsoft.Health.Fhir.Core\Features\Operations\$jobNamePascalCase\$($jobNamePascalCase)Result.cs" -TemplateVariables $templateVariables
 
