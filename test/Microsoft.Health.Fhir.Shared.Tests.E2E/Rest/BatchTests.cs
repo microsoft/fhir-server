@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -46,13 +48,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
+            CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
             var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
 
-            await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient);
+            await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: FhirBundleProcessingLogic.Parallel);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: FhirBundleProcessingLogic.Parallel, source.Token);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
@@ -60,6 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal("201", resource.Entry[0].Response.Status);
 
+            // Resources 1, 2 and 3 have the same resource Id.
             Assert.Equal("200", resource.Entry[1].Response.Status); // PUT
 
             // Duplicated records. Only one should successed. As the requests are processed in parallel,

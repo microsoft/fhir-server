@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -72,11 +73,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ILogger<BundleHandler> _logger;
-        private int _requestCount;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
-        private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
@@ -85,6 +84,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
+
+        private int _requestCount;
+        private BundleType? _bundleType;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -156,6 +158,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
         }
 
+        /// <summary>
+        /// Executes all resources in sequential Bundle batches and Bundle transactions.
+        /// </summary>
         private async Task ExecuteAllRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
@@ -176,11 +181,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
 
+            BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Sequential);
+
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent);
+                throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics);
             }
+
+            FinishCollectingBundleStatistics(statistics);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -464,7 +473,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
+        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics)
         {
             const int GCCollectTrigger = 150;
 
@@ -477,6 +486,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 EntryComponent entryComponent;
 
+                Stopwatch watch = Stopwatch.StartNew();
                 if (resourceContext.Context.Handler != null)
                 {
                     if (throttledEntryComponent != null)
@@ -564,7 +574,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
-            }
+
+                statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
+           }
 
             return throttledEntryComponent;
         }
@@ -714,6 +726,30 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     },
                 },
             };
+        }
+
+        private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
+        {
+            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _requestCount);
+
+            statistics.StartCollectingResults();
+
+            return statistics;
+        }
+
+        private void FinishCollectingBundleStatistics(BundleHandlerStatistics statistics)
+        {
+            statistics.StopCollectingResults();
+
+            try
+            {
+                string statisticsAsJson = statistics.GetStatisticsAsJson();
+                _logger.LogTrace(statisticsAsJson);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error computing bundle statistics. This error will not block the bundle processing.");
+            }
         }
     }
 }

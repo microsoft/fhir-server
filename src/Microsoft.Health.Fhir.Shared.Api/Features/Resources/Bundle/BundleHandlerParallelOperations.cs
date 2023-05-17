@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 #endif
         };
 
-        private readonly object _objectLock = new object();
-
         private async Task ExecuteAllRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
         {
             // List is not created initially since it doesn't create a list with _requestCount elements
@@ -77,18 +75,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
 
+            BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Parallel);
+
             // Besides the need to run requests in parallel, the verb execution order should still be respected.
             EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, cancellationToken);
+                throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
             }
+
+            FinishCollectingBundleStatistics(statistics);
         }
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
             HTTPVerb httpVerb,
             EntryComponent throttledEntryComponent,
+            BundleHandlerStatistics statistics,
             CancellationToken cancellationToken)
         {
             if (!_requests[httpVerb].Any())
@@ -99,7 +102,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             const int GCCollectTrigger = 150;
             int totalNumberOfRequests = _requests[httpVerb].Count;
             IBundleOrchestratorOperation bundleOperation = null;
-            Dictionary<string, int> statistics = new Dictionary<string, int>();
 
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
@@ -130,14 +132,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     RunGarbageCollection();
                 }
 
-                _logger.LogTrace("BundleHandler - Running request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.Index, totalNumberOfRequests);
+                _logger.LogTrace("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", httpVerb, resourceExecutionContext.Index, totalNumberOfRequests);
 
                 // Creating new instances per record in the bundle, and making their access thread-safe.
                 // Avoiding possible internal conflicts due the parallel access from multiple threads.
                 ResourceIdProvider resourceIdProvider = new ResourceIdProvider();
                 IFhirRequestContext originalFhirRequestContext = (IFhirRequestContext)_originalFhirRequestContext.Clone();
 
-                string url = resourceExecutionContext.Context.HttpContext.Request.Path;
+                Stopwatch watch = Stopwatch.StartNew();
 
                 EntryComponent entry = await HandleRequestAsync(
                     responseBundle,
@@ -158,9 +160,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger,
                     ct);
 
-                ComputeStatistics(httpVerb, entry, statistics);
-
                 await SetResourceProcessingStatusAsync(httpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
+
+                watch.Stop();
+                _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
+                statistics.RegisterNewEntry(httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
             };
 
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -172,7 +176,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
 
-            LogBundleStatistics(statistics, totalNumberOfRequests, httpVerb, stopwatch);
             _bundleOrchestrator.CompleteOperation(bundleOperation);
 
             return throttledEntryComponent;
@@ -228,25 +231,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     await bundleOperation.ReleaseResourceAsync(
                         $"Resource #{resourceExecutionContext.Index} as it has completed while Bundle Operation is waiting for resources. HTTP Status Code {resourceFinalStatusCode}.",
                         cancellationToken);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Collecting Bundle processing statistics.
-        /// </summary>
-        private void ComputeStatistics(HTTPVerb httpVerb, EntryComponent entry, Dictionary<string, int> statistics)
-        {
-            lock (_objectLock)
-            {
-                string httpVerbFinalStatusCode = $"{httpVerb} - HTTP {entry.Response.Status}";
-                if (statistics.TryGetValue(httpVerbFinalStatusCode, out int numberOfRequests))
-                {
-                    statistics[httpVerbFinalStatusCode] = numberOfRequests + 1;
-                }
-                else
-                {
-                    statistics.Add(httpVerbFinalStatusCode, 1);
                 }
             }
         }
@@ -366,16 +350,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             responseBundle.Entry[entryIndex] = entryComponent;
 
             return entryComponent;
-        }
-
-        private void LogBundleStatistics(Dictionary<string, int> statistics, int originalNumberOfRequests, HTTPVerb httpVerb, Stopwatch stopwatch)
-        {
-            _logger.LogTrace(
-                "BundleHandler - Parallel processing of requests completed in {TimeElapsed}. With {OriginalNumberOfRequests} '{HttpVerb}' requests processed. Statistics: {Statistics}",
-                stopwatch.Elapsed,
-                originalNumberOfRequests,
-                httpVerb,
-                statistics.AsFormattedString());
         }
 
         private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)

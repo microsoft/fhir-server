@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                _logger.LogError(ex, "Failed while appending a new resource in a Bundle Operation: {ErrorMessage}", e.Message);
+                _logger.LogError(ex, "Failed while appending a new resource in a Bundle Operation: {ErrorMessage}", ex.Message);
                 throw;
             }
 
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                _logger.LogError(ex, "Failed while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", e.Message);
+                _logger.LogError(ex, "Failed while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", ex.Message);
                 throw;
             }
 
