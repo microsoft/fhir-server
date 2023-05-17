@@ -220,5 +220,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
         {
             return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, "ndjson");
         }
+
+        public static string GetFileContents(string fileName, string ext)
+        {
+            return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, ext);
+        }
     }
 }

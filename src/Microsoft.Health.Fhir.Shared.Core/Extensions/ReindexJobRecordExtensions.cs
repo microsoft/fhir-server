@@ -40,18 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Output, Part = outputMessages });
             }
 
-            List<ReindexJobQueryStatus> queryErrors = job.QueryList.Keys.Where(e => !string.IsNullOrWhiteSpace(e.Error)).ToList();
-            if (queryErrors.Any())
-            {
-                var outputMessages = new HashSet<string>();
-                foreach (ReindexJobQueryStatus key in queryErrors)
-                {
-                    outputMessages.Add($"{key.ResourceType}: {key.Error}");
-                }
-
-                parametersResource.Add($"{JobRecordProperties.QueryListErrors}", new FhirString(string.Join("\r\n", outputMessages)));
-            }
-
             if (job.StartTime.HasValue)
             {
                 parametersResource.Add(JobRecordProperties.StartTime, new FhirDateTime(job.StartTime.Value));
@@ -93,25 +81,43 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.Resources, new FhirString(job.ResourceList));
             }
 
-            if (job.ResourceCounts.Any())
+            var resourcesWithCounts = job.ResourceCounts.Where(e => e.Value.Count > 0).ToList();
+            if (resourcesWithCounts.Any())
             {
-                // because this is a newer field that we want to display and to be backwards compatible, we'll only display this if the CountReindexed > 0
+                string msgLabelSuffix = string.Empty;
                 var outputMessages = new StringBuilder();
                 bool hasValue = false;
 
-                foreach (KeyValuePair<string, Features.Search.SearchResultReindex> kvp in job.ResourceCounts)
+                foreach (KeyValuePair<string, Features.Search.SearchResultReindex> kvp in resourcesWithCounts)
                 {
-                    if (!hasValue)
+                    // because this is a newer field that we want to display and to be backwards compatible, we'll only display this if the CountReindexed > 0
+                    hasValue = kvp.Value.CountReindexed > 0;
+
+                    if (hasValue)
                     {
-                        hasValue = kvp.Value.CountReindexed > 0;
+                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
+                        {
+                            msgLabelSuffix = $" ({nameof(kvp.Value.CountReindexed)} of {nameof(kvp.Value.Count)})";
+                        }
+
+                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.CountReindexed.ToString("N0")} of {kvp.Value.Count.ToString("N0")}");
+                    }
+                    else
+                    {
+                        if (string.IsNullOrWhiteSpace(msgLabelSuffix))
+                        {
+                            msgLabelSuffix = " (resource count)";
+                        }
+
+                        outputMessages.AppendLine($"{kvp.Key}: {kvp.Value.Count.ToString("N0")}");
                     }
 
-                    outputMessages.AppendLine($"{kvp.Key} ({nameof(kvp.Value.CountReindexed)} of {nameof(kvp.Value.Count)}): {kvp.Value.CountReindexed.ToString("N0")} of {kvp.Value.Count.ToString("N0")}");
+                    hasValue = false;
                 }
 
-                if (hasValue)
+                if (outputMessages.Length > 0)
                 {
-                    parametersResource.Add(JobRecordProperties.ResourceReindexProgressByResource, new FhirString(outputMessages.ToString()));
+                    parametersResource.Add($"{JobRecordProperties.ResourceReindexProgressByResource}{msgLabelSuffix}", new FhirString(outputMessages.ToString()));
                 }
             }
 

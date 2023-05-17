@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreDisplayed()
+        public async Task GivenAReindexJobWithQueryErrors_ThenErrorsAreNotDisplayed()
         {
             string queryListError = "An unhandled error has occurred.";
             string resourceType = KnownResourceTypes.Device;
@@ -116,9 +116,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
             ResourceElement resp = job.ToParametersResourceElement();
             var parms = resp.ResourceInstance as Hl7.Fhir.Model.Parameters;
-            var parm = parms.Parameter.Where(e => e.Name == JobRecordProperties.QueryListErrors).First();
 
-            Assert.Equal(parm.Value.ToString(), errorResult);
+            // we do not want these errors to be shown to the customer at this point as we can't guarantee
+            // that the message won't have sensitive data
+            var parm = parms.Parameter.Where(e => e.Name == JobRecordProperties.QueryListErrors).SingleOrDefault();
+
+            Assert.Null(parm);
         }
 
         [Theory]
