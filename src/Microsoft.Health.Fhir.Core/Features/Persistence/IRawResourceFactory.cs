@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         /// <param name="resource">The resource to be converted</param>
         /// <param name="keepMeta">Keep meta section if true, remove if false.</param>
+        /// <param name="keepVersion">Keeps version id if true, resets to 1 if false.</param>
         /// <returns>An instance of <see cref="RawResource"/>.</returns>
-        RawResource Create(ResourceElement resource, bool keepMeta);
+        RawResource Create(ResourceElement resource, bool keepMeta, bool keepVersion = false);
     }
 }

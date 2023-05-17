@@ -46,5 +46,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Resource storage details.
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; set; }
+
+        /// <summary>
+        /// Import mode.
+        /// </summary>
+        public ImportMode ImportMode { get; set; }
     }
 }

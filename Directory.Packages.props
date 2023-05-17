@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.82</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.85</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -28,7 +28,7 @@
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.0.1" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
-    <PackageVersion Include="Azure.Identity" Version="1.8.2" />
+    <PackageVersion Include="Azure.Identity" Version="1.9.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="coverlet.collector" Version="3.2.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
@@ -87,9 +87,9 @@
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />

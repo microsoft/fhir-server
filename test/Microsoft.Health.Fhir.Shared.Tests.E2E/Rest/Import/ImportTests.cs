@@ -47,6 +47,218 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, null, "2002");
+            var ndJson3 = PrepareResource(id, "2", "2003");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request2, null, 1);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, null, "2002");
+            var ndJson3 = PrepareResource(id, "3", "2003");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request2, null);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceExisting_VersionConflict()
+        {
+            var id = Guid.NewGuid().ToString("N");
+
+            // set existing
+            var ndJson2 = PrepareResource(id, "2", "2002");
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson2, _fixture.CloudStorageAccount);
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            // set input
+            var ndJson = PrepareResource(id, "1", "2001");
+            //// keep ndJson2 as is
+            var ndJson3 = PrepareResource(id, "3", "2003");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request2, null, 1);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceNotExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, "2", "2002");
+            var ndJson3 = PrepareResource(id, "3", "2003");
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WhenOutOfOrder_ThenCurrentDatabaseVersionShouldRemain()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "2", "2002");
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+
+            ndJson = PrepareResource(id, "1", "2001");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request2, null);
+
+            result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated); // nothing changes on 2nd import
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.NotNull(result);
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var versionId = 2.ToString();
+            var lastUpdatedYear = "2021";
+            var lastUpdated = GetLastUpdated(lastUpdatedYear);
+            var ndJson = PrepareResource(id, versionId, lastUpdatedYear);
+            ndJson = ndJson + ndJson; // add one dup
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 1);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
+            Assert.Equal(versionId, result.Resource.Meta.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenInitialLoad_ThenInputLastUpdatedAndVersionShouldNotBeKept()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var versionId = 2.ToString();
+            var lastUpdatedYear = "2021";
+            var lastUpdated = GetLastUpdated(lastUpdatedYear);
+            var ndJson = PrepareResource(id, versionId, lastUpdatedYear);
+            ndJson = ndJson + ndJson; // add one dup
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+
+            var request = CreateImportRequest(location, ImportMode.InitialLoad);
+            await ImportCheckAsync(request, null, 1);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.NotNull(result);
+            Assert.NotEqual(lastUpdated, result.Resource.Meta.LastUpdated);
+            Assert.NotEqual(versionId, result.Resource.Meta.VersionId);
+        }
+
+        private static DateTimeOffset GetLastUpdated(string lastUpdatedYear)
+        {
+            return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
+        }
+
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode)
+        {
+            return new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
+                Mode = importMode.ToString(),
+            };
+        }
+
+        private static string PrepareResource(string id, string version, string lastUpdatedYear)
+        {
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate"); // "\"lastUpdated\":\"2020-01-01T00:00+00:00\"" "\"versionId\":\"1\"" "\"value\":\"654321\""
+            ndJson = ndJson.Replace("##PatientID##", id);
+            if (version != null)
+            {
+                ndJson = ndJson.Replace("\"versionId\":\"1\"", $"\"versionId\":\"{version}\"");
+            }
+            else
+            {
+                ndJson = ndJson.Replace("\"versionId\":\"1\",", string.Empty);
+            }
+
+            if (lastUpdatedYear != null)
+            {
+                ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\"", $"\"lastUpdated\":\"{lastUpdatedYear}-01-01T00:00:00.000+00:00\"");
+            }
+            else
+            {
+                ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\",", string.Empty);
+            }
+
+            return ndJson;
+        }
+
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
         {
@@ -69,6 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request, tempClient);
@@ -108,9 +321,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
-            request.Mode = ImportConstants.InitialLoadMode;
+            request.Mode = ImportMode.InitialLoad.ToString();
             request.Force = true;
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.StartsWith(ForbiddenMessage, fhirException.Message);
@@ -139,6 +353,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -178,6 +393,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -218,6 +434,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Observation", // not match the resource
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -278,6 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request);
@@ -318,6 +536,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -353,7 +572,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
+        public async Task GivenImportDuplicatedResource_ThenDupResourceShouldBeReported()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
@@ -375,10 +594,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             await ImportCheckAsync(request, errorCount: 1);
-            //// we have to re-create file as processing jobs are idempotent
+            //// we have to re-create file as import registration is idempotent
             (Uri location2, string etag2) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
             request.Input = new List<InputResource>()
             {
@@ -389,7 +609,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     Type = "Patient",
                 },
             };
-            await ImportCheckAsync(request, errorCount: 1); // importing already existing resource is success in merge.
+            await ImportCheckAsync(request, errorCount: 2);
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
             Assert.Equal(resourceId, patient.Id);
@@ -407,8 +627,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
                 var notification2 = notificationList[1] as ImportJobMetricsNotification;
                 Assert.Equal(JobStatus.Completed.ToString(), notification1.Status);
-                Assert.Equal(1, notification2.SucceededCount);
-                Assert.Equal(1, notification2.FailedCount);
+                Assert.Equal(0, notification2.SucceededCount);
+                Assert.Equal(2, notification2.FailedCount);
             }
         }
 
@@ -434,6 +654,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -467,6 +688,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -517,6 +739,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Patient",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
@@ -565,6 +788,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         Type = "Invalid",
                     },
                 },
+                Mode = ImportMode.InitialLoad.ToString(),
             };
 
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
@@ -579,7 +803,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
             HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }

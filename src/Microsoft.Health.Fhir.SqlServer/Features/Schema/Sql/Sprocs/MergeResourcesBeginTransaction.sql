@@ -1,12 +1,13 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
+       ,@LastValueVar sql_variant
        ,@TransactionId bigint = NULL
        ,@RunTransactionCheck bit = (SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled')
 
@@ -17,9 +18,16 @@ BEGIN TRY
     
   WHILE @TransactionId IS NULL
   BEGIN
-    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = NULL
+    SET @FirstValueVar = NULL
+    WHILE @FirstValueVar IS NULL
+    BEGIN
+      EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = @LastValueVar OUT
+      SET @SequenceRangeFirstValue = convert(int,@FirstValueVar)
+      IF @SequenceRangeFirstValue > convert(int,@LastValueVar)
+        SET @FirstValueVar = NULL
+    END
 
-    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + convert(int,@FirstValueVar)
+    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
 
     IF @RunTransactionCheck = 1
     BEGIN

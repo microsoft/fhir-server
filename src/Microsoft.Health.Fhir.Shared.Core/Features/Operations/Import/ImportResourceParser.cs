@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
         }
 
-        public ImportResource Parse(long index, long offset, int length, string rawResource)
+        public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
             CheckConditionalReferenceInResource(resource);
@@ -36,15 +36,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 resource.Meta = new Meta();
             }
 
-            if (resource.Meta.LastUpdated == null)
+            bool lastUpdatedIsNull;
+            if (lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null)
             {
                 resource.Meta.LastUpdated = Clock.UtcNow;
             }
 
-            var resourceElement = resource.ToResourceElement();
-            var resourceWapper = _resourceFactory.Create(resourceElement, false, true);
+            var keepVersion = true;
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
+            {
+                resource.Meta.VersionId = "1";
+                keepVersion = false;
+            }
 
-            return new ImportResource(index, offset, length, resourceWapper);
+            var resourceElement = resource.ToResourceElement();
+            var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
+
+            return new ImportResource(index, offset, length, keepVersion, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)
