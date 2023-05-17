@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool keepHistory,
             WeakETag weakETag,
             bool requireETagOnUpdate,
+            bool keepVersion,
             Guid? bundleOperationId)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
@@ -23,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             KeepHistory = keepHistory;
             WeakETag = weakETag; // weakETag can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
+            KeepVersion = keepVersion;
             BundleOperationId = bundleOperationId;
         }
 
@@ -35,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public WeakETag WeakETag { get; }
 
         public bool RequireETagOnUpdate { get; }
+
+        public bool KeepVersion { get; }
 
         public Guid? BundleOperationId { get; }
 

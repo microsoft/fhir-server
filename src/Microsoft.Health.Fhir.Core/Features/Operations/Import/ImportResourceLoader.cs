@@ -42,18 +42,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
             var outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            var loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, offset, bytesToRead, resourceType, cancellationToken), cancellationToken);
+            var loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, offset, bytesToRead, resourceType, importMode, cancellationToken), cancellationToken);
 
             return (outputChannel, loadTask);
         }
 
-        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, string resourceType, CancellationToken cancellationToken)
+        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             string leaseId = null;
 
@@ -100,13 +100,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         continue;
                     }
 
-                    foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset))
+                    foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
                     {
                         await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                     }
                 }
 
-                foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset))
+                foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
                 {
                     await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                 }
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index, int length)> rawContents, long offset)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
         {
             return await Task.Run(() =>
             {
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     try
                     {
-                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content);
+                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content, importMode);
 
                         if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
                         {

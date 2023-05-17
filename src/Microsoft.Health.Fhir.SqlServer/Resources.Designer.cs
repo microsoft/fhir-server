@@ -88,11 +88,20 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Failed to import resource with duplicated resource id {0}, line: {1}.
+        ///   Looks up a localized string similar to Failed to import resource with version conflict, resource id: {0}, line: {1}.
         /// </summary>
-        internal static string FailedToImportForDuplicatedResource {
+        internal static string FaildToImportConflictingVersion {
             get {
-                return ResourceManager.GetString("FailedToImportForDuplicatedResource", resourceCulture);
+                return ResourceManager.GetString("FaildToImportConflictingVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to import duplicate resource, resource id: {0}, line: {1}.
+        /// </summary>
+        internal static string FailedToImportDuplicate {
+            get {
+                return ResourceManager.GetString("FailedToImportDuplicate", resourceCulture);
             }
         }
         

@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 
@@ -23,12 +24,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             Uri inputSource,
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
+            ImportMode importMode,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail);
+            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode);
 
             CreateImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

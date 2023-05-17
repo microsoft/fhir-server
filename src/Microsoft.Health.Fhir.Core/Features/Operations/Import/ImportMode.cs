@@ -5,8 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public static class ImportConstants
+    public enum ImportMode
     {
-        public const string InitialLoadMode = "InitialLoad";
+        InitialLoad = 1,
+        IncrementalLoad = 2,
     }
 }

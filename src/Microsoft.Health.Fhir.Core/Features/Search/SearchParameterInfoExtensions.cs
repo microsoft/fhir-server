@@ -18,12 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
         /// <see cref="SearchParameterInfo.Url"/>, <see cref="SearchParameterInfo.Type"/>,
         /// <see cref="SearchParameterInfo.Expression"/>, <see cref="SearchParameterInfo.TargetResourceTypes"/>, and
-        /// <see cref="SearchParameterInfo.BaseResourceTypes"/>,
+        /// <see cref="SearchParameterInfo.BaseResourceTypes"/>, <see cref="SearchParameterInfo.SearchParameterStatus"/>
         /// values of each component. The same collection of search parameter infos (irrespective of their order in the input)
         /// will return the same hash.
         /// </summary>
         /// <param name="searchParamaterInfos">A list of <see cref="SearchParameterInfo" /></param>
-        /// <returns>A hash based on the search parameter uri and last updated value.</returns>
+        /// <returns>A hash based on the search parameter uri, status, and last updated value.</returns>
         internal static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
                 }
+
+                sb.Append(searchParamInfo.SearchParameterStatus.ToString());
             }
 
             string hash = sb.ToString().ComputeHash();

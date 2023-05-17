@@ -20,6 +20,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
@@ -53,6 +55,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private Func<IReindexJobTask> _reindexJobTaskFactory;
+        private SearchParameterStatusManager _searchParameterStatusmanager;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
 
         private SearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
@@ -64,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationToken = _cancellationTokenSource.Token;
 
             _searchDefinitionManager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            _searchParameterStatusmanager = await SearchParameterFixtureData.CreateSearchParameterStatusManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
             var supportedSearchDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchDefinitionManager);
             var job = CreateReindexJobRecord();
 
@@ -81,7 +87,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      _contextAccessor,
                      _throttleController,
                      ModelInfoProvider.Instance,
-                     NullLogger<ReindexJobTask>.Instance);
+                     NullLogger<ReindexJobTask>.Instance,
+                     _searchParameterStatusmanager);
 
             _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }

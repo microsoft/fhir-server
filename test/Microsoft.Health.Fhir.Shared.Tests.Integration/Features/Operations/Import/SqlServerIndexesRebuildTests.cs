@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
         private async Task<(SqlImportOperation sqlImportOperation, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName)
         {
-            (var helper, var sqlConnectionWrapperFactory, var store, var sqlServerFhirModel, var schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
+            (var helper, var sqlConnectionWrapperFactory, var schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
 
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration()
@@ -84,9 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 },
             });
 
-            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, store, sqlServerFhirModel, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
-
-            var tables = new List<(string tableName, string columns, long startSurrogatedId)>();
+            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
 
             return (sqlImportOperation, sqlConnectionWrapperFactory, helper);
         }
@@ -120,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             await rebuildHelper.DeleteDatabase(rebuildDatabaseName);
         }
 
-        private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirDataStore store, SqlServerFhirModel sqlServerFhirModel, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
+        private async Task<(SqlServerFhirStorageTestHelper testHelper, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SchemaInformation schemaInformation)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -237,7 +235,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 false,
                 schemaInitializer);
 
-            return (testHelper, defaultSqlConnectionWrapperFactory, store, sqlServerFhirModel, schemaInformation);
+            return (testHelper, defaultSqlConnectionWrapperFactory, schemaInformation);
         }
 
         private async Task<string> CompareDatabaseSchemas(string databaseName1, string databaseName2)

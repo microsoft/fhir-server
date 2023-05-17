@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -60,20 +59,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
+                ImportMode = request.ImportMode,
             };
 
-            string definition = JsonConvert.SerializeObject(definitionObj);
-
-            try
-            {
-                JobInfo jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, false, false, cancellationToken))[0];
-                return new CreateImportResponse(jobInfo.Id.ToString());
-            }
-            catch (JobManagement.JobConflictException)
-            {
-                _logger.LogInformation("Already a running import job.");
-                throw new OperationFailedException(Core.Resources.ImportJobIsRunning, HttpStatusCode.Conflict);
-            }
+            var definition = JsonConvert.SerializeObject(definitionObj);
+            var jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, false, false, cancellationToken))[0];
+            return new CreateImportResponse(jobInfo.Id.ToString());
         }
     }
 }
