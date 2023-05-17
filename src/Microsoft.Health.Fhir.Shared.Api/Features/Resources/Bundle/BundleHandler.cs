@@ -16,7 +16,6 @@ using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using MathNet.Numerics.Statistics;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;

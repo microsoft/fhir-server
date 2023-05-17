@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
             var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Created, patientOutcome.OutcomeType);
@@ -86,6 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
             patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
@@ -107,6 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
             patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
