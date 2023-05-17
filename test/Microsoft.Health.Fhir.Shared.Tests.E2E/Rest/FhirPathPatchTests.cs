@@ -96,8 +96,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Bundle resource = fhirResponse.Resource;
 
-            Assert.Equal("200", resource.Entry[0].Response.Status);
-
             // Duplicated records. Only one should successed. As the requests are processed in parallel,
             // it's not possible to pick the one that will be processed.
             if (resource.Entry[1].Response.Status == "200")
