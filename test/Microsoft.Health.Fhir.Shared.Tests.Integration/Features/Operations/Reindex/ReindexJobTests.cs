@@ -724,7 +724,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // After trying to sync the new "supported" status, but finding the resource missing, we should have it listed as PendingDelete
                 var tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.True(tryGetSearchParamResult);
-                Assert.True(searchParamInfo.SearchParameterStatus == SearchParameterStatus.PendingDelete);
+
+                var statuses = await _searchParameterStatusManager2.GetAllSearchParameterStatus(CancellationToken.None);
+                Assert.True(statuses.Where(sp => sp.Uri.OriginalString.Equals(searchParamInfo.Url.OriginalString)).First().Status == SearchParameterStatus.PendingDelete);
             }
             finally
             {
