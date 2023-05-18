@@ -1,12 +1,29 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
-    internal class BulkDeleteResult
+    public class BulkDeleteResult
     {
+        public BulkDeleteResult()
+        {
+            ResourcesDeleted = new Dictionary<string, long>();
+            Issues = new List<OperationOutcomeIssue>();
+        }
+
+        [JsonConstructor]
+        protected BulkDeleteDescription()
+        {
+        }
+
+        public Dictionary<string, long> ResourcesDeleted { get; private set; }
+
+        public IList<OperationOutcomeIssue> Issues { get; private set; }
     }
 }

@@ -3,21 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class BulkDeleteMediatorExtensions
     {
-        public static async Task<CreateBulkDeleteResponse> BulkDeleteAsync(this IMediator mediator, CancellationToken cancellationToken)
+        public static async Task<CreateBulkDeleteResponse> BulkDeleteAsync(this IMediator mediator, DeleteOperation deleteOperation, string resourceType, IList<Tuple<string, string>> searchParameters, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateBulkDeleteRequest();
+            var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters);
 
             CreateBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
             return response;

@@ -7,6 +7,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class CreateBulkDeleteResponse
     {
-        public CreateBulkDeleteResponse() { }
+        public CreateBulkDeleteResponse(long id)
+        {
+            Id = id;
+        }
+
+        public long Id { get; }
     }
 }

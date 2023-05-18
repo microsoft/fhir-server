@@ -3,46 +3,43 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
-    internal class BulkDeleteDescription
+    internal class BulkDeleteDefinition : IJobData
     {
-        public BulkDeleteDescription(
-            bool hardDelete,
-            PartialDateTime since,
-            PartialDateTime till,
+        public BulkDeleteDefinition(
+            JobType jobType,
+            DeleteOperation deleteOperation,
             string type,
-            Dictionary<string, string> searchParameters)
+            IList<Tuple<string, string>> searchParameters)
         {
-            HardDelete = hardDelete;
-            Since = since;
-            Till = till;
+            TypeId = (int)jobType;
+            DeleteOperation = deleteOperation;
             Type = type;
             SearchParameters = searchParameters;
         }
 
         [JsonConstructor]
-        protected BulkDeleteDescription()
+        protected BulkDeleteDefinition()
         {
         }
 
-        [JsonProperty(JobRecordProperties.HardDelete)]
-        public bool HardDelete { get; private set; }
+        [JsonProperty(JobRecordProperties.TypeId)]
+        public int TypeId { get; set; }
 
-        [JsonProperty(JobRecordProperties.Since)]
-        public PartialDateTime Since { get; private set; }
-
-        [JsonProperty(JobRecordProperties.Till)]
-        public PartialDateTime Till { get; private set; }
+        [JsonProperty(JobRecordProperties.DeleteOperation)]
+        public DeleteOperation DeleteOperation { get; private set; }
 
         [JsonProperty(JobRecordProperties.Type)]
         public string Type { get; private set; }
 
         [JsonProperty(JobRecordProperties.SearchParameters)]
-        public Dictionary<string, string> SearchParameters { get; private set; }
+        public IList<Tuple<string, string>> SearchParameters { get; private set; }
     }
 }

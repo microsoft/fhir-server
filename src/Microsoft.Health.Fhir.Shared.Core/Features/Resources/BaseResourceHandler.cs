@@ -18,9 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
     public abstract class BaseResourceHandler
     {
-        private readonly IResourceWrapperFactory _resourceWrapperFactory;
-        private readonly ResourceIdProvider _resourceIdProvider;
-
         protected BaseResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
@@ -37,8 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             ConformanceProvider = conformanceProvider;
             AuthorizationService = authorizationService;
             FhirDataStore = fhirDataStore;
-            _resourceWrapperFactory = resourceWrapperFactory;
-            _resourceIdProvider = resourceIdProvider;
+            ResourceWrapperFactory = resourceWrapperFactory;
         }
 
         protected Lazy<IConformanceProvider> ConformanceProvider { get; }
@@ -47,22 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         protected IAuthorizationService<DataActions> AuthorizationService { get; }
 
-        protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted, bool keepMeta)
-        {
-            if (string.IsNullOrEmpty(resource.Id))
-            {
-                resource.Id = _resourceIdProvider.Create();
-            }
-
-            if (resource.Meta == null)
-            {
-                resource.Meta = new Meta();
-            }
-
-            // store with millisecond precision
-            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
-
-            return _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted, keepMeta);
-        }
+        protected IResourceWrapperFactory ResourceWrapperFactory { get; }
     }
 }
