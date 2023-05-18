@@ -721,10 +721,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false), CancellationToken.None);
 
-                // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
-                // searchparameterdefinitionmanager
+                // After trying to sync the new "supported" status, but finding the resource missing, we should have it listed as PendingDelete
                 var tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
-                Assert.False(tryGetSearchParamResult);
+                Assert.True(tryGetSearchParamResult);
+                Assert.True(searchParamInfo.SearchParameterStatus == SearchParameterStatus.PendingDelete);
             }
             finally
             {
