@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.OrderByDescending(p => p.Meta.LastUpdated).Cast<Resource>().ToArray());
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
@@ -66,21 +66,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
-            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
-            {
-                // CreatePaginatedPatients - Creates Patients array in the increasing order of BirthDates. Sorting to avoid failures
-                patients = patients.OrderBy(p => p.BirthDate).ToArray();
-            }
-            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
-            {
-                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
-                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
-            }
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort={sortParameterName}");
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
+            if (sortParameterName == "birthdate")
+            {
+                SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, patients.Count(), returnedResults);
+            }
+            else if (sortParameterName == "_lastUpdated")
+            {
+                SortTestsAssert.AssertResourcesAreInAscendingOrderByLastUpdateInRange(0, patients.Count(), returnedResults);
+            }
+            else
+            {
+                Assert.Fail("Not expected sort parameter name.");
+            }
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
@@ -88,18 +90,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
-            if (sortParameterName.Equals("birthdate", StringComparison.OrdinalIgnoreCase))
-            {
-                // CreatePaginatedPatients - Creates Patients array in the increasing order of BirthDates. Sorting to avoid failures
-                patients = patients.OrderBy(p => p.BirthDate).ToArray();
-            }
-            else if (sortParameterName.Equals("_lastUpdated", StringComparison.OrdinalIgnoreCase))
-            {
-                // Due to multiple service instances lastUpdated time could vary and patients array might not be in the ascending order by lastUpdated. So sort the expected patients array
-                patients = patients.OrderBy(p => p.Meta.LastUpdated).ToArray();
-            }
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-{sortParameterName}");
+
+            if (sortParameterName == "birthdate")
+            {
+                SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, patients.Count(), returnedResults);
+            }
+            else if (sortParameterName == "_lastUpdated")
+            {
+                SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(0, patients.Count(), returnedResults);
+            }
+            else
+            {
+                Assert.Fail("Not expected sort parameter name.");
+            }
         }
 
         [Theory]
@@ -114,10 +119,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order)
             // Since sort is based on same BirthDate, the order in which resources will be returned depends on their creation time for both sortParameterName
             // Above patients array could be out of sync due to inconsistent system time across multiple server instances so sort the expected patients array
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.OrderBy(p => p.Meta.LastUpdated).ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3");
+
+            if (sortParameterName == "birthdate")
+            {
+                SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
+            }
+            else if (sortParameterName == "-birthdate")
+            {
+                SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
+            }
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
         {
@@ -125,10 +139,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=birthdate&_count=3");
+
+            SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
         {
@@ -136,7 +152,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_count=3", false, pageSize: 3, patients.Reverse().Cast<Resource>().ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-birthdate&_count=3");
+
+            SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
         }
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
@@ -155,7 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_sort=birthdate", false, patients.Cast<Resource>().ToArray());
         }*/
 
-        [SkippableFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParams_ThenPatientsAreReturnedInTheAscendingOrder()
         {
@@ -164,13 +182,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patients = await CreatePatients(tag);
 
             // We are ordering the patients array by Family name
-            await ExecuteAndValidateBundle(
-                $"Patient?_tag={tag}&_sort=family",
-                false,
-                patients.OrderBy(x => x.Name.Min(n => n.Family)).Cast<Resource>().ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family");
+
+            SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderBy(x => x.Name.Max(n => n.Family)).ToList(), returnedResults);
         }
 
-        [SkippableFact]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
         {
@@ -179,10 +197,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patients = await CreatePatients(tag);
 
             // We are ordering the patients array by Family name
-            await ExecuteAndValidateBundle(
-                $"Patient?_tag={tag}&_sort=-family",
-                false,
-                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-family");
+
+            SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderByDescending(x => x.Name.Max(n => n.Family)).ToList(), returnedResults);
         }
 
         [Fact]
@@ -412,7 +430,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject", false, resources.ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-birthdate&_revinclude=Observation:subject");
+
+            SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, patients.Count(), returnedResults);
+
+            // Observations - Check if results are returned in desc date.
+            SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -471,7 +494,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated&_revinclude=Observation:subject", false, resources.ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-_lastUpdated&_revinclude=Observation:subject");
+
+            // Patients.
+            SortTestsAssert.AssertResourceTypeInRange<Patient>(0, patients.Count(), returnedResults);
+            SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(0, patients.Count(), returnedResults);
+
+            // Observations.
+            SortTestsAssert.AssertResourceTypeInRange<Observation>(patients.Count(), returnedResults.Count, returnedResults);
+            SortTestsAssert.AssertResourcesAreInDescendingOrderByLastUpdateInRange(patients.Count(), returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -526,7 +557,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
-            await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=-date&_include=Observation:subject", false, resources.ToArray());
+            var returnedResults = await GetResultsFromAllPagesAsync($"Observation?_tag={tag}&_sort=-date&_include=Observation:subject");
+
+            Assert.Equal(observations.Count() + patients.Count(), returnedResults.Count);
+
+            // Observations.
+            SortTestsAssert.AssertObservationEffectiveDateDescendingOrderInRange(0, observations.Count, returnedResults);
+
+            // Patients.
+            SortTestsAssert.AssertResourceTypeInRange<Patient>(observations.Count, returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -621,18 +660,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
-            // Make sure that [0..5] are the Patients with R in the family name
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&family=R&_sort=family");
+
+            var expectedPatients = patients[0..5];
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Length, expectedPatients, returnedPatients);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -641,9 +682,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+            var expectedPatients = patients[0..5];
 
-            // Make sure that [0..5] are the Patients with R in the family name
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count={count}", sort: false, pageSize: count, patients[0..5]);
+            // Make sure that [0..5] are the Patients with R in the family name.
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&family=R&_sort=family&_count={count}");
+
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
         [SkippableFact]
@@ -659,7 +703,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
         }
 
-        [SkippableFact]
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenPatientsWithMultipleNamesForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
         {
@@ -667,10 +711,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
+
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&family=R&_sort=-family");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedPatients);
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(expectedPatients.Count, expectedPatients, returnedPatients);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -681,7 +729,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients.Take(count), returnedPatients.Take(count));
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
         /*
@@ -690,22 +741,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
          * For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
         */
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithMultipleNamesAndPaginatedForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
-            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
+            // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail.
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients.Take(count), returnedPatients.Take(count));
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
@@ -713,10 +767,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
             var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family", sort: false, expectedPatients);
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family");
+
+            // This test should compare the number of records returned. It's possible that results will not be in the same sequence as expected,
+            // but as this test is validating if the resources are the expected ones, then comparing the number of elements returned is the
+            // main priority of this test.
+            SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedPatients);
+
+            // Comparing the city names to ensure the results are the same as the ingested.
+            SortTestsAssert.AssertRangeOfCitiesInPatientsCollections(expectedPatients, returnedPatients.Cast<Patient>().ToArray());
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -727,10 +789,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
             var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count={count}", sort: false, pageSize: count, expectedPatients);
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family&_count={count}");
+
+            // This test should compare the number of records returned. It's possible that results will not be in the same sequence as expected,
+            // but as this test is validating if the resources are the expected ones, then comparing the number of elements returned is the
+            // main priority of this test.
+            SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedPatients);
+
+            // Comparing the city names to ensure the results are the same as the ingested.
+            SortTestsAssert.AssertRangeOfCitiesInPatientsCollections(expectedPatients, returnedPatients.Cast<Patient>().ToArray());
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
@@ -751,7 +821,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     patients[3],
                 };
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
+            var returnedPatients = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=-family&_count={count}");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients.Take(count), returnedPatients.Take(count));
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(count, expectedPatients, returnedPatients);
         }
 
         /*
@@ -776,27 +849,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
         public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned(int count)
         {
             var tag = Guid.NewGuid().ToString();
-            await CreatePatientsWithMissingFamilyNames(tag);
+            Patient[] expectedPatients = await CreatePatientsWithMissingFamilyNames(tag);
 
-            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_count={count}&_total=accurate");
-            Assert.Equal(7, response.Resource.Total);
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family&_count={count}&_total=accurate");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedResults);
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned()
         {
             var tag = Guid.NewGuid().ToString();
-            await CreatePatientsWithMissingFamilyNames(tag);
+            Patient[] expectedPatients = await CreatePatientsWithMissingFamilyNames(tag);
 
-            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_total=accurate");
-            Assert.Equal(7, response.Resource.Total);
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family&_total=accurate");
+
+            SortTestsAssert.AssertNumberOfResources(expectedPatients, returnedResults);
         }
 
         [SkippableFact]
@@ -1043,6 +1118,132 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             return await Client.CreateResourcesAsync<Observation>(
                 o => SetObservationInfo(o, observationDate, tag, patient));
+        }
+
+        private static class SortTestsAssert
+        {
+            public static void AssertNumberOfResources<T1, T2>(IEnumerable<T1> expected, IEnumerable<T2> current)
+            {
+                Assert.True(expected.Count() == current.Count(), $"The excepted number of records between both collections is different. Expected {expected.Count()}. Current {current.Count()}");
+            }
+
+            /// <summary>
+            /// Assert if collections have the same sequence of family names.
+            /// </summary>
+            public static void AssertPatientFamilyNamesAreEqualInRange(int count, IReadOnlyList<Resource> expected, IReadOnlyList<Resource> current)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    Patient expectedAsPatient = expected[i] as Patient;
+                    Assert.True(expectedAsPatient != null, "Expected resource is not a Patient.");
+
+                    Patient currentAsPatient = current[i] as Patient;
+                    Assert.True(currentAsPatient != null, "Current resource is not a Patient.");
+
+                    Assert.Equal(expectedAsPatient.Name.First().Family, currentAsPatient.Name.First().Family);
+                }
+            }
+
+            public static void AssertResourcesAreInAscendingOrderByLastUpdateInRange(int start, int end, IReadOnlyList<Resource> current)
+            {
+                DateTimeOffset? lastUpdated = current[start].Meta.LastUpdated;
+                for (int i = start + 1; i < end; i++)
+                {
+                    DateTimeOffset? currentLastUpdated = current[i].Meta.LastUpdated;
+
+                    Assert.True(currentLastUpdated >= lastUpdated, $"Results were supposed to be returned in asc order. Last updated is lower than the expected. '{lastUpdated}' was supposed to be returned after than '{currentLastUpdated}'.");
+                    lastUpdated = currentLastUpdated;
+                }
+            }
+
+            public static void AssertResourcesAreInDescendingOrderByLastUpdateInRange(int start, int end, IReadOnlyList<Resource> current)
+            {
+                DateTimeOffset? lastUpdated = current[start].Meta.LastUpdated;
+                for (int i = start + 1; i < end; i++)
+                {
+                    DateTimeOffset? currentLastUpdated = current[i].Meta.LastUpdated;
+
+                    Assert.True(currentLastUpdated <= lastUpdated, $"Results were supposed to be returned in desc order. Last updated is greater than the expected. '{lastUpdated}' was supposed to be returned first than '{currentLastUpdated}'.");
+                    lastUpdated = currentLastUpdated;
+                }
+            }
+
+            public static void AssertPatientBirthDateAscendingOrderInRange(int start, int end, IReadOnlyList<Resource> current)
+            {
+                const string invalidCastErrorMessage = "Current resource is not a Patient.";
+
+                Patient patient = current[start] as Patient;
+                Assert.True(patient != null, invalidCastErrorMessage);
+
+                DateTime birthDate = DateTime.Parse(patient.BirthDate);
+                for (int i = start + 1; i < end; i++)
+                {
+                    Patient currentPatient = current[i] as Patient;
+                    Assert.True(patient != null, invalidCastErrorMessage);
+
+                    DateTime currentBirthDate = DateTime.Parse(currentPatient.BirthDate);
+
+                    Assert.True(currentBirthDate >= birthDate, $"Patient // Results were supposed to be returned in asc order. Birth date is lower than the expected. '{birthDate}' was supposed to be returned after than '{currentBirthDate}'.");
+                    birthDate = currentBirthDate;
+                }
+            }
+
+            public static void AssertPatientBirthDateDescendingOrderInRange(int start, int end, System.Collections.Generic.IReadOnlyList<Resource> current)
+            {
+                const string invalidCastErrorMessage = "Current resource is not a Patient.";
+
+                Patient patient = current[start] as Patient;
+                Assert.True(patient != null, invalidCastErrorMessage);
+
+                DateTime birthDate = DateTime.Parse(patient.BirthDate);
+                for (int i = start + 1; i < end; i++)
+                {
+                    Patient currentPatient = current[i] as Patient;
+                    Assert.True(patient != null, invalidCastErrorMessage);
+
+                    DateTime currentBirthDate = DateTime.Parse(currentPatient.BirthDate);
+
+                    Assert.True(currentBirthDate <= birthDate, $"Patient // Results were supposed to be returned in desc order. Birth date is greater than the expected. '{birthDate}' was supposed to be returned first than '{currentBirthDate}'.");
+                    birthDate = currentBirthDate;
+                }
+            }
+
+            public static void AssertRangeOfCitiesInPatientsCollections(IReadOnlyList<Patient> expectedPatients, IReadOnlyList<Patient> currentPatients)
+            {
+                var expectedCities = expectedPatients.Select(p => p.Address.First().City).OrderBy(c => c);
+                var resultedCities = currentPatients.Select(p => p.Address.First().City).OrderBy(c => c);
+                Assert.Equal(expectedCities, resultedCities);
+            }
+
+            public static void AssertObservationEffectiveDateDescendingOrderInRange(int start, int end, System.Collections.Generic.IReadOnlyList<Resource> current)
+            {
+                const string invalidCastErrorMessage = "Current resource is not an Observation.";
+
+                Observation observation = current[start] as Observation;
+                Assert.True(observation != null, invalidCastErrorMessage);
+
+                FhirDateTime date = (FhirDateTime)observation.Effective;
+                for (int i = start + 1; i < end; i++)
+                {
+                    Observation currentObservation = current[i] as Observation;
+                    Assert.True(observation != null, invalidCastErrorMessage);
+
+                    FhirDateTime currentDate = (FhirDateTime)currentObservation.Effective;
+
+                    Assert.True(currentDate <= date, $"Observation // Results were supposed to be returned in desc order. Effective date is greater than the expected. '{date}' was supposed to be returned first than '{currentDate}'.");
+                    date = currentDate;
+                }
+            }
+
+            public static void AssertResourceTypeInRange<T>(int start, int end, System.Collections.Generic.IReadOnlyList<Resource> current)
+                where T : class
+            {
+                for (int i = start; i < end; i++)
+                {
+                    T resourceAsType = current[i] as T;
+                    Assert.True(resourceAsType != null, $"Resource was supposed to be of type '{nameof(T)}'.");
+                }
+            }
         }
     }
 }
