@@ -401,7 +401,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources.Add(patient);
             }
 
-            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
+            var returnedResources = await GetResultsFromAllPagesAsync($"?_type=Patient,Observation&_tag={tag}&_count=3");
+
+            Assert.Equal(expectedResources.Count, returnedResources.Count);
+            Assert.Contains(returnedResources, r => r.Id == observations.First().Id && r.TypeName == observations.First().TypeName);
+            Assert.Contains(returnedResources, r => r.Id == observations.Last().Id && r.TypeName == observations.Last().TypeName);
+            Assert.Contains(returnedResources, r => r.Id == patients.First().Id && r.TypeName == patients.First().TypeName);
         }
 
         [Fact]
