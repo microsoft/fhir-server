@@ -553,28 +553,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 return;
             }
-            else if (expression is SearchParameterExpression searchParameterExpression)
+            else if (expression is SearchParameterExpression baseSearchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", searchParameterExpression.Parameter.Name, searchParameterExpression.Parameter.Code);
-                LogExpresssionSearchParameters(searchParameterExpression.Expression);
+                LogSearchParameterData(baseSearchParameterExpression.Parameter.Url);
+                LogExpresssionSearchParameters(baseSearchParameterExpression.Expression);
             }
             else if (expression is SearchParameterExpressionBase baseExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", baseExpression.Parameter.Name, baseExpression.Parameter.Code);
+                LogSearchParameterData(baseExpression.Parameter.Url);
             }
             else if (expression is MissingSearchParameterExpression missingSearchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}, IsMissing: {Missing}.", missingSearchParameterExpression.Parameter.Name, missingSearchParameterExpression.Parameter.Code, missingSearchParameterExpression.IsMissing);
+                LogSearchParameterData(missingSearchParameterExpression.Parameter.Url, missingSearchParameterExpression.IsMissing);
             }
             else if (expression is ChainedExpression chainedExpression)
             {
-                _logger.LogInformation("SearchParameters in chained search. URL: {Url}, Code: {Code}", chainedExpression.ReferenceSearchParameter.Name, chainedExpression.ReferenceSearchParameter.Code);
+                LogSearchParameterData(chainedExpression.ReferenceSearchParameter.Url);
                 LogExpresssionSearchParameters(chainedExpression.Expression);
             }
-            else if (expression is SearchParameterExpression includeExpression)
+            else if (expression is SearchParameterExpression searchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", includeExpression.Parameter.Name, includeExpression.Parameter.Code);
-                LogExpresssionSearchParameters(includeExpression.Expression);
+                LogSearchParameterData(searchParameterExpression.Parameter.Url);
+                LogExpresssionSearchParameters(searchParameterExpression.Expression);
             }
             else if (expression is MultiaryExpression multiaryExpression)
             {
@@ -596,8 +596,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else if (expression is SortExpression sortExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", sortExpression.Parameter.Name, sortExpression.Parameter.Code);
+                LogSearchParameterData(sortExpression.Parameter.Url);
             }
+            else if (expression is IncludeExpression includeExpression)
+            {
+                LogSearchParameterData(includeExpression.ReferenceSearchParameter.Url);
+            }
+        }
+
+        private void LogSearchParameterData(Uri url, bool isMissing = false)
+        {
+            string logOutput = string.Format("SearchParameters in search. Url: {0}.", url.OriginalString);
+
+            if (isMissing)
+            {
+                logOutput = logOutput + string.Format(" IsMissing: {0}.", isMissing);
+            }
+
+            _logger.LogInformation(logOutput);
         }
 
         private void CheckFineGrainedAccessControl(List<Expression> searchExpressions)
