@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using System.Net;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -21,6 +22,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class StringSearchTests : SearchTestsBase<StringSearchTestFixture>
     {
+        private readonly HttpStatusCode[] _supportedHttpStatusCode = { HttpStatusCode.OK, HttpStatusCode.UnprocessableEntity };
+
         public StringSearchTests(StringSearchTestFixture fixture)
             : base(fixture)
         {
@@ -48,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 httpStatusCode = ex.StatusCode;
             }
 
-            Assert.True(httpStatusCode == System.Net.HttpStatusCode.UnprocessableEntity || httpStatusCode == System.Net.HttpStatusCode.OK);
+            Assert.True(_supportedHttpStatusCode.Contains(httpStatusCode), $"HTTP Status Code '{httpStatusCode}' is not expected.");
         }
 
         [Fact]
