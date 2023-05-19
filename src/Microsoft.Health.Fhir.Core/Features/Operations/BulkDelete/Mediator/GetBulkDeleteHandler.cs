@@ -3,16 +3,107 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.JobManagement;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class GetBulkDeleteHandler : IRequestHandler<GetBulkDeleteRequest, GetBulkDeleteResponse>
     {
-        public GetBulkDeleteHandler() { }
+        private IAuthorizationService<DataActions> _authorizationService;
+        private IQueueClient _queueClient;
 
-        public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken) { }
+        public GetBulkDeleteHandler(
+            IAuthorizationService<DataActions> authorizationService,
+            IQueueClient queueClient)
+        {
+            _authorizationService = authorizationService;
+            _queueClient = queueClient;
+        }
+
+        public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
+        {
+            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
+            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, false, cancellationToken);
+            var failed = false;
+            var cancelled = false;
+            var succeeded = true;
+            var resourcesDeleted = new Dictionary<string, long>();
+            var issues = new List<OperationOutcomeIssue>();
+            var failureResultCode = HttpStatusCode.OK;
+
+            foreach (var job in jobs)
+            {
+                if (job.Status == JobStatus.Failed)
+                {
+                    failed = true;
+                    succeeded = false;
+
+                    // TODO: fix exception logging
+                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Something went wrong :("));
+
+                    // Need a way to get a failure result code. Most likely will be 503, 400, or 403
+                    failureResultCode = HttpStatusCode.InternalServerError;
+                }
+                else if (job.Status == JobStatus.Cancelled)
+                {
+                    cancelled = true;
+                    succeeded = false;
+                }
+                else if (job.Status != JobStatus.Completed)
+                {
+                    succeeded = false;
+                }
+                else
+                {
+                    var result = JsonConvert.DeserializeObject<BulkDeleteResult>(job.Result);
+                    foreach (var key in result.ResourcesDeleted.Keys)
+                    {
+                        if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))
+                        {
+                            resourcesDeleted[key] += result.ResourcesDeleted[key];
+                        }
+                    }
+                }
+            }
+
+            var fhirResults = (IEnumerable<Tuple<string, Base>>)resourcesDeleted.Select(x => new Tuple<string, FhirDecimal>(x.Key, new FhirDecimal(x.Value))).ToList();
+            if (failed)
+            {
+                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
+            }
+            else if (cancelled)
+            {
+                issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "Job Canceled"));
+                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+            }
+            else if (succeeded)
+            {
+                return new GetBulkDeleteResponse(fhirResults, null, HttpStatusCode.OK);
+            }
+            else
+            {
+                return new GetBulkDeleteResponse(null, null, HttpStatusCode.Accepted);
+            }
+        }
     }
 }

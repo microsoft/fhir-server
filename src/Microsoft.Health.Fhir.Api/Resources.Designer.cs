@@ -484,6 +484,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Hard delete must be requested in order to purge history..
+        /// </summary>
+        public static string NoSoftPurge {
+            get {
+                return ResourceManager.GetString("NoSoftPurge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {

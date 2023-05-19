@@ -26,10 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<GetBulkDeleteResponse> GetBulkDeleteStatusAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<GetBulkDeleteResponse> GetBulkDeleteStatusAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new GetBulkDeleteRequest(jobId);
 
@@ -37,10 +36,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<CancelBulkDeleteResponse> CancelBulkDeleteAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<CancelBulkDeleteResponse> CancelBulkDeleteAsync(this IMediator mediator, long jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new CancelBulkDeleteRequest(jobId);
 
