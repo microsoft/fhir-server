@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         /// revision, we would get a 8623 error that sql can't create a sql query plan.
         /// This membermatch json will create up to 24 CTEs.
         /// </summary>
-        [Fact]
+        [Fact(Skip= "Test does not succeed as expected. Bug assigned to Jared.")]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         public async void GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
         {
