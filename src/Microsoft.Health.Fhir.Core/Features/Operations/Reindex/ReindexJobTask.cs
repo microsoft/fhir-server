@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     else
                     {
-                        _logger.LogInformation("Search parameter {Url} is not being reindexed as it does not match the target types of reindex job {Reindexid}.", searchParam.Url, _reindexJobRecord.Id);
+                        _logger.LogInformation("Search parameter {Url} is not being reindexed as it does not match the target types of reindex job id: {Reindexid}.", searchParam.Url, _reindexJobRecord.Id);
                     }
                 }
             }
@@ -299,7 +299,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}.", _reindexJobRecord.FailureCount);
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, id: {Id}.", _reindexJobRecord.FailureCount);
 
                 if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
@@ -432,7 +432,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         tokenSource.Cancel(false);
                     }
 
-                    _logger.LogInformation("Reindex Job canceled.");
+                    _logger.LogInformation("Reindex Job canceled id: {Id}.", _reindexJobRecord.Id);
                     throw new OperationCanceledException("ReindexJob canceled.");
                 }
             }
@@ -505,7 +505,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         if (results != null)
                         {
                             _reindexJobRecord.Progress += results.Results.Count();
-                            _logger.LogInformation("Reindex job updating progress, current result progress: {Progress}", _reindexJobRecord.Progress);
+                            decimal progress = 0;
+                            decimal rounded = 0;
+                            if (_reindexJobRecord.Count > 0 && _reindexJobRecord.Progress > 0)
+                            {
+                                progress = (decimal)_reindexJobRecord.Progress / _reindexJobRecord.Count * 100;
+                                rounded = Math.Round(progress, 1);
+                            }
+
+                            if (rounded == 100.0M && _reindexJobRecord.Count != _reindexJobRecord.Progress)
+                            {
+                                rounded = 99.9M;
+                            }
+
+                            _logger.LogInformation("Reindex job updating progress, current number of resources indexed: {Progress}, id: {Id}, percent complete: {CompletionStatus}%", _reindexJobRecord.Progress, _reindexJobRecord.Id, rounded);
                         }
 
                         query.Status = OperationStatus.Completed;
@@ -599,6 +612,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // Since this is a force reindex and we skip the SearchParameterHash check we can skip getting counts based
                     // on a SearchParameterHash because we never used that as a filter to start the reindex job with
+                    _logger.LogInformation("Reindex job status complete, id: {Id}. Status: {Status}. Progress: {Progress}", _reindexJobRecord.Id, _reindexJobRecord.Status, _reindexJobRecord.Progress);
                     if (_reindexJobRecord.ForceReindex)
                     {
                         await UpdateParametersAndCompleteJob(cancellationToken);
