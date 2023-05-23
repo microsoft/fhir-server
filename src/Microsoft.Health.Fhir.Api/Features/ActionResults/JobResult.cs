@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         {
             var resource = new Parameters();
 
-            if (issues.Count > 0)
+            if (issues?.Count > 0)
             {
                 var operationOutcome = new OperationOutcome();
                 foreach (var issue in issues)
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 resource.Add("Issues", operationOutcome);
             }
 
-            if (results != null)
+            if (results?.GetEnumerator().MoveNext() == true)
             {
                 resource.Add(resultsTitle, results);
             }

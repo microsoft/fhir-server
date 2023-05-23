@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 {
                     succeeded = false;
                 }
-                else
+                else if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing)
                 {
                     var result = JsonConvert.DeserializeObject<BulkDeleteResult>(job.Result);
                     foreach (var key in result.ResourcesDeleted.Keys)
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 }
             }
 
-            var fhirResults = (IEnumerable<Tuple<string, Base>>)resourcesDeleted.Select(x => new Tuple<string, FhirDecimal>(x.Key, new FhirDecimal(x.Value))).ToList();
+            var fhirResults = resourcesDeleted.Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)));
             if (failed)
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
