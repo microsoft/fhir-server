@@ -53,10 +53,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsService<IResourceToByteArraySerializer>();
 
-            services.Add<ReindexJobTask>()
-                .Transient()
-                .AsSelf();
-
             services.Add<IReindexJobTask>(sp => sp.GetRequiredService<ReindexJobTask>())
                 .Transient()
                 .AsSelf()
