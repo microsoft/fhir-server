@@ -703,7 +703,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     using var cmd = conn.CreateRetrySqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
                     var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
-                    return value == null || (double)value == 0;
+                    return value != null && (double)value == 1;
                 }
                 catch (SqlException)
                 {
