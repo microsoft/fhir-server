@@ -261,11 +261,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)
         {
-            if (!jobId.HasValue && jobIds == null)
-            {
-                throw new ArgumentException("Both jobId and jobIds parameters are null");
-            }
-
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetJobs";
             cmd.Parameters.AddWithValue("@QueueType", queueType);
