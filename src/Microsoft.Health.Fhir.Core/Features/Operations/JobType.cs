@@ -12,5 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         ImportOrchestrator = 2,
         ExportProcessing = 3,
         ExportOrchestrator = 4,
+        ReindexOrchestrator = 5,
     }
 }

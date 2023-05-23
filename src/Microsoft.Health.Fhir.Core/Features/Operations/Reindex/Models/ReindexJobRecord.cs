@@ -12,6 +12,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// <summary>
     /// Class to hold metadata for an individual reindex job.
     /// </summary>
-    public class ReindexJobRecord : JobRecord
+    public class ReindexJobRecord : JobRecord, IJobData
     {
         public const ushort MaxMaximumConcurrency = 10;
         public const ushort MinMaximumConcurrency = 1;
@@ -38,12 +39,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ushort maxiumumConcurrency = 1,
             uint maxResourcesPerQuery = 100,
             int queryDelayIntervalInMilliseconds = 500,
-            ushort? targetDataStoreUsagePercentage = null)
+            ushort? targetDataStoreUsagePercentage = null,
+            int typeId = (int)JobType.ReindexOrchestrator)
         {
             ResourceTypeSearchParameterHashMap = EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
             TargetResourceTypes = EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
             TargetSearchParameterTypes = EnsureArg.IsNotNull(targetSearchParameterTypes, nameof(targetSearchParameterTypes));
             SearchParameterResourceTypes = EnsureArg.IsNotNull(searchParameterResourceTypes, nameof(searchParameterResourceTypes));
+            TypeId = typeId;
 
             // Default values
             SchemaVersion = 1;
@@ -208,5 +211,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
             get { return string.Join(",", TargetSearchParameterTypes); }
         }
+
+        [JsonProperty(JobRecordProperties.TypeId)]
+        public int TypeId { get; internal set; }
     }
 }
