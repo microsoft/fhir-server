@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
@@ -133,8 +132,6 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
             }
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }
