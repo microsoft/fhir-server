@@ -12,8 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     /// </summary>
     public interface IResourceWrapperFactory
     {
-        ResourceIdProvider ResourceIdProvider { get; }
-
         /// <summary>
         /// Creates an instance of <see cref="ResourceWrapper"/>.
         /// </summary>

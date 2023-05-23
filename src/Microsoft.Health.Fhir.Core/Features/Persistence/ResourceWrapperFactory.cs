@@ -48,8 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IResourceDeserializer resourceDeserializer,
-            ResourceIdProvider resourceIdProvider)
+            IResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
@@ -66,10 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _compartmentIndexer = compartmentIndexer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _resourceDeserializer = resourceDeserializer;
-            ResourceIdProvider = resourceIdProvider;
         }
-
-        public ResourceIdProvider ResourceIdProvider { get; }
 
         /// <inheritdoc />
         public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta)

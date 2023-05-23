@@ -12,11 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ResourceWrapperFactoryExtensions
     {
-        public static ResourceWrapper CreateResourceWrapper(this IResourceWrapperFactory factory, Resource resource, bool deleted, bool keepMeta)
+        public static ResourceWrapper CreateResourceWrapper(this IResourceWrapperFactory factory, Resource resource, ResourceIdProvider resourceIdProvider, bool deleted, bool keepMeta)
         {
             if (string.IsNullOrEmpty(resource.Id))
             {
-                resource.Id = factory.ResourceIdProvider.Create();
+                resource.Id = resourceIdProvider.Create();
             }
 
             if (resource.Meta == null)

@@ -6,12 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Core;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -26,17 +23,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private Lazy<IConformanceProvider> _conformanceProvider;
         private IFhirDataStore _fhirDataStore;
         private ISearchService _searchService;
+        private ResourceIdProvider _resourceIdProvider;
 
         public Deleter(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
             IFhirDataStore fhirDataStore,
-            ISearchService searchService)
+            ISearchService searchService,
+            ResourceIdProvider resourceIdProvider)
         {
             _resourceWrapperFactory = resourceWrapperFactory;
             _conformanceProvider = conformanceProvider;
             _fhirDataStore = fhirDataStore;
             _searchService = searchService;
+            _resourceIdProvider = resourceIdProvider;
         }
 
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
                     emptyInstance.Id = request.ResourceKey.Id;
 
-                    ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
+                    ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
@@ -80,22 +80,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, request.MaxDeleteCount, cancellationToken);
 
             int itemsDeleted = 0;
+            bool deleteAll = request.MaxDeleteCount < 0;
 
             // Delete the matched results...
             while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
             {
-                foreach (SearchResultEntry item in matchedResults.Take(request.MaxDeleteCount - itemsDeleted))
+                var resultsToDelete = deleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount - itemsDeleted);
+                foreach (SearchResultEntry item in resultsToDelete)
                 {
                     var result = await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), cancellationToken);
                     itemsDeleted++;
                 }
 
-                if (!string.IsNullOrEmpty(ct) && request.MaxDeleteCount - itemsDeleted > 0)
+                if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted > 0 || deleteAll))
                 {
                     (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                         request.ResourceType,
                         request.ConditionalParameters,
-                        request.MaxDeleteCount - itemsDeleted,
+                        deleteAll ? -1 : request.MaxDeleteCount - itemsDeleted,
                         cancellationToken,
                         ct);
                 }
@@ -107,6 +109,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             return itemsDeleted;
         }
-
     }
 }

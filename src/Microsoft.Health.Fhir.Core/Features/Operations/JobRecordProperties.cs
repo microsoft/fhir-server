@@ -154,5 +154,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string IsParallel = "isParallel";
 
         public const string SmartRequest = "smartRequest";
+
+        public const string DeleteOperation = "deleteOperation";
+
+        public const string SearchParameters = "searchParameters";
+
+        public const string ResourcesDeleted = "resourcesDeleted";
+
+        public const string BaseUrl = "baseUrl";
     }
 }

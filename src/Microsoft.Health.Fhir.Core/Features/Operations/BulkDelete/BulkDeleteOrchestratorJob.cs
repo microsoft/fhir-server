@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -47,13 +48,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters);
+                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl);
                     definitions.Add(JsonConvert.SerializeObject(processingDefinition));
                 }
             }
             else
             {
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters);
+                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl);
                 definitions.Add(JsonConvert.SerializeObject(processingDefinition));
             }
 

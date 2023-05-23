@@ -11,8 +11,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class CancelBulkDeleteHandler : IRequestHandler<CancelBulkDeleteRequest, CancelBulkDeleteResponse>
     {
-        public CancelBulkDeleteHandler() { }
+        public CancelBulkDeleteHandler()
+        {
+        }
 
-        public async Task<CancelBulkDeleteResponse> Handle(CancelBulkDeleteRequest request, CancellationToken cancellationToken) { }
+        public Task<CancelBulkDeleteResponse> Handle(CancelBulkDeleteRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CancelBulkDeleteResponse());
+        }
     }
 }

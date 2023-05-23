@@ -4,26 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
     public class BulkDeleteResult
     {
+        [JsonConstructor]
         public BulkDeleteResult()
         {
             ResourcesDeleted = new Dictionary<string, long>();
-            Issues = new List<OperationOutcomeIssue>();
         }
 
-        [JsonConstructor]
-        protected BulkDeleteDescription()
-        {
-        }
-
+        [JsonProperty(JobRecordProperties.ResourcesDeleted)]
         public Dictionary<string, long> ResourcesDeleted { get; private set; }
-
-        public IList<OperationOutcomeIssue> Issues { get; private set; }
     }
 }

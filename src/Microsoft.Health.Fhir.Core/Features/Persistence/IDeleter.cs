@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         public Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken);
 
-        public async Task<int> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken);
+        public Task<int> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken);
     }
 }

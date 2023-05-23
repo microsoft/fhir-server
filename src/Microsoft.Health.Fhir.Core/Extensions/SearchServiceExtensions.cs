@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="searchService">searchService</param>
         /// <param name="instanceType">The instanceType to search</param>
         /// <param name="conditionalParameters">ConditionalParameters</param>
-        /// <param name="count">the search Count</param>
-        /// <param name="cancellationToken">a CancellationToken</param>
-        /// <param name="continuationToken">a optional ContinuationToken</param>
+        /// <param name="count">The search Count. If less than 0 no limitation is applied.</param>
+        /// <param name="cancellationToken">The CancellationToken</param>
+        /// <param name="continuationToken">An optional ContinuationToken</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
         internal static async Task<(IReadOnlyCollection<SearchResultEntry> results, string continuationToken)> ConditionalSearchAsync(
@@ -73,7 +73,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             int userProvidedParameterCount = filteredParameters.Count;
 
-            filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString(CultureInfo.InvariantCulture)));
+            if (count > 0)
+            {
+                filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString(CultureInfo.InvariantCulture)));
+            }
 
             if (!string.IsNullOrEmpty(continuationToken))
             {

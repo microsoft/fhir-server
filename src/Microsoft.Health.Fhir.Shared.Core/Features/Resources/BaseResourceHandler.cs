@@ -5,11 +5,7 @@
 
 using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Core;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -35,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             AuthorizationService = authorizationService;
             FhirDataStore = fhirDataStore;
             ResourceWrapperFactory = resourceWrapperFactory;
+            ResourceIdProvider = resourceIdProvider;
         }
 
         protected Lazy<IConformanceProvider> ConformanceProvider { get; }
@@ -44,5 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         protected IAuthorizationService<DataActions> AuthorizationService { get; }
 
         protected IResourceWrapperFactory ResourceWrapperFactory { get; }
+
+        protected ResourceIdProvider ResourceIdProvider { get; }
     }
 }

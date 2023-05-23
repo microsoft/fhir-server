@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var result = await _mediator.BulkDeleteAsync(deleteOperation, null, (IList<Tuple<string, string>>)searchParameters, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
-            response.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, result.Id.ToString());
+            response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());
             return response;
         }
     }

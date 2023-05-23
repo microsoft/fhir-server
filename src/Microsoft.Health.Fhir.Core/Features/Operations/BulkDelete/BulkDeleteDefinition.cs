@@ -17,12 +17,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             JobType jobType,
             DeleteOperation deleteOperation,
             string type,
-            IList<Tuple<string, string>> searchParameters)
+            IList<Tuple<string, string>> searchParameters,
+            string url,
+            string baseUrl)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
             Type = type;
             SearchParameters = searchParameters;
+            Url = url;
+            BaseUrl = baseUrl;
         }
 
         [JsonConstructor]
@@ -41,5 +45,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.SearchParameters)]
         public IList<Tuple<string, string>> SearchParameters { get; private set; }
+
+        [JsonProperty(JobRecordProperties.Url)]
+        public string Url { get; private set; }
+
+        [JsonProperty(JobRecordProperties.BaseUrl)]
+        public string BaseUrl { get; private set; }
     }
 }

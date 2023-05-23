@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
+
+            services.AddFactory<IScoped<IDeleter>>();
+            services.AddScoped<IDeleter, Deleter>();
         }
     }
 }

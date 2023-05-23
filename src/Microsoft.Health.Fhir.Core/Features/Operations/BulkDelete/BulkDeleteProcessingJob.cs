@@ -4,10 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -21,10 +25,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
     public class BulkDeleteProcessingJob : IJob
     {
         private readonly Func<IScoped<IDeleter>> _deleterFactory;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
-        public BulkDeleteProcessingJob(Func<IScoped<IDeleter>> deleterFactory)
+        public BulkDeleteProcessingJob(
+            Func<IScoped<IDeleter>> deleterFactory,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             _deleterFactory = deleterFactory;
+            _contextAccessor = contextAccessor;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -32,12 +40,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
+            var existingFhirRequestContext = _contextAccessor.RequestContext;
+
             try
             {
                 BulkDeleteDefinition definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(jobInfo.Definition);
 
+                var fhirRequestContext = new FhirRequestContext(
+                    method: "BulkDelete",
+                    uriString: definition.Url,
+                    baseUriString: definition.BaseUrl,
+                    correlationId: jobInfo.Id.ToString(),
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                };
+
+                _contextAccessor.RequestContext = fhirRequestContext;
+
                 using IScoped<IDeleter> deleter = _deleterFactory();
-                var itemsDeleted = await deleter.Value.DeleteMultipleAsync(new ConditionalDeleteResourceRequest(definition.Type, definition.SearchParameters, definition.DeleteOperation, -1), cancellationToken);
+                var itemsDeleted = await deleter.Value.DeleteMultipleAsync(new ConditionalDeleteResourceRequest(definition.Type, (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters, definition.DeleteOperation, -1), cancellationToken);
                 var result = new BulkDeleteResult();
                 result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
                 return JsonConvert.SerializeObject(result);
@@ -45,6 +68,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
             catch (Exception)
             {
                 throw;
+            }
+            finally
+            {
+                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
     }

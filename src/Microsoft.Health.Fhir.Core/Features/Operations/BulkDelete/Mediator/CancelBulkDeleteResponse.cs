@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class CancelBulkDeleteResponse
     {
-        public CancelBulkDeleteResponse() { }
+        public CancelBulkDeleteResponse()
+        {
+        }
     }
 }

@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
@@ -40,9 +41,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
+        private readonly IUrlResolver _urlResolver;
         private readonly ILogger _logger;
 
         private ResourceElement _listedCapabilityStatement;
+        private ResourceElement _backgroundJobCapabilityStatement;
         private ResourceElement _metadata;
         private ICapabilityStatementBuilder _builder;
         private Task _rebuilder;
@@ -54,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
+            IUrlResolver urlResolver,
             ILogger<SystemConformanceProvider> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -61,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _modelInfoProvider = modelInfoProvider;
@@ -68,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _capabilityProviders = capabilityProviders;
             _configuration = configuration;
             _supportedProfiles = supportedProfiles;
+            _urlResolver = urlResolver;
             _logger = logger;
             _disposed = false;
         }
@@ -81,6 +87,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (_listedCapabilityStatement == null)
             {
+                var cacheResult = true;
+                if (IsBackgroundJob())
+                {
+                    if (_backgroundJobCapabilityStatement != null)
+                    {
+                        return _backgroundJobCapabilityStatement;
+                    }
+                }
+
                 _logger.LogInformation("SystemConformanceProvider: Initializing new Capability Statement.");
 
                 await _defaultCapabilitySemaphore.WaitAsync(cancellationToken);
@@ -104,8 +119,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 }
                                 catch (Exception e)
                                 {
-                                    _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when building a new CapabilityStatement.", provider.ToString());
-                                    throw;
+                                    if (!IsBackgroundJob())
+                                    {
+                                        _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when building a new CapabilityStatement.", provider.ToString());
+                                        throw;
+                                    }
+                                    else
+                                    {
+                                        // Something has gone wrong, so we shouldn't save the result for general use.
+                                        // Since this is a background job it doesn't need a full capability statement though. A partial one will still be accurate for its usage.
+                                        cacheResult = false;
+                                    }
                                 }
                                 finally
                                 {
@@ -119,9 +143,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             _builder.Apply(statement => postConfiguration(statement));
                         }
 
-                        _listedCapabilityStatement = _builder.Build().ToResourceElement();
+                        if (cacheResult)
+                        {
+                            _listedCapabilityStatement = _builder.Build().ToResourceElement();
+                            _backgroundJobCapabilityStatement = _listedCapabilityStatement;
 
-                        _rebuilder = Task.Run(BackgroudLoop, CancellationToken.None);
+                            _rebuilder = Task.Run(BackgroudLoop, CancellationToken.None);
+                        }
+                        else
+                        {
+                            _backgroundJobCapabilityStatement = _builder.Build().ToResourceElement();
+                            return _backgroundJobCapabilityStatement;
+                        }
                     }
                 }
                 finally
@@ -132,6 +165,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             }
 
             return _listedCapabilityStatement;
+        }
+
+        public bool IsBackgroundJob()
+        {
+            try
+            {
+                _urlResolver.ResolveMetadataUrl(false);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "null arg");
+                return true;
+            }
         }
 
         public async Task BackgroudLoop()
