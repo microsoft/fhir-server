@@ -64,14 +64,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode, "Resources Deleted");
         }
 
-        /*
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteJobLocation, Name = RouteNames.CancelBulkDelete)]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> CancelBulkDelete(string idParameter)
+        public async Task<IActionResult> CancelBulkDelete(long idParameter)
         {
+            var result = await _mediator.CancelBulkDeleteAsync(idParameter, HttpContext.RequestAborted);
+            return new JobResult(result.StatusCode);
         }
-        */
 
         private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory)
         {

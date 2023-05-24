@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 {
                     succeeded = false;
                 }
-                else if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing)
+                else if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && job.Result != null)
                 {
                     var result = JsonConvert.DeserializeObject<BulkDeleteResult>(job.Result);
                     foreach (var key in result.ResourcesDeleted.Keys)
@@ -102,7 +102,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             }
             else
             {
-                return new GetBulkDeleteResponse(null, null, HttpStatusCode.Accepted);
+                issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "Job In Progress"));
+                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.Accepted);
             }
         }
     }
