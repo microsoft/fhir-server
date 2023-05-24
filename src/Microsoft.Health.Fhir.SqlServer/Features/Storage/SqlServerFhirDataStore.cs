@@ -57,6 +57,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
 
+        private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
+        private static object _flagLocker = new object();
+
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
@@ -89,6 +92,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
+
+            if (_ignoreInputLastUpdated == null)
+            {
+                lock (_flagLocker)
+                {
+                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlConnectionWrapperFactory);
+                }
+            }
         }
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
@@ -276,9 +287,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
 
-                var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
-                var surrId = surrIdBase + minSequenceId + index;
-                ReplaceVersionIdInMeta(resource);
+                long surrId;
+                if (_ignoreInputLastUpdated.IsEnabled())
+                {
+                    surrId = minSurrId + index;
+                    resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                    ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                }
+                else
+                {
+                    var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
+                    surrId = surrIdBase + minSequenceId + index;
+                    ReplaceVersionIdInMeta(resource);
+                }
+
                 resource.ResourceSurrogateId = surrId;
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
@@ -516,6 +538,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
+        private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
+        {
+            var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
+            string rawResourceData;
+            if (resourceWrapper.Version == InitialVersion) // version is already correct
+            {
+                rawResourceData = resourceWrapper.RawResource.Data
+                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+            }
+            else
+            {
+                var version = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
+                rawResourceData = resourceWrapper.RawResource.Data
+                                    .Replace($"\"versionId\":\"{version}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal)
+                                    .Replace($"\"lastUpdated\":\"{date}\"", $"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", StringComparison.Ordinal);
+            }
+
+            resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
+        }
+
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
@@ -647,6 +689,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
             return await Task.FromResult((int?)null);
+        }
+
+        private class IgnoreInputLastUpdated
+        {
+            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public IgnoreInputLastUpdated(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            {
+                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    var isEnabled = IsEnabledInDatabase();
+                    if (isEnabled.HasValue)
+                    {
+                        _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
+                    }
+                }
+
+                return _isEnabled;
+            }
+
+            private bool? IsEnabledInDatabase()
+            {
+                try
+                {
+                    using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+                    using var cmd = conn.CreateRetrySqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
+                    var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+                    return value != null && (double)value == 1;
+                }
+                catch (SqlException)
+                {
+                    return null;
+                }
+            }
         }
     }
 }
