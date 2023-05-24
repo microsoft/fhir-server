@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public HttpStatusCode HttpStatusCode { get; set; }
 
         /// <summary>
-        /// Details error message
+        /// Error message
         /// </summary>
         public string ErrorMessage { get; set; }
 
@@ -23,5 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Inner error if there're multiple errors
         /// </summary>
         public ImportOrchestratorJobErrorResult InnerError { get; set; }
+
+        /// <summary>
+        /// Details
+        /// </summary>
+        public string ErrorDetails { get; set; }
     }
 }

@@ -8,5 +8,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportProcessingJobErrorResult
     {
         public string Message { get; set; }
+
+        public string Details { get; set; }
     }
 }
