@@ -214,5 +214,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.TypeId)]
         public int TypeId { get; internal set; }
+
+        internal ReindexJobRecord Clone()
+        {
+            return (ReindexJobRecord)MemberwiseClone();
+        }
     }
 }
