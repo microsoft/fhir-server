@@ -78,7 +78,7 @@ steps:
   - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
     displayName: 'Generation Task'
     inputs:
-        BuildDropPath: '$(Agent.TempDirectory)'
+        BuildDropPath: '$(build.artifactStagingDirectory)'
         BuildComponentPath: '$(Build.SourcesDirectory)'
 
 - ${{ if eq(parameters.packageArtifacts, 'true') }}:
