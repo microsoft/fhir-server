@@ -25,18 +25,18 @@ using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportOperation : IImportOrchestratorJobDataStoreOperation
+    public class SqlImportReindexer : IImportOrchestratorJobDataStoreOperation
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
-        private ILogger<SqlImportOperation> _logger;
+        private ILogger<SqlImportReindexer> _logger;
 
-        public SqlImportOperation(
+        public SqlImportReindexer(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,
-            ILogger<SqlImportOperation> logger)
+            ILogger<SqlImportReindexer> logger)
         {
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
@@ -156,8 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
                     await SwitchPartitionsOutAllTables(false, cancellationToken);
-                    var commandsForRebuildIndexes = await GetCommandsForRebuildIndexes(false, cancellationToken);
-                    await RunCommandForRebuildIndexes(commandsForRebuildIndexes, cancellationToken);
+                    var indexRebuildCommands = await GetCommandsForRebuildIndexes(false, cancellationToken);
+                    await ExecuteCommands(indexRebuildCommands, cancellationToken);
                     await SwitchPartitionsInAllTables(cancellationToken);
                 }
             }
@@ -203,32 +203,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return indexes;
         }
 
-        private async Task RunCommandForRebuildIndexes(IList<(string tableName, string indexName, string command)> commands, CancellationToken cancellationToken)
+        private async Task ExecuteCommands(IList<(string tableName, string indexName, string command)> commands, CancellationToken cancellationToken)
         {
-            var tasks = new Queue<Task<string>>();
             try
             {
-                foreach (var sqlCommand in commands)
+                var commandQueue = new Queue<(string tableName, string indexName, string command)>();
+                foreach (var command in commands)
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException("Operation Cancel");
-                    }
-
-                    while (tasks.Count >= _importTaskConfiguration.SqlIndexRebuildThreads)
-                    {
-                        await tasks.First();
-                        _ = tasks.Dequeue();
-                    }
-
-                    tasks.Enqueue(ExecuteRebuildIndexSqlCommand(sqlCommand.tableName, sqlCommand.indexName, sqlCommand.command, cancellationToken));
+                    commandQueue.Enqueue(command);
                 }
 
-                while (tasks.Count > 0)
+                var tasks = new List<Task>();
+                for (var thread = 0; thread < _importTaskConfiguration.SqlIndexRebuildThreads; thread++)
                 {
-                    await tasks.First();
-                    _ = tasks.Dequeue();
+                    tasks.Add(ExecuteCommandsWorker(commandQueue, cancellationToken));
                 }
+
+                await Task.WhenAll(tasks);
             }
             catch (Exception ex)
             {
@@ -242,7 +233,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<string> ExecuteRebuildIndexSqlCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
+        private async Task ExecuteCommandsWorker(Queue<(string tableName, string indexName, string command)> commandQueue, CancellationToken cancellationToken)
+        {
+            while (commandQueue.Count > 0)
+            {
+                if (commandQueue.TryDequeue(out var command))
+                {
+                    await ExecuteCommand(command.tableName, command.indexName, command.command, cancellationToken);
+                }
+            }
+        }
+
+        private async Task ExecuteCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
         {
             _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index start at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
             try
@@ -253,11 +255,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlTimeoutSec;
 
                     VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command);
-                    using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        indexName = sqlDataReader.GetString(0);
-                    }
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
             catch (SqlException ex)
@@ -268,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index complete at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
 
-            return indexName;
+            return;
         }
 
         private async Task SwitchPartitionsOutAllTables(bool rebuildClustered, CancellationToken cancellationToken)

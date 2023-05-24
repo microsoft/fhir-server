@@ -132,7 +132,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFactory<IScoped<SqlQueueClient>>();
 
-            services.Add<SqlImportOperation>()
+            services.Add<SqlImportReindexer>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

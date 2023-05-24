@@ -92,9 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand();
-
-            // cannot use VLatest as it incorrectly sends nulls
-            sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
+            sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.CommandText = "dbo.PutJobStatus";
             sqlCommand.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
             sqlCommand.Parameters.AddWithValue("@JobId", jobInfo.Id);
@@ -152,10 +150,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
             using var sqlCommand = new SqlCommand();
-
-            // cannot use VLatest as it incorrectly asks for optional @InputJobId
             sqlCommand.CommandText = "dbo.DequeueJob";
-            sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
+            sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             sqlCommand.Parameters.AddWithValue("@Worker", worker);
             sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
@@ -176,9 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand();
-
-            // cannot use VLatest as it does not understand optional parameters
-            sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
+            sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.CommandText = "dbo.EnqueueJobs";
             sqlCommand.CommandTimeout = 300;
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);

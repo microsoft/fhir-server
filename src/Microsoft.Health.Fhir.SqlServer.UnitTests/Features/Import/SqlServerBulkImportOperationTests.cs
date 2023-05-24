@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
     [Trait(Traits.Category, Categories.Import)]
     public class SqlServerBulkImportOperationTests
     {
-        private SqlImportOperation _sqlServerFhirDataBulkOperation;
+        private SqlImportReindexer _sqlServerFhirDataBulkOperation;
 
         public SqlServerBulkImportOperationTests()
         {
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), Substitute.For<ISqlConnectionBuilder>(), SqlConfigurableRetryFactory.CreateNoneRetryProvider(), Options.Create(new SqlServerDataStoreConfiguration()));
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportReindexer(sqlConnectionWrapperFactory, operationsConfiguration, schemaInformation, NullLogger<SqlImportReindexer>.Instance);
         }
 
         [Fact]
