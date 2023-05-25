@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -15,7 +14,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -26,7 +24,6 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
-using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -352,52 +349,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             responseBundle.Entry[entryIndex] = entryComponent;
-
-            return entryComponent;
-        }
-
-        private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
-        {
-            httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-            using var reader = new StreamReader(httpContext.Response.Body);
-            string bodyContent = reader.ReadToEnd();
-
-            ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
-
-            var entryComponent = new EntryComponent
-            {
-                Response = new ResponseComponent
-                {
-                    Status = httpContext.Response.StatusCode.ToString(),
-                    Location = responseHeaders.Location?.OriginalString,
-                    Etag = responseHeaders.ETag?.ToString(),
-                    LastModified = responseHeaders.LastModified,
-                },
-            };
-
-            if (!string.IsNullOrWhiteSpace(bodyContent))
-            {
-                var entryComponentResource = fhirJsonParser.Parse<Resource>(bodyContent);
-
-                if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
-                {
-                    entryComponent.Response.Outcome = entryComponentResource;
-                }
-                else
-                {
-                    entryComponent.Resource = entryComponentResource;
-                }
-            }
-            else
-            {
-                if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
-                {
-                    entryComponent.Response.Outcome = CreateOperationOutcome(
-                        OperationOutcome.IssueSeverity.Error,
-                        OperationOutcome.IssueType.Forbidden,
-                        Api.Resources.Forbidden);
-                }
-            }
 
             return entryComponent;
         }
