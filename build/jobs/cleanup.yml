@@ -36,7 +36,7 @@ jobs:
       scriptType: pscore
       scriptLocation: InlineScript
       inlineScript: |
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r4_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r4b_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'stu3_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r5_fhir-server:$(ImageTag)' --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'r4_fhir-server:$(ImageTag)' --output none --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'r4b_fhir-server:$(ImageTag)' --output none --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'stu3_fhir-server:$(ImageTag)' --output none --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'r5_fhir-server:$(ImageTag)' --output none --yes
