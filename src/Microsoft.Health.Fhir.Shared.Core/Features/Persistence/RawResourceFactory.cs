@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <inheritdoc />
-        public RawResource Create(ResourceElement resource, bool keepMeta)
+        public RawResource Create(ResourceElement resource, bool keepMeta, bool keepVersion = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 {
                     poco.Meta.VersionId = null;
                 }
-                else
+                else if (!keepVersion)
                 {
                     // Assume it's 1, though it may get changed by the database.
                     poco.Meta.VersionId = "1";

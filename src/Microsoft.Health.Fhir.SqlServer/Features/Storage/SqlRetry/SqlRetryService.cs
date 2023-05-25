@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     233,    // A connection was successfully established with the server, but then an error occurred during the login process. (provider: Shared Memory Provider, error: 0 - No process is on the other end of the pipe.) (Microsoft SQL Server, Error: 233)
 
                 // Additional Fhir Server errors:
-                    8623,   // The query processor ran out of internal resources and could not produce a query plan.
+                    SqlErrorCodes.QueryProcessorNoQueryPlan,   // The query processor ran out of internal resources and could not produce a query plan.
             };
 
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
@@ -171,23 +172,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(Func<CancellationToken, Task> action, CancellationToken cancellationToken)
+        public async Task ExecuteSql(Func<CancellationToken, SqlException, Task> action, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
+
+            SqlException sqlException = null;
 
             int retry = 0;
             while (true)
             {
                 try
                 {
-                    await action(cancellationToken);
+                    await action(cancellationToken, sqlException);
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (!RetryTest(ex) || ++retry >= _maxRetries)
+                    if (++retry >= _maxRetries || !RetryTest(ex))
                     {
                         throw;
+                    }
+
+                    if (ex is SqlException sqlEx)
+                    {
+                        sqlException = sqlEx;
                     }
                 }
 

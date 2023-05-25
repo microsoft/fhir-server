@@ -187,6 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = processingEx.Message,
+                    ErrorDetails = processingEx.ToString(),
                 };
 
                 // Cancel other processing jobs
@@ -207,6 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
+                    ErrorDetails = ex.ToString(),
                 };
 
                 // Cancel processing jobs for critical error in orchestrator job
@@ -229,6 +231,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
+                    ErrorDetails = ex.ToString(),
                 };
 
                 throw new RetriableJobException(JsonConvert.SerializeObject(postProcessErrorResult));
@@ -388,6 +391,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     BaseUriString = coordDefinition.BaseUri.ToString(),
                     ResourceType = input.Type,
                     GroupId = groupId,
+                    ImportMode = coordDefinition.ImportMode,
                 };
 
                 definitions.Add(JsonConvert.SerializeObject(importJobPayload));

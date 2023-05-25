@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
                 _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
-                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash);
+                yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request.Method, wrapper.SearchParameterHash);
             }
         }
     }

@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.82</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.95</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
@@ -30,7 +30,7 @@
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.9.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
-    <PackageVersion Include="coverlet.collector" Version="3.2.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
     <PackageVersion Include="FluentValidation" Version="11.5.2" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
@@ -55,7 +55,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.33.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.34.0" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -87,9 +87,9 @@
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="2.3.2" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.5.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
-    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="161.8089.0" />
+    <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.13.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />

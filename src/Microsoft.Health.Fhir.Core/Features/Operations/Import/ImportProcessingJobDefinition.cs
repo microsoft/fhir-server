@@ -49,5 +49,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Group id
         /// </summary>
         public long GroupId { get; set; }
+
+        /// <summary>
+        /// Import mode.
+        /// </summary>
+        public ImportMode ImportMode { get; set; }
     }
 }

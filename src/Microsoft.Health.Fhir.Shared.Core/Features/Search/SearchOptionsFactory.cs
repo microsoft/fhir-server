@@ -460,91 +460,90 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+        }
 
-            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
-                IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
+        private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
+        {
+            return includes.Select(p =>
             {
-                return includes.Select(p =>
+                var includeResourceTypeList = typesString;
+                var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
+
+                if (iterate)
                 {
-                    var includeResourceTypeList = typesString;
-                    var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
-
-                    if (iterate)
+                    var includeResourceType = p.query?.Split(':')[0];
+                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
                     {
-                        var includeResourceType = p.query?.Split(':')[0];
-                        if (!ModelInfoProvider.IsKnownResource(includeResourceType))
-                        {
-                            throw new ResourceNotSupportedException(includeResourceType);
-                        }
-
-                        includeResourceTypeList = new[] { includeResourceType };
+                        throw new ResourceNotSupportedException(includeResourceType);
                     }
 
-                    IEnumerable<string> allowedResourceTypesByScope = null;
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
-                    {
-                        allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
-                    }
-
-                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
-
-                    // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
-                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
-                        expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
-                    {
-                        throw new BadRequestException(
-                            string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
-                    }
-
-                    if (expression.TargetResourceType != null &&
-                       string.IsNullOrWhiteSpace(expression.TargetResourceType))
-                    {
-                        throw new BadRequestException(
-                            string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
-                    }
-
-                    if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
-                    {
-                        throw new ResourceNotSupportedException(expression.TargetResourceType);
-                    }
-
-                    // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
-                    // See https://www.hl7.org/fhir/search.html#revinclude.
-                    if (expression.Iterate && expression.CircularReference)
-                    {
-                        var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
-                        _contextAccessor.RequestContext?.BundleIssues.Add(
-                            new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Information,
-                                OperationOutcomeConstants.IssueType.Informational,
-                                string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
-                    }
-
-                    if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
-                    {
-                        if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
-                        {
-                            _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
-                            return null;
-                        }
-
-                        if (!expression.Produces.Any())
-                        {
-                            return null;
-                        }
-                    }
-
-                    return expression;
-                });
-            }
-
-            void ValidateTotalType(TotalType totalType)
-            {
-                // Estimate is not yet supported.
-                if (totalType == TotalType.Estimate)
-                {
-                    throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
+                    includeResourceTypeList = new[] { includeResourceType };
                 }
+
+                IEnumerable<string> allowedResourceTypesByScope = null;
+                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true)
+                {
+                    allowedResourceTypesByScope = _contextAccessor.RequestContext?.AccessControlContext?.AllowedResourceActions.Select(s => s.Resource);
+                }
+
+                var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate, allowedResourceTypesByScope);
+
+                // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
+                if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
+                    expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
+                {
+                    throw new BadRequestException(
+                        string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
+                }
+
+                if (expression.TargetResourceType != null &&
+                   string.IsNullOrWhiteSpace(expression.TargetResourceType))
+                {
+                    throw new BadRequestException(
+                        string.Format(Core.Resources.IncludeRevIncludeInvalidTargetResourceType, expression.TargetResourceType));
+                }
+
+                if (expression.TargetResourceType != null && !ModelInfoProvider.IsKnownResource(expression.TargetResourceType))
+                {
+                    throw new ResourceNotSupportedException(expression.TargetResourceType);
+                }
+
+                // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
+                // See https://www.hl7.org/fhir/search.html#revinclude.
+                if (expression.Iterate && expression.CircularReference)
+                {
+                    var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
+                }
+
+                if (_contextAccessor.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All))
+                {
+                    if (expression.TargetResourceType != null && !allowedResourceTypesByScope.Contains(expression.TargetResourceType))
+                    {
+                        _logger.LogTrace("Query restricted by clinical scopes.  Target resource type {ResourceType} not included in allowed resources.", expression.TargetResourceType);
+                        return null;
+                    }
+
+                    if (!expression.Produces.Any())
+                    {
+                        return null;
+                    }
+                }
+
+                return expression;
+            });
+        }
+
+        private static void ValidateTotalType(TotalType totalType)
+        {
+            // Estimate is not yet supported.
+            if (totalType == TotalType.Estimate)
+            {
+                throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
             }
         }
 
@@ -554,28 +553,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 return;
             }
-            else if (expression is SearchParameterExpression searchParameterExpression)
+            else if (expression is SearchParameterExpression baseSearchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", searchParameterExpression.Parameter.Name, searchParameterExpression.Parameter.Code);
-                LogExpresssionSearchParameters(searchParameterExpression.Expression);
+                LogSearchParameterData(baseSearchParameterExpression.Parameter.Url);
+                LogExpresssionSearchParameters(baseSearchParameterExpression.Expression);
             }
             else if (expression is SearchParameterExpressionBase baseExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", baseExpression.Parameter.Name, baseExpression.Parameter.Code);
+                LogSearchParameterData(baseExpression.Parameter.Url);
             }
             else if (expression is MissingSearchParameterExpression missingSearchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}, IsMissing: {Missing}.", missingSearchParameterExpression.Parameter.Name, missingSearchParameterExpression.Parameter.Code, missingSearchParameterExpression.IsMissing);
+                LogSearchParameterData(missingSearchParameterExpression.Parameter.Url, missingSearchParameterExpression.IsMissing);
             }
             else if (expression is ChainedExpression chainedExpression)
             {
-                _logger.LogInformation("SearchParameters in chained search. URL: {Url}, Code: {Code}", chainedExpression.ReferenceSearchParameter.Name, chainedExpression.ReferenceSearchParameter.Code);
+                LogSearchParameterData(chainedExpression.ReferenceSearchParameter.Url);
                 LogExpresssionSearchParameters(chainedExpression.Expression);
             }
-            else if (expression is SearchParameterExpression includeExpression)
+            else if (expression is SearchParameterExpression searchParameterExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", includeExpression.Parameter.Name, includeExpression.Parameter.Code);
-                LogExpresssionSearchParameters(includeExpression.Expression);
+                LogSearchParameterData(searchParameterExpression.Parameter.Url);
+                LogExpresssionSearchParameters(searchParameterExpression.Expression);
             }
             else if (expression is MultiaryExpression multiaryExpression)
             {
@@ -597,8 +596,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else if (expression is SortExpression sortExpression)
             {
-                _logger.LogInformation("SearchParameters in search. URL: {Url}, Code: {Code}", sortExpression.Parameter.Name, sortExpression.Parameter.Code);
+                LogSearchParameterData(sortExpression.Parameter.Url);
             }
+            else if (expression is IncludeExpression includeExpression)
+            {
+                LogSearchParameterData(includeExpression.ReferenceSearchParameter.Url);
+            }
+        }
+
+        private void LogSearchParameterData(Uri url, bool isMissing = false)
+        {
+            string logOutput = string.Format("SearchParameters in search. Url: {0}.", url.OriginalString);
+
+            if (isMissing)
+            {
+                logOutput = logOutput + string.Format(" IsMissing: {0}.", isMissing);
+            }
+
+            _logger.LogInformation(logOutput);
         }
 
         private void CheckFineGrainedAccessControl(List<Expression> searchExpressions)

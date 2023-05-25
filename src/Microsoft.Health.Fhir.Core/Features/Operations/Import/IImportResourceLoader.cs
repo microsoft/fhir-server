@@ -21,7 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <param name="offset">offset in resource blob/file.</param>
         /// <param name="bytesToRead">number of bytes to read.</param>
         /// <param name="resourceType">FHIR resource type.</param>
+        /// <param name="importMode">import mode.</param>
         /// <param name="cancellationToken">Cancellation Token. </param>
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, CancellationToken cancellationToken);
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken);
     }
 }
