@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (53, 'started');
+VALUES (54, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
