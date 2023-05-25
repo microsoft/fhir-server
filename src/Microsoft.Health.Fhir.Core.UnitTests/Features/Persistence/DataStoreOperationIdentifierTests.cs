@@ -54,6 +54,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 requireETagOnUpdate: false);
 
             Assert.True(dictionary.ContainsKey(identifier2));
+            Assert.Equal(identifier1, identifier2);
+        }
+
+        [Fact]
+        public void GivenTwoDifferentDataStoreOperationIdentifiers_WhenRunningRegularOperations_EverythingShouldWorkAsExpected()
+        {
+            var identifier1 = new DataStoreOperationIdentifier(
+                "2112",
+                "Patient",
+                "1",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false);
+
+            var dictionary = new Dictionary<DataStoreOperationIdentifier, int>();
+            dictionary.Add(identifier1, 0);
+
+            Assert.True(dictionary.ContainsKey(identifier1));
+
+            var identifier2 = new DataStoreOperationIdentifier(
+                "Test for Echo",
+                "Patient",
+                "1",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false);
+
+            Assert.False(dictionary.ContainsKey(identifier2));
+            Assert.NotEqual(identifier1, identifier2);
         }
 
         [Fact]
@@ -79,6 +110,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             Assert.Equal(identifier1, identifier2);
             Assert.Equal(identifier1.GetHashCode(), identifier2.GetHashCode());
+        }
+
+        [Fact]
+        public void GivenTwoDataStoreOperationIdentifiersWithTheDifferentValues_WhenCompared_BothShouldBeDifferent()
+        {
+            var identifier1 = new DataStoreOperationIdentifier(
+                "2112",
+                "Patient",
+                "1",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false);
+
+            var identifier2 = new DataStoreOperationIdentifier(
+                "2112",
+                "Patient",
+                "2",
+                allowCreate: true,
+                keepHistory: true,
+                weakETag: null,
+                requireETagOnUpdate: false);
+
+            Assert.NotEqual(identifier1, identifier2);
+            Assert.NotEqual(identifier1.GetHashCode(), identifier2.GetHashCode());
         }
     }
 }

@@ -16,6 +16,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     internal sealed class BundleHandlerStatistics
     {
+        private const string LoggingLabel = "bundleStatistics";
+
         private readonly Stopwatch _stopwatch;
 
         private readonly List<BundleHandlerStatisticEntry> _entries;
@@ -36,11 +38,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public BundleProcessingLogic ProcessingLogic { get; }
 
-        public IReadOnlyList<BundleHandlerStatisticEntry> Entries
-        {
-            get { return _entries; }
-        }
-
         public void StartCollectingResults()
         {
             _stopwatch.Start();
@@ -55,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             var finalStatistics = _entries
                 .GroupBy(e => string.Concat(e.HttpVerb, " - ", e.HttpStatusCode))
-                .Select(g => new { request = g.Key, count = g.Count(), avgExecutionTime = g.Average(r => r.ElapsedTime.TotalMilliseconds), maxExecutionTime = g.Max(r => r.ElapsedTime.TotalMilliseconds) })
+                .Select(g => new { httpVerb = g.First().HttpVerb.ToString(), statusCode = g.First().HttpStatusCode, count = g.Count(), avgExecutionTime = g.Average(r => r.ElapsedTime.TotalMilliseconds), minExecutionTime = g.Min(r => r.ElapsedTime.TotalMilliseconds), maxExecutionTime = g.Max(r => r.ElapsedTime.TotalMilliseconds) })
                 .ToArray();
 
             int failedRequests = _entries.Count(e => e.HttpStatusCode >= 500);
@@ -64,9 +61,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             JObject serializableEntity = JObject.FromObject(new
             {
-                label = "bundleStatistics",
-                bundleType = BundleType,
-                processingLogic = ProcessingLogic,
+                label = LoggingLabel,
+                bundleType = BundleType.ToString(),
+                processingLogic = ProcessingLogic.ToString(),
                 numberOfResources = NumberOfResources,
                 executionTime = _stopwatch.ElapsedMilliseconds,
                 success = successedRequests,
@@ -80,17 +77,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public void RegisterNewEntry(Hl7.Fhir.Model.Bundle.HTTPVerb httpVerb, int index, string statusCode, TimeSpan elapsedTime)
         {
-            if (!Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
+            int httpStatusCodeAsInt = 0;
+            if (Enum.TryParse(statusCode, out HttpStatusCode httpStatusCode))
             {
-                httpStatusCode = HttpStatusCode.BadRequest;
+                httpStatusCodeAsInt = (int)httpStatusCode;
             }
 
-            _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, Index = index, HttpStatusCode = (int)httpStatusCode, ElapsedTime = elapsedTime });
+            _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, Index = index, HttpStatusCode = httpStatusCodeAsInt, ElapsedTime = elapsedTime });
         }
 
-#pragma warning disable CA1034 // Nested types should not be visible
-        internal sealed class BundleHandlerStatisticEntry
-#pragma warning restore CA1034 // Nested types should not be visible
+#pragma warning disable CA1034 // Nested types should not be visible - Justification: Class only used internally to handle Bundle statistics and make the logic more readable.
+        private sealed class BundleHandlerStatisticEntry
         {
             public Hl7.Fhir.Model.Bundle.HTTPVerb HttpVerb { get; set; }
 
@@ -100,5 +97,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             public TimeSpan ElapsedTime { get; set; }
         }
+#pragma warning restore CA1034 // Nested types should not be visible
     }
 }

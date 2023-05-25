@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
 
-                // Internally Bundle Operation calls UpsertAsync.
+                // Internally Bundle Operation calls "MergeAsync".
                 return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
