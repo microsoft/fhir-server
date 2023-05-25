@@ -442,6 +442,23 @@ public class CosmosQueueClient : IQueueClient
         });
     }
 
+    public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+    {
+        var job = await PeekInternalAsync(queueType, cancellationToken);
+        return job.Id.ToString();
+    }
+
+    private async Task<JobInfo> PeekInternalAsync(byte queueType, CancellationToken cancellationToken)
+    {
+        QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE c FROM root c
+           WHERE c.queueType = @queueType and c.status in (0,1)")
+        .WithParameter("@queueType", queueType);
+
+        var response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
+
+        return response.ToList().FirstOrDefault().ToJobInfo().FirstOrDefault();
+    }
+
     private async Task<IReadOnlyList<JobGroupWrapper>> GetGroupInternalAsync(
         byte queueType,
         long groupId,
