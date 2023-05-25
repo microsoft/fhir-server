@@ -78,12 +78,12 @@ steps:
   - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
     displayName: 'Generation Task'
     inputs:
-        BuildDropPath: '$(build.artifactStagingDirectory)/sbom'
+        BuildDropPath: '$(build.artifactStagingDirectory)'
         BuildComponentPath: '$(Build.SourcesDirectory)'
   - task: PublishBuildArtifacts@1
     displayName: 'publish SBOM artifacts'
     inputs:
-      pathToPublish: '$(build.artifactStagingDirectory)/sbom'
+      pathToPublish: '$(build.artifactStagingDirectory)'
       artifactName: 'deploy'
       artifactType: 'container'
 
