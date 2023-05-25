@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -80,9 +82,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.NoSoftPurge);
             }
 
-            IReadOnlyList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch();
+            IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
+            searchParameters = searchParameters.Where(
+                param => !param.Item1.Equals(KnownQueryParameterNames.HardDelete, StringComparison.OrdinalIgnoreCase)
+                && !param.Item1.Equals(KnownQueryParameterNames.PurgeHistory, StringComparison.OrdinalIgnoreCase)).ToList();
+
             var deleteOperation = hardDelete ? (purgeHistory ? DeleteOperation.PurgeHistory : DeleteOperation.HardDelete) : DeleteOperation.SoftDelete;
-            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, (IList<Tuple<string, string>>)searchParameters, HttpContext.RequestAborted);
+            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());
