@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             IReadOnlyList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch();
             var deleteOperation = hardDelete ? (purgeHistory ? DeleteOperation.PurgeHistory : DeleteOperation.HardDelete) : DeleteOperation.SoftDelete;
-            var result = await _mediator.BulkDeleteAsync(deleteOperation, null, (IList<Tuple<string, string>>)searchParameters, HttpContext.RequestAborted);
+            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, (IList<Tuple<string, string>>)searchParameters, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());

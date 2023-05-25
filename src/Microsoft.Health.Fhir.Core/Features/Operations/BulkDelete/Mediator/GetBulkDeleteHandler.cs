@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 }
             }
 
-            var fhirResults = resourcesDeleted.Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)));
+            var fhirResults = resourcesDeleted.Where(x => x.Value > 0).Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)));
             if (failed)
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
