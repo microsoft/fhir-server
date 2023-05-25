@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        public async Task<(bool success, string message)> UpdateSearchParameterStatus(
+        public async Task<(bool success, string message)> UpdateSearchParameterStatusToEnabled(
             IReadOnlyCollection<string> searchParameterUris,
             CancellationToken cancellationToken)
         {
