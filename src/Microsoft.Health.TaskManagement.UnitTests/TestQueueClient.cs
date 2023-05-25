@@ -226,5 +226,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             return Task.FromResult(cancel);
         }
+
+        public Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(jobInfos.Where(j => j.QueueType == queueType && (j.Status == JobStatus.Created || j.Status == JobStatus.Running)).ToList().FirstOrDefault().Id.ToString());
+        }
     }
 }

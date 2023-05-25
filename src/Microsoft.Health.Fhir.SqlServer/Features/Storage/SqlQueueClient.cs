@@ -270,6 +270,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+        {
+            using SqlCommand sqlCommand = new SqlCommand();
+            try
+            {
+                sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+                sqlCommand.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
+                await using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+
+                var result = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(
+                    sqlCommand,
+                    JobInfoExtensions.LoadJobInfo,
+                    _logger,
+                    "GetJobByIdAsync failed.",
+                    cancellationToken);
+                return result.Id.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PeekAsync failed.");
+                if (ex.IsRetriable())
+                {
+                    throw new RetriableJobException(ex.Message, ex);
+                }
+
+                throw;
+            }
+        }
+
         public bool IsInitialized()
         {
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
