@@ -15,10 +15,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundJobService;
+using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AsImplementedInterfaces();
             services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
 
-            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssemblyAs<ExportOrchestratorJob>()
+            IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssembly(KnownAssemblies.Core)
                 .AssignableTo<IJob>()
                 .Transient()
                 .AsSelf();
