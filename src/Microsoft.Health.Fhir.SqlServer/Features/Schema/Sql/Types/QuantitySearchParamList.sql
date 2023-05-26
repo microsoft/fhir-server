@@ -7,9 +7,9 @@ CREATE TYPE dbo.QuantitySearchParamList AS TABLE
    ,SearchParamId            smallint NOT NULL
    ,SystemId                 int      NULL
    ,QuantityCodeId           int      NULL
-   ,SingleValue              decimal(18,6) NULL
-   ,LowValue                 decimal(18,6) NULL
-   ,HighValue                decimal(18,6) NULL
+   ,SingleValue              decimal(36,18) NULL
+   ,LowValue                 decimal(36,18) NULL
+   ,HighValue                decimal(36,18) NULL
 
    UNIQUE (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
 )
