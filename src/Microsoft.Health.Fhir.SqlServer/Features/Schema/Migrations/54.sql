@@ -119,6 +119,11 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamList AS TABLE (
     Code2                     VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CodeOverflow2             VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL);
 
+CREATE TYPE dbo.ResourceDateKeyList AS TABLE (
+    ResourceTypeId      SMALLINT     NOT NULL,
+    ResourceId          VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ResourceSurrogateId BIGINT       NOT NULL PRIMARY KEY (ResourceTypeId, ResourceId, ResourceSurrogateId));
+
 CREATE TYPE dbo.ResourceKeyList AS TABLE (
     ResourceTypeId SMALLINT     NOT NULL,
     ResourceId     VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -3693,6 +3698,44 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.GetResourceVersions
+@ResourceDateKeys dbo.ResourceDateKeyList READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'GetResourceVersions', @Mode AS VARCHAR (100) = 'Rows=' + CONVERT (VARCHAR, (SELECT count(*)
+                                                                                                                                            FROM   @ResourceDateKeys)), @DummyTop AS BIGINT = 9223372036854775807;
+BEGIN TRY
+    SELECT A.ResourceTypeId,
+           A.ResourceId,
+           A.ResourceSurrogateId,
+           CASE WHEN EXISTS (SELECT *
+                             FROM   dbo.Resource AS B
+                             WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                    AND B.ResourceId = A.ResourceId
+                                    AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE 0 END AS Version
+    FROM   (SELECT TOP (@DummyTop) *
+            FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
+                                                        FROM     dbo.Resource AS B
+                                                        WHERE    B.ResourceTypeId = A.ResourceTypeId
+                                                                 AND B.ResourceId = A.ResourceId
+                                                                 AND B.ResourceSurrogateId < A.ResourceSurrogateId
+                                                        ORDER BY B.ResourceSurrogateId DESC) AS L OUTER APPLY (SELECT   TOP 1 *
+                                                                                                               FROM     dbo.Resource AS B
+                                                                                                               WHERE    B.ResourceTypeId = A.ResourceTypeId
+                                                                                                                        AND B.ResourceId = A.ResourceId
+                                                                                                                        AND B.ResourceSurrogateId > A.ResourceSurrogateId
+                                                                                                               ORDER BY B.ResourceSurrogateId) AS U
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
 SET NOCOUNT ON;
@@ -4336,8 +4379,10 @@ BEGIN CATCH
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     IF @RaiseExceptionOnConflict = 1
-       AND error_number() = 2601
-       AND error_message() LIKE '%''dbo.Resource''%version%'
+       AND (error_number() = 2601
+            AND error_message() LIKE '%''dbo.Resource''%version%'
+            OR error_number() = 2627
+               AND error_message() LIKE '%''dbo.Resource''%')
         THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
         THROW;
@@ -4345,20 +4390,27 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT
+@Count INT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @TransactionId AS BIGINT = NULL, @RunTransactionCheck AS BIT = (SELECT Number
-                                                                                                                                                                                                                                                             FROM   dbo.Parameters
-                                                                                                                                                                                                                                                             WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled');
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @TransactionId AS BIGINT = NULL, @RunTransactionCheck AS BIT = (SELECT Number
+                                                                                                                                                                                                                                                                                           FROM   dbo.Parameters
+                                                                                                                                                                                                                                                                                           WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled');
 BEGIN TRY
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
     WHILE @TransactionId IS NULL
         BEGIN
-            EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = NULL;
-            SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + CONVERT (INT, @FirstValueVar);
+            SET @FirstValueVar = NULL;
+            WHILE @FirstValueVar IS NULL
+                BEGIN
+                    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = @LastValueVar OUTPUT;
+                    SET @SequenceRangeFirstValue = CONVERT (INT, @FirstValueVar);
+                    IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
+                        SET @FirstValueVar = NULL;
+                END
+            SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
             IF @RunTransactionCheck = 1
                 BEGIN
                     BEGIN TRANSACTION;
