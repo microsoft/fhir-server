@@ -7,14 +7,11 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 
@@ -52,18 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ResourceToNdjsonBytesSerializer>()
                 .Singleton()
                 .AsService<IResourceToByteArraySerializer>();
-
-            services.Add<IReindexJobTask>(sp => sp.GetRequiredService<ReindexJobTask>())
-                .Transient()
-                .AsSelf()
-                .AsFactory();
-
-            services
-                .RemoveServiceTypeExact<ReindexJobWorker, INotificationHandler<SearchParametersInitializedNotification>>()
-                .Add<ReindexJobWorker>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
