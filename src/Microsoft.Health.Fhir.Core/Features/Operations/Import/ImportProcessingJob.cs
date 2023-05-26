@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Critical error in import processing job.");
-                var error = new ImportProcessingJobErrorResult() { Message = ex.Message };
+                var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }
