@@ -90,30 +90,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
-            try
-            {
-                return await base.GetExportJobByIdAsync(id, cancellationToken);
-            }
-            catch (JobNotFoundException)
+            if (IsLegacyJob(id))
             {
                 // try old job records
                 var oldJobs = (ILegacyExportOperationDataStore)this;
                 return await oldJobs.GetLegacyExportJobByIdAsync(id, cancellationToken);
             }
+
+            return await base.GetExportJobByIdAsync(id, cancellationToken);
         }
 
         public override async Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
         {
-            try
-            {
-                return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
-            }
-            catch (JobNotFoundException)
+            if (IsLegacyJob(jobRecord.Id))
             {
                 // try old job records
                 var oldJobs = (ILegacyExportOperationDataStore)this;
                 return await oldJobs.UpdateLegacyExportJobAsync(jobRecord, eTag, cancellationToken);
             }
+
+            return await base.UpdateExportJobAsync(jobRecord, eTag, cancellationToken);
+        }
+
+        private static bool IsLegacyJob(string jobId)
+        {
+            return !long.TryParse(jobId, out long _);
         }
 
         async Task<IReadOnlyCollection<ExportJobOutcome>> ILegacyExportOperationDataStore.AcquireLegacyExportJobsAsync(
