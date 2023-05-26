@@ -44,9 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [SkippableFact]
+        [SkippableTheory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests(FhirBundleProcessingLogic processingLogic)
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
@@ -56,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: FhirBundleProcessingLogic.Parallel, source.Token);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: processingLogic, source.Token);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
@@ -67,16 +69,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Resources 1, 2 and 3 have the same resource Id.
             Assert.Equal("200", resource.Entry[1].Response.Status); // PUT
 
-            // Duplicated records. Only one should successed. As the requests are processed in parallel,
-            // it's not possible to pick the one that will be processed.
-            if (resource.Entry[2].Response.Status == "200")
+            if (processingLogic == FhirBundleProcessingLogic.Parallel)
+            {
+                // Duplicated records. Only one should successed. As the requests are processed in parallel,
+                // it's not possible to pick the one that will be processed.
+                if (resource.Entry[2].Response.Status == "200")
+                {
+                    Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
+                    Assert.Equal("400", resource.Entry[3].Response.Status); // PATCH (Duplicate)
+                }
+                else
+                {
+                    Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
+                    Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
+                }
+            }
+            else if (processingLogic == FhirBundleProcessingLogic.Sequential)
             {
                 Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
-                Assert.Equal("400", resource.Entry[3].Response.Status); // PATCH (Duplicate)
-            }
-            else
-            {
-                Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
                 Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
             }
 

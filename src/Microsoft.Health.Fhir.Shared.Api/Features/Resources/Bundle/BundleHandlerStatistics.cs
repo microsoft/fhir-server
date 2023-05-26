@@ -86,7 +86,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _entries.Add(new BundleHandlerStatisticEntry() { HttpVerb = httpVerb, Index = index, HttpStatusCode = httpStatusCodeAsInt, ElapsedTime = elapsedTime });
         }
 
-#pragma warning disable CA1034 // Nested types should not be visible - Justification: Class only used internally to handle Bundle statistics and make the logic more readable.
         private sealed class BundleHandlerStatisticEntry
         {
             public Hl7.Fhir.Model.Bundle.HTTPVerb HttpVerb { get; set; }
@@ -97,6 +96,5 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             public TimeSpan ElapsedTime { get; set; }
         }
-#pragma warning restore CA1034 // Nested types should not be visible
     }
 }

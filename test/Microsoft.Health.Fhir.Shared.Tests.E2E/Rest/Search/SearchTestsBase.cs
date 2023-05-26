@@ -181,11 +181,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string queryUrl = searchUrl;
 
             List<Resource> allResourcesReturned = new List<Resource>();
-            FhirResponse<Bundle> firstBundle = null;
             Dictionary<string, int> pagingStatistics = new Dictionary<string, int>();
             do
             {
-                // Part 1 - Query FHIR for results.
                 FhirResponse<Bundle> fhirBundleResponse = null;
                 try
                 {
@@ -204,23 +202,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 if (_output != null)
                 {
                     WriteSearchAsync(fhirBundleResponse, "ExecuteAndValidateBundle", queryUrl, customHeader);
-                }
-
-                if (firstBundle == null)
-                {
-                    firstBundle = fhirBundleResponse;
-                }
-
-                // Part 2 - Identify the correct 'selfLink' to be used during validations.
-                string validationSelfLink;
-                if (_continuationToken.Match(queryUrl).Success)
-                {
-                    // Truncating host and appending continuation token
-                    validationSelfLink = selfLink + queryUrl.Substring(_continuationToken.Match(queryUrl).Index);
-                }
-                else
-                {
-                    validationSelfLink = selfLink;
                 }
 
                 allResourcesReturned.AddRange(fhirBundleResponse.Resource.Entry.Select(e => e.Resource));

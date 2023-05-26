@@ -128,11 +128,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             if (sortParameterName == "birthdate")
             {
-                SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
+                SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, returnedResults.Count, returnedResults);
             }
             else if (sortParameterName == "-birthdate")
             {
-                SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
+                SortTestsAssert.AssertPatientBirthDateDescendingOrderInRange(0, returnedResults.Count, returnedResults);
             }
         }
 
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=birthdate&_count=3");
 
-            SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, 3, returnedResults.Take(3).ToList());
+            SortTestsAssert.AssertPatientBirthDateAscendingOrderInRange(0, returnedResults.Count, returnedResults);
         }
 
         [Fact]
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family");
 
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
-            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderBy(x => x.Name.Max(n => n.Family)).ToList(), returnedResults);
+            SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderBy(x => x.Name.Min(n => n.Family)).ToList(), returnedResults);
         }
 
         [Fact]
