@@ -6,6 +6,7 @@
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenAResourceTypeWithVersionedUpdateVersioningPolicy_WhenUpsertingWithNonMatchingVersion_ThenAPreconditionFailedExceptionIsThrown()
         {
             // The FHIR storage fixture configures medication resources to have the "versioned-update" versioning policy
-            RawResourceElement medicationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultMedication());
+            RawResourceElement medicationResource = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetDefaultMedication()));
 
             ResourceElement newResourceValues = Samples.GetDefaultMedication().UpdateId(medicationResource.Id);
 

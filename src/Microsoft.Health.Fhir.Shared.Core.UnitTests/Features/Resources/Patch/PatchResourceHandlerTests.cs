@@ -65,7 +65,7 @@ public class PatchResourceHandlerTests
     {
         var etag = WeakETag.FromWeakETag("W/\"1\"");
 
-        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), etag);
+        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleOperationId: null, weakETag: etag);
         await _patchHandler.Handle(request, CancellationToken.None);
 
         await _mediator
@@ -78,7 +78,7 @@ public class PatchResourceHandlerTests
     {
         var etag = WeakETag.FromWeakETag("W/\"2\"");
 
-        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), etag);
+        var request = new PatchResourceRequest(new ResourceKey("Patient", "123"), new FhirPathPatchPayload(new Parameters()), bundleOperationId: null, weakETag: etag);
 
         await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _patchHandler.Handle(request, CancellationToken.None));
     }

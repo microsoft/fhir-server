@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var resource = Samples.GetDefaultObservation().UpdateId("id1");
 
-            var request = new CreateResourceRequest(resource);
+            var request = new CreateResourceRequest(resource, bundleOperationId: null);
             var wrapper = CreateResourceWrapper(resource, false);
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameter = new SearchParameter() { Id = "Id" };
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
-            var request = new CreateResourceRequest(resource);
+            var request = new CreateResourceRequest(resource, bundleOperationId: null);
             var wrapper = CreateResourceWrapper(resource, false);
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));

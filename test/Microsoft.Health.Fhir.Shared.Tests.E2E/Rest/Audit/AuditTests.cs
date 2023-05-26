@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
         {
             var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
@@ -432,7 +432,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         public async Task GivenABatchAndUserWithoutWrite_WhenPost_ThenAuditLogEntriesShouldBeCreated()
         {
             var batch = new Bundle

@@ -14,6 +14,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly CosmosFhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
         private readonly IScoped<Container> _container;
+        private readonly IBundleOrchestrator _bundleOrchestrator;
 
         public CosmosFhirDataStoreTests()
         {
@@ -57,6 +60,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             fhirRequestContext.ExecutingBatchOrTransaction.Returns(true);
             var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             requestContextAccessor.RequestContext.Returns(fhirRequestContext);
+
+            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(bundleConfiguration);
+
+            var logger = Substitute.For<ILogger<BundleOrchestrator>>();
+
+            _bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
+
             _dataStore = new CosmosFhirDataStore(
                 _container,
                 _cosmosDataStoreConfiguration,
@@ -65,6 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
+                _bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
                 ModelInfoProvider.Instance);
         }
@@ -227,7 +240,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             // using try catch here instead of Assert.ThrowsAsync in order to verify exception property
             try
             {
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleOperationId: null), CancellationToken.None);
             }
             catch (CosmosException e)
             {
@@ -259,7 +272,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             try
             {
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleOperationId: null), CancellationToken.None);
             }
             catch (CosmosException e)
             {

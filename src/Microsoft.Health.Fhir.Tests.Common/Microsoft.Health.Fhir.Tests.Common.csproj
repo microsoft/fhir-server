@@ -16,8 +16,10 @@
     <None Remove="TestFiles\Normative\MemberMatch.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
+    <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
   </ItemGroup>
   <ItemGroup>
+	<EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />

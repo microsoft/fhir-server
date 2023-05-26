@@ -71,11 +71,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await ExecuteAndValidate(
                 () => _client.HttpClient.GetAsync("/health/check"),
-                (type: typeof(ApiResponseNotification), count: 0, resourceType: (string)null),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: (string)null));
+                (type: typeof(ApiResponseNotification), count: 0, resourceType: null),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 2, resourceType: null));
         }
 
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
         public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
@@ -89,12 +89,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                      var result = await _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco());
                      return result.Response;
                  },
-                 (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null),
+                 (type: typeof(ApiResponseNotification), count: 1, resourceType: null),
                  (type: typeof(CosmosStorageRequestMetricsNotification), count: 11, resourceType: "Patient"));
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-        [Trait(Traits.Category, Categories.Batch)]
+        [Trait(Traits.Category, Categories.Bundle)]
         [Trait(Traits.Priority, Priority.One)]
         [Fact]
         public async Task GivenABatch_WhenInvokedAtSqlServer_MetricNotificationsShouldBeEmitted()
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     var result = await _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco());
                     return result.Response;
                 },
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: null));
         }
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     var result = await _client.PostBundleAsync(requestBundle);
                     return result.Response;
                 },
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: null));
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)

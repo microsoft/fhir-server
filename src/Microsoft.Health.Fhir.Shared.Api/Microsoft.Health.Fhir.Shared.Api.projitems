@@ -31,6 +31,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ParametersExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerParallelOperations.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerStatistics.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleProcessingLogic.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\IProvenanceHeaderState.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviour.cs" />
