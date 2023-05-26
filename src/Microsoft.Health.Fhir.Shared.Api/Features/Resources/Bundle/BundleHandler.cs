@@ -192,14 +192,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    if (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel)
-                    {
-                        await ExecuteAllRequestsInParallelAsync(responseBundle, cancellationToken);
-                    }
-                    else
-                    {
-                        await ExecuteAllRequestsInSequenceAsync(responseBundle);
-                    }
+                    BundleProcessingLogic processingLogic = (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel) ? BundleProcessingLogic.Parallel : BundleProcessingLogic.Sequential;
+                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
 
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
@@ -220,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.TransactionResponse,
                     };
 
-                    var response = await ExecuteTransactionForAllRequests(responseBundle);
+                    var response = await ExecuteTransactionForAllRequestsAsync(responseBundle, cancellationToken);
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 
@@ -262,6 +256,49 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return DefaultBundleProcessingLogic;
         }
 
+        private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
+        {
+            // List is not created initially since it doesn't create a list with _requestCount elements
+            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
+            foreach (int emptyRequestOrder in _emptyRequestsOrder)
+            {
+                var entryComponent = new EntryComponent
+                {
+                    Response = new ResponseComponent
+                    {
+                        Status = ((int)HttpStatusCode.BadRequest).ToString(),
+                        Outcome = CreateOperationOutcome(
+                            OperationOutcome.IssueSeverity.Error,
+                            OperationOutcome.IssueType.Invalid,
+                            "Request is empty"),
+                    },
+                };
+                responseBundle.Entry[emptyRequestOrder] = entryComponent;
+            }
+
+            BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(processingLogic);
+            try
+            {
+                // Besides the need to run requests in parallel, the verb execution order should still be respected.
+                EntryComponent throttledEntryComponent = null;
+                foreach (HTTPVerb verb in _verbExecutionOrder)
+                {
+                    if (processingLogic == BundleProcessingLogic.Parallel)
+                    {
+                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                    }
+                    else
+                    {
+                        throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                    }
+                }
+            }
+            finally
+            {
+                FinishCollectingBundleStatistics(statistics);
+            }
+        }
+
         private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
         {
             var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
@@ -283,13 +320,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
         }
 
-        private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
+        private async Task<BundleResponse> ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
         {
             try
             {
                 using (var transaction = _transactionHandler.BeginTransaction())
                 {
-                    await ExecuteAllRequestsInSequenceAsync(responseBundle);
+                    // TODO: At this point all transactions are still processed sequentially, but it'll be changed soon. Work item 101624.
+                    BundleProcessingLogic processingLogic = BundleProcessingLogic.Sequential;
+
+                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
 
                     transaction.Complete();
                 }
@@ -301,45 +341,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());
-        }
-
-        /// <summary>
-        /// Executes all resources in sequential Bundle batches and Bundle transactions.
-        /// </summary>
-        private async Task ExecuteAllRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle)
-        {
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
-            foreach (int emptyRequestOrder in _emptyRequestsOrder)
-            {
-                var entryComponent = new EntryComponent
-                {
-                    Response = new ResponseComponent
-                    {
-                        Status = ((int)HttpStatusCode.BadRequest).ToString(),
-                        Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
-                    },
-                };
-                responseBundle.Entry[emptyRequestOrder] = entryComponent;
-            }
-
-            BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Sequential);
-
-            try
-            {
-                EntryComponent throttledEntryComponent = null;
-                foreach (HTTPVerb verb in _verbExecutionOrder)
-                {
-                    throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics);
-                }
-            }
-            finally
-            {
-                FinishCollectingBundleStatistics(statistics);
-            }
         }
 
         private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
@@ -479,13 +480,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics)
+        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
             const int GCCollectTrigger = 150;
 
             foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
-                if (resourceContext.Index % GCCollectTrigger == 0)
+                if (resourceContext.Index % GCCollectTrigger == 0 && resourceContext.Index > 0)
                 {
                     RunGarbageCollection();
                 }
@@ -527,7 +528,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 retryDelay = retryHeaderValue;
                             }
 
-                            await Task.Delay(retryDelay * 1000); // multiply by 1000 as retry-header specifies delay in seconds
+                            await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
                             await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 

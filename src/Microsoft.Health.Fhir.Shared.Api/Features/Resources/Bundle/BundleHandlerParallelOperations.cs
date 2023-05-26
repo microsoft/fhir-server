@@ -51,42 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 #endif
         };
 
-        private async Task ExecuteAllRequestsInParallelAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
-        {
-            // List is not created initially since it doesn't create a list with _requestCount elements
-            responseBundle.Entry = new List<EntryComponent>(new EntryComponent[_requestCount]);
-            foreach (int emptyRequestOrder in _emptyRequestsOrder)
-            {
-                var entryComponent = new EntryComponent
-                {
-                    Response = new ResponseComponent
-                    {
-                        Status = ((int)HttpStatusCode.BadRequest).ToString(),
-                        Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
-                    },
-                };
-                responseBundle.Entry[emptyRequestOrder] = entryComponent;
-            }
-
-            BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(BundleProcessingLogic.Parallel);
-            try
-            {
-                // Besides the need to run requests in parallel, the verb execution order should still be respected.
-                EntryComponent throttledEntryComponent = null;
-                foreach (HTTPVerb verb in _verbExecutionOrder)
-                {
-                    throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
-                }
-            }
-            finally
-            {
-                FinishCollectingBundleStatistics(statistics);
-            }
-        }
-
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
             HTTPVerb httpVerb,
@@ -168,7 +132,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
             };
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
             List<Task> requestsPerResource = new List<Task>();
             foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
