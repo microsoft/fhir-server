@@ -51,6 +51,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             // Fail: Trying to complete an operation that does not exist in the BundleOrchestrator.
             Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.CompleteOperation(new BundleOrchestratorOperation(BundleOrchestratorOperationType.Batch, "x", 100, NullLogger<BundleOrchestrator>.Instance)));
+
+            // Fail: Trying to GET an operation that does not exist in the BundleOrchestrator.
+            Assert.Throws<BundleOrchestratorException>(() => batchOrchestrator.GetOperation(Guid.NewGuid()));
         }
     }
 }
