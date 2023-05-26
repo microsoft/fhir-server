@@ -2598,16 +2598,19 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.DequeueJob
-@QueueType TINYINT, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT, @InputJobId BIGINT=NULL
+@QueueType TINYINT, @Worker VARCHAR (100), @HeartbeatTimeoutSec INT, @InputJobId BIGINT=NULL, @CheckTimeoutJobs BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'DequeueJob', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' H=' + isnull(CONVERT (VARCHAR, @HeartbeatTimeoutSec), 'NULL') + ' W=' + isnull(@Worker, 'NULL') + ' IJ=' + isnull(CONVERT (VARCHAR, @InputJobId), 'NULL'), @Rows AS INT = 0, @st AS DATETIME = getUTCdate(), @JobId AS BIGINT, @msg AS VARCHAR (100), @Lock AS VARCHAR (100), @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0;
+DECLARE @SP AS VARCHAR (100) = 'DequeueJob', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' H=' + isnull(CONVERT (VARCHAR, @HeartbeatTimeoutSec), 'NULL') + ' W=' + isnull(@Worker, 'NULL') + ' IJ=' + isnull(CONVERT (VARCHAR, @InputJobId), 'NULL') + ' T=' + isnull(CONVERT (VARCHAR, @CheckTimeoutJobs), 'NULL'), @Rows AS INT = 0, @st AS DATETIME = getUTCdate(), @JobId AS BIGINT, @msg AS VARCHAR (100), @Lock AS VARCHAR (100), @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0;
 BEGIN TRY
     IF EXISTS (SELECT *
                FROM   dbo.Parameters
                WHERE  Id = 'DequeueJobStop'
                       AND Number = 1)
-        RETURN;
+        BEGIN
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = 0, @Text = 'Skipped';
+            RETURN;
+        END
     IF @InputJobId IS NULL
         SET @PartitionId = @MaxPartitions * rand();
     ELSE
@@ -2616,6 +2619,7 @@ BEGIN TRY
     WHILE @InputJobId IS NULL
           AND @JobId IS NULL
           AND @LookedAtPartitions <= @MaxPartitions
+          AND @CheckTimeoutJobs = 0
         BEGIN
             SET @Lock = 'DequeueJob_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
             BEGIN TRANSACTION;
