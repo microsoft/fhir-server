@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -20,17 +21,20 @@ using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportReindexer : IImportOrchestratorJobDataStoreOperation
+    internal class SqlImportReindexer : IImportOrchestratorJobDataStoreOperation
     {
+        private SqlServerFhirDataStore _store;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private ILogger<SqlImportReindexer> _logger;
 
-        public SqlImportReindexer(
+        internal SqlImportReindexer(
+            SqlServerFhirDataStore store,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImportReindexer> logger)
         {
+            _store = EnsureArg.IsNotNull(store, nameof(store));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -146,25 +150,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task ExecuteCommand(string tableName, string indexName, string command, CancellationToken cancellationToken)
         {
-            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index start at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
+            var retries = 0;
+            var sw = Stopwatch.StartNew();
+            string message;
+            retry:
+            _logger.LogInformation(string.Format("started. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries));
             try
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlTimeoutSec;
-
-                    VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
+                using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+                sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.InfinitySqlTimeoutSec;
+                VLatest.ExecuteCommandForRebuildIndexes.PopulateCommand(sqlCommandWrapper, tableName, indexName, command);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }
             catch (SqlException ex)
             {
-                _logger.LogError(ex, "rebuild execute failed");
+                if (ex.IsRetriable())
+                {
+                    message = string.Format("failed with retriable error. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
+                    _logger.LogWarning(ex, message);
+                    await _store.TryLogEvent("SqlImportReindexer.ExecuteCommand", "Warn", message, null, cancellationToken);
+                    retries++;
+                    goto retry;
+                }
+
+                message = string.Format("failed. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
+                _logger.LogError(ex, message);
+                await _store.TryLogEvent("SqlImportReindexer.ExecuteCommand", "Error", message, null, cancellationToken);
                 throw;
             }
 
-            _logger.LogInformation(string.Format("table: {0}, index: {1} rebuild index complete at {2}", tableName, indexName, DateTime.Now.ToString("hh:mm:ss tt")));
+            _logger.LogInformation(string.Format("completed. table: {0}, index: {1}, retries: {2}, elapsed(sec): {3}", tableName, indexName, retries, (int)sw.Elapsed.TotalSeconds));
 
             return;
         }
