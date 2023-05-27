@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImportReindexer> logger)
         {
-            _store = EnsureArg.IsNotNull(store, nameof(store));
+            _store = store;
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -169,14 +169,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     message = string.Format("failed with retriable error. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
                     _logger.LogWarning(ex, message);
-                    await _store.TryLogEvent("SqlImportReindexer.ExecuteCommand", "Warn", message, null, cancellationToken);
+                    await TryLogEvent("SqlImportReindexer.ExecuteCommand", "Warn", message, cancellationToken);
                     retries++;
                     goto retry;
                 }
 
                 message = string.Format("failed. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
                 _logger.LogError(ex, message);
-                await _store.TryLogEvent("SqlImportReindexer.ExecuteCommand", "Error", message, null, cancellationToken);
+                await TryLogEvent("SqlImportReindexer.ExecuteCommand", "Error", message, cancellationToken);
                 throw;
             }
 
@@ -202,6 +202,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, CancellationToken cancellationToken)
+        {
+            if (_store != null)
+            {
+                await _store.TryLogEvent(process, status, text, null, cancellationToken);
             }
         }
     }

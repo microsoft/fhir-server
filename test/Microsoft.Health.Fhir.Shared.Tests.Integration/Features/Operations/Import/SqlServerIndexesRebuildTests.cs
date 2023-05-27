@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 },
             });
 
-            var sqlImportOperation = new SqlImportReindexer(sqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
+            var sqlImportOperation = new SqlImportReindexer(null, sqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
 
             return (sqlImportOperation, sqlConnectionWrapperFactory, helper);
         }

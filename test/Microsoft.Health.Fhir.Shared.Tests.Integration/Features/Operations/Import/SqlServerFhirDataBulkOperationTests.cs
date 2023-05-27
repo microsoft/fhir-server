@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
             operationsConfiguration.Value.Import.DisableOptionalIndexesForImport = true;
-            _reindexer = new SqlImportReindexer(_fixture.SqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
+            _reindexer = new SqlImportReindexer((SqlServerFhirDataStore)_fixture.IFhirDataStore, _fixture.SqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
         }
 
         [Fact]
