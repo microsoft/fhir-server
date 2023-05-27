@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     currentResult.CompletedJobs += completedJobIds.Count;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
-                    await Task.Delay(TimeSpan.FromSeconds(duration * 10), cancellationToken); // throttle to avoid high database utilization.
+                    await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
                 }
                 else
                 {
