@@ -21,17 +21,20 @@ using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlImportReindexer : IImportOrchestratorJobDataStoreOperation
+    internal class SqlImportReindexer : IImportOrchestratorJobDataStoreOperation
     {
+        private SqlServerFhirDataStore _store;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private ILogger<SqlImportReindexer> _logger;
 
         public SqlImportReindexer(
+            SqlServerFhirDataStore store,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlImportReindexer> logger)
         {
+            _store = store;
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _importTaskConfiguration = EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig)).Value.Import;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -149,7 +152,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var retries = 0;
             var sw = Stopwatch.StartNew();
-            retry:
+            string message;
+        retry:
             _logger.LogInformation(string.Format("started. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries));
             try
             {
@@ -163,12 +167,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (ex.IsRetriable())
                 {
-                    _logger.LogWarning(ex, string.Format("failed with retriable error. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries));
+                    message = string.Format("failed with retriable error. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
+                    _logger.LogWarning(ex, message);
+                    await TryLogEvent("SqlImportReindexer.ExecuteCommand", "Warn", message, cancellationToken);
                     retries++;
                     goto retry;
                 }
 
-                _logger.LogError(ex, string.Format("failed. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries));
+                message = string.Format("failed. table: {0}, index: {1}, retries: {2}", tableName, indexName, retries);
+                _logger.LogError(ex, message);
+                await TryLogEvent("SqlImportReindexer.ExecuteCommand", "Error", message, cancellationToken);
                 throw;
             }
 
@@ -194,6 +202,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 VLatest.SwitchPartitionsInAllTables.PopulateCommand(sqlCommandWrapper);
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        private async Task TryLogEvent(string process, string status, string text, CancellationToken cancellationToken)
+        {
+            if (_store != null)
+            {
+                await _store.TryLogEvent(process, status, text, null, cancellationToken);
             }
         }
     }

@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly SqlServerFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
-        internal IFhirDataStore IFhirDataStore => _fhirDataStore;
+        internal SqlServerFhirDataStore SqlServerFhirDataStore => _fhirDataStore;
 
         internal IOptions<SqlServerDataStoreConfiguration> SqlServerDataStoreConfiguration { get; }
 
