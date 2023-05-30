@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             await VerifyDatabasesStatus(true);
         }
 
-        private async Task<(SqlImportOperation sqlImportOperation, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName)
+        private async Task<(SqlImportReindexer sqlImportOperation, SqlConnectionWrapperFactory sqlConnectionWrapperFactory, SqlServerFhirStorageTestHelper helper)> InitializeDatabaseAndOperation(string databaseName)
         {
             (var helper, var sqlConnectionWrapperFactory, var schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
 
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 },
             });
 
-            var sqlImportOperation = new SqlImportOperation(sqlConnectionWrapperFactory, operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            var sqlImportOperation = new SqlImportReindexer(null, sqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
 
             return (sqlImportOperation, sqlConnectionWrapperFactory, helper);
         }
