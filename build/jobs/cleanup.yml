@@ -36,8 +36,7 @@ jobs:
       scriptType: pscore
       scriptLocation: InlineScript
       inlineScript: |
-        $repositories = "r4_fhir-server", "r4b_fhir-server", "stu3_fhir-server", "r5_fhir-server"	
-		    
+        $repositories = "r4_fhir-server", "r4b_fhir-server", "stu3_fhir-server", "r5_fhir-server"
         foreach ($repositoryName in $repositories) {
           $result = az acr manifest list-metadata --registry $(azureContainerRegistryName) --name $repositoryName --query "[?tags[0]=='$(ImageTag)']" -o tsv
           if ($result -ne $null) {
