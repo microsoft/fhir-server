@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Client
         /// This is sometimes desirable over calling <see cref="FhirClient.CreateAsync{T}(T,string,System.Threading.CancellationToken)"/> when you want to be sure that at most
         /// one resource is created, even if the call has to be issued multiple times.
         /// </summary>
+        /// <typeparam name="T">The FHIR resouce type</typeparam>
         /// <param name="client">The FHIR client</param>
         /// <param name="resource">The type of FHIR resource to create</param>
         /// <param name="cancellationToken">Cancellation token</param>
