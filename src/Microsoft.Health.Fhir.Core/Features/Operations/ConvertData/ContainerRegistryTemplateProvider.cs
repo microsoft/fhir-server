@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.TemplateManagement;
+using Microsoft.Health.Fhir.TemplateManagement.ArtifactProviders;
 using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
@@ -28,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly ConvertDataConfiguration _convertDataConfig;
         private readonly MemoryCache _cache;
+        private MemoryCache _templateProviderCache;
+        private SemaphoreSlim _templateProviderFactorySemaphore;
         private readonly ILogger<ContainerRegistryTemplateProvider> _logger;
 
         public ContainerRegistryTemplateProvider(
@@ -49,6 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 SizeLimit = _convertDataConfig.CacheSizeLimit,
             });
             _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(_convertDataConfig.TemplateCollectionOptions));
+
+            _templateProviderCache = new MemoryCache(new MemoryCacheOptions());
+            _templateProviderFactorySemaphore = new SemaphoreSlim(1, 1);
         }
 
         /// <summary>
@@ -73,7 +79,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
             try
             {
-                var provider = _templateCollectionProviderFactory.CreateTemplateCollectionProvider(request.TemplateCollectionReference, accessToken);
+                /*
+                   First try to get the template provider from the cache.
+                   If template provider is not in cache, then limit the number of threads that can create new providers to 1, and then create a new provider.
+                   This is to limit the amount of providers created in a multi-threaded scenario, so that we do not have multiple providers pulling the same image from the ACR.
+                */
+                ITemplateCollectionProvider provider = _templateProviderCache.Get(request.TemplateCollectionReference) as TemplateCollectionProvider;
+
+                if (provider == null)
+                {
+                    await _templateProviderFactorySemaphore.WaitAsync(cancellationToken);
+                    try
+                    {
+                        provider = _templateProviderCache.Get(request.TemplateCollectionReference) as TemplateCollectionProvider;
+                        if (provider == null)
+                        {
+                            provider = _templateCollectionProviderFactory.CreateTemplateCollectionProvider(request.TemplateCollectionReference, accessToken);
+                            _templateProviderCache.Set(request.TemplateCollectionReference, provider, TimeSpan.FromMinutes(5));
+                        }
+                    }
+                    finally
+                    {
+                        _templateProviderFactorySemaphore.Release();
+                    }
+                }
+
                 return await provider.GetTemplateCollectionAsync(cancellationToken);
             }
             catch (ContainerRegistryAuthenticationException authEx)
@@ -144,6 +174,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             if (disposing)
             {
                 _cache?.Dispose();
+                _templateProviderCache?.Dispose();
+                _templateProviderFactorySemaphore?.Dispose();
             }
 
             _disposed = true;
