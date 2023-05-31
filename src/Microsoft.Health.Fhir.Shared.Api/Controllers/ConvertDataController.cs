@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
@@ -37,6 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ConvertDataConfiguration _config;
         private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private static HashSet<string> _supportedParams = GetSupportedParams();
+        private readonly IContainerRegistryTokenVerifier _containerRegistryTokenVerifier;
 
         private const char ImageRegistryDelimiter = '/';
 
@@ -44,17 +46,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
-            ILogger<ConvertDataController> logger)
+            ILogger<ConvertDataController> logger,
+            IContainerRegistryTokenVerifier containerRegistryTokenVerifier)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value?.ConvertData, nameof(operationsConfig));
             EnsureArg.IsNotNull(artifactStoreConfig?.Value, nameof(artifactStoreConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(containerRegistryTokenVerifier, nameof(containerRegistryTokenVerifier));
 
             _mediator = mediator;
             _config = operationsConfig.Value.ConvertData;
             _artifactStoreConfig = artifactStoreConfig.Value;
             _logger = logger;
+            _containerRegistryTokenVerifier = containerRegistryTokenVerifier;
         }
 
         [HttpPost]
@@ -87,6 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
+                _containerRegistryTokenVerifier.CheckIfContainerRegistryAccessIsEnabled();
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
             }
 
