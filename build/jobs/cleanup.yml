@@ -41,7 +41,7 @@ jobs:
           $result = az acr manifest list-metadata --registry $(azureContainerRegistryName) --name $repositoryName --query "[?tags[0]=='$(ImageTag)']" -o tsv
           if ($result -ne $null) {
             Write-Host "Deleting image - $repositoryName $(ImageTag)"
-            az acr repository delete --name $(azureContainerRegistryName) --image '${repositoryName}:$(ImageTag)' --yes
+            az acr repository delete --name $(azureContainerRegistryName) --image "${repositoryName}:$(ImageTag)" --yes
           } else {
             Write-Host "Image not found - $repositoryName $(ImageTag)"
           }  
