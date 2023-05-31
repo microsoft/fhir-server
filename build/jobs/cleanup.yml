@@ -36,7 +36,13 @@ jobs:
       scriptType: pscore
       scriptLocation: InlineScript
       inlineScript: |
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r4_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r4b_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'stu3_fhir-server:$(ImageTag)' --yes
-        az acr repository delete --name $(azureContainerRegistryName) --image 'r5_fhir-server:$(ImageTag)' --yes
+        $repositories = "r4_fhir-server", "r4b_fhir-server", "stu3_fhir-server", "r5_fhir-server"
+        foreach ($repositoryName in $repositories) {
+          $result = az acr manifest list-metadata --registry $(azureContainerRegistryName) --name $repositoryName --query "[?tags[0]=='$(ImageTag)']" -o tsv
+          if ($result -ne $null) {
+            Write-Host "Deleting image - $repositoryName $(ImageTag)"
+            az acr repository delete --name $(azureContainerRegistryName) --image "${repositoryName}:$(ImageTag)" --yes
+          } else {
+            Write-Host "Image not found - $repositoryName $(ImageTag)"
+          }  
+        }
