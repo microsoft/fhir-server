@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ConvertDataConfiguration _config;
         private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private static HashSet<string> _supportedParams = GetSupportedParams();
-        private readonly IContainerRegistryTokenVerifier _containerRegistryTokenVerifier;
+        private readonly IContainerRegistryAccessValidator _containerRegistryAccessValidator;
 
         private const char ImageRegistryDelimiter = '/';
 
@@ -46,20 +46,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
-            ILogger<ConvertDataController> logger,
-            IContainerRegistryTokenVerifier containerRegistryTokenVerifier)
+            IContainerRegistryAccessValidator containerRegistryTokenVerifier,
+            ILogger<ConvertDataController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value?.ConvertData, nameof(operationsConfig));
             EnsureArg.IsNotNull(artifactStoreConfig?.Value, nameof(artifactStoreConfig));
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(containerRegistryTokenVerifier, nameof(containerRegistryTokenVerifier));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _config = operationsConfig.Value.ConvertData;
             _artifactStoreConfig = artifactStoreConfig.Value;
+            _containerRegistryAccessValidator = containerRegistryTokenVerifier;
             _logger = logger;
-            _containerRegistryTokenVerifier = containerRegistryTokenVerifier;
         }
 
         [HttpPost]
@@ -92,7 +92,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                _containerRegistryTokenVerifier.CheckIfContainerRegistryAccessIsEnabled();
+                if (!_containerRegistryAccessValidator.IsContainerRegistryAccessEnabled())
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ContainerRegistryAccessNotConfigured));
+                }
+
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
             }
 

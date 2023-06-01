@@ -5,8 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public interface IContainerRegistryTokenVerifier
+    public interface IContainerRegistryAccessValidator
     {
-        public void CheckIfContainerRegistryAccessIsEnabled();
+        public bool IsContainerRegistryAccessEnabled();
     }
 }

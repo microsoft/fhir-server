@@ -5,11 +5,11 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
-    public class BaseTokenVerifier : IContainerRegistryTokenVerifier
+    public class BaseContainerRegistryAccessValidator : IContainerRegistryAccessValidator
     {
-        public void CheckIfContainerRegistryAccessIsEnabled()
+        public bool IsContainerRegistryAccessEnabled()
         {
-            // base implementation - do nothing
+            return true;
         }
     }
 }
