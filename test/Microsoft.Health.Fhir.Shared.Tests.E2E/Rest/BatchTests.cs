@@ -153,15 +153,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
-        public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
-            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle);
+            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, processingLogic);
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -182,20 +184,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), processingLogic));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        [Fact]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned()
+        [InlineData(FhirBundleProcessingLogic.Parallel)]
+        [InlineData(FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(), processingLogic));
             ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 

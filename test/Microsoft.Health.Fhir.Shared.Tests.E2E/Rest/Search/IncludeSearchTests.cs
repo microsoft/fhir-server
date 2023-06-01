@@ -1240,7 +1240,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirClientException fce)
             {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
             }
 
             Assert.True(bundle != null, "The bundle is null. This is a non-expected scenario for this test. Review the existing test code and flow.");
