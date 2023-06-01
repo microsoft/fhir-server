@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
-                .AddContainerRegistryTokenVerifier()
+                .AddContainerRegistryAccessValidator()
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();

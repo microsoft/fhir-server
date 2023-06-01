@@ -82,13 +82,13 @@ namespace Microsoft.Health.Fhir.Azure
             return fhirServerBuilder;
         }
 
-        public static IFhirServerBuilder AddContainerRegistryTokenVerifier(this IFhirServerBuilder fhirServerBuilder)
+        public static IFhirServerBuilder AddContainerRegistryAccessValidator(this IFhirServerBuilder fhirServerBuilder)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
-            fhirServerBuilder.Services.Add<BaseTokenVerifier>()
+            fhirServerBuilder.Services.Add<BaseContainerRegistryAccessValidator>()
                 .Transient()
-                .AsService<IContainerRegistryTokenVerifier>();
+                .AsService<IContainerRegistryAccessValidator>();
 
             return fhirServerBuilder;
         }

@@ -218,14 +218,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
             optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfiguration);
 
-            IContainerRegistryTokenVerifier containerRegistryTokenVerifier = new BaseTokenVerifier();
+            IContainerRegistryAccessValidator containerRegistryTokenVerifier = new BaseContainerRegistryAccessValidator();
 
             return new ConvertDataController(
                 _mediator,
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
-                NullLogger<ConvertDataController>.Instance,
-                containerRegistryTokenVerifier);
+                containerRegistryTokenVerifier,
+                NullLogger<ConvertDataController>.Instance);
         }
 
         private static Parameters GetParamsResourceWithWrongNameParam()
