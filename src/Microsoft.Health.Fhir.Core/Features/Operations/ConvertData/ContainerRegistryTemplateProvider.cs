@@ -84,14 +84,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                    If template provider is not in cache, then limit the number of threads that can create new providers to 1, and then create a new provider.
                    This is to limit the amount of providers created in a multi-threaded scenario, so that we do not have multiple providers pulling the same image from the ACR.
                 */
-                ITemplateCollectionProvider provider = _templateProviderCache.Get(request.TemplateCollectionReference) as TemplateCollectionProvider;
+                ITemplateCollectionProvider provider = _templateProviderCache.Get(request.TemplateCollectionReference) as ITemplateCollectionProvider;
 
                 if (provider == null)
                 {
                     await _templateProviderFactorySemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        provider = _templateProviderCache.Get(request.TemplateCollectionReference) as TemplateCollectionProvider;
+                        provider = _templateProviderCache.Get(request.TemplateCollectionReference) as ITemplateCollectionProvider;
                         if (provider == null)
                         {
                             provider = _templateCollectionProviderFactory.CreateTemplateCollectionProvider(request.TemplateCollectionReference, accessToken);
