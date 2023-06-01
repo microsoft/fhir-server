@@ -353,7 +353,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace(" insert into ", " insert ")
                        .Replace(" rollback transaction ", " rollback ")
                        .Replace(" as ", string.Empty)
-                       .Replace(" ", string.Empty);
+                       .Replace(" ", string.Empty)
+                       .Replace("(index(", "(index=")
+                       .Replace("))on", ")on");
         }
 
         private async Task<string> GetStoredProcedureText(string connStr, string storedProcedureName)
