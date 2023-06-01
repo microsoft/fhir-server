@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
@@ -58,10 +59,12 @@ namespace Microsoft.Health.Fhir.Web
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
+                fhirServerBuilder.Services.Add<AzureApiForFhirRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
                 fhirServerBuilder.AddCosmosDb();
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
+                fhirServerBuilder.Services.Add<AzureHealthDataServicesRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
                 fhirServerBuilder.AddSqlServer(config =>
                 {
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
@@ -81,6 +84,9 @@ namespace Microsoft.Health.Fhir.Web
             The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
             fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+
+            // Set up Bundle Orchestrator.
+            fhirServerBuilder.AddBundleOrchestrator(Configuration);
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
@@ -165,6 +171,7 @@ namespace Microsoft.Health.Fhir.Web
 
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
+                services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();

@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Filters;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperOperation>().Wrapper, SaveOutcomeType.Created));
 
-            var rawResource = await _mediator.CreateResourceAsync(resource);
+            var rawResource = await _mediator.CreateResourceAsync(new CreateResourceRequest(resource, bundleOperationId: null));
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
             Assert.NotNull(deserializedResource.Id);

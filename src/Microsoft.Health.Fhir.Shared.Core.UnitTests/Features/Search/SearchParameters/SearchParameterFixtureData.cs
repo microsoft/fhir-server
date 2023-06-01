@@ -96,5 +96,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             return definitionManager;
         }
+
+        public static async Task<SearchParameterStatusManager> CreateSearchParameterStatusManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
+        {
+            var searchService = Substitute.For<ISearchService>();
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
+
+            var statusRegistry = new FilebasedSearchParameterStatusDataStore(
+                definitionManager,
+                modelInfoProvider);
+            var statusManager = new SearchParameterStatusManager(
+                statusRegistry,
+                definitionManager,
+                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
+                Substitute.For<IMediator>(),
+                NullLogger<SearchParameterStatusManager>.Instance);
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
+
+            return statusManager;
+        }
     }
 }

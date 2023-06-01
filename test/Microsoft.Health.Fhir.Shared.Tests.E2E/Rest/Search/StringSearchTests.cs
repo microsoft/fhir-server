@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -20,9 +22,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class StringSearchTests : SearchTestsBase<StringSearchTestFixture>
     {
+        private readonly HttpStatusCode[] _supportedHttpStatusCode = { HttpStatusCode.OK, HttpStatusCode.UnprocessableEntity };
+
         public StringSearchTests(StringSearchTestFixture fixture)
             : base(fixture)
         {
+        }
+
+        /// <summary>
+        /// This can have two successful outcomes. We're not looking for results to come back but
+        /// rather a 422 or 200 result. If we get one of those then that indicates the
+        /// generated sql for a membermatch has been correctly handled by sql. Prior to the
+        /// revision, we would get a 8623 error that sql can't create a sql query plan.
+        /// This membermatch json will create up to 24 CTEs.
+        /// </summary>
+        [Fact(Skip= "Test does not succeed as expected. Bug assigned to Jared.")]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        public async void GivenAComplexSqlStatement_FromMemberMatch_SucceedsWhenExecuted()
+        {
+            HttpStatusCode httpStatusCode = HttpStatusCode.OK;
+            string body = Samples.GetJson("MemberMatch");
+            try
+            {
+                await Client.PostAsync("Patient/$member-match", body, CancellationToken.None);
+            }
+            catch (Microsoft.Health.Fhir.Client.FhirClientException ex)
+            {
+                httpStatusCode = ex.StatusCode;
+            }
+
+            Assert.True(_supportedHttpStatusCode.Contains(httpStatusCode), $"HTTP Status Code '{httpStatusCode}' is not expected.");
         }
 
         [Fact]

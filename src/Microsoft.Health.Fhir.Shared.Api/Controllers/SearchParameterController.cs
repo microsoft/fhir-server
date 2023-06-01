@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -35,14 +36,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly CoreFeatureConfiguration _coreFeaturesConfig;
+        private bool _isSelectSearchParameterSupported;
 
-        public SearchParameterController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures)
+        public SearchParameterController(IMediator mediator, IOptions<CoreFeatureConfiguration> coreFeatures, IFhirRuntimeConfiguration fhirConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
+            EnsureArg.IsNotNull(fhirConfig, nameof(fhirConfig));
 
             _mediator = mediator;
             _coreFeaturesConfig = coreFeatures.Value;
+
+            // Used to prevent Azure Api for Fhir from using this controller.
+            _isSelectSearchParameterSupported = fhirConfig.IsSelectiveSearchParameterSupported;
         }
 
         /// <summary>
@@ -56,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateSearchParameterStateRequestAtrribute]
         public async Task<IActionResult> GetSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -75,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> PostSearchParametersStatus(CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
 
             SearchParameterStateRequest request = new SearchParameterStateRequest(GetQueriesForSearch());
             SearchParameterStateResponse result = await _mediator.Send(request, cancellationToken);
@@ -94,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchParameterStatus)]
         public async Task<IActionResult> UpdateSearchParametersStatus([FromBody] Parameters inputParams, CancellationToken cancellationToken)
         {
-            CheckIfSearchParameterStatusIsEnabledAndRespond();
+            CheckIfSearchParameterStatusIsEnabledOrADHS();
             SearchParameterStateUpdateRequest updateRequest = ParseUpdateRequestBody(inputParams);
             SearchParameterStateUpdateResponse result = await _mediator.Send(updateRequest, cancellationToken);
 
@@ -104,9 +110,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Provide appropriate response if Search Parameter Status feature is not enabled
         /// </summary>
-        private void CheckIfSearchParameterStatusIsEnabledAndRespond()
+        private void CheckIfSearchParameterStatusIsEnabledOrADHS()
         {
-            if (!_coreFeaturesConfig.SupportsSelectableSearchParameters)
+            if (!_coreFeaturesConfig.SupportsSelectableSearchParameters || !_isSelectSearchParameterSupported)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.SearchParameterStatus));
             }

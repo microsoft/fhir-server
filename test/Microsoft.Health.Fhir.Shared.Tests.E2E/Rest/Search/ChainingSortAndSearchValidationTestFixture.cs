@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var parser = new FhirJsonParser();
             var requestBundle = parser.Parse<Bundle>(requestBundleAsString);
 
-            using FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle, cancellationToken);
+            using FhirResponse<Bundle> fhirResponse = await Client.PostBundleAsync(requestBundle, cancellationToken: cancellationToken);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 

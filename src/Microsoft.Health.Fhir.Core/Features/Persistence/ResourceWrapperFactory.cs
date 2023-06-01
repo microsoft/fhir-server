@@ -68,9 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <inheritdoc />
-        public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta)
+        public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta, bool keepVersion = false)
         {
-            RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
+            RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta, keepVersion);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
 
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);

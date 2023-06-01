@@ -37,11 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly int _rebuildDelay = 240; // 4 hours in minutes
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IUrlResolver _urlResolver;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
-        private readonly IUrlResolver _urlResolver;
         private readonly ILogger _logger;
 
         private ResourceElement _listedCapabilityStatement;
@@ -57,25 +57,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
-            IUrlResolver urlResolver,
-            ILogger<SystemConformanceProvider> logger)
+            ILogger<SystemConformanceProvider> logger,
+            IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
-            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _capabilityProviders = capabilityProviders;
             _configuration = configuration;
             _supportedProfiles = supportedProfiles;
-            _urlResolver = urlResolver;
             _logger = logger;
             _disposed = false;
+            _urlResolver = urlResolver;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, _urlResolver);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {

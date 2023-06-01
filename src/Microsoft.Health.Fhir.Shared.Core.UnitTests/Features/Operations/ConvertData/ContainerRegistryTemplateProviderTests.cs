@@ -38,19 +38,23 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             }
         }
 
-        [Fact]
-        public async Task GivenAnInvalidToken_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
-        {
-            var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
-            var templateReference = "test.azurecr.io/templates:latest";
-
-            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
-        }
-
         private IConvertDataTemplateProvider GetDefaultTemplateProvider()
         {
+            var convertDataConfig = new ConvertDataConfiguration
+            {
+                Enabled = true,
+                OperationTimeout = TimeSpan.FromSeconds(1),
+            };
+            convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
+
+            var config = Options.Create(convertDataConfig);
+            return new DefaultTemplateProvider(config, new NullLogger<DefaultTemplateProvider>());
+        }
+
+        private IConvertDataTemplateProvider GetCustomTemplateProvider()
+        {
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
+            tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Faketoken");
 
             var convertDataConfig = new ConvertDataConfiguration
             {

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 config);
             var resource = Samples.GetDefaultObservation();
 
-            var upsertResourceRequest = new UpsertResourceRequest(resource);
+            var upsertResourceRequest = new UpsertResourceRequest(resource, bundleOperationId: null);
             validator.Validate(upsertResourceRequest);
 
             if (shouldCallProfileValidation)

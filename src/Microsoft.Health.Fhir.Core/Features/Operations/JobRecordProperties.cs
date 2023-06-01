@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string QueryList = "queryList";
 
+        public const string QueryListErrors = "queryListErrors";
+
         public const string Page = "page";
 
         public const string Error = "error";
@@ -100,6 +102,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";
 
         public const string ContinuationToken = "continuationToken";
+
+        public const string ResourceReindexProgressByResource = "resourceReindexProgressByResource";
 
         public const string GroupId = "groupId";
 

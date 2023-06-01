@@ -385,6 +385,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A resource should only appear once in each Bundle..
+        /// </summary>
+        internal static string DuplicatedResourceInABundle {
+            get {
+                return ResourceManager.GetString("DuplicatedResourceInABundle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
         /// </summary>
         internal static string DuplicateRoleNames {
@@ -598,15 +607,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeCannotBeAgainstBase {
             get {
                 return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The [_include]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
-        /// </summary>
-        internal static string IncludeIncorrectParameterType {
-            get {
-                return ResourceManager.GetString("IncludeIncorrectParameterType", resourceCulture);
             }
         }
         
@@ -1210,15 +1210,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReverseChainMissingType {
             get {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The [_revinclude]=[resource]:[parameter] search has an invalid search parameter, must be of type reference..
-        /// </summary>
-        internal static string RevIncludeIncorrectParameterType {
-            get {
-                return ResourceManager.GetString("RevIncludeIncorrectParameterType", resourceCulture);
             }
         }
         

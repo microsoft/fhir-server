@@ -78,6 +78,35 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public static ResourceElement GetDefaultCoverage() => GetJsonSample("Coverage");
 
+        public static ResourceElement GetBatchWithDuplicatedItems()
+        {
+            var batch = GetJsonSample("Bundle-BatchWithDuplicatedItems").ToPoco<Bundle>();
+
+            // Make the criteria unique so that the tests behave consistently
+            var createGuid = Guid.NewGuid().ToString();
+            batch.Entry[0].Request.IfNoneExist = batch.Entry[0].Request.IfNoneExist + createGuid;
+            var createPatient = (Patient)batch.Entry[0].Resource;
+            createPatient.Identifier[0].Value = createPatient.Identifier[0].Value + createGuid;
+
+            var updateIdGuid = Guid.NewGuid().ToString();
+            batch.Entry[1].Request.Url = batch.Entry[1].Request.Url + updateIdGuid;
+            batch.Entry[1].FullUrl = batch.Entry[1].FullUrl + updateIdGuid;
+            var updateIdPatient = (Patient)batch.Entry[1].Resource;
+            updateIdPatient.Id = updateIdPatient.Id + updateIdGuid;
+
+            batch.Entry[2].Request.Url = batch.Entry[2].Request.Url + updateIdGuid;
+            batch.Entry[2].FullUrl = batch.Entry[2].FullUrl + updateIdGuid;
+            var updateIdIfMatchPatient = (Parameters)batch.Entry[2].Resource;
+            updateIdIfMatchPatient.Id = updateIdIfMatchPatient.Id + updateIdGuid;
+
+            batch.Entry[3].Request.Url = batch.Entry[3].Request.Url + updateIdGuid;
+            batch.Entry[3].FullUrl = batch.Entry[3].FullUrl + updateIdGuid;
+            updateIdIfMatchPatient = (Parameters)batch.Entry[3].Resource;
+            updateIdIfMatchPatient.Id = updateIdIfMatchPatient.Id + updateIdGuid;
+
+            return batch.ToResourceElement();
+        }
+
         public static ResourceElement GetDefaultBatch()
         {
             var batch = GetJsonSample("Bundle-Batch").ToPoco<Bundle>();
@@ -190,6 +219,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public static string GetNdJson(string fileName)
         {
             return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, "ndjson");
+        }
+
+        public static string GetFileContents(string fileName, string ext)
+        {
+            return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, ext);
         }
     }
 }

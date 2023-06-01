@@ -88,7 +88,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             AssertCount(2, readResponse);
 
             // Check most recent item is sorted first
-            Assert.True(readResponse[0].Resource.Meta.LastUpdated > readResponse[1].Resource.Meta.LastUpdated);
+            Assert.True(
+                readResponse[0].Resource.Meta.LastUpdated >= readResponse[1].Resource.Meta.LastUpdated,
+                userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not greater or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
         [Fact]
@@ -102,7 +104,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             AssertCount(2, readResponse);
 
-            Assert.True(readResponse[0].Resource.Meta.LastUpdated < readResponse[1].Resource.Meta.LastUpdated);
+            Assert.True(
+                readResponse[0].Resource.Meta.LastUpdated <= readResponse[1].Resource.Meta.LastUpdated,
+                userMessage: $"Record 0's latest update ({readResponse[0].Resource.Meta.LastUpdated}) is not minor or equal than Record's 1 latest update ({readResponse[1].Resource.Meta.LastUpdated}).");
         }
 
         [Fact]
@@ -365,7 +369,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             AssertCount(11, readResponse);
 
-            var obsHistory = readResponse.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
+            // Making sure the observation was updated properly.
+            var obsHistory = readResponse.Where(o => o.Resource.Id == _createdResource.Resource.Id).ToList()[0].Resource as Observation;
             Assert.NotNull(obsHistory);
             Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 

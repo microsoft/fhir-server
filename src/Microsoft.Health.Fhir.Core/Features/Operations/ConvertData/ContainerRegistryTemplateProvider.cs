@@ -52,34 +52,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         }
 
         /// <summary>
-        /// Fetch template collection from container registry or built-in archive.
+        /// Fetch template collection from container registry following a custom template convert request.
         /// </summary>
         /// <param name="request">The convert data request which contains template reference.</param>
         /// <param name="cancellationToken">Cancellation token to cancel the fetch operation.</param>
         /// <returns>Template collection.</returns>
         public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(ConvertDataRequest request, CancellationToken cancellationToken)
         {
-            // We have embedded a default template collection in the templatemanagement package.
-            // If the template collection is the default reference, we don't need to retrieve token.
-            var accessToken = string.Empty;
-            if (!request.IsDefaultTemplateReference)
-            {
-                _logger.LogInformation("Using a custom template collection for data conversion.");
+            _logger.LogInformation("Using a custom template collection for data conversion.");
 
-                async Task<string> TokenEntryFactory(ICacheEntry entry)
-                {
-                    var token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
-                    entry.Size = token.Length;
-                    entry.AbsoluteExpiration = GetTokenAbsoluteExpiration(token);
-                    return token;
-                }
-
-                accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), TokenEntryFactory);
-            }
-            else
+            async Task<string> TokenEntryFactory(ICacheEntry entry)
             {
-                _logger.LogInformation("Using the default template collection for data conversion.");
+                var token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
+                entry.Size = token.Length;
+                entry.AbsoluteExpiration = GetTokenAbsoluteExpiration(token);
+                return token;
             }
+
+            var accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), TokenEntryFactory);
 
             try
             {
@@ -119,6 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private static DateTimeOffset GetTokenAbsoluteExpiration(string accessToken)
         {
             var defaultExpiration = DateTimeOffset.Now.AddMinutes(30);
+
             if (accessToken.StartsWith("bearer ", StringComparison.OrdinalIgnoreCase))
             {
                 var jwtTokenText = accessToken.Substring(7);

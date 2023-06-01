@@ -145,9 +145,8 @@
   <data name="TypeAndLastUpdatedMustHaveSameSortDirection" xml:space="preserve">
     <value>Both _type and _lastUpdated must have the same sort direction (_sort=_type,_lastUpdated or _sort=-_type,-_lastUpdated)</value>
   </data>
-  <data name="FailedToImportForDuplicatedResource" xml:space="preserve">
-    <value>Failed to import resource with duplicated resource id {0}, line: {1}</value>
-    <comment>{0} is the resource id. {1} is the line number in file.</comment>
+  <data name="FailedToImportDuplicate" xml:space="preserve">
+    <value>Failed to import duplicate resource, resource id: {0}, line: {1}</value>
   </data>
   <data name="ExceptionOccurredWhenFetchingResourceChanges" xml:space="preserve">
     <value>An error occurred when fetching resource changes from SQL database.</value>
@@ -167,5 +166,8 @@
   </data>
   <data name="ResourceNotAvailable" xml:space="preserve">
     <value>Resource with type {0} and ID {1} is not available.</value>
+  </data>
+  <data name="FaildToImportConflictingVersion" xml:space="preserve">
+    <value>Failed to import resource with version conflict, resource id: {0}, line: {1}</value>
   </data>
 </root>
