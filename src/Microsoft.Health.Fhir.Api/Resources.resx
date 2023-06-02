@@ -302,9 +302,6 @@
   <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_container' for anonymized export</value>
   </data>
-  <data name="ContainerRegistryAccessNotConfigured" xml:space="preserve">
-    <value>Container Registry access is not configured properly.</value>
-  </data>
   <data name="ConvertDataParameterNotValid" xml:space="preserve">
     <value>Convert data does not support the following parameter {0} for a POST operation.</value>
     <comment>{0} = the parameter name which was invalid</comment>

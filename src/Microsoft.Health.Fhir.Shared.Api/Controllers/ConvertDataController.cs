@@ -92,11 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                if (!_containerRegistryAccessValidator.IsContainerRegistryAccessEnabled())
-                {
-                    throw new RequestNotValidException(string.Format(Resources.ContainerRegistryAccessNotConfigured));
-                }
-
+                _containerRegistryAccessValidator.CheckContainerRegistryAccess();
                 CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
             }
 

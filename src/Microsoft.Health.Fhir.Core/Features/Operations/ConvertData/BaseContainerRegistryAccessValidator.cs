@@ -7,9 +7,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class BaseContainerRegistryAccessValidator : IContainerRegistryAccessValidator
     {
-        public bool IsContainerRegistryAccessEnabled()
+        public void CheckContainerRegistryAccess()
         {
-            return true;
+            // base implementation - do nothing. If container registry access is not configured and not checked, a 400 error will be thrown further down the control flow, as expected.
         }
     }
 }

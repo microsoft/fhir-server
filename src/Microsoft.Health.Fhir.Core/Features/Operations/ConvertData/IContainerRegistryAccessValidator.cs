@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public interface IContainerRegistryAccessValidator
     {
-        public bool IsContainerRegistryAccessEnabled();
+        public void CheckContainerRegistryAccess();
     }
 }

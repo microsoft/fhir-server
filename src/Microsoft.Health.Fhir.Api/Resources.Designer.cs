@@ -133,15 +133,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Container Registry access is not configured properly..
-        /// </summary>
-        public static string ContainerRegistryAccessNotConfigured {
-            get {
-                return ResourceManager.GetString("ContainerRegistryAccessNotConfigured", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header must be &apos;application/x-www-form-urlencoded&apos;..
         /// </summary>
         public static string ContentTypeFormUrlEncodedExpected {
