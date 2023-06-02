@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
     {
         public void CheckContainerRegistryAccess()
         {
-            // base implementation - do nothing. If container registry access is not configured and not checked, a 400 error will be thrown further down the control flow, as expected.
+            // base implementation - do nothing.
         }
     }
 }

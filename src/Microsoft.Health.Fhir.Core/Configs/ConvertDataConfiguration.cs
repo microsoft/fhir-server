@@ -34,11 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TemplateCollectionConfiguration TemplateCollectionOptions { get; set; } = new TemplateCollectionConfiguration();
 
         /// <summary>
-        /// Determined whether Container Registry access is enabled
-        /// </summary>
-        public bool ContainerRegistryAccessEnabled { get; set; } = false;
-
-        /// <summary>
         /// Cache size limit for convert data, cache entries includes registry tokens, image manifests, image layer blobs.
         /// Size of each cache entry are calculated by byte counts, i.e. length of a token, number of bytes of a manifest or a blob.
         /// </summary>

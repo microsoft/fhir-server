@@ -46,19 +46,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
-            IContainerRegistryAccessValidator containerRegistryTokenVerifier,
+            IContainerRegistryAccessValidator containerRegistryAccessValidator,
             ILogger<ConvertDataController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value?.ConvertData, nameof(operationsConfig));
             EnsureArg.IsNotNull(artifactStoreConfig?.Value, nameof(artifactStoreConfig));
-            EnsureArg.IsNotNull(containerRegistryTokenVerifier, nameof(containerRegistryTokenVerifier));
+            EnsureArg.IsNotNull(containerRegistryAccessValidator, nameof(containerRegistryAccessValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _config = operationsConfig.Value.ConvertData;
             _artifactStoreConfig = artifactStoreConfig.Value;
-            _containerRegistryAccessValidator = containerRegistryTokenVerifier;
+            _containerRegistryAccessValidator = containerRegistryAccessValidator;
             _logger = logger;
         }
 

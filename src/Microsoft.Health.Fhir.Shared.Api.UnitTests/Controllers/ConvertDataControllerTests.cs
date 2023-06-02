@@ -218,13 +218,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
             optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfiguration);
 
-            IContainerRegistryAccessValidator containerRegistryTokenVerifier = new BaseContainerRegistryAccessValidator();
+            IContainerRegistryAccessValidator containerRegistryAccessValidator = new BaseContainerRegistryAccessValidator();
 
             return new ConvertDataController(
                 _mediator,
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
-                containerRegistryTokenVerifier,
+                containerRegistryAccessValidator,
                 NullLogger<ConvertDataController>.Instance);
         }
 
