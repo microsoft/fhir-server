@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string StorageAccountUri { get; private set; }
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+        public uint MaximumNumberOfResourcesPerQuery { get; set; }
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }
