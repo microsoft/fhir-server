@@ -36,7 +36,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             List<string> definitions = new List<string>();
             for (int i = 0; i < jobCount; ++i)
             {
-                definitions.Add(jobCount.ToString());
+                definitions.Add(i.ToString());
             }
 
             IEnumerable<JobInfo> jobs = await queueClient.EnqueueAsync(0, definitions.ToArray(), null, false, false, CancellationToken.None);
@@ -250,6 +250,42 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(2, executeCount0);
+        }
+
+        [Fact]
+        public async Task GivenJobWithInvalidOperationException_WhenJobHostingStart_ThenJobFail()
+        {
+            int executeCount0 = 0;
+            TestJobFactory factory = new TestJobFactory(t =>
+            {
+                return new TestJob(
+                    (progress, token) =>
+                    {
+                        Interlocked.Increment(ref executeCount0);
+                        if (executeCount0 <= 1)
+                        {
+                            throw new InvalidOperationException("test");
+                        }
+
+                        return Task.FromResult(t.Result);
+                    });
+            });
+
+            TestQueueClient queueClient = new TestQueueClient();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.MaxRunningJobCount = 1;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
+
+            Assert.Equal(JobStatus.Failed, job1.Status);
+            Assert.Equal(1, executeCount0);
         }
 
         [Fact]

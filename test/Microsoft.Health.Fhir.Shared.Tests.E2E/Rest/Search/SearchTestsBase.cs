@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pageSize = 10,
             params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, selfLink, sort, false, customHeader, pageSize, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, selfLink, sort, invalidSortParameter: false, customHeader, pageSize, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(
@@ -165,6 +165,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             return firstBundle;
+        }
+
+        protected async Task<IReadOnlyList<Resource>> GetResultsFromAllPagesAsync(string searchUrl)
+        {
+            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
+            return await GetResultsFromAllPagesAsync(searchUrl, actualDecodedUrl, null);
+        }
+
+        protected async Task<IReadOnlyList<Resource>> GetResultsFromAllPagesAsync(
+            string searchUrl,
+            string selfLink,
+            Tuple<string, string> customHeader = null)
+        {
+            string queryUrl = searchUrl;
+
+            List<Resource> allResourcesReturned = new List<Resource>();
+            Dictionary<string, int> pagingStatistics = new Dictionary<string, int>();
+            do
+            {
+                FhirResponse<Bundle> fhirBundleResponse = null;
+                try
+                {
+                    fhirBundleResponse = await Client.SearchAsync(queryUrl, customHeader);
+                }
+                catch (Exception ex)
+                {
+                    if (_output != null)
+                    {
+                        WriteSearchAsync(fhirBundleResponse, "ExecuteAndValidateBundle", queryUrl, customHeader, ex);
+                    }
+
+                    throw ex;
+                }
+
+                if (_output != null)
+                {
+                    WriteSearchAsync(fhirBundleResponse, "ExecuteAndValidateBundle", queryUrl, customHeader);
+                }
+
+                allResourcesReturned.AddRange(fhirBundleResponse.Resource.Entry.Select(e => e.Resource));
+                queryUrl = fhirBundleResponse.Resource.NextLink?.ToString();
+            }
+            while (!string.IsNullOrWhiteSpace(queryUrl));
+
+            return allResourcesReturned;
         }
 
         protected async Task<OperationOutcome> ExecuteAndValidateErrorOperationOutcomeAsync(

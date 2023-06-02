@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Client</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)FhirBundleProcessingLogic.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirClientExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirClientException.cs" />

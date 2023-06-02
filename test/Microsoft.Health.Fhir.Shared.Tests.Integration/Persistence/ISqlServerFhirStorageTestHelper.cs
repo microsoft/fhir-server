@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -33,5 +34,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// </summary>
         /// <param name="sql">SQL command text.</param>
         Task ExecuteSqlCmd(string sql);
+
+        /// <summary>
+        /// Returns a SQL connection.
+        /// </summary>
+        Task<SqlConnection> GetSqlConnectionAsync();
     }
 }

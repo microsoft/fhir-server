@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (DestinationConnectionException dce)
             {
-                _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
+                _logger.LogInformation(dce, "Can't connect to destination. The job will be marked as failed.");
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);

@@ -196,7 +196,150 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 sb.Append('a');
             }
 
-            await Client.SearchPostAsync("Patient", default, ("name", sb.ToString()));
+            await Client.SearchPostAsync("Patient", null, default, ("name", sb.ToString()));
+        }
+
+        /// <summary>
+        /// This test is based on the details of user story #101268
+        /// </summary>
+        /// <returns>task</returns>
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResource_WhenPostSearchingWithBodyContent_ThenResourceMatchingShouldBeReturned()
+        {
+            AdministrativeGender gender = AdministrativeGender.Female;
+            string resourceType = KnownResourceTypes.Patient;
+            string systemIdentifier = "http://example.com/fhir/post_search_bug";
+            string value1 = "id_value_1";
+            string value2 = "id_value_2";
+            string birthDate = "2001-02-03";
+            bool active = true;
+
+            string qry_active = $"active={active.ToString().ToLower()}";
+            string qry_birthDate = $"birthdate={birthDate}";
+            string qry_gender = $"gender={gender.ToString().ToLower()}";
+            string bodyContentSystemIdentifier1 = $"{systemIdentifier}|{value1}";
+            string bodyContentSystemIdentifier2 = $"{systemIdentifier}|{value2}";
+            string qry_sysIdentifierValue1 = $"identifier={bodyContentSystemIdentifier1}";
+            string qry_sysIdentifierValue2 = $"identifier={bodyContentSystemIdentifier2}";
+
+            Patient patient = GetPatient(systemIdentifier, value1, value2, birthDate, active, gender);
+
+            try
+            {
+                using (FhirResponse<Patient> response = await Client.CreateAsync(patient))
+                {
+                    patient.VersionId = response.Resource.VersionId;
+                    patient.Id = response.Resource.Id;
+                }
+
+                // From the user story:
+                // POST /Patient/_search?active=true&gender=female&birthdate=2001-02-03&identifier=http://example.com/fhir/post_search_bug|id_value_1
+                // body content:
+                // identifier=http://example.com/fhir/post_search_bug|id_value_2
+                Bundle bundle = await Client.SearchPostAsync(
+                    resourceType,
+                    $"{qry_active}&{qry_gender}&{qry_birthDate}&{qry_sysIdentifierValue1}&{qry_birthDate}&{qry_sysIdentifierValue2}",
+                    default,
+                    ("identifier", bodyContentSystemIdentifier2));
+                Assert.Contains(bundle.Entry, x => x.Resource.Id == patient.Id);
+
+                // From the user story
+                // GET /Patient?active=true&gender=female&birthdate=2001-02-03&identifier=http://example.com/fhir/post_search_bug|id_value_1&identifier=http://example.com/fhir/post_search_bug|id_value_2
+                bundle = await Client.SearchAsync($"{resourceType}?{qry_active}&{qry_gender}&{qry_birthDate}&{qry_sysIdentifierValue1}&{qry_sysIdentifierValue2}");
+                Assert.Contains(bundle.Entry, x => x.Resource.Id == patient.Id);
+
+                // POST /Patient/_search
+                // no query params, just body content
+                // active=true&gender=female&birthdate=2001-02-03&identifier=http://example.com/fhir/post_search_bug|id_value_1
+                bundle = await Client.SearchPostAsync(
+                    resourceType,
+                    string.Empty,
+                    default,
+                    ("active", $"{active.ToString().ToLower()}"),
+                    ("gender", $"{gender.ToString().ToLower()}"),
+                    ("birthdate", $"{birthDate}"),
+                    ("identifier", $"{bodyContentSystemIdentifier1}"));
+                Assert.Contains(bundle.Entry, x => x.Resource.Id == patient.Id);
+            }
+            finally
+            {
+                await Client.HardDeleteAsync(patient);
+            }
+        }
+
+        private static Patient GetPatient(string systemIdentifier, string identifierValue1, string identifierValue2, string birthDate, bool active, AdministrativeGender gender)
+        {
+            return new Patient
+            {
+                Identifier = new List<Identifier>
+                {
+                    new Identifier()
+                    {
+                        System = systemIdentifier,
+                        Value = identifierValue1,
+                    },
+                    new Identifier()
+                    {
+                        System = systemIdentifier,
+                        Value = identifierValue2,
+                    },
+                },
+                Active = active,
+                BirthDate = birthDate,
+                Gender = gender,
+            };
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenSearchQueryWithDuplicateKeyValues_TheCorrectedLinkUrlShouldBeReturned()
+        {
+            AdministrativeGender gender = AdministrativeGender.Female;
+            string resourceType = KnownResourceTypes.Patient;
+            string systemIdentifier = "http://example.com/fhir/post_search_bug";
+            string value1 = "id_value_1";
+            string value2 = "id_value_2";
+            string birthDate = "2001-02-03";
+            bool active = true;
+
+            string qry_active = $"active={active.ToString().ToLower()}";
+            string qry_birthDate = $"birthdate={birthDate}";
+            string qry_gender = $"gender={gender.ToString().ToLower()}";
+            string bodyContentSystemIdentifier1 = $"{systemIdentifier}|{value1}";
+            string bodyContentSystemIdentifier2 = $"{systemIdentifier}|{value2}";
+            string qry_sysIdentifierValue1 = $"identifier={bodyContentSystemIdentifier1}";
+            string qry_sysIdentifierValue2 = $"identifier={bodyContentSystemIdentifier2}";
+
+            string queryStringValid = $"{qry_active}&{qry_gender}&{qry_birthDate}&{qry_sysIdentifierValue1}&{qry_birthDate}&{qry_sysIdentifierValue2}";
+            string queryStringInvalid = $"{qry_active}&{qry_gender}&{qry_birthDate}&{queryStringValid}";
+
+            Patient patient = GetPatient(systemIdentifier, value1, value2, birthDate, active, gender);
+
+            try
+            {
+                using (FhirResponse<Patient> response = await Client.CreateAsync(patient))
+                {
+                    patient.VersionId = response.Resource.VersionId;
+                    patient.Id = response.Resource.Id;
+                }
+
+                Bundle bundle = await Client.SearchPostAsync(resourceType, $"{queryStringInvalid}", default);
+                ValidateQueryStringInLinkUrl(System.Web.HttpUtility.UrlDecode(bundle.Link[0].Url), queryStringValid);
+            }
+            finally
+            {
+                await Client.HardDeleteAsync(patient);
+            }
+        }
+
+        private static void ValidateQueryStringInLinkUrl(string linkUrl, string queryString)
+        {
+            string[] nameValuePairs = queryString.Split("&", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var nvp in nameValuePairs)
+            {
+                Assert.Contains(nvp, linkUrl);
+            }
         }
 
         [Fact]
@@ -212,21 +355,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle($"?_type=Patient&_tag={tag}", patients);
 
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_tag", tag));
+            Bundle bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient"), ("_tag", tag));
             ValidateBundle(bundle, $"?_type=Patient&_tag={tag}", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
             Assert.True(bundle.Entry.Count > patients.Length);
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Observation"));
             Assert.True(bundle.Entry.Count > patients.Length);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={observation.Id}", observation);
 
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", observation.Id));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Observation"), ("_id", observation.Id));
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={observation.Id}", observation);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={organization.Id}");
         }
 
@@ -258,7 +401,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources.Add(patient);
             }
 
-            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
+            var returnedResources = await GetResultsFromAllPagesAsync($"?_type=Patient,Observation&_tag={tag}&_count=3");
+
+            Assert.Equal(expectedResources.Count, returnedResources.Count);
+            Assert.Contains(returnedResources, r => r.Id == observations.First().Id && r.TypeName == observations.First().TypeName);
+            Assert.Contains(returnedResources, r => r.Id == observations.Last().Id && r.TypeName == observations.Last().TypeName);
+            Assert.Contains(returnedResources, r => r.Id == patients.First().Id && r.TypeName == patients.First().TypeName);
         }
 
         [Fact]
@@ -311,12 +459,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
 
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1"));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient1"));
             Assert.Contains("_type=Patient1", bundle.Link[0].Url);
             outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
 
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient2"));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient1,Patient2"));
             Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
             outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
@@ -347,7 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"), ("_tag", tag));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient1,Patient"), ("_tag", tag));
             Assert.Contains("_type=Patient1,Patient", bundle.Link[0].Url);
             outcome = GetAndValidateOperationOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
@@ -368,17 +516,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var query = $"?_type=Patient,Practitioner&family={matchingPatient.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, matchingPatient, matchingPractitioner);
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", matchingPatient.Name[0].Family), ("_tag", tag));
+            Bundle bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Practitioner"), ("family", matchingPatient.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, matchingPatient, matchingPractitioner);
 
             query = $"?_type=Patient,Practitioner&family={nonMatchingPatient.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, nonMatchingPatient);
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPatient.Name[0].Family), ("_tag", tag));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPatient.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, nonMatchingPatient);
 
             query = $"?_type=Patient,Practitioner&family={nonMatchingPractitioner.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, nonMatchingPractitioner);
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPractitioner.Name[0].Family), ("_tag", tag));
+            bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPractitioner.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, nonMatchingPractitioner);
         }
 
@@ -498,7 +646,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Create the resources
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(4, tag);
             var pageSize = 2;
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_count", pageSize.ToString()), ("_tag", tag));
+            Bundle bundle = await Client.SearchPostAsync(null, null, default, ("_type", "Patient"), ("_count", pageSize.ToString()), ("_tag", tag));
 
             var expectedFirstBundle = patients.Length > pageSize ? patients.ToList().GetRange(0, pageSize).ToArray() : patients;
             ValidateBundle(bundle, $"?_type=Patient&_count={pageSize}&_tag={tag}", expectedFirstBundle);
@@ -908,7 +1056,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
 
-            Bundle bundle = await Client.SearchPostAsync("Patient", default, ("entry:[{", string.Empty), ("Ramen", "Spicy"));
+            Bundle bundle = await Client.SearchPostAsync("Patient", null, default, ("entry:[{", string.Empty), ("Ramen", "Spicy"));
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
@@ -1059,8 +1207,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string.Format(Core.Resources.SearchParameterNotSupported, "_text", "Patient"),
             };
-            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported};
-            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning};
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
             Bundle bundle = await Client.SearchAsync("Patient?_text=mobile", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);

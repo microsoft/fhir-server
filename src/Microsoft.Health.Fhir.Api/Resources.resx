@@ -364,8 +364,8 @@
   <data name="MemberMatchInvalidParameter" xml:space="preserve">
     <value>$member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
   </data>
-  <data name="OnlyInitialImportOperationSupported" xml:space="preserve">
-    <value>Only initial load import is supported. Please add "InitialLoad" mode to parameters.</value>
+  <data name="ImportModeIsNotRecognized" xml:space="preserve">
+    <value>Import mode can be either "InitialLoad"or "IncrementalLoad". Please add appropriate mode value to parameters.</value>
   </data>
   <data name="InitialImportModeNotEnabled" xml:space="preserve">
     <value>Initial import mode is not enabled. Please update service configuration to enable initial import mode.</value>
@@ -393,5 +393,8 @@
   <data name="FhirUserClaimMustBeURL" xml:space="preserve">
     <value>fhirUser claim value of {0} is not valid. fhirUser claim must be a valid URL.</value>
     <comment>{0} is the provided value in the fhirUser claim.</comment>
+  </data>
+  <data name="SearchParameterStatusNotFound" xml:space="preserve">
+    <value>No Search Parameters found. </value>
   </data>
 </root>

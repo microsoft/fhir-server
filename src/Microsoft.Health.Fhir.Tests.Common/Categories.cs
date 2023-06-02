@@ -15,7 +15,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Authorization = nameof(Authorization);
 
-        public const string Batch = nameof(Batch);
+        public const string Bundle = nameof(Bundle);
+
+        public const string BundleOrchestrator = nameof(BundleOrchestrator);
 
         public const string CompartmentSearch = nameof(CompartmentSearch);
 
@@ -72,6 +74,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Search = nameof(Search);
 
         public const string Security = nameof(Security);
+
+        public const string SearchParameterStatus = nameof(SearchParameterStatus);
 
         /// <summary>
         /// Set of tests validating serialization and deserialization logic.

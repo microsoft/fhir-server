@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.DequeueJob
 GO
-CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int, @InputJobId bigint = NULL
+CREATE PROCEDURE dbo.DequeueJob @QueueType tinyint, @Worker varchar(100), @HeartbeatTimeoutSec int, @InputJobId bigint = NULL, @CheckTimeoutJobs bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'DequeueJob'
@@ -8,6 +8,7 @@ DECLARE @SP varchar(100) = 'DequeueJob'
                            +' H='+isnull(convert(varchar,@HeartbeatTimeoutSec),'NULL')
                            +' W='+isnull(@Worker,'NULL')
                            +' IJ='+isnull(convert(varchar,@InputJobId),'NULL')
+                           +' T='+isnull(convert(varchar,@CheckTimeoutJobs),'NULL')
        ,@Rows int = 0
        ,@st datetime = getUTCdate()
        ,@JobId bigint
@@ -19,7 +20,10 @@ DECLARE @SP varchar(100) = 'DequeueJob'
 
 BEGIN TRY
   IF EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'DequeueJobStop' AND Number = 1)
+  BEGIN
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=0,@Text='Skipped'
     RETURN
+  END
 
   IF @InputJobId IS NULL
     SET @PartitionId = @MaxPartitions * rand()
@@ -28,7 +32,7 @@ BEGIN TRY
 
   SET TRANSACTION ISOLATION LEVEL READ COMMITTED 
 
-  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions
+  WHILE @InputJobId IS NULL AND @JobId IS NULL AND @LookedAtPartitions <= @MaxPartitions AND @CheckTimeoutJobs = 0
   BEGIN
     SET @Lock = 'DequeueJob_'+convert(varchar,@QueueType)+'_'+convert(varchar,@PartitionId)
 

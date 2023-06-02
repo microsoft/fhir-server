@@ -4,13 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -26,23 +24,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
         private readonly IQueueClient _queueClient;
-        private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly ILogger<CreateImportRequestHandler> _logger;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public CreateImportRequestHandler(
             IQueueClient queueClient,
-            ISequenceIdGenerator<long> sequenceIdGenerator,
             ILogger<CreateImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
-            _sequenceIdGenerator = sequenceIdGenerator;
             _authorizationService = authorizationService;
             _logger = logger;
         }
@@ -56,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            ImportOrchestratorJobInputData inputData = new ImportOrchestratorJobInputData()
+            var definitionObj = new ImportOrchestratorJobDefinition()
             {
                 TypeId = (int)JobType.ImportOrchestrator,
                 RequestUri = request.RequestUri,
@@ -65,22 +59,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
-                CreateTime = Clock.UtcNow,
-                StartSequenceId = _sequenceIdGenerator.GetCurrentSequenceId(),
+                ImportMode = request.ImportMode,
             };
 
-            string definition = JsonConvert.SerializeObject(inputData);
-
-            try
-            {
-                JobInfo jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, true, false, cancellationToken))[0];
-                return new CreateImportResponse(jobInfo.Id.ToString());
-            }
-            catch (JobManagement.JobConflictException)
-            {
-                _logger.LogInformation("Already a running import job.");
-                throw new OperationFailedException(Core.Resources.ImportJobIsRunning, HttpStatusCode.Conflict);
-            }
+            var definition = JsonConvert.SerializeObject(definitionObj);
+            var jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, false, false, cancellationToken))[0];
+            return new CreateImportResponse(jobInfo.Id.ToString());
         }
     }
 }

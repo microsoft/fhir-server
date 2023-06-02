@@ -7,7 +7,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -45,7 +44,7 @@ COMMIT TRANSACTION
 EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTestTable',@Action='Delete',@Rows=@@rowcount
                 ");
 
-            await Task.Delay(10000);
+            await Task.Delay(TimeSpan.FromSeconds(10));
 
             var sizeBefore = GetSize();
             var current = GetDateTime();
@@ -53,24 +52,29 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             // Empty queue
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
-            var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
-                _fixture.SchemaInformation,
                 () => queueClient.CreateMockScope(),
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
-            await wd.Handle(new StorageInitializedNotification(), CancellationToken.None);
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
 
-            await wd.InitializeAsync(cts.Token);
-            var task = wd.ExecutePeriodicLoopAsync(cts.Token);
+            await wd.StartAsync(cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
 
             var completed = CheckQueue(current);
-            while (!completed && !cts.IsCancellationRequested)
+            while (!completed && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
+                await Task.Delay(TimeSpan.FromSeconds(1));
                 completed = CheckQueue(current);
             }
 
@@ -80,15 +84,52 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var sizeAfter = GetSize();
             Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
 
-            try
+            wd.Dispose();
+        }
+
+        [Fact]
+        public async Task CleanupEventLog()
+        {
+            // populate data
+            ExecuteSql(@"
+TRUNCATE TABLE dbo.EventLog
+DECLARE @i int = 0
+WHILE @i < 10000
+BEGIN
+  EXECUTE dbo.LogEvent @Process='Test',@Status='Warn',@Mode='Test'
+  SET @i += 1
+END
+                ");
+
+            _testOutputHelper.WriteLine($"EventLog.Count={GetCount()}.");
+
+            var wd = new CleanupEventLogWatchdog(
+                () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
+                XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromMinutes(10));
+
+            await wd.StartAsync(cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
-                cts.Cancel();
-                await task;
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
-            catch (TaskCanceledException)
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            while ((GetCount() > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
-                // expected
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
+
+            _testOutputHelper.WriteLine($"EventLog.Count={GetCount()}.");
+            Assert.True(GetCount() <= 1000, "Count is low");
+
+            wd.Dispose();
         }
 
         private void ExecuteSql(string sql)
@@ -98,6 +139,15 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             using var cmd = new SqlCommand(sql, conn);
             cmd.CommandTimeout = 120;
             cmd.ExecuteNonQuery();
+        }
+
+        private long GetCount()
+        {
+            using var conn = new SqlConnection(_fixture.TestConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('EventLog')", conn);
+            var res = cmd.ExecuteScalar();
+            return (long)res;
         }
 
         private double GetSize()

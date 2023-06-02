@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
         // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
-        internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; }
+        internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; set; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 

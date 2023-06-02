@@ -12,7 +12,6 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -28,63 +27,80 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<RawResourceElement> CreateResourceAsync(this IMediator mediator, ResourceElement resource, CancellationToken cancellationToken = default)
         {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(resource, nameof(resource));
+            return await CreateResourceAsync(mediator, new CreateResourceRequest(resource), cancellationToken);
+        }
 
-            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(resource), cancellationToken);
+        public static async Task<RawResourceElement> CreateResourceAsync(this IMediator mediator, CreateResourceRequest createResourceRequest, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(createResourceRequest, nameof(createResourceRequest));
+
+            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(createResourceRequest, cancellationToken);
 
             return result.Outcome.RawResourceElement;
         }
 
         public static async Task<SaveOutcome> UpsertResourceAsync(this IMediator mediator, ResourceElement resource, WeakETag weakETag = null, CancellationToken cancellationToken = default)
         {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(resource, nameof(resource));
+            return await UpsertResourceAsync(mediator, new UpsertResourceRequest(resource, weakETag: weakETag), cancellationToken);
+        }
 
-            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource, weakETag), cancellationToken);
+        public static async Task<SaveOutcome> UpsertResourceAsync(this IMediator mediator, UpsertResourceRequest upsertResourceRequest, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(upsertResourceRequest, nameof(upsertResourceRequest));
+
+            UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(upsertResourceRequest, cancellationToken);
 
             return result.Outcome;
         }
 
         public static async Task<RawResourceElement> GetResourceAsync(this IMediator mediator, ResourceKey key, CancellationToken cancellationToken = default)
         {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(key, nameof(key));
+            return await GetResourceAsync(mediator, new GetResourceRequest(key), cancellationToken);
+        }
 
-            GetResourceResponse result = await mediator.Send(new GetResourceRequest(key), cancellationToken);
+        public static async Task<RawResourceElement> GetResourceAsync(this IMediator mediator, GetResourceRequest getResourceRequest, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(getResourceRequest, nameof(getResourceRequest));
+
+            GetResourceResponse result = await mediator.Send(getResourceRequest, cancellationToken);
 
             return result.Resource;
         }
 
         public static async Task<DeleteResourceResponse> DeleteResourceAsync(this IMediator mediator, ResourceKey key, DeleteOperation deleteOperation, CancellationToken cancellationToken = default)
         {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(key, nameof(key));
+            return await DeleteResourceAsync(mediator, new DeleteResourceRequest(key, deleteOperation), cancellationToken);
+        }
 
-            var result = await mediator.Send(new DeleteResourceRequest(key, deleteOperation), cancellationToken);
+        public static async Task<DeleteResourceResponse> DeleteResourceAsync(this IMediator mediator, DeleteResourceRequest deleteResourceRequest, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(deleteResourceRequest, nameof(deleteResourceRequest));
+
+            var result = await mediator.Send(deleteResourceRequest, cancellationToken);
 
             return result;
         }
 
-        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, PatchPayload payload, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, PatchResourceRequest patchResourceRequest, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(key, nameof(key));
-            EnsureArg.IsNotNull(payload, nameof(payload));
+            EnsureArg.IsNotNull(patchResourceRequest, nameof(patchResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest(key, payload, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(patchResourceRequest, cancellationToken);
 
             return result;
         }
 
-        public static async Task<UpsertResourceResponse> ConditionalPatchResourceAsync(this IMediator mediator, string typeParameter, PatchPayload payload, IReadOnlyList<Tuple<string, string>> conditionalParameters, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        public static async Task<UpsertResourceResponse> ConditionalPatchResourceAsync(this IMediator mediator, ConditionalPatchResourceRequest conditionalPatchResourceRequest, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(typeParameter, nameof(typeParameter));
-            EnsureArg.IsNotNull(payload, nameof(payload));
-            EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
+            EnsureArg.IsNotNull(conditionalPatchResourceRequest, nameof(conditionalPatchResourceRequest));
 
-            UpsertResourceResponse result = await mediator.Send(new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(conditionalPatchResourceRequest, cancellationToken);
 
             return result;
         }

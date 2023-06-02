@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,19 +25,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
+        private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
 
         public SqlQueueClient(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
+            ISqlRetryService sqlRetryService,
             ILogger<SqlQueueClient> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _schemaInformation = schemaInformation;
+            _sqlRetryService = sqlRetryService;
             _logger = logger;
         }
 
@@ -53,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CancelJobByGroupIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -75,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CancelJobByIdAsync failed.");
-                if (ex.IsRetryable())
+                if (ex.IsRetriable())
                 {
                     throw new RetriableJobException(ex.Message, ex);
                 }
@@ -86,46 +91,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public virtual async Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken)
         {
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandType = CommandType.StoredProcedure;
+            sqlCommand.CommandText = "dbo.PutJobStatus";
+            sqlCommand.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
+            sqlCommand.Parameters.AddWithValue("@JobId", jobInfo.Id);
+            sqlCommand.Parameters.AddWithValue("@Version", jobInfo.Version);
+            sqlCommand.Parameters.AddWithValue("@Failed", jobInfo.Status == JobStatus.Failed);
+            sqlCommand.Parameters.AddWithValue("@Data", jobInfo.Data.HasValue ? jobInfo.Data.Value : DBNull.Value);
+            sqlCommand.Parameters.AddWithValue("@FinalResult", jobInfo.Result != null ? jobInfo.Result : DBNull.Value);
+            sqlCommand.Parameters.AddWithValue("@RequestCancellationOnFailure", requestCancellationOnFailure);
 
-                // cannot use VLatest as it incorrectly sends nulls
-                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
-                sqlCommandWrapper.CommandText = "dbo.PutJobStatus";
-                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
-                sqlCommandWrapper.Parameters.AddWithValue("@JobId", jobInfo.Id);
-                sqlCommandWrapper.Parameters.AddWithValue("@Version", jobInfo.Version);
-                sqlCommandWrapper.Parameters.AddWithValue("@Failed", jobInfo.Status == JobStatus.Failed);
-                sqlCommandWrapper.Parameters.AddWithValue("@Data", jobInfo.Data.HasValue ? jobInfo.Data.Value : DBNull.Value);
-                sqlCommandWrapper.Parameters.AddWithValue("@FinalResult", jobInfo.Result != null ? jobInfo.Result : DBNull.Value);
-                sqlCommandWrapper.Parameters.AddWithValue("@RequestCancellationOnFailure", requestCancellationOnFailure);
-
-                try
+            await _sqlRetryService.ExecuteSql(
+                sqlCommand,
+                async (sqlCommand, cancellationToken) =>
                 {
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
-                {
-                    if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
+                    try
                     {
-                        throw new JobNotExistException(sqlEx.Message);
+                        await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
                     }
+                    catch (SqlException sqlEx)
+                    {
+                        if (sqlEx.Number == SqlErrorCodes.PreconditionFailed)
+                        {
+                            throw new JobNotExistException(sqlEx.Message, sqlEx);
+                        }
 
-                    throw;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "CompleteJobAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+                        throw;
+                    }
+                },
+                _logger,
+                "CompleteJobAsync failed.",
+                cancellationToken);
         }
 
         public async Task<IReadOnlyCollection<JobInfo>> DequeueJobsAsync(byte queueType, int numberOfJobsToDequeue, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken)
@@ -152,105 +149,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
         {
-            const int MaxNumberOfAttempts = 3;
-            int attempt = 0;
-            do
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandText = "dbo.DequeueJob";
+            sqlCommand.CommandType = CommandType.StoredProcedure;
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+            sqlCommand.Parameters.AddWithValue("@Worker", worker);
+            sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
+            if (jobId.HasValue)
             {
-                try
-                {
-                    using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                    using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                    // cannot use VLatest as it incorrectly asks for optional @InputJobId
-                    sqlCommandWrapper.CommandText = "dbo.DequeueJob";
-                    sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
-                    sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
-                    sqlCommandWrapper.Parameters.AddWithValue("@Worker", worker);
-                    sqlCommandWrapper.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
-                    if (jobId.HasValue)
-                    {
-                        sqlCommandWrapper.Parameters.AddWithValue("@InputJobId", jobId.Value);
-                    }
-
-                    await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                    JobInfo jobInfo = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                    if (jobInfo != null)
-                    {
-                        jobInfo.QueueType = queueType;
-                    }
-
-                    return jobInfo;
-                }
-                catch (Exception ex)
-                {
-                    attempt++;
-                    bool isRetriable = ex.IsRetryable();
-
-                    _logger.LogError(ex, "DequeueAsync failed. Attempt {AttemptNumber}. Is retriable: {IsRetriable}", attempt, isRetriable);
-
-                    if (!isRetriable)
-                    {
-                        throw;
-                    }
-
-                    if (attempt >= MaxNumberOfAttempts)
-                    {
-                        if (isRetriable)
-                        {
-                            throw new RetriableJobException(ex.Message, ex);
-                        }
-                        else
-                        {
-                            throw;
-                        }
-                    }
-                }
+                sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
-            while (true);
+
+            JobInfo jobInfo = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "DequeueAsync failed.", cancellationToken);
+            if (jobInfo != null)
+            {
+                jobInfo.QueueType = queueType;
+            }
+
+            return jobInfo;
         }
 
         public async Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandType = CommandType.StoredProcedure;
+            sqlCommand.CommandText = "dbo.EnqueueJobs";
+            sqlCommand.CommandTimeout = 300;
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
+            new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommand.Parameters, definitions.Select(d => new StringListRow(d)));
+            if (groupId.HasValue)
+            {
+                sqlCommand.Parameters.AddWithValue("@GroupId", groupId.Value);
+            }
+
+            sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
+            sqlCommand.Parameters.AddWithValue("@IsCompleted", isCompleted);
+
             try
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                // cannot use VLatest as it does not understand optional parameters
-                sqlCommandWrapper.CommandType = System.Data.CommandType.StoredProcedure;
-                sqlCommandWrapper.CommandText = "dbo.EnqueueJobs";
-                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
-                new StringListTableValuedParameterDefinition("@Definitions").AddParameter(sqlCommandWrapper.Parameters, definitions.Select(d => new StringListRow(d)));
-                if (groupId.HasValue)
-                {
-                    sqlCommandWrapper.Parameters.AddWithValue("@GroupId", groupId.Value);
-                }
-
-                sqlCommandWrapper.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
-                sqlCommandWrapper.Parameters.AddWithValue("@IsCompleted", isCompleted);
-
-                try
-                {
-                    await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                    return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
-                {
-                    if (sqlEx.State == 127)
-                    {
-                        throw new JobManagement.JobConflictException(sqlEx.Message);
-                    }
-
-                    throw;
-                }
+                return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "EnqueueJobs failed.", cancellationToken);
             }
-            catch (Exception ex)
+            catch (SqlException sqlEx)
             {
-                _logger.LogError(ex, "EnqueueAsync failed.");
-                if (ex.IsRetryable())
+                if (sqlEx.State == 127)
                 {
-                    throw new RetriableJobException(ex.Message, ex);
+                    throw new JobManagement.JobConflictException(sqlEx.Message);
                 }
 
                 throw;
@@ -259,74 +202,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, null, groupId, returnDefinition);
-                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "GetJobByGroupIdAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+            using var sqlCommand = new SqlCommand();
+            PopulateGetJobsCommand(sqlCommand, queueType, null, null, groupId, returnDefinition);
+            return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "GetJobByGroupIdAsync failed.", cancellationToken);
         }
 
         public async Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
         {
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, jobId, null, null, returnDefinition);
-                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                return await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "GetJobByIdAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+            using var sqlCommand = new SqlCommand();
+            PopulateGetJobsCommand(sqlCommand, queueType, jobId, returnDefinition: returnDefinition);
+            return await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "GetJobByIdAsync failed.", cancellationToken);
         }
 
         public async Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.GetJobs.PopulateCommand(sqlCommandWrapper, queueType, null, jobIds.Select(i => new BigintListRow(i)), null, returnDefinition);
-                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                return await sqlDataReader.ReadJobInfosAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "GetJobsByIdsAsync failed.");
-                if (ex.IsRetryable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
-
-                throw;
-            }
+            using var cmd = new SqlCommand();
+            PopulateGetJobsCommand(cmd, queueType, jobIds: jobIds, returnDefinition: returnDefinition);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, JobInfoExtensions.LoadJobInfo, _logger, "GetJobsByIdsAsync failed.", cancellationToken);
         }
 
         public bool IsInitialized()
@@ -359,6 +251,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return cancel;
+        }
+
+        private static void PopulateGetJobsCommand(SqlCommand cmd, byte queueType, long? jobId = null, IEnumerable<long> jobIds = null, long? groupId = null, bool? returnDefinition = null)
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.CommandText = "dbo.GetJobs";
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            if (jobId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@JobId", jobId.Value);
+            }
+
+            if (jobIds != null)
+            {
+                new BigintListTableValuedParameterDefinition("@JobIds").AddParameter(cmd.Parameters, jobIds.Select(_ => new BigintListRow(_)));
+            }
+
+            if (groupId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@GroupId", groupId.Value);
+            }
+
+            if (returnDefinition.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@ReturnDefinition", returnDefinition.Value);
+            }
         }
     }
 }

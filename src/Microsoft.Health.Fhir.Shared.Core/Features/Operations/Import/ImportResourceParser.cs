@@ -5,56 +5,54 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
-using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceParser : IImportResourceParser
     {
-        internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
-        private IResourceMetaPopulator _resourceMetaPopulator;
-        private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
-        private ICompressedRawResourceConverter _compressedRawResourceConverter;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IResourceMetaPopulator resourceMetaPopulator, ICompressedRawResourceConverter compressedRawResourceConverter)
+        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
         {
-            EnsureArg.IsNotNull(parser, nameof(parser));
-            EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
-            EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
-
-            _parser = parser;
-            _resourceFactory = resourceFactory;
-            _resourceMetaPopulator = resourceMetaPopulator;
-            _compressedRawResourceConverter = compressedRawResourceConverter;
-            _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
+            _parser = EnsureArg.IsNotNull(parser, nameof(parser));
+            _resourceFactory = EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
         }
 
-        public ImportResource Parse(long id, long index, string rawContent)
+        public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
-            Resource resource = _parser.Parse<Resource>(rawContent);
+            var resource = _parser.Parse<Resource>(rawResource);
             CheckConditionalReferenceInResource(resource);
 
-            _resourceMetaPopulator.Populate(id, resource);
-
-            ResourceElement resourceElement = resource.ToResourceElement();
-            ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
-
-            return new ImportResource(id, index, resourceWapper)
+            if (resource.Meta == null)
             {
-                CompressedStream = GenerateCompressedRawResource(resourceWapper.RawResource.Data),
-            };
+                resource.Meta = new Meta();
+            }
+
+            bool lastUpdatedIsNull;
+            if (lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null)
+            {
+                resource.Meta.LastUpdated = Clock.UtcNow;
+            }
+
+            var keepVersion = true;
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
+            {
+                resource.Meta.VersionId = "1";
+                keepVersion = false;
+            }
+
+            var resourceElement = resource.ToResourceElement();
+            var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
+
+            return new ImportResource(index, offset, length, keepVersion, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)
@@ -69,17 +67,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (reference.Reference.Contains('?', StringComparison.Ordinal))
                 {
-                    throw new NotSupportedException("Conditional reference not supported for initial import.");
+                    throw new NotSupportedException("Conditional reference is not supported for $import.");
                 }
             }
-        }
-
-        private Stream GenerateCompressedRawResource(string rawResource)
-        {
-            var outputStream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(ImportResourceParser));
-            _compressedRawResourceConverter.WriteCompressedRawResource(outputStream, rawResource);
-
-            return outputStream;
         }
     }
 }

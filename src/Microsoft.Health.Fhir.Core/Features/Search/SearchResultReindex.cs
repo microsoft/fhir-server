@@ -25,6 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public long Count { get; set; }
 
         /// <summary>
+        /// The count of items that have been reindexed
+        /// </summary>
+        public long CountReindexed { get; set; }
+
+        /// <summary>
         /// Used as a pointer to the Start surrogateId param when searching resources by a range of Start/End resource surrogateIds
         /// </summary>
         public long CurrentResourceSurrogateId { get; set; }

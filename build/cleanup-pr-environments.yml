@@ -1,0 +1,54 @@
+# DESCRIPTION: 	
+# Removes resource groups used in PRs.
+# The Exclude variable can be used to preserve specific resource groups. It is a comma seperated list of the full resource group names. 
+# The DeleteRecent variable can be used to delete recent runs. Otherwise only resource groups with no deployments in the last week will be deleted.
+
+variables:
+- template: build-variables.yml
+- template: pr-variables.yml
+
+stages:
+- stage: CleanupRGs
+  displayName: 'Cleanup Resource Groups'
+  jobs:
+  - job: DeleteResourceGroup
+    displayName: 'Delete resource group'
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@4
+      displayName: 'Delete resource group'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: InlineScript
+        Inline: |
+          Write-Host "Starting"
+
+          Write-Host ${env:Exclude}
+          try {
+            $excludeList = ${env:Exclude}.Split(',').Trim()
+          }
+          catch {
+          }
+
+          Write-Host "Getting resource groups"
+          $resourceGroups = Get-AzResourceGroup -Name "$(resourceGroupRoot)*" -Location "$(ResourceGroupRegion)" | Where ResourceGroupName -NotIn $excludeList 
+
+          Write-Host "Finding cutoff time"
+          $cutoffTime = Get-Date
+          If (${env:DeleteRecent} -ne $true)
+          {
+            $cutoffTime = $cutoffTime.AddDays(-7)
+          }
+
+          ForEach ($group in $resourceGroups)
+          {
+            Write-Host "Deleting $($group.ResourceGroupName)"
+            $deploymentTimes = Get-AzResourceGroupDeployment -ResourceGroupName $group.ResourceGroupName | Select Timestamp | Where Timestamp -lt $cutoffTime
+            If ($deploymentTimes.Count -gt 0)
+            {
+              Remove-AzResourceGroup -Name $group.ResourceGroupName -Verbose -Force
+            }
+          }

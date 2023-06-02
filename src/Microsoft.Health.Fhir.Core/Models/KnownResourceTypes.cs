@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Organization = "Organization";
 
+        public const string OrganizationAffiliation = "OrganizationAffiliation";
+
         public const string Parameters = "Parameters";
 
         public const string Practitioner = "Practitioner";

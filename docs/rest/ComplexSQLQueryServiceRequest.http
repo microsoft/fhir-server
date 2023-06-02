@@ -1,0 +1,129 @@
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to be able to POST test data
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=patient/Observation.read fhirUser fhir-api user/Encounter.*
+
+### Post 1st custom search parameter
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+      "resourceType" : "SearchParameter",
+      "id" : "ServiceRequest-resultStatus",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/ServiceRequest-resultStatus",
+      "version" : "4.0.1",
+      "name" : "resultStatus",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (Orders and Observations)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/orders/index.cfm"
+        }]
+      }],
+      "description" : "resultStatus",
+      "code" : "resultStatus",
+      "base" : ["ServiceRequest"],
+      "type" : "token",
+      "expression" : "ServiceRequest.extension.where(url = 'https://cynergymro.com/service-request/result-status-extension').where(value = 1).extension.where(url = 'https://cynergymro.com/service-request/result-status-extension/result-status').value.code"
+    }
+
+### Post 2st custom search parameter
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+      "resourceType" : "SearchParameter",
+      "id" : "ServiceRequest-collectionDate",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/ServiceRequest-collectionDate",
+      "version" : "4.0.1",
+      "name" : "collectionDate",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (Orders and Observations)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/orders/index.cfm"
+        }]
+      }],
+      "description" : "collectionDate",
+      "code" : "collectionDate",
+      "base" : ["ServiceRequest"],
+      "type" : "date",
+      "expression" : "ServiceRequest.extension.where(url = 'https://cynergymro.com/service-request/collection-date-extension').value"
+    }
+
+
+###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
+# using the new search parameter before it is indexed
+# @name reindex
+POST https://{{hostname}}/$reindex
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "maximumConcurrency",
+      "valueInteger": "3"
+    },
+    {
+      "name": "targetDataStoreUsagePercentage",
+      "valueInteger": "80"
+    },
+    {
+      "name": "queryDelayIntervalInMilliseconds",
+      "valueInteger": "500"
+    },
+    {
+      "name": "maximumNumberOfResourcesPerQuery",
+      "valueInteger": "5"
+    }
+  ]
+}
+
+
+### Get REindex
+GET https://localhost:44348/_operations/reindex/b80081ac-176d-4ea1-9a1e-dc736835fff7
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get complex query for customer
+GET https://{{hostname}}/ServiceRequest?_count=20&_include=ServiceRequest%3Apatient&_include=ServiceRequest%3Aspecimen&_sort=-_lastUpdated&intent=original-order&resultStatus=Closed&status=active%2Ccompleted%2Cunknown&collectionDate=gt2022-05-31T00%3A00%3A00-05%3A00&collectionDate=lt2022-05-31T23%3A59%3A59-05%3A00&subject%3APatient.address-state%3Aexact=AL%2CAS%2CAZ%2CAR%2CCA%2CCO%2CCT%2CDE%2CDC%2CFL%2CGA%2CGU%2CHI%2CID%2CIL%2CIN%2CIA%2CKS%2CKY%2CLA%2CME%2CMD%2CMA%2CMI%2CMN%2CMS%2CMO%2CMT%2CNE%2CNV%2CNH%2CNJ%2CNM%2CNY%2CNC%2CND%2CMP%2COH%2COK%2COR%2CPA%2CPR%2CRI%2CSC%2CSD%2CTN%2CTX%2CUT%2CVT%2CVI%2CVA%2CWA%2CWV%2CWI%2CWY%2CAK%2CUNKNOWN&category%3Anot=Toxicology&_total=accurate
+Authorization: Bearer {{bearer.response.body.access_token}}

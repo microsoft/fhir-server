@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     var tempStatus = EvaluateSearchParamStatus(result);
 
-                    if (result.Status == SearchParameterStatus.Disabled)
+                    if (result.Status == SearchParameterStatus.Unsupported)
                     {
                         // Re-check if this parameter is now supported.
                         (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
@@ -190,6 +190,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
 
+        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        {
+            return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
+        }
+
+        /// <summary>
+        /// Used to apply search parameter status updates to the SearchParameterDefinitionManager.Used in reindex operation when checking every 10 minutes or so.
+        /// </summary>
+        /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
@@ -209,10 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     param.IsSupported = tempStatus.IsSupported;
                     param.IsPartiallySupported = tempStatus.IsPartiallySupported;
                     param.SortStatus = paramStatus.SortStatus;
-
+                    param.SearchParameterStatus = paramStatus.Status;
                     updated.Add(param);
                 }
-                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && p.Status == SearchParameterStatus.Deleted))
+                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && (p.Status == SearchParameterStatus.Deleted || p.Status == SearchParameterStatus.Disabled)))
                 {
                     // if we cannot find the search parameter in the search parameter definition manager
                     // and there is an entry in the list of updates with a delete status then it indicates
@@ -222,12 +232,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+
             if (updatedSearchParameterStatus.Any())
             {
                 _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
             }
-
-            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }

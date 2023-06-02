@@ -8,6 +8,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -16,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -66,6 +66,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerFhirOperationDataStore>()
                 .Scoped()
                 .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlQueryHashCalculator>()
+                .Singleton()
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerSearchService>()
@@ -128,96 +132,17 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFactory<IScoped<SqlQueueClient>>();
 
-            services.Add<SqlImportOperation>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlResourceBulkImporter>()
+            services.Add<SqlImportReindexer>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlResourceMetaPopulator>()
+            services.Add<SqlImporter>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
             services.Add<CompressedRawResourceConverter>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlBulkCopyDataWrapperFactory>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<DateTimeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<NumberSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<QuantitySearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<ReferenceSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<StringSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenStringCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenTextSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<UriSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<ResourceWriteClaimTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<CompartmentAssignmentTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<SqlStoreSequenceIdGenerator>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -239,14 +164,20 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services
-                .RemoveServiceTypeExact<DefragWatchdog, INotificationHandler<StorageInitializedNotification>>()
-                .Add<DefragWatchdog>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+            services.Add<DefragWatchdog>().Singleton().AsSelf();
 
-            services.AddHostedService<WatchdogsBackgroundService>();
+            services.Add<CleanupEventLogWatchdog>().Singleton().AsSelf();
+
+            services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<StorageInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
+                    .Add<WatchdogsBackgroundService>()
+                    .Singleton()
+                    .AsSelf() // this is needed to create the instance the delegates resolve
+                    .AsService<IHostedService>()
+                    .AsService<INotificationHandler<StorageInitializedNotification>>();
+
+            // services.AddSingleton(x => new SqlRetryServiceDelegateOptions() { CustomIsExceptionRetriable = ex => false }); // This is an example how to add custom retry test method.
+            services.AddSingleton(x => new SqlRetryServiceDelegateOptions());
+            services.AddSingleton<ISqlRetryService, SqlRetryService>();
 
             return fhirServerBuilder;
         }

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -17,8 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportResourceLoader : IImportResourceLoader
     {
         private const int DefaultChannelMaxCapacity = 500;
-        private const int DefaultMaxBatchSize = 100;
-        private static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
+        private const int DefaultMaxBatchSize = 1000;
+        private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -31,35 +32,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IImportErrorSerializer importErrorSerializer,
             ILogger<ImportResourceLoader> logger)
         {
-            EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
-            EnsureArg.IsNotNull(importResourceParser, nameof(importResourceParser));
-            EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _integrationDataStoreClient = integrationDataStoreClient;
-            _importResourceParser = importResourceParser;
-            _importErrorSerializer = importErrorSerializer;
-            _logger = logger;
+            _integrationDataStoreClient = EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
+            _importResourceParser = EnsureArg.IsNotNull(importResourceParser, nameof(importResourceParser));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
-            Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
+            var outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, resourceType, sequenceIdGenerator, cancellationToken), cancellationToken);
+            var loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, offset, bytesToRead, resourceType, importMode, cancellationToken), cancellationToken);
 
             return (outputChannel, loadTask);
         }
 
-        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             string leaseId = null;
+
             try
             {
                 _logger.LogInformation("Start to load resource from store.");
@@ -67,16 +64,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Try to acquire lease to block change on the blob.
                 leaseId = await _integrationDataStoreClient.TryAcquireLeaseAsync(new Uri(resourceLocation), Guid.NewGuid().ToString("N"), cancellationToken);
 
-                using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
-                using StreamReader inputDataReader = new StreamReader(inputDataStream);
+                using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
+                using var reader = new StreamReader(stream);
 
                 string content = null;
                 long currentIndex = 0;
-                List<(string content, long index)> buffer = new List<(string content, long index)>();
-                Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
+                long currentBytesRead = 0;
+                var buffer = new List<(string content, long index, int length)>();
 
+                var skipFirstLine = true;
 #pragma warning disable CA2016
-                while (!string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
+                while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
 #pragma warning restore CA2016
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -84,52 +82,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
-                    // TODO: improve to load from offset in file
-                    if (currentIndex < startIndex)
+                    if (offset > 0 && skipFirstLine) // skip first line
                     {
-                        currentIndex++;
+                        skipFirstLine = false;
                         continue;
                     }
 
-                    buffer.Add((content, currentIndex));
+                    var length = Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
+                    currentBytesRead += length;
+
                     currentIndex++;
+
+                    buffer.Add((content, currentIndex, length));
 
                     if (buffer.Count < MaxBatchSize)
                     {
                         continue;
                     }
 
-                    while (processingTasks.Count >= MaxConcurrentCount)
-                    {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            throw new OperationCanceledException();
-                        }
-
-                        IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
-                        foreach (ImportResource importResource in importResources)
-                        {
-                            await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
-                        }
-                    }
-
-                    processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
-                    buffer.Clear();
-                }
-
-                processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
-                while (processingTasks.Count > 0)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException();
-                    }
-
-                    IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
-                    foreach (ImportResource importResource in importResources)
+                    foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
                     {
                         await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                     }
+                }
+
+                foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
+                {
+                    await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                 }
 
                 _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
@@ -147,35 +126,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, (string content, long index)[] rawContents, Func<long, long> idGenerator)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
         {
             return await Task.Run(() =>
             {
-                List<ImportResource> result = new List<ImportResource>();
+                var results = new List<ImportResource>();
 
-                foreach ((string content, long index) in rawContents)
+                foreach ((string content, long index, int length) in rawContents)
                 {
-                    long id = idGenerator(index);
-
                     try
                     {
-                        ImportResource importResource = _importResourceParser.Parse(id, index, content);
+                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content, importMode);
 
-                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
+                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
                         {
                             throw new FormatException("Resource type not match.");
                         }
 
-                        result.Add(importResource);
+                        results.Add(importResource);
                     }
                     catch (Exception ex)
                     {
                         // May contains customer's data, no error logs here.
-                        result.Add(new ImportResource(id, index, _importErrorSerializer.Serialize(index, ex)));
+                        results.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
                     }
                 }
 
-                return result;
+                rawContents.Clear();
+
+                return results;
             });
         }
     }

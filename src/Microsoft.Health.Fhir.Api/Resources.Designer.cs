@@ -250,6 +250,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import mode can be either &quot;InitialLoad&quot;or &quot;IncrementalLoad&quot;. Please add appropriate mode value to parameters..
+        /// </summary>
+        public static string ImportModeIsNotRecognized {
+            get {
+                return ResourceManager.GetString("ImportModeIsNotRecognized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {
@@ -493,15 +502,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only initial load import is supported. Please add &quot;InitialLoad&quot; mode to parameters..
-        /// </summary>
-        public static string OnlyInitialImportOperationSupported {
-            get {
-                return ResourceManager.GetString("OnlyInitialImportOperationSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
         public static string OperationFailed {
@@ -633,6 +633,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ResourceTypeMismatch {
             get {
                 return ResourceManager.GetString("ResourceTypeMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No Search Parameters found. .
+        /// </summary>
+        public static string SearchParameterStatusNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusNotFound", resourceCulture);
             }
         }
         

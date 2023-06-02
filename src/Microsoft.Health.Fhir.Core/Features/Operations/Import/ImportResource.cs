@@ -3,29 +3,32 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.IO;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long id, long index, ResourceWrapper resource)
+        public ImportResource(long index, long offset, int length, bool keepVersion, ResourceWrapper resourceWrapper)
         {
-            Id = id;
             Index = index;
-            Resource = resource;
+            Offset = offset;
+            Length = length;
+            KeepVersion = keepVersion;
+            ResourceWrapper = resourceWrapper;
         }
 
         public ImportResource(ResourceWrapper resource)
-            : this(0, 0, resource)
+            : this(0, 0, 0, false, resource)
         {
         }
 
-        public ImportResource(long id, long index, string importError)
+        public ImportResource(long index, long offset, string importError)
         {
-            Id = id;
             Index = index;
+            Offset = offset;
+            Length = 0;
+            KeepVersion = false;
             ImportError = importError;
         }
 
@@ -35,23 +38,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long Index { get; set; }
 
         /// <summary>
-        /// Resource sequence id
+        /// Read stream offset in bytes
         /// </summary>
-        public long Id { get; set; }
+        public long Offset { get; set; }
+
+        /// <summary>
+        /// Json length including EOL
+        /// </summary>
+        public int Length { get; set; }
+
+        /// <summary>
+        /// Flag indicating whether version was provided on input
+        /// </summary>
+        public bool KeepVersion { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content
         /// </summary>
-        public ResourceWrapper Resource { get; set; }
+        public ResourceWrapper ResourceWrapper { get; set; }
 
         /// <summary>
         /// Processing error
         /// </summary>
         public string ImportError { get; set; }
-
-        /// <summary>
-        /// Compressed raw resource stream
-        /// </summary>
-        public Stream CompressedStream { get; set; }
     }
 }

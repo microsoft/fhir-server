@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -91,91 +90,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                         ResourceSearchParameterStatus resourceSearchParameterStatus;
 
-                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterSynchronizationVersion)
+                        (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
+
+                        if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
                         {
-                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                                VLatest.SearchParam.SearchParamId,
-                                VLatest.SearchParam.Uri,
-                                VLatest.SearchParam.Status,
-                                VLatest.SearchParam.LastUpdated,
-                                VLatest.SearchParam.IsPartiallySupported);
+                            // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
+                            // They should be populated as soon as they are added to the table and should never be null.
+                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
+                        }
 
-                            if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
-                            {
-                                // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
-                                // They should be populated as soon as they are added to the table and should never be null.
-                                throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
-                            }
+                        var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
-                            var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
+                        resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
+                        {
+                            Id = id,
+                            Uri = new Uri(uri),
+                            Status = status,
+                            IsPartiallySupported = (bool)isPartiallySupported,
+                            LastUpdated = (DateTimeOffset)lastUpdated,
+                        };
 
-                            resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
-                            {
-                                Id = id,
-                                Uri = new Uri(uri),
-                                Status = status,
-                                IsPartiallySupported = (bool)isPartiallySupported,
-                                LastUpdated = (DateTimeOffset)lastUpdated,
-                            };
+                        // Check whether the corresponding type of the search parameter is supported.
+                        SearchParameterInfo paramInfo = null;
+                        try
+                        {
+                            paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
+                        }
+                        catch (SearchParameterNotSupportedException)
+                        {
+                        }
+
+                        if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
+                        {
+                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
                         }
                         else
                         {
-                            (uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
-                                VLatest.SearchParam.Uri,
-                                VLatest.SearchParam.Status,
-                                VLatest.SearchParam.LastUpdated,
-                                VLatest.SearchParam.IsPartiallySupported);
-
-                            if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
-                            {
-                                // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
-                                // They should be populated as soon as they are added to the table and should never be null.
-                                throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
-                            }
-
-                            var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
-
-                            resourceSearchParameterStatus = new ResourceSearchParameterStatus
-                            {
-                                Uri = new Uri(uri),
-                                Status = status,
-                                IsPartiallySupported = (bool)isPartiallySupported,
-                                LastUpdated = (DateTimeOffset)lastUpdated,
-                            };
-                        }
-
-                        if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-                        {
-                            // For schema versions starting from AddMinMaxForDateAndStringSearchParamVersion we will check
-                            // whether the corresponding type of the search parameter is supported.
-                            SearchParameterInfo paramInfo = null;
-                            try
-                            {
-                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
-                            }
-                            catch (SearchParameterNotSupportedException)
-                            {
-                            }
-
-                            if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
-                            {
-                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
-                            }
-                            else
-                            {
-                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
-                            }
-                        }
-                        else
-                        {
-                            if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
-                            {
-                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
-                            }
-                            else
-                            {
-                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
-                            }
+                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
                         }
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
@@ -195,9 +151,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 return;
             }
 
-            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
+            // If the search parameter table in SQL does not yet contain the larger status column we reset back to disabled status
+            if (_schemaInformation.Current < (int)SchemaVersion.V52)
             {
-                throw new BadRequestException(Resources.SchemaVersionNeedsToBeUpgraded);
+                foreach (var status in statuses)
+                {
+                    if (status.Status == SearchParameterStatus.Unsupported)
+                    {
+                        status.Status = SearchParameterStatus.Disabled;
+                    }
+                }
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())

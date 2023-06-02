@@ -50,14 +50,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var observationWrapper = GetResourceWrapper(Samples.GetDefaultObservation().UpdateId(observationId));
 
             // create both
-            var mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            var mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
-            var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
+            var patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Created, patientOutcome.OutcomeType);
             Assert.Equal("1", patientOutcome.Wrapper.Version);
-            var observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            var observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Created, observationOutcome.OutcomeType);
             Assert.Equal("1", observationOutcome.Wrapper.Version);
@@ -71,14 +78,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update patient
             _logger.LogInformation($"update patient");
             UpdateResource(patientWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
-            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
+            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
             Assert.Equal("2", patientOutcome.Wrapper.Version);
-            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
             Assert.Equal("1", observationOutcome.Wrapper.Version);
@@ -86,49 +100,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // update observation
             _logger.LogInformation($"update observation");
             UpdateResource(observationWrapper);
-            mergeResults = await _store.MergeAsync(new List<ResourceWrapperOperation> { new ResourceWrapperOperation(patientWrapper, true, true, null, false), new ResourceWrapperOperation(observationWrapper, true, true, null, false) }, default);
+            mergeResults = await _store.MergeAsync(
+                new List<ResourceWrapperOperation>
+                {
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                },
+                default);
             Assert.NotNull(mergeResults);
             Assert.Equal(2, mergeResults.Count);
-            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == patientId);
+            Assert.Equal(2, mergeResults.Count(r => r.Value.IsOperationSuccessful));
+            patientOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == patientId).UpsertOutcome;
             Assert.NotNull(patientOutcome);
             Assert.Equal(SaveOutcomeType.Updated, patientOutcome.OutcomeType);
             Assert.Equal("2", patientOutcome.Wrapper.Version);
-            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.Wrapper.ResourceId == observationId);
+            observationOutcome = mergeResults.Values.FirstOrDefault(_ => _.UpsertOutcome.Wrapper.ResourceId == observationId).UpsertOutcome;
             Assert.NotNull(observationOutcome);
             Assert.Equal(SaveOutcomeType.Updated, observationOutcome.OutcomeType);
             Assert.Equal("2", observationOutcome.Wrapper.Version);
-        }
-
-        [Fact]
-        public async Task GivenResourceAndMergeDisabled_UpsertAndGet()
-        {
-            DisableMergeResources();
-
-            try
-            {
-                var patientId = Guid.NewGuid().ToString();
-                var patientWrapper = GetResourceWrapper(Samples.GetDefaultPatient().UpdateId(patientId));
-
-                // create
-                var upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
-                Assert.NotNull(upsertResult);
-                Assert.Equal(SaveOutcomeType.Created, upsertResult.OutcomeType);
-                Assert.Equal("1", upsertResult.Wrapper.Version);
-
-                var wrapper = await _store.GetAsync(new ResourceKey("Patient", patientId), default);
-                Assert.NotNull(wrapper);
-
-                // update
-                UpdateResource(patientWrapper);
-                upsertResult = await _store.UpsertAsync(new ResourceWrapperOperation(patientWrapper, true, true, null, false), default);
-                Assert.NotNull(upsertResult);
-                Assert.Equal(SaveOutcomeType.Updated, upsertResult.OutcomeType);
-                Assert.Equal("2", upsertResult.Wrapper.Version);
-            }
-            finally
-            {
-                EnableMergeResources();
-            }
         }
 
         private ResourceWrapper GetResourceWrapper(ResourceElement resource)
@@ -155,24 +144,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             resource.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
-        }
-
-        private void DisableMergeResources()
-        {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Number) SELECT @Id, 1";
-            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
-        }
-
-        private void EnableMergeResources()
-        {
-            using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-            using var cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "DELETE FROM dbo.Parameters WHERE Id = @Id";
-            cmd.Parameters.AddWithValue("@Id", SqlServerFhirDataStore.MergeResourcesDisabledFlagId);
-            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
     }
 }

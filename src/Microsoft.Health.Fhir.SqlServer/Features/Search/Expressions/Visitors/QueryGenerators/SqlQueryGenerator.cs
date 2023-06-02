@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -18,6 +20,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -45,6 +49,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _unionVisited = false;
         private bool _firstChainAfterUnionVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
+        private bool _hasIdentifier = false;
+        private int _searchParamCount = 0;
+        private bool previousSqlQueryGeneratorFailure = false;
+        private int maxTableExpressionCountLimitForExists = 8;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -52,7 +60,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             ISqlServerFhirModel model,
             SqlSearchType searchType,
             SchemaInformation schemaInfo,
-            string searchParameterHash)
+            string searchParameterHash,
+            SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -65,6 +74,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _searchType = searchType;
             _schemaInfo = schemaInfo;
             _searchParameterHash = searchParameterHash;
+
+            if (sqlException?.ErrorCode == SqlErrorCodes.QueryProcessorNoQueryPlan)
+            {
+                previousSqlQueryGeneratorFailure = true;
+            }
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -251,6 +265,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                    }
+
+                    // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
+                    // then we will tell SQL to ignore the parameter values and base the query plan one the
+                    // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
+                    if (AddOptimizeForUnknownClause())
+                    {
+                        StringBuilder.AppendLine(" OPTION (OPTIMIZE FOR UNKNOWN)");
                     }
                 }
             }
@@ -467,19 +489,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
+            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName
+                && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
+            {
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
+            }
+
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
                 AppendHistoryClause(delimited);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
                 {
-                    // if chainLevel > 0 or if in sort mode, the intersection is already handled in the JOIN
+                    // if chainLevel > 0 or if in sort mode or if ReferenceSearchParam, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
 
                 if (searchParamTableExpression.Predicate != null)
                 {
                     delimited.BeginDelimitedElement();
+                    CheckForIdentifierSearchParams(searchParamTableExpression.Predicate);
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
                 }
             }
@@ -686,6 +715,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
+            // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
+            else if (CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
+            {
+                AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+            }
+
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
@@ -704,7 +739,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                if (searchParamTableExpression.ChainLevel == 1)
+                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
                 {
                     // if > 1, the intersection is handled by the JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
@@ -1019,6 +1054,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
+                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                {
+                    AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
+                }
+
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited);
@@ -1041,7 +1081,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    {
+                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    }
                 }
             }
 
@@ -1060,6 +1103,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
+                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                {
+                    AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
+                }
+
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
                     AppendHistoryClause(delimited);
@@ -1082,7 +1130,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    {
+                        AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
+                    }
                 }
             }
 
@@ -1165,6 +1216,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             sb.Append(")");
         }
 
+        private bool CheckAppendWithJoin(string tableName)
+        {
+            // if this is an inner join on the Reference Search Param table, and either:
+            // 1. the number of table expressions is greater than the limit indicating a complex query
+            // 2. the previous query generator failed to generate a query
+            // then we will use the EXISTS clause instead of the inner join
+            if (tableName == VLatest.ReferenceSearchParam.TableName &&
+                (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
+                previousSqlQueryGeneratorFailure))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
         {
             int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
@@ -1179,6 +1248,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .Append(')');
+            }
+        }
+
+        private void AppendIntersectionWithPredecessorUsingInnerJoin(IndentedStringBuilder sb, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        {
+            int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+
+            if (predecessorIndex >= 0)
+            {
+                bool intersectWithFirst = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0;
+
+                // To simplify query plan generation, if we are intersecting with the Reference search param table, we will use an inner join
+                // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
+                // complex queries
+
+                sb.AppendLine("INNER JOIN " + TableExpressionName(predecessorIndex - 0));
+                using (sb.BeginDelimitedOnClause())
+                {
+                    sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                        .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
+                        .AppendLine();
+                }
             }
         }
 
@@ -1323,6 +1414,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// We are looking for 3 conditions to add the OptimizeForUnknownClause:
+        /// 1. Has an include expression
+        /// 2. Has an identifier search
+        /// 3. Has at least one more search parameter
+        /// </summary>
+        /// <returns>True if all condition are met</returns>
+        private bool AddOptimizeForUnknownClause()
+        {
+            var hasInclude = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+            return hasInclude && _hasIdentifier && (_searchParamCount >= 2);
+        }
+
+        private void CheckForIdentifierSearchParams(Expression predicate)
+        {
+            var searchParameterExpressionPredicate = predicate as SearchParameterExpression;
+            if (searchParameterExpressionPredicate != null)
+            {
+                _searchParamCount++;
+                if (searchParameterExpressionPredicate.Parameter.Name == KnownQueryParameterNames.Identifier)
+                {
+                    _hasIdentifier = true;
+                }
+            }
         }
 
         private static SortContext GetSortRelatedDetails(SearchOptions context)

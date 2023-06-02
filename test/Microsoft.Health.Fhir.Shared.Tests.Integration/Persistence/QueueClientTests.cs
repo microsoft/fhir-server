@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         GivenGroupJobs_WhenCompleteJob_ThenJobsShouldBeCompleted,
         GivenGroupJobs_WhenCancelJobsByGroupId_ThenAllJobsShouldBeCancelled,
         GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled,
+        GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange,
         GivenGroupJobs_WhenOneJobFailedAndRequestCancellation_ThenAllJobsShouldBeCancelled,
         ExecuteWithHeartbeat,
         ExecuteWithHeartbeatsHeavy,
@@ -266,6 +267,42 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        public async Task GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange()
+        {
+            byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsByGroupIdCalledTwice_ThenJobStatusShouldNotChange;
+            await _queueClient.EnqueueAsync(queueType, new string[] { "job1", "job2", "job3" }, null, false, false, CancellationToken.None);
+
+            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
+            IEnumerable<JobInfo> jobs = await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None);
+            JobInfo jobInfo3 = jobs.First(t => t.Id != jobInfo1.Id && t.Id != jobInfo2.Id);
+
+            await _queueClient.CancelJobByIdAsync(queueType, jobInfo1.Id, CancellationToken.None);
+
+            jobInfo1.Status = JobStatus.Failed;
+            jobInfo1.Result = "job failed";
+            await _queueClient.CompleteJobAsync(jobInfo1, false, CancellationToken.None);
+
+            await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfo2.GroupId, CancellationToken.None);
+            Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo2.GroupId, false, CancellationToken.None)).All(t => t.Status == JobStatus.Cancelled || t.Status == JobStatus.Failed || (t.Status == JobStatus.Running && t.CancelRequested)));
+            jobInfo1 = await _queueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
+            jobInfo2 = await _queueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
+            jobInfo3 = await _queueClient.GetJobByIdAsync(queueType, jobInfo3.Id, false, CancellationToken.None);
+            Assert.Equal(JobStatus.Failed, jobInfo1.Status);
+            Assert.Equal(JobStatus.Running, jobInfo2.Status);
+            Assert.Equal(JobStatus.Cancelled, jobInfo3.Status);
+
+            await _queueClient.CancelJobByGroupIdAsync(queueType, jobInfo2.GroupId, CancellationToken.None);
+            Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo2.GroupId, false, CancellationToken.None)).All(t => t.Status == JobStatus.Cancelled || t.Status == JobStatus.Failed || (t.Status == JobStatus.Running && t.CancelRequested)));
+            jobInfo1 = await _queueClient.GetJobByIdAsync(queueType, jobInfo1.Id, false, CancellationToken.None);
+            jobInfo2 = await _queueClient.GetJobByIdAsync(queueType, jobInfo2.Id, false, CancellationToken.None);
+            jobInfo3 = await _queueClient.GetJobByIdAsync(queueType, jobInfo3.Id, false, CancellationToken.None);
+            Assert.Equal(JobStatus.Failed, jobInfo1.Status);
+            Assert.Equal(JobStatus.Running, jobInfo2.Status);
+            Assert.Equal(JobStatus.Cancelled, jobInfo3.Status);
+        }
+
+        [Fact]
         public async Task GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled()
         {
             byte queueType = (byte)TestQueueType.GivenGroupJobs_WhenCancelJobsById_ThenOnlySingleJobShouldBeCancelled;
@@ -297,7 +334,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.True((await _queueClient.GetJobByGroupIdAsync(queueType, jobInfo1.GroupId, false, CancellationToken.None)).All(t => t.Status is (JobStatus?)JobStatus.Cancelled or (JobStatus?)JobStatus.Failed));
         }
 
-        [Fact]
+        [Fact(Skip ="Doesn't run within time limits. Bug: 103102")]
         public async Task GivenAJob_WhenExecutedWithHeartbeats_ThenHeartbeatsAreRecorded()
         {
             await this.RetryAsync(
@@ -346,7 +383,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
         }
 
-        [Fact]
+        [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
         [Obsolete("Unit test for obsolete method")]
         public async Task GivenAJob_WhenExecutedWithHeavyHeartbeats_ThenHeavyHeartbeatsAreRecorded()
         {

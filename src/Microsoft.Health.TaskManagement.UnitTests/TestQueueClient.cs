@@ -24,6 +24,8 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Func<TestQueueClient, long, CancellationToken, JobInfo> GetJobByIdFunc { get; set; }
 
+        public Func<TestQueueClient, long, CancellationToken, IReadOnlyList<JobInfo>> GetJobByGroupIdFunc { get; set; }
+
         public List<JobInfo> JobInfos
         {
             get { return jobInfos; }
@@ -123,9 +125,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
         public Task<IReadOnlyList<JobInfo>> EnqueueAsync(byte queueType, string[] definitions, long? groupId, bool forceOneActiveJobGroup, bool isCompleted, CancellationToken cancellationToken)
         {
-            List<JobInfo> result = new List<JobInfo>();
+            var result = new List<JobInfo>();
 
             long gId = groupId ?? largestId++;
+
             foreach (string definition in definitions)
             {
                 if (jobInfos.Any(t => t.Definition.Equals(definition)))
@@ -133,25 +136,40 @@ namespace Microsoft.Health.JobManagement.UnitTests
                     result.Add(jobInfos.First(t => t.Definition.Equals(definition)));
                     continue;
                 }
-
-                result.Add(new JobInfo()
+                else
                 {
-                    Definition = definition,
-                    Id = largestId,
-                    GroupId = gId,
-                    Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
-                    HeartbeatDateTime = DateTime.Now,
-                    QueueType = queueType,
-                });
+                    var newJob = new JobInfo()
+                    {
+                        Definition = definition,
+                        Id = largestId,
+                        GroupId = gId,
+                        Status = isCompleted ? JobStatus.Completed : JobStatus.Created,
+                        HeartbeatDateTime = DateTime.Now,
+                        QueueType = queueType,
+                    };
+
+                    if (newJob.Status == JobStatus.Created)
+                    {
+                        newJob.CreateDate = DateTime.Now;
+                    }
+
+                    result.Add(newJob);
+                    jobInfos.Add(newJob);
+                }
+
                 largestId++;
             }
 
-            jobInfos.AddRange(result);
             return Task.FromResult<IReadOnlyList<JobInfo>>(result);
         }
 
         public Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
         {
+            if (GetJobByGroupIdFunc != null)
+            {
+                return Task.FromResult(GetJobByGroupIdFunc(this, groupId, cancellationToken));
+            }
+
             IReadOnlyList<JobInfo> result = jobInfos.Where(t => t.GroupId == groupId).ToList();
             return Task.FromResult(result);
         }
@@ -175,7 +193,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             }
 
             IReadOnlyList<JobInfo> result = jobInfos.Where(t => jobIds.Contains(t.Id)).ToList();
-            return Task.FromResult<IReadOnlyList<JobInfo>>(result);
+            return Task.FromResult(result);
         }
 
         public bool IsInitialized()
