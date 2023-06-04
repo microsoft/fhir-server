@@ -44,7 +44,7 @@ BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   IF error_number() = 40544 -- '%database ''tempdb'' has reached its size quota%'
   BEGIN
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st,@ReRaisError=0,@Retry=@Retries
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st,@Retry=@Retries
     SET @Retries = @Retries + 1
     IF @Tbl = 'TokenText_96' 
       WAITFOR DELAY '01:00:00' -- 1 hour
