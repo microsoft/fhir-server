@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
         public static IOptions<BundleConfiguration> GetBundleConfiguration(bool isBundleOrchestratorEnabled = true)
         {
-            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = isBundleOrchestratorEnabled };
+            var bundleConfiguration = new BundleConfiguration();
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
 
             bundleOptions.Value.Returns(bundleConfiguration);
