@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [SkippableFact] // Bug 104187 - Fix Test - Hard Deleting Permissions
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnForbidden()
         {
