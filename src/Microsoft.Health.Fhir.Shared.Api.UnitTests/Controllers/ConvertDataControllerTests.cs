@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -217,10 +218,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
             optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfiguration);
 
+            IContainerRegistryAccessValidator containerRegistryAccessValidator = new BaseContainerRegistryAccessValidator();
+
             return new ConvertDataController(
                 _mediator,
                 optionsOperationConfiguration,
                 optionsArtifactStoreConfiguration,
+                containerRegistryAccessValidator,
                 NullLogger<ConvertDataController>.Instance);
         }
 

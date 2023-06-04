@@ -7,6 +7,7 @@ using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -77,6 +78,17 @@ namespace Microsoft.Health.Fhir.Azure
             fhirServerBuilder.Services.Add<AzureContainerRegistryAccessTokenProvider>()
                 .Singleton()
                 .AsService<IContainerRegistryTokenProvider>();
+
+            return fhirServerBuilder;
+        }
+
+        public static IFhirServerBuilder AddContainerRegistryAccessValidator(this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.Add<BaseContainerRegistryAccessValidator>()
+                .Transient()
+                .AsService<IContainerRegistryAccessValidator>();
 
             return fhirServerBuilder;
         }
