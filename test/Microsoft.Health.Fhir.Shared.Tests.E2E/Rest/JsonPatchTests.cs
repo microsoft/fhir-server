@@ -73,8 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-BinaryPatch").ToPoco<Bundle>();
 
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Sequential);
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 

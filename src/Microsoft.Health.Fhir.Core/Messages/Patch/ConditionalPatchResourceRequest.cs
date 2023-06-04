@@ -20,9 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             string resourceType,
             PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            Guid? bundleOperationId,
             WeakETag weakETag = null)
-            : base(resourceType, conditionalParameters, bundleOperationId)
+            : base(resourceType, conditionalParameters)
         {
             EnsureArg.IsNotNull(payload, nameof(payload));
 

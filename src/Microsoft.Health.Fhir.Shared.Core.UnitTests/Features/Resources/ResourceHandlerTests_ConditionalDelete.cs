@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count, bundleOperationId: null);
+            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count);
 
             return message;
         }

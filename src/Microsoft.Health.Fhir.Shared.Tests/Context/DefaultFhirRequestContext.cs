@@ -45,43 +45,5 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public IDictionary<string, object> Properties { get; } = new Dictionary<string, object>();
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
-
-        public object Clone()
-        {
-            KeyValuePair<string, StringValues>[] requestHeaders = new KeyValuePair<string, StringValues>[RequestHeaders.Count];
-            RequestHeaders.CopyTo(requestHeaders, 0);
-
-            KeyValuePair<string, StringValues>[] responseHeaders = new KeyValuePair<string, StringValues>[ResponseHeaders.Count];
-            ResponseHeaders.CopyTo(responseHeaders, 0);
-
-            var clone = new FhirRequestContext(
-                Method,
-                Uri.ToString(),
-                BaseUri.ToString(),
-                CorrelationId,
-                requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
-                responseHeaders: new Dictionary<string, StringValues>(responseHeaders));
-
-            clone.RouteName = RouteName;
-            clone.AuditEventType = AuditEventType;
-            clone.Principal = Principal.Clone();
-            clone.ResourceType = ResourceType;
-            clone.IncludePartiallyIndexedSearchParams = IncludePartiallyIndexedSearchParams;
-            clone.ExecutingBatchOrTransaction = ExecutingBatchOrTransaction;
-            clone.IsBackgroundTask = IsBackgroundTask;
-            clone.AccessControlContext = (AccessControlContext)AccessControlContext.Clone();
-
-            foreach (OperationOutcomeIssue bundleIssue in BundleIssues)
-            {
-                clone.BundleIssues.Add(bundleIssue);
-            }
-
-            foreach (KeyValuePair<string, object> property in Properties)
-            {
-                clone.Properties.Add(property);
-            }
-
-            return clone;
-        }
     }
 }

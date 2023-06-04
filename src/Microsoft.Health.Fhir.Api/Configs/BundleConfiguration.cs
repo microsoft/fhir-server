@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
+namespace Microsoft.Health.Fhir.Api.Configs
 {
-    public enum BundleOrchestratorOperationStatus
+    public class BundleConfiguration
     {
-        Open,
-        WaitingForResources,
-        Processing,
-        Completed,
-        Failed,
-        Canceled,
+        public int EntryLimit { get; set; } = 500;
     }
 }

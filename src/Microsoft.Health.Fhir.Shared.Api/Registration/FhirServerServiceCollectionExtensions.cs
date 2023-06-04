@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -136,18 +135,6 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            return fhirServerBuilder;
-        }
-
-        public static IFhirServerBuilder AddBundleOrchestrator(
-            this IFhirServerBuilder fhirServerBuilder,
-            IConfiguration configuration)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
 
             return fhirServerBuilder;
         }

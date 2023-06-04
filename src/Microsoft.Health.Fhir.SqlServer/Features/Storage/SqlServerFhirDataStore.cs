@@ -22,7 +22,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
@@ -39,8 +38,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
-        private const string InitialVersion = "1";
-
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
@@ -49,14 +46,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
-        private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
-
+        private const string InitialVersion = "1";
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
         private static object _flagLocker = new object();
 
@@ -68,7 +64,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            IBundleOrchestrator bundleOrchestrator,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
@@ -83,7 +78,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
-            _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -102,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             var retries = 0;
             while (true)
@@ -149,10 +143,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        // split in a separate method to allow special logic in $import
+        internal async Task<Dictionary<ResourceKey, UpsertOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
-            var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
             if (resources == null || resources.Count == 0)
             {
                 return results;
@@ -177,7 +171,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
                 var resource = resourceExt.Wrapper;
-                var identifier = resourceExt.GetIdentifier();
                 var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
@@ -190,12 +183,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
-                            results.Add(identifier, new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
-                            continue;
+                            throw new ResourceConflictException(weakETag);
                         }
 
-                        results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
-                        continue;
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                     }
                 }
 
@@ -205,7 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (resource.IsDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist.
-                        results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
+                        results.Add(resourceKey, null);
                         continue;
                     }
 
@@ -214,15 +205,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // You can't update a resource with a specified version if the resource does not exist
                         if (weakETag != null)
                         {
-                            results.Add(identifier, new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
-                            continue;
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                         }
                     }
 
                     if (!resourceExt.AllowCreate)
                     {
-                        results.Add(identifier, new DataStoreOperationOutcome(new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
-                        continue;
+                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                     }
 
                     resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
@@ -242,18 +231,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
-                            results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
-                            continue;
+                            throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                         }
 
-                        results.Add(identifier, new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
-                        continue;
+                        throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                     }
 
                     if (resource.IsDeleted && existingResource.IsDeleted)
                     {
                         // Already deleted - don't create a new version
-                        results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
+                        results.Add(resourceKey, null);
                         continue;
                     }
 
@@ -264,7 +251,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (ExistingRawResourceIsEqualToInput(resource, existingResource))
                         {
                             // Send the existing resource in the response
-                            results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
+                            results.Add(resourceKey, new UpsertOutcome(existingResource, SaveOutcomeType.Updated));
                             continue;
                         }
                     }
@@ -304,13 +291,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.ResourceSurrogateId = surrId;
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
-                results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
+                results.Add(resourceKey, new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
             }
 
             if (mergeWrappers.Count > 0) // do not call db with empty input
             {
-                // TODO: Remove tran enlist when true bundle logic is in place.
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true); // TODO: Remove tran enlist when true bundle logic is in place.
                 using var cmd = conn.CreateNonRetrySqlCommand();
                 VLatest.MergeResources.PopulateCommand(
                     cmd,
@@ -344,26 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
-            if (isBundleOperation)
-            {
-                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
-                return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
-                DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
-
-                if (dataStoreOperationOutcome.IsOperationSuccessful)
-                {
-                    return dataStoreOperationOutcome.UpsertOutcome;
-                }
-                else
-                {
-                    throw dataStoreOperationOutcome.Exception;
-                }
-            }
+            return (await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken)).First().Value;
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)

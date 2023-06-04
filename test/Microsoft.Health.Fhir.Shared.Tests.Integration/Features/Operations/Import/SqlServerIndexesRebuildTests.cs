@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
@@ -207,12 +206,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
-            var bundleConfiguration = new BundleConfiguration();
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(bundleConfiguration);
-
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
-
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -221,7 +214,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 reindexResourceTvpGeneratorVLatest,
                 bulkReindexResourceTvpGeneratorVLatest,
                 Options.Create(new CoreFeatureConfiguration()),
-                bundleOrchestrator,
                 defaultSqlConnectionWrapperFactory,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,
