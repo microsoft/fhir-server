@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Web
 
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
-                services.AddHttpContextAccessor();
+                // services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();
