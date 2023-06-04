@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             EnsureArg.IsNotNull(bundleConfiguration, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            IsEnabled = true;
+            IsEnabled = bundleConfiguration.Value.SupportsBundleOrchestrator;
 
             _logger = logger;
             _operationsById = new ConcurrentDictionary<Guid, IBundleOrchestratorOperation>();

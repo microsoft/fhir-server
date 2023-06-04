@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
-            var bundleConfiguration = new BundleConfiguration();
+            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(bundleConfiguration);
 
