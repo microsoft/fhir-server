@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
+using Microsoft.Health.JobManagement.UnitTests;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -20,20 +21,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string ReindexJobPartitionKey = "ReindexJob";
 
         private readonly Container _documentClient;
+        private readonly TestQueueClient _queueClient;
 
-        public CosmosDbFhirStorageTestHelper(Container documentClient)
+        public CosmosDbFhirStorageTestHelper(Container documentClient, TestQueueClient queueClient)
         {
             _documentClient = documentClient;
+            _queueClient = queueClient;
         }
 
-        public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
+        public Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await DeleteAllRecordsAsync(ExportJobPartitionKey, cancellationToken);
+            _queueClient.JobInfos.Clear();
+            return Task.CompletedTask;
         }
 
-        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        public Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await _documentClient.DeleteItemStreamAsync(id, new PartitionKey(ExportJobPartitionKey), cancellationToken: cancellationToken);
+            _queueClient.JobInfos.RemoveAll((info) => info.Id == long.Parse(id));
+            return Task.CompletedTask;
         }
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)

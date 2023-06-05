@@ -687,11 +687,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchList;
         }
 
-        public override long GetSurrogateId(DateTime dateTime)
-        {
-            return ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(dateTime);
-        }
-
         private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
         {
             return (sqlDataReader.GetInt16(0), sqlDataReader.GetString(1));
