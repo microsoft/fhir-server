@@ -236,7 +236,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                     await sqlConnection.OpenAsync(cancellationToken);
 
-                    sqlCommand.CommandTimeout = Math.Max(sqlCommand.CommandTimeout, (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds);
+                    // only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
+                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);
