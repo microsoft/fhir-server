@@ -385,15 +385,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A resource should only appear once in each Bundle..
-        /// </summary>
-        internal static string DuplicatedResourceInABundle {
-            get {
-                return ResourceManager.GetString("DuplicatedResourceInABundle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
         /// </summary>
         internal static string DuplicateRoleNames {

@@ -15,23 +15,21 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -50,7 +48,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Bundle)]
+    [Trait(Traits.Category, Categories.Batch)]
     public class BundleHandlerTests
     {
         private readonly BundleHandler _bundleHandler;
@@ -85,14 +83,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
-            _bundleConfiguration = new BundleConfiguration();
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(_bundleConfiguration);
-
-            var logger = Substitute.For<ILogger<BundleOrchestrator>>();
-
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
-
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
             {
@@ -111,6 +101,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
+            _bundleConfiguration = new BundleConfiguration();
+            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
+            bundleOptions.Value.Returns(_bundleConfiguration);
+
             _mediator = Substitute.For<IMediator>();
 
             _bundleHandler = new BundleHandler(
@@ -120,7 +114,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 fhirJsonParser,
                 transactionHandler,
                 bundleHttpContextAccessor,
-                bundleOrchestrator,
                 resourceIdProvider,
                 transactionBundleValidator,
                 resourceReferenceResolver,

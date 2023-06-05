@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task MergeResourcesAsync(IEnumerable<ImportResource> resources, CancellationToken cancellationToken)
         {
-            var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
+            var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, false, _.KeepVersion)).ToList();
             await _store.MergeInternalAsync(input, cancellationToken);
         }
 

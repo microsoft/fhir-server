@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             var resource = bundle.ToResourceElement()
                             .UpdateId(id);
 
-            var createResourceRequest = new CreateResourceRequest(resource, bundleOperationId: null);
+            var createResourceRequest = new CreateResourceRequest(resource);
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
             Assert.True(result.Errors.Count >= 3);
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 config);
             var resource = Samples.GetDefaultObservation();
 
-            var createResourceRequest = new CreateResourceRequest(resource, bundleOperationId: null);
+            var createResourceRequest = new CreateResourceRequest(resource);
             validator.Validate(createResourceRequest);
 
             if (shouldCallProfileValidation)

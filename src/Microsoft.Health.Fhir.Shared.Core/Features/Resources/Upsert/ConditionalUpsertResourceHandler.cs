@@ -48,13 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 // No matches, no id provided: The server creates the resource
                 // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleOperationId), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource), cancellationToken);
             }
             else
             {
                 // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
                 // TODO: There is a potential contention issue here that this could replace an existing resource
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource, request.BundleOperationId), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource), cancellationToken);
             }
         }
 
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
             {
                 resource.Id = resourceWrapper.ResourceId;
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), request.BundleOperationId, version), cancellationToken);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), version), cancellationToken);
             }
             else
             {

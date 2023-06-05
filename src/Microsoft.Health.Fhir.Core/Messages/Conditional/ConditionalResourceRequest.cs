@@ -13,21 +13,18 @@ namespace Microsoft.Health.Fhir.Core.Messages
 {
     public abstract class ConditionalResourceRequest<TResponse> : IRequireCapability, IRequest<TResponse>
     {
-        protected ConditionalResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, Guid? bundleOperationId)
+        protected ConditionalResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
-            BundleOperationId = bundleOperationId;
         }
 
         public string ResourceType { get; }
 
         public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
-
-        public Guid? BundleOperationId { get; }
 
         protected abstract IEnumerable<string> GetCapabilities();
 

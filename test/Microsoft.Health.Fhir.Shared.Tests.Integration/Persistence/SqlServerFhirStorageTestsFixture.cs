@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -173,12 +172,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
 
-            var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(bundleConfiguration);
-
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
-
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -187,7 +180,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 reindexResourceTvpGeneratorVLatest,
                 bulkReindexResourceTvpGeneratorVLatest,
                 options,
-                bundleOrchestrator,
                 SqlConnectionWrapperFactory,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,

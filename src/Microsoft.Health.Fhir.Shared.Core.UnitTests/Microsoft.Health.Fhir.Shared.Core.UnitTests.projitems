@@ -25,9 +25,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandlerTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorOperationTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleOrchestratorTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\Orchestration\BundleTestsCommonFunctions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandlerTests.cs" />

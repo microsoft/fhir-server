@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -28,7 +27,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -50,11 +48,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// The fraction of <see cref="QueryRequestOptions.MaxItemCount"/> to attempt to fill before giving up.
         /// </summary>
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
-        internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
 
-        private static readonly HardDelete _hardDelete = new HardDelete();
-        private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
-        private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
+        internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
 
         private readonly IScoped<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
@@ -62,8 +57,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
         private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
+
+        private static readonly HardDelete _hardDelete = new HardDelete();
+        private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
+        private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
-        private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly IModelInfoProvider _modelInfoProvider;
 
         /// <summary>
@@ -79,7 +77,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
-        /// <param name="bundleOrchestrator">Bundle orchestrator</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
         /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
         public CosmosFhirDataStore(
@@ -90,7 +87,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            IBundleOrchestrator bundleOrchestrator,
             Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
             IModelInfoProvider modelInfoProvider)
         {
@@ -101,7 +97,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
 
             _containerScope = containerScope;
@@ -111,8 +106,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
-            _bundleOrchestrator = bundleOrchestrator;
             _modelInfoProvider = modelInfoProvider;
+        }
+
+        public async Task<IDictionary<ResourceKey, UpsertOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        {
+            var results = new Dictionary<ResourceKey, UpsertOutcome>();
+            if (resources == null || resources.Count == 0)
+            {
+                return results;
+            }
+
+            foreach (var resource in resources)
+            {
+                results.Add(resource.Wrapper.ToResourceKey(), await UpsertAsync(resource, cancellationToken));
+            }
+
+            return results;
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
@@ -128,67 +138,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return results;
         }
 
-        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
-        {
-            if (resources == null || resources.Count == 0)
-            {
-                return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
-            }
-
-            var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
-            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
-            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
-            {
-                DataStoreOperationIdentifier identifier = resource.GetIdentifier();
-
-                try
-                {
-                    UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                        resource.Wrapper,
-                        resource.WeakETag,
-                        resource.AllowCreate,
-                        resource.KeepHistory,
-                        cancellationToken,
-                        resource.RequireETagOnUpdate);
-
-                    results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
-                }
-                catch (FhirException fhirException)
-                {
-                    // This block catches only FhirExceptions. FhirException can be thrown by the data store layer
-                    // in different situations, like: Failed pre-conditions, bad requests, resource not found, etc.
-
-                    results.TryAdd(identifier, new DataStoreOperationOutcome(fhirException));
-                }
-            });
-
-            return results;
-        }
-
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
-
-            if (isBundleOperation)
-            {
-                IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
-
-                // Internally Bundle Operation calls "MergeAsync".
-                return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                return await InternalUpsertAsync(
-                    resource.Wrapper,
-                    resource.WeakETag,
-                    resource.AllowCreate,
-                    resource.KeepHistory,
-                    cancellationToken,
-                    resource.RequireETagOnUpdate);
-            }
+            return await UpsertAsync(resource.Wrapper, resource.WeakETag, resource.AllowCreate, resource.KeepHistory, cancellationToken, resource.RequireETagOnUpdate);
         }
 
-        private async Task<UpsertOutcome> InternalUpsertAsync(
+        private async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
             WeakETag weakETag,
             bool allowCreate,

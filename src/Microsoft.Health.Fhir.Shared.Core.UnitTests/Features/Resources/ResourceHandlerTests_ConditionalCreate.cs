@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Created));
 
-            var message = new ConditionalCreateResourceRequest(requestResource, list, bundleOperationId: null);
+            var message = new ConditionalCreateResourceRequest(requestResource, list);
 
             return message;
         }

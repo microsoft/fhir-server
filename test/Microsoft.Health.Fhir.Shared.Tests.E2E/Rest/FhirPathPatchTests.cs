@@ -83,43 +83,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAPatchDocument_WhenSubmittingAParallelBundleWithDuplicatedPatch_ThenServerShouldReturnAnError()
-        {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
-
-            var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
-
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Parallel);
-
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.Response.StatusCode);
-
-            Bundle resource = fhirResponse.Resource;
-
-            // Duplicated records. Only one should successed. As the requests are processed in parallel,
-            // it's not possible to pick the one that will be processed.
-            if (resource.Entry[1].Response.Status == "200")
-            {
-                Assert.Equal("200", resource.Entry[1].Response.Status); // PATCH
-                Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
-            }
-            else
-            {
-                Assert.Equal("400", resource.Entry[1].Response.Status); // PATCH (Duplicate)
-                Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
-            }
-        }
-
-        [SkippableFact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly()
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
 
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Sequential);
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 
