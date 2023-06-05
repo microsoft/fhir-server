@@ -10,10 +10,10 @@ sequenceDiagram
     CreateBulkDeleteHandler->>QueueClient: Enqueue Bulk Delete Job
     QueueClient->>Database: Enqueue Bulk Delete Job
     Database-->>QueueClient: Enqueued Job
-    QueueClient-->>CreateResourceHandler: Enqueued Job
-    CreateResourceHandler-->>Mediatr: CreateBulkDeleteResponse
-    Mediatr-->>FhirController: CreateBulkDeleteResponse
-    FhirController-->>Middleware: JobResult
+    QueueClient-->>CreateBulkDeleteHandler: Enqueued Job
+    CreateBulkDeleteHandler-->>Mediatr: CreateBulkDeleteResponse
+    Mediatr-->>BulkDeleteController: CreateBulkDeleteResponse
+    BulkDeleteController-->>Middleware: JobResult
     Middleware-->>FhirServer: JobResult
     FhirServer-->>Client: JobResult
     JobHosting->>QueueClient: Dequeue Bulk Delete Job
@@ -45,7 +45,7 @@ sequenceDiagram
     Database-->>FhirDataStore: Resources Deleted
     FhirDataStore-->>Deleter: Resources Deleted
     Deleter-->>BulkDeleteProcessingJob: Resources Deleted
-    BulkDeleteProcessingJob-->>JobHandler: Finished Job
+    BulkDeleteProcessingJob-->>JobHosting: Finished Job
     JobHosting->>QueueClient: Finish Job
     QueueClient->>Database: Finish Job
     Database-->>QueueClient: Finished Job
