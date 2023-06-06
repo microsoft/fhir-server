@@ -1,11 +1,10 @@
 {
     "resourceType": "SearchParameter",
-    "id": "58c1c284-d770-448d-a6cc-a74998b51408",
     "meta": {
         "versionId": "3",
         "lastUpdated": "2023-04-04T19:31:09.483+00:00"
     },
-    "url": "http://fhir.medlix.org/SearchParameter/observation-code",
+    "url": "http://fhir.medlix.org/SearchParameter/observation-code-test",
     "version": "1.0.0",
     "name": "code",
     "status": "active",
