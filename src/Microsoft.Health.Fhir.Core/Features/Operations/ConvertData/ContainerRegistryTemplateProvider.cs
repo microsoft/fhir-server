@@ -29,8 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly ConvertDataConfiguration _convertDataConfig;
         private readonly MemoryCache _cache;
-        private MemoryCache _templateProviderCache;
-        private SemaphoreSlim _templateProviderFactorySemaphore;
+        private readonly MemoryCache _templateProviderCache;
+        private readonly SemaphoreSlim _templateProviderFactorySemaphore;
         private readonly ILogger<ContainerRegistryTemplateProvider> _logger;
 
         public ContainerRegistryTemplateProvider(
