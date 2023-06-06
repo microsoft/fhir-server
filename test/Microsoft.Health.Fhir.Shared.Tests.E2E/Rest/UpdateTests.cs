@@ -261,6 +261,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTheResource_WhenUpdatingANewSearchParameterResource_TheServerShouldValidateTheNewResourceSuccessfully()
+        {
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.UpdateAsync($"SearchParameter/{Guid.NewGuid()}", resourceToCreate));
+
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
         private static void ValidateUpdateResponse(Observation oldResource, FhirResponse<Observation> newResponse, bool same, HttpStatusCode expectedStatusCode)
         {
             Assert.Equal(expectedStatusCode, newResponse.StatusCode);
