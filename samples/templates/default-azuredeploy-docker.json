@@ -258,7 +258,7 @@
             "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[if(equals(parameters('sqlSchemaAutomaticUpdatesEnabled'),'auto'), true(), false())]",
             "DataStore": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'CosmosDb', 'SqlServer')]",
-            "TaskHosting__Enabled": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), false(), parameters('enableImport'))]",
+            "TaskHosting__Enabled": "[true()]",
             "TaskHosting__MaxRunningTaskCount": "[parameters('backgroundTaskCount')]",
             "FhirServer__Operations__IntegrationDataStore__StorageAccountUri": "[if(parameters('enableImport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",

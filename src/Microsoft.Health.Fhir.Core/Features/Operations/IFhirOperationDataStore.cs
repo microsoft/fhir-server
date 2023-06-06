@@ -42,14 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         Task<ExportJobOutcome> UpdateExportJobAsync(ExportJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Commits a new reindex job record to the data store.
-        /// </summary>
-        /// <param name="jobRecord">The reindex job record</param>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>A newly created reindex job record</returns>
-        Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken);
-
-        /// <summary>
         /// Acquires export jobs.
         /// </summary>
         /// <param name="numberOfJobsToAcquire">The number of jobs to acquire.</param>
@@ -57,6 +49,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired export job.</returns>
         Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Commits a new reindex job record to the data store.
+        /// </summary>
+        /// <param name="jobRecord">The reindex job record</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>A newly created reindex job record</returns>
+        Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken);
 
         /// <summary>
         /// Updates an existing reindex job record in the data store.

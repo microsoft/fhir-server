@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         }
 
         [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; internal set; }
+        public string Id { get; set; }
 
         [JsonProperty(JobRecordProperties.QueuedTime)]
         public DateTimeOffset QueuedTime { get; internal set; }
