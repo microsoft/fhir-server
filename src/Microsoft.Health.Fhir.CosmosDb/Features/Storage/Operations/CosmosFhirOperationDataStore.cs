@@ -29,9 +29,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
-        private static readonly string CheckActiveJobsByStatusQuery =
-            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
-
         private readonly IScoped<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;

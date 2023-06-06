@@ -208,11 +208,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     {
         var def = JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings);
         _logger.LogInformation($"Queueing reindex job with definition: {def}");
-        var results = await _queueClient.EnqueueAsync((byte)QueueType.Reindex, new[] { def }, null, false, jobRecord.Status == OperationStatus.Completed, cancellationToken);
+        var results = await _queueClient.EnqueueAsync((byte)QueueType.Reindex, new[] { def }, null, true, jobRecord.Status == OperationStatus.Completed, cancellationToken);
 
         if (results.Count != 1)
         {
-            throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Reindex, "Failed to create reindex job."), HttpStatusCode.InternalServerError);
+            throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Reindex, "Failed to create reindex job as there is one already queued or running."), HttpStatusCode.InternalServerError);
         }
 
         var jobInfo = results[0];

@@ -126,17 +126,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job
-                if (reindexJobRecord.QueryList?.Count == 0)
+                var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
+                if (!jobs.Any())
                 {
-                    if (!await ExecuteReindexProcessingJobsAsync(cancellationToken))
+                    progress.Report(string.Format("Starting reindex job with id: {0}. Status: {1}.", jobInfo.Id, OperationStatus.Running));
+                    var jobIds = await ExecuteReindexProcessingJobsAsync(cancellationToken);
+                    if (jobIds == null)
                     {
-                        return null;
+                        progress.Report(reindexJobRecord.Error.ToList());
+                    }
+                    else if (!jobIds.Any())
+                    {
+                        // Nothing to process so we are done.
+                        progress.Report(string.Format("Nothing to process for reindex job with id: {0}. Status: {1}.", jobInfo.Id, OperationStatus.Completed));
+                        return JsonConvert.SerializeObject(_reindexJobConfiguration);
                     }
                 }
 
-                _logger.LogInformation("Starting reindex job with id: {Id}. Status: {Status}. Progress: {Progress}", jobInfo.Id, OperationStatus.Running, _reindexJobRecord.Progress);
-
-                await WaitCompletion(progress, cancellationToken);
+                progress.Report(string.Format("Checking to see if all reindex query processing jobs. JobId: {0}, Group id: {1}, are still running.", jobInfo.Id, jobInfo.GroupId));
+                await CheckForCompletionAsync(progress, jobs.Select(j => j.Id).ToList(), cancellationToken);
             }
             catch (JobConflictException)
             {
@@ -176,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<IList<long>> ExecuteReindexProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> ExecuteReindexProcessingJobsAsync(CancellationToken cancellationToken)
         {
             // Build queries based on new search params
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
@@ -274,10 +282,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.QueryList.TryAdd(query, 1);
             }
 
-            return await EnqueueProcessingJobsAsync(cancellationToken);
+            return await EnqueueQueryProcessingJobsAsync(cancellationToken);
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
         {
             var definitions = new List<string>();
             foreach (var input in _reindexJobRecord.QueryList)
@@ -289,6 +297,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     StartResourceSurrogateId = input.Key.StartResourceSurrogateId,
                 };
 
+                // Finish mapping to processing job
                 definitions.Add(JsonConvert.SerializeObject(reindexJobPayload));
             }
 
@@ -299,7 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue job.");
+                _logger.LogError(ex, "Failed to enqueue jobs.");
                 throw new RetriableJobException(ex.Message, ex);
             }
         }
@@ -570,7 +579,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogError($"ReindexJob Error: Current ReindexJobRecord: {ser}");
         }
 
-        private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, CancellationToken cancellationToken)
+        private async Task CheckForCompletionAsync(IProgress<string> progress, IList<long> jobIds, CancellationToken cancellationToken)
         {
             await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
 
@@ -583,7 +592,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 try
                 {
                     var start = Stopwatch.StartNew();
-                    jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken));
+                    jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync((byte)QueueType.Reindex, jobIdsToCheck.ToArray(), false, cancellationToken));
                     duration = start.Elapsed.TotalSeconds;
                 }
                 catch (Exception ex)

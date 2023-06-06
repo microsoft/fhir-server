@@ -736,4 +736,7 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="SearchParametersNotInitialized" xml:space="preserve">
+    <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
+  </data>
 </root>

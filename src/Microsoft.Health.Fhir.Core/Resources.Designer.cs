@@ -1448,6 +1448,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support..
+        /// </summary>
+        internal static string SearchParametersNotInitialized {
+            get {
+                return ResourceManager.GetString("SearchParametersNotInitialized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search Parameter Status was not found..
         /// </summary>
         internal static string SearchParameterStatusNotFound {
