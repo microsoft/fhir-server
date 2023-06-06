@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
+            if (await _authorizationService.CheckAccess(DataActions.SearchParameter, cancellationToken) != DataActions.SearchParameter)
             {
                 throw new UnauthorizedFhirActionException();
             }
