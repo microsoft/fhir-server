@@ -265,10 +265,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingANewSearchParameterResource_TheServerShouldValidateTheNewResourceSuccessfully()
         {
+            var id = Guid.NewGuid();
             var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
+            resourceToCreate.Id = id.ToString();
 
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
-                () => _client.UpdateAsync($"SearchParameter/{Guid.NewGuid()}", resourceToCreate));
+                () => _client.UpdateAsync($"SearchParameter/{id}", resourceToCreate));
 
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
         }
