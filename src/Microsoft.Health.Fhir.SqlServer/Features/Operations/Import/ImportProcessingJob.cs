@@ -13,10 +13,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     [JobTypeId((int)JobType.ImportProcessing)]
     public class ImportProcessingJob : IJob
@@ -138,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Critical error in import processing job.");
-                var error = new ImportProcessingJobErrorResult() { Message = ex.Message };
+                var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }

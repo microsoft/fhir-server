@@ -40,11 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsFactory();
 
             services
-                .RemoveServiceTypeExact<ExportJobWorker, INotificationHandler<StorageInitializedNotification>>()
-                .Add<ExportJobWorker>()
-                .Singleton()
-                .AsSelf()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
+                .RemoveServiceTypeExact<LegacyExportJobWorker, INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<ResourceToNdjsonBytesSerializer>()
                 .Singleton()

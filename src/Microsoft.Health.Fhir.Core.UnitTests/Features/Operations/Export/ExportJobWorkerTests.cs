@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -32,12 +33,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private static readonly TimeSpan DefaultJobHeartbeatTimeoutThreshold = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan DefaultJobPollingFrequency = TimeSpan.FromMilliseconds(100);
 
-        private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private readonly ILegacyExportOperationDataStore _fhirOperationDataStore = Substitute.For<ILegacyExportOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly Func<IExportJobTask> _exportJobTaskFactory = Substitute.For<Func<IExportJobTask>>();
         private readonly IExportJobTask _task = Substitute.For<IExportJobTask>();
 
-        private readonly ExportJobWorker _exportJobWorker;
+        private readonly LegacyExportJobWorker _legacyExportJobWorker;
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
@@ -49,16 +50,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
             _exportJobTaskFactory().Returns(_task);
-            var scopedOperationDataStore = Substitute.For<IScoped<IFhirOperationDataStore>>();
-            scopedOperationDataStore.Value.Returns(_fhirOperationDataStore);
 
-            _exportJobWorker = new ExportJobWorker(
-                () => scopedOperationDataStore,
+            _legacyExportJobWorker = new LegacyExportJobWorker(
+                () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 _exportJobTaskFactory,
-                NullLogger<ExportJobWorker>.Instance);
+                NullLogger<LegacyExportJobWorker>.Instance);
 
-            _exportJobWorker.Handle(new StorageInitializedNotification(), CancellationToken.None);
+            _legacyExportJobWorker.Handle(new StorageInitializedNotification(), CancellationToken.None);
             _cancellationToken = _cancellationTokenSource.Token;
         }
 
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
             _exportJobTaskFactory().Received(1);
         }
@@ -87,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 2);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
             _exportJobTaskFactory.Received(1);
         }
@@ -131,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // In case the task was not called, cancel the worker after certain period of time.
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 3);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
             Assert.True(isSecondJobCalled);
         }
@@ -139,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAcquireExportJobThrowsException_WhenExecuted_ThenWeHaveADelayBeforeWeRetry()
         {
-            _fhirOperationDataStore.AcquireExportJobsAsync(
+            _fhirOperationDataStore.AcquireLegacyExportJobsAsync(
                 DefaultMaximumNumberOfConcurrentJobAllowed,
                 DefaultJobHeartbeatTimeoutThreshold,
                 _cancellationToken)
@@ -147,17 +146,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
             // Assert that we received only one call to AcquireExportJobsAsync
-            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireLegacyExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenOperationIsCancelled_WhenExecuted_ThenWeExitTheLoop()
         {
             ExportJobOutcome job = CreateExportJobOutcome();
-            _fhirOperationDataStore.AcquireExportJobsAsync(
+            _fhirOperationDataStore.AcquireLegacyExportJobsAsync(
                 Arg.Any<ushort>(),
                 Arg.Any<TimeSpan>(),
                 _cancellationToken)
@@ -167,10 +166,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         return new[] { job };
                     });
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
             // Assert that we received only one call to AcquireExportJobsAsync
-            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireLegacyExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
         }
 
         private void SetupOperationDataStore(
@@ -189,7 +188,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 jobPollingFrequency = DefaultJobPollingFrequency;
             }
 
-            _fhirOperationDataStore.AcquireExportJobsAsync(
+            _fhirOperationDataStore.AcquireLegacyExportJobsAsync(
                 maximumNumberOfConcurrentJobsAllowed,
                 jobHeartbeatTimeoutThreshold.Value,
                 _cancellationToken)

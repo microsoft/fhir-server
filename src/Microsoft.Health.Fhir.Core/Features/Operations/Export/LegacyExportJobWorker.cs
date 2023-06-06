@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// <summary>
     /// The worker responsible for running the export job tasks.
     /// </summary>
-    public class ExportJobWorker : INotificationHandler<StorageInitializedNotification>
+    public class LegacyExportJobWorker : INotificationHandler<StorageInitializedNotification>
     {
-        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<ILegacyExportOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private const int MaximumDelayInSeconds = 3600;
 
-        public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
+        public LegacyExportJobWorker(Func<IScoped<ILegacyExportOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<LegacyExportJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
@@ -61,20 +61,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         // Get list of available jobs.
                         if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance)
                         {
-                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                            using IScoped<ILegacyExportOperationDataStore> store = _fhirOperationDataStoreFactory();
+                            ushort numberOfJobsToAcquire = (ushort)(_exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance - runningTasks.Count);
+
+                            IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireLegacyExportJobsAsync(
+                                numberOfJobsToAcquire,
+                                _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                cancellationToken);
+
+                            foreach (ExportJobOutcome job in jobs)
                             {
-                                ushort numberOfJobsToAcquire = (ushort)(_exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowedPerInstance - runningTasks.Count);
-                                IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                    numberOfJobsToAcquire,
-                                    _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
-                                    cancellationToken);
+                                _logger.LogTrace("Picked up job: {JobId}.", job.JobRecord.Id);
 
-                                foreach (ExportJobOutcome job in jobs)
-                                {
-                                    _logger.LogTrace("Picked up job: {JobId}.", job.JobRecord.Id);
-
-                                    runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
-                                }
+                                runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                             }
                         }
 

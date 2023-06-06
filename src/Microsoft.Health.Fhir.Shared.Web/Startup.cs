@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
+                .AddContainerRegistryAccessValidator()
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
@@ -84,6 +85,9 @@ namespace Microsoft.Health.Fhir.Web
             The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
             fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+
+            // Set up Bundle Orchestrator.
+            fhirServerBuilder.AddBundleOrchestrator(Configuration);
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
@@ -168,6 +172,7 @@ namespace Microsoft.Health.Fhir.Web
 
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
+                services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddSingleton<ITelemetryInitializer, UserAgentHeaderTelemetryInitializer>();

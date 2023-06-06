@@ -87,6 +87,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
+        public override Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
         public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)

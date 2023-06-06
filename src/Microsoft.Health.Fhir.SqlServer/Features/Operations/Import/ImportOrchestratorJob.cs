@@ -20,11 +20,14 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     [JobTypeId((int)JobType.ImportOrchestrator)]
     public class ImportOrchestratorJob : IJob
@@ -187,6 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = processingEx.Message,
+                    ErrorDetails = processingEx.ToString(),
                 };
 
                 // Cancel other processing jobs
@@ -207,6 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
+                    ErrorDetails = ex.ToString(),
                 };
 
                 // Cancel processing jobs for critical error in orchestrator job
@@ -229,6 +234,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
+                    ErrorDetails = ex.ToString(),
                 };
 
                 throw new RetriableJobException(JsonConvert.SerializeObject(postProcessErrorResult));
@@ -279,7 +285,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             currentResult.SucceededResources = 0;
 
             // split blobs by size
-            var inputs = new List<Models.InputResource>();
+            var inputs = new List<InputResource>();
             await Parallel.ForEachAsync(coordDefinition.Input, new ParallelOptions { MaxDegreeOfParallelism = 16 }, async (input, cancel) =>
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
@@ -363,7 +369,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     currentResult.CompletedJobs += completedJobIds.Count;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
-                    await Task.Delay(TimeSpan.FromSeconds(duration * 10), cancellationToken); // throttle to avoid high database utilization.
+                    await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
                 }
                 else
                 {
@@ -373,7 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             while (jobIds.Count > 0);
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<Models.InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             var definitions = new List<string>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))

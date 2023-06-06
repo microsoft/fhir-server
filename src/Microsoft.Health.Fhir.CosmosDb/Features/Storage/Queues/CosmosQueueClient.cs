@@ -16,6 +16,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
 using Polly;
@@ -31,7 +32,7 @@ public class CosmosQueueClient : IQueueClient
         .Handle<RetriableJobException>()
         .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
         .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(GenerateRandomNumber()));
+        .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
@@ -562,27 +563,7 @@ public class CosmosQueueClient : IQueueClient
 
     private static long GetLongId()
     {
-        return IdHelper.DateToId(Clock.UtcNow.DateTime) + GenerateRandomNumber();
-    }
-
-    /// <summary>
-    /// To generate a random number between 100 and 999,
-    /// the method uses the formula (randomValue / UInt16.MaxValue) * 899 + 100.
-    /// This takes the percentage of the maximum UInt16 value that the generated value represents,
-    /// multiplies it by 899 (the difference between 999 and 100),
-    /// and adds 100 to shift the range to between 100 and 999.
-    /// </summary>
-    private static int GenerateRandomNumber()
-    {
-        using var rng = RandomNumberGenerator.Create();
-        var bytes = new byte[2];
-        rng.GetBytes(bytes);
-
-        var value = BitConverter.ToUInt16(bytes, 0);
-        var percentage = (double)value / ushort.MaxValue;
-
-        var randomNumber = (int)Math.Round(percentage * 899) + 100;
-        return randomNumber;
+        return Clock.UtcNow.DateTime.DateToId() + RandomNumberGenerator.GetInt32(100, 999);
     }
 
     /// <summary>

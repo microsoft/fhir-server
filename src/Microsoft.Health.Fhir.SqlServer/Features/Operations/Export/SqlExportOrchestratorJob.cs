@@ -9,23 +9,26 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 {
     [JobTypeId((int)JobType.ExportOrchestrator)]
-    public class ExportOrchestratorJob : IJob
+    public class SqlExportOrchestratorJob : IJob
     {
         private const int DefaultNumberOfSurrogateIdRanges = 100;
 
         private IQueueClient _queueClient;
         private ISearchService _searchService;
 
-        public ExportOrchestratorJob(
+        public SqlExportOrchestratorJob(
             IQueueClient queueClient,
             ISearchService searchService)
         {
@@ -54,20 +57,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var atLeastOneWorkerJobRegistered = false;
 
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name)
+                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(x => x.Name)
                                   : record.ResourceType.Split(',');
-                resourceTypes = resourceTypes.OrderByDescending(_ => string.Equals(_, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
+                resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-                var globalStartId = _searchService.GetSurrogateId(since.DateTime);
-                var till = record.Till.ToDateTimeOffset();
-                var globalEndId = _searchService.GetSurrogateId(till.DateTime) - 1; // -1 is so _till value can be used as _since in the next time based export
 
-                var enqueued = groupJobs.Where(_ => _.Id != jobInfo.Id) // exclude coord
-                                        .Select(_ => JsonConvert.DeserializeObject<ExportJobRecord>(_.Definition))
-                                        .Where(_ => _.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
-                                        .GroupBy(_ => _.ResourceType)
-                                        .ToDictionary(_ => _.Key, _ => _.Max(r => long.Parse(r.EndSurrogateId)));
+                var globalStartId = since.DateTime.DateToId();
+                var till = record.Till.ToDateTimeOffset();
+                var globalEndId = till.DateTime.DateToId() - 1; // -1 is so _till value can be used as _since in the next time based export
+
+                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                                        .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                                        .Where(x => x.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
+                                        .GroupBy(x => x.ResourceType)
+                                        .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
 
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {

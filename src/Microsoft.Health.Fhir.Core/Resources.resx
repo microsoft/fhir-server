@@ -732,4 +732,8 @@
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>Search Parameter Status was not found.</value>
   </data>
+  <data name="DuplicatedResourceInABundle" xml:space="preserve">
+    <value>A resource should only appear once in each Bundle.</value>
+    <comment>Error message for a duplicate resource key in the same bundle</comment>
+  </data>
 </root>

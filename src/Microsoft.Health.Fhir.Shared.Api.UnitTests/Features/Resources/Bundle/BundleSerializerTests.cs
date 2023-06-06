@@ -33,7 +33,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
-    [Trait(Traits.Category, Categories.Batch)]
+    [Trait(Traits.Category, Categories.Bundle)]
     public class BundleSerializerTests
     {
         private readonly ResourceWrapperFactory _wrapperFactory;
