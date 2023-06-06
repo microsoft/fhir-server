@@ -28,8 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
         public const int MaxQueryDelayIntervalInMilliseconds = 500000;
         public const int MinQueryDelayIntervalInMilliseconds = 5;
-        public const ushort MaxTargetDataStoreUsagePercentage = 100;
-        public const ushort MinTargetDataStoreUsagePercentage = 0;
 
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
@@ -39,7 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ushort maxiumumConcurrency = 1,
             uint maxResourcesPerQuery = 100,
             int queryDelayIntervalInMilliseconds = 500,
-            ushort? targetDataStoreUsagePercentage = null,
             int typeId = (int)JobType.ReindexOrchestrator)
         {
             ResourceTypeSearchParameterHashMap = EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
@@ -86,16 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
                 QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
             }
 
-            // check for TargetDataStoreUsagePercentage boundary
-            if (targetDataStoreUsagePercentage < MinTargetDataStoreUsagePercentage || targetDataStoreUsagePercentage > MaxTargetDataStoreUsagePercentage)
-            {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
-            }
-            else
-            {
-                TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
-            }
-
             // check for TargetResourceTypes boundary
             foreach (var type in targetResourceTypes)
             {
@@ -140,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public DateTimeOffset LastModified { get; set; }
 
         [JsonProperty(JobRecordProperties.FailureCount)]
-        public ushort FailureCount { get; set; }
+        public long FailureCount { get; set; }
 
         [JsonProperty(JobRecordProperties.Resources)]
         public ICollection<string> Resources { get; private set; } = new List<string>();
@@ -156,15 +143,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// </summary>
         [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
         public int QueryDelayIntervalInMilliseconds { get; set; }
-
-        /// <summary>
-        /// Controls the target percentage of how much of the allocated
-        /// data store resources to use
-        /// Ex: 1 - 100 percent of provisioned datastore resources
-        /// 0 means the value is not set, no throttling will occur
-        /// </summary>
-        [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
-        public ushort? TargetDataStoreUsagePercentage { get; set; }
 
         /// <summary>
         /// A user can optionally limit the scope of the Reindex job to specific
@@ -215,9 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.TypeId)]
         public int TypeId { get; internal set; }
 
-        internal ReindexJobRecord Clone()
-        {
-            return (ReindexJobRecord)MemberwiseClone();
-        }
+        [JsonProperty(JobRecordProperties.GroupId)]
+        public long GroupId { get; private set; }
     }
 }

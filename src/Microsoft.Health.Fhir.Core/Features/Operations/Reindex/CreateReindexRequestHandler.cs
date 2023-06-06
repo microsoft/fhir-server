@@ -30,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
 
+        // private bool _searchParametersInitialized = false;
+
         public CreateReindexRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
@@ -59,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new UnauthorizedFhirActionException();
             }
 
+            // Do we need this or just queue?
             (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
             if (activeReindexJobs)
             {
@@ -98,9 +101,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
             request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,
             request.TargetDataStoreUsagePercentage);
-            var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 
+            var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
             return new CreateReindexResponse(outcome);
         }
+
+        /*
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _searchParametersInitialized = true;
+            return Task.CompletedTask;
+        }
+        */
     }
 }

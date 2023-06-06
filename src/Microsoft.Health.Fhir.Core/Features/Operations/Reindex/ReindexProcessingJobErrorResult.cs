@@ -3,16 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public enum JobType : int
+    public class ReindexProcessingJobErrorResult
     {
-        Unknown = 0, // should not be used
-        ImportProcessing = 1,
-        ImportOrchestrator = 2,
-        ExportProcessing = 3,
-        ExportOrchestrator = 4,
-        ReindexOrchestrator = 5,
-        ReindexProcessing = 6,
+        public string Message { get; set; }
     }
 }

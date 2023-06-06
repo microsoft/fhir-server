@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>()).Returns(searchParam);
 
-            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
+            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatusToEnabled(paramUris, CancellationToken.None);
 
             Assert.True(success);
         }
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Any<string>()))
                 .Do(e => throw new SearchParameterNotSupportedException("message"));
 
-            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
+            var (success, error) = await _reindexUtilities.UpdateSearchParameterStatusToEnabled(paramUris, CancellationToken.None);
 
             Assert.False(success);
         }

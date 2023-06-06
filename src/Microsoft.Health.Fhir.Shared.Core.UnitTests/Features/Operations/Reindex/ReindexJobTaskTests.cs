@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+/*
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -54,8 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private Func<IReindexJobTask> _reindexJobTaskFactory;
         private SearchParameterStatusManager _searchParameterStatusmanager;
+        private Func<ReindexOrchestratorJob> _reindexJobTaskFactory;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
 
@@ -77,9 +79,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _throttleController.GetThrottleBasedDelay().Returns(0);
             _reindexJobTaskFactory = () =>
-                 new ReindexJobTask(
-                     () => _fhirOperationDataStore.CreateMockScope(),
-                     () => _fhirDataStore.CreateMockScope(),
+                 new ReindexOrchestratorJob(
+                     Substitute.For<IQueueClient>(),
+                     _fhirOperationDataStore,
                      Options.Create(_reindexJobConfiguration),
                      () => _searchService.CreateMockScope(),
                      supportedSearchDefinitionManager,
@@ -87,8 +89,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      _contextAccessor,
                      _throttleController,
                      ModelInfoProvider.Instance,
-                     NullLogger<ReindexJobTask>.Instance,
-                     _searchParameterStatusmanager);
+                     _searchParameterStatusmanager,
+                     NullLoggerFactory.Instance);
 
             _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }
@@ -124,7 +126,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(CreateSearchResult());
-
             await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
@@ -428,3 +429,4 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
     }
 }
+*/

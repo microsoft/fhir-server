@@ -13,5 +13,8 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Features\Operations\Reindex\" />
+  </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
 </Project>

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -24,7 +23,6 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations

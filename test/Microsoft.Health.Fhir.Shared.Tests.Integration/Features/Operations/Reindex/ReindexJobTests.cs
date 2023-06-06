@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+/*
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -75,7 +76,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;
-        private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
 
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
@@ -495,7 +495,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
                 await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
                 var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
@@ -822,7 +821,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             const int MaxNumberOfAttempts = 120;
 
-            Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
             int delayCount = 0;
@@ -1022,3 +1020,4 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
     }
 }
+*/

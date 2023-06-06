@@ -223,20 +223,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
         {
-            using SqlCommand sqlCommand = new SqlCommand();
             try
             {
-                sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
-                sqlCommand.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
-                await using SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(cancellationToken);
+                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
+                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
+                sqlCommandWrapper.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
+                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
+                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                var result = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(
-                    sqlCommand,
-                    JobInfoExtensions.LoadJobInfo,
-                    _logger,
-                    "GetJobByIdAsync failed.",
-                    cancellationToken);
-                return result.Id.ToString();
+                var result = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
+                return result?.Id.ToString();
             }
             catch (Exception ex)
             {
