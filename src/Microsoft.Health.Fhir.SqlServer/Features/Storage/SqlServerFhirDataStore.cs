@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-            using var cmd = conn.CreateRetrySqlCommand();
+            using var cmd = conn.CreateNonRetrySqlCommand(); // do not use incorrect retry logic
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetResources";
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
