@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 resource.Meta = new Meta();
             }
 
-            bool lastUpdatedIsNull;
-            if (lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null)
+            var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
+            if (lastUpdatedIsNull)
             {
                 resource.Meta.LastUpdated = Clock.UtcNow;
             }
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             var resourceElement = resource.ToResourceElement();
             var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
 
-            return new ImportResource(index, offset, length, keepVersion, resourceWapper);
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)

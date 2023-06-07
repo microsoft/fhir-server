@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                             null,
                             "SearchParam");
 
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, false, resourceWrapper));
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(0, 0, 0, false, false, resourceWrapper));
                         await resourceChannel.Writer.WriteAsync(new ImportResource(1, 0, "Error"));
                         resourceChannel.Writer.Complete();
                     });

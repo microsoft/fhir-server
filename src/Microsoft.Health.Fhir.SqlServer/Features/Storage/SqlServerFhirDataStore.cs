@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     mergeStart = DateTime.UtcNow;
-                    var results = await MergeInternalAsync(resources, 0, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, 0, cancellationToken); // TODO: Pass correct ignore last udated value for efficiency & Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, int timeoutRetries, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, int timeoutRetries, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (_ignoreInputLastUpdated.IsEnabled())
+                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
                 {
                     surrId = minSurrId + index;
                     resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
