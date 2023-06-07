@@ -96,8 +96,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     var definition = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
                     definition.Progress = exportJobRecord.Progress;
-                    definition.MaximumNumberOfResourcesPerQuery = exportJobRecord.MaximumNumberOfResourcesPerQuery; // Prevents OoM issues
-
                     await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(definition) }, jobInfo.GroupId, false, false, innerCancellationToken);
                     throw new JobSegmentCompletedException();
                 }

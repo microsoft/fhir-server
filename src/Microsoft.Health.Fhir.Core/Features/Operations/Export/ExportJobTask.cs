@@ -107,8 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                _exportJobRecord.Status = OperationStatus.Running;
-
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
                 // Add a request context so that bundle issues can be added by the SearchOptionFactory
@@ -211,30 +209,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             catch (RequestRateExceededException)
             {
                 _logger.LogTrace("Job failed due to RequestRateExceeded.");
-            }
-            catch (OutOfMemoryException)
-            {
-                if (_exportJobRecord.MaximumNumberOfResourcesPerQuery > 10)
-                {
-                    _logger.LogWarning("Job ran out of memory fetching resources. Trying smaller jobs.");
-                    _exportJobRecord.MaximumNumberOfResourcesPerQuery = _exportJobRecord.MaximumNumberOfResourcesPerQuery / 10;
-                    try
-                    {
-                        await UpdateJobRecordAsync(cancellationToken);
-                    }
-                    catch (JobSegmentCompletedException)
-                    {
-                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-
-                        _logger.LogTrace("Successfully completed a segment of the job.");
-                    }
-                }
-                else
-                {
-                    _logger.LogError("Job failed due to running out of memory fetching resources.");
-                    _exportJobRecord.FailureDetails = new JobFailureDetails("Job failed due to running out of memory fetching resources.", HttpStatusCode.InsufficientStorage);
-                    await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-                }
             }
             catch (DestinationConnectionException dce)
             {
