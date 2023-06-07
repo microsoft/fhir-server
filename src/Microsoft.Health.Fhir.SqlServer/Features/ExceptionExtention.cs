@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             ////The request limit for the database is 200 and has been reached.
         }
 
+        // TODO: Remove when source of this exception is identified
         private static bool HasIncorrectAsyncCallPattern(string str)
         {
             return str.Contains("This method may not be called when another read operation is pending", StringComparison.OrdinalIgnoreCase);
