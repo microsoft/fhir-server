@@ -15,7 +15,8 @@
                 "convertData",
                 "import",
                 "editProfileDefinitions",
-                "smart"
+                "smart",
+                "searchParameter"
             ]
         }
     },
