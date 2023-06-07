@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     var definition = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
                     definition.Progress = exportJobRecord.Progress;
                     await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(definition) }, jobInfo.GroupId, false, false, innerCancellationToken);
+
+                    // TODO: When legacy export support is removed from Cosmos remove this exception and refactor ExportJobTask to expect only one page of results will be processed.
                     throw new JobSegmentCompletedException();
                 }
 
