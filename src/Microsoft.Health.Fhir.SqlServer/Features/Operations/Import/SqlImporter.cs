@@ -122,10 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     _logger.LogError(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}}", retries);
-                    if (sqlEx != null)
-                    {
-                        _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
-                    }
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} error={e}", mergeStart, cancellationToken).Wait();
 
                     throw;
                 }
