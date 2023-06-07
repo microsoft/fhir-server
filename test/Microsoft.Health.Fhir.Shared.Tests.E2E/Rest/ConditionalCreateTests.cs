@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
             resourceToCreate.Id = id.ToString();
 
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
                 resourceToCreate,
                 $"SearchParameter/id={id}"));
 
