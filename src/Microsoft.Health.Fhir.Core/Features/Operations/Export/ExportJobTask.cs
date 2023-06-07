@@ -107,6 +107,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
+                _exportJobRecord.Status = OperationStatus.Running;
+
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
                 // Add a request context so that bundle issues can be added by the SearchOptionFactory
