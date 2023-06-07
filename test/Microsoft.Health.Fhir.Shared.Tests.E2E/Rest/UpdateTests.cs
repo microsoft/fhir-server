@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenTheResource_WhenUpdatingANewSearchParameterResource_TheServerShouldValidateTheNewResourceSuccessfully()
+        public async Task GivenTheResource_WhenUpdatingANewDuplicatedSearchParameterResource_TheServerShouldFail()
         {
             var id = Guid.NewGuid();
             var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
