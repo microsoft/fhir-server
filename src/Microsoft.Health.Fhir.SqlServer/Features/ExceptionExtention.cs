@@ -15,7 +15,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                    || HasInternalSqlErrorPattern(str)
                    || HasDatabaseAvailabilityPattern(str)
                    || HasDatabaseOverloadPattern(str)
-                   || HasDeadlockErrorPattern(str);
+                   || HasDeadlockErrorPattern(str)
+                   || HasIncorrectAsyncCallPattern(str);
         }
 
         internal static bool IsExecutionTimeout(this Exception e)
@@ -102,6 +103,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             return str.Contains("request limit for the database", StringComparison.OrdinalIgnoreCase) && str.Contains("has been reached", StringComparison.OrdinalIgnoreCase);
 
             ////The request limit for the database is 200 and has been reached.
+        }
+
+        // TODO: Remove when source of this exception is identified
+        private static bool HasIncorrectAsyncCallPattern(string str)
+        {
+            return str.Contains("This method may not be called when another read operation is pending", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
