@@ -140,5 +140,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(exception.OperationOutcome.Issue);
             Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, "Observation")));
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenCreatingConditionallyANewSearchParameterResource_TheServerShouldValidateTheNewResourceSuccessfully()
+        {
+            var id = Guid.NewGuid();
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
+            resourceToCreate.Id = id.ToString();
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                resourceToCreate,
+                $"SearchParameter/id={id}"));
+
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
+        }
     }
 }
