@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     mergeStart = DateTime.UtcNow;
-                    var results = await MergeInternalAsync(resources, false, 0, cancellationToken); // TODO: Pass correct ignore last udated value for efficiency & Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, 0, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
