@@ -195,17 +195,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
-                var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts); // some resources might get version assigned
-                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion), timeoutRetries, cancellationToken);
-                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion), timeoutRetries, cancellationToken);
+                var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion).ToList(), timeoutRetries, cancellationToken);
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion).ToList(), timeoutRetries, cancellationToken);
                 loaded.AddRange(inputDeduppedNoVersionNoConflict);
             }
         }
 
-        private async Task MergeResourcesAsync(IEnumerable<ImportResource> resources, int timeoutRetries, CancellationToken cancellationToken)
+        private async Task MergeResourcesAsync(IList<ImportResource> resources, int timeoutRetries, CancellationToken cancellationToken)
         {
-            var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
-            await _store.MergeInternalAsync(input, timeoutRetries, cancellationToken);
+            var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
+            await _store.MergeInternalAsync(input, true, timeoutRetries, cancellationToken);
+            input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
+            await _store.MergeInternalAsync(input, false, timeoutRetries, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
