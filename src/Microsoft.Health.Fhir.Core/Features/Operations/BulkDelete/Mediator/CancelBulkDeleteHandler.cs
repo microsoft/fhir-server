@@ -4,29 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.Build.Framework;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class CancelBulkDeleteHandler : IRequestHandler<CancelBulkDeleteRequest, CancelBulkDeleteResponse>
     {
-        private IAuthorizationService<DataActions> _authorizationService;
-        private IQueueClient _queueClient;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IQueueClient _queueClient;
         private readonly ILogger<CancelBulkDeleteHandler> _logger;
 
         public CancelBulkDeleteHandler(
@@ -34,9 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             IQueueClient queueClient,
             ILogger<CancelBulkDeleteHandler> logger)
         {
-            _authorizationService = authorizationService;
-            _queueClient = queueClient;
-            _logger = logger;
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<CancelBulkDeleteResponse> Handle(CancelBulkDeleteRequest request, CancellationToken cancellationToken)

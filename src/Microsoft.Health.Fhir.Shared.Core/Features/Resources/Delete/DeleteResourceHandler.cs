@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
     public class DeleteResourceHandler : BaseResourceHandler, IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>
     {
-        private IDeleter _deleter;
+        private readonly IDeleter _deleter;
 
         public DeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             IDeleter deleter)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            _deleter = deleter;
+            _deleter = EnsureArg.IsNotNull(deleter, nameof(deleter));
         }
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, CancellationToken cancellationToken)

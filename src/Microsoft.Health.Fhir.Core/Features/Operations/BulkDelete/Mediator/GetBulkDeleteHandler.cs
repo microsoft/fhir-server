@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -22,19 +23,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class GetBulkDeleteHandler : IRequestHandler<GetBulkDeleteRequest, GetBulkDeleteResponse>
     {
-        private IAuthorizationService<DataActions> _authorizationService;
-        private IQueueClient _queueClient;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IQueueClient _queueClient;
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient)
         {
-            _authorizationService = authorizationService;
-            _queueClient = queueClient;
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
         public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+
             if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
                 throw new UnauthorizedFhirActionException();

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
@@ -27,10 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public class CreateBulkDeleteHandler : IRequestHandler<CreateBulkDeleteRequest, CreateBulkDeleteResponse>
     {
-        private IAuthorizationService<DataActions> _authorizationService;
-        private IQueueClient _queueClient;
-        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ISearchService _searchService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
+        private readonly IQueueClient _queueClient;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ISearchService _searchService;
 
         public CreateBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
@@ -38,14 +39,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISearchService searchService)
         {
-            _authorizationService = authorizationService;
-            _queueClient = queueClient;
-            _contextAccessor = contextAccessor;
-            _searchService = searchService;
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
         }
 
         public async Task<CreateBulkDeleteResponse> Handle(CreateBulkDeleteRequest request, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+
             DataActions requiredDataAction = request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete;
             if (await _authorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
             {
@@ -57,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
-            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, -1, cancellationToken);
+            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, 1, cancellationToken);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0)
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
@@ -68,8 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             definitions.Add(JsonConvert.SerializeObject(processingDefinition));
             var jobInfo = await _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, definitions.ToArray(), null, false, false, cancellationToken);
 
-            // Bad, fix this to be better
-            if (jobInfo.Count < 1)
+            if (jobInfo == null || jobInfo.Count == 0)
             {
                 throw new JobNotExistException("Failed to create job");
             }

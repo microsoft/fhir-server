@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -19,11 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class Deleter : IDeleter
     {
-        private IResourceWrapperFactory _resourceWrapperFactory;
-        private Lazy<IConformanceProvider> _conformanceProvider;
-        private IFhirDataStore _fhirDataStore;
-        private ISearchService _searchService;
-        private ResourceIdProvider _resourceIdProvider;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly Lazy<IConformanceProvider> _conformanceProvider;
+        private readonly IFhirDataStore _fhirDataStore;
+        private readonly ISearchService _searchService;
+        private readonly ResourceIdProvider _resourceIdProvider;
 
         public Deleter(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -32,11 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ISearchService searchService,
             ResourceIdProvider resourceIdProvider)
         {
-            _resourceWrapperFactory = resourceWrapperFactory;
-            _conformanceProvider = conformanceProvider;
-            _fhirDataStore = fhirDataStore;
-            _searchService = searchService;
-            _resourceIdProvider = resourceIdProvider;
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
+            _fhirDataStore = EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
         }
 
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
+                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(key.ResourceType));
                     emptyInstance.Id = request.ResourceKey.Id;
 
                     ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
@@ -86,10 +87,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
             {
                 var resultsToDelete = deleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount - itemsDeleted);
-                foreach (SearchResultEntry item in resultsToDelete)
+                if (request.DeleteOperation == DeleteOperation.SoftDelete)
                 {
-                    var result = await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), cancellationToken);
-                    itemsDeleted++;
+                    await _fhirDataStore.MergeAsync(
+                        resultsToDelete.Select(async item =>
+                        {
+                            var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
+                            emptyInstance.Id = item.Resource.ResourceId;
+
+                            ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
+
+                            bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
+                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false);
+                        }),
+                        cancellationToken);
+                    itemsDeleted = resultsToDelete.Count();
+                }
+                else
+                {
+                    foreach (SearchResultEntry item in resultsToDelete)
+                    {
+                        await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), cancellationToken);
+                        itemsDeleted++;
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted > 0 || deleteAll))

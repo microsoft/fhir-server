@@ -109,6 +109,8 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
+                _logger.LogInformation("Job {JobId} of type {JobType} starting.", jobInfo.Id, jobInfo.QueueType);
+
                 if (jobInfo.CancelRequested)
                 {
                     // For cancelled job, try to execute it for potential cleanup.
@@ -137,14 +139,14 @@ namespace Microsoft.Health.JobManagement
             }
             catch (RetriableJobException ex)
             {
-                _logger.LogError(ex, "Job {JobId} failed with retriable exception.", jobInfo.Id);
+                _logger.LogError(ex, "Job {JobId} of type {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.QueueType);
 
                 // Not complete the job for retriable exception.
                 return;
             }
             catch (JobExecutionException ex)
             {
-                _logger.LogError(ex, "Job {JobId} failed.", jobInfo.Id);
+                _logger.LogError(ex, "Job {JobId} of type {JobType} failed.", jobInfo.Id, jobInfo.QueueType);
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                 jobInfo.Status = JobStatus.Failed;
 
@@ -154,14 +156,14 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
+                    _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
                 }
 
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {JobId} failed with generic exception.", jobInfo.Id);
+                _logger.LogError(ex, "Job {JobId} of type {JobType} failed with generic exception.", jobInfo.Id, jobInfo.QueueType);
 
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
@@ -173,7 +175,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
+                    _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
                 }
 
                 return;
@@ -183,11 +185,11 @@ namespace Microsoft.Health.JobManagement
             {
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                _logger.LogInformation("Job {JobId} completed.", jobInfo.Id);
+                _logger.LogInformation("Job {JobId} of type {JobType} completed.", jobInfo.Id, jobInfo.QueueType);
             }
             catch (Exception completeEx)
             {
-                _logger.LogError(completeEx, "Job {JobId} failed to complete.", jobInfo.Id);
+                _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
             }
         }
 

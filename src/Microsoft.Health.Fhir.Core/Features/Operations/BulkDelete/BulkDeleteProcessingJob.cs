@@ -31,8 +31,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
             Func<IScoped<IDeleter>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
-            _deleterFactory = deleterFactory;
-            _contextAccessor = contextAccessor;
+            _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -64,10 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 var result = new BulkDeleteResult();
                 result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
                 return JsonConvert.SerializeObject(result);
-            }
-            catch (Exception)
-            {
-                throw;
             }
             finally
             {
