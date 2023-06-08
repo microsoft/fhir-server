@@ -248,7 +248,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
 
-                    StringBuilder issueDetails = new StringBuilder();
                     foreach (var searchParam in searchParams)
                     {
                         try
@@ -260,35 +259,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 _modelInfoProvider,
                                 _logger);
                         }
-                        catch (SearchParameterNotSupportedException ex)
+                        catch (FhirException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
+                            StringBuilder issueDetails = new StringBuilder();
                             foreach (OperationOutcomeIssue issue in ex.Issues)
                             {
-                                issueDetails.Append(issue.Diagnostics);
-                                issueDetails.AppendLine();
+                                issueDetails.Append(issue.Diagnostics).Append("; ");
                             }
-                        }
-                        catch (InvalidDefinitionException ex)
-                        {
-                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
-                            foreach (OperationOutcomeIssue issue in ex.Issues)
-                            {
-                                issueDetails.Append(issue.Diagnostics);
-                                issueDetails.AppendLine();
-                            }
+
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store. Issues: {Issues}", searchParam.GetStringScalar("url"), issueDetails.ToString());
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
-                        }
-                        finally
-                        {
-                            if (issueDetails.Length > 0)
-                            {
-                                _logger.LogWarning(issueDetails.ToString());
-                                issueDetails.Clear();
-                            }
                         }
                     }
                 }
