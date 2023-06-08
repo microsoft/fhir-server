@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Support;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -261,10 +262,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         catch (SearchParameterNotSupportedException ex)
                         {
                             _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
+                            foreach (OperationOutcomeIssue issue in ex.Issues)
+                            {
+                                _logger.LogWarning(issue.Diagnostics);
+                            }
                         }
                         catch (InvalidDefinitionException ex)
                         {
                             _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
+                            foreach (OperationOutcomeIssue issue in ex.Issues)
+                            {
+                                _logger.LogWarning(issue.Diagnostics);
+                            }
                         }
                         catch (Exception ex)
                         {
