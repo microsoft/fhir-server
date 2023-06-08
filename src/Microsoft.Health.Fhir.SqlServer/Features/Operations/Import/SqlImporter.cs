@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     mergeStart = DateTime.UtcNow;
                     loaded = new List<ImportResource>();
                     conflicts = new List<ImportResource>();
-                    ImportResourcesInBufferMain(resources, loaded, conflicts, importMode, timeoutRetries, cancellationToken).Wait();
+                    ImportResourcesInBufferInternal(resources, loaded, conflicts, importMode, timeoutRetries, cancellationToken).Wait();
                     break;
                 }
                 catch (Exception e)
@@ -112,18 +112,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         || (isRetriable = e.IsRetriable()) // this should allow to deal with intermittent database errors.
                         || ((isExecutionTimeout = e.IsExecutionTimeout()) && timeoutRetries++ < 3)) // timeouts happen once in a while on highly loaded databases.
                     {
-                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
+                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInBufferInternal)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
                         if (isRetriable || isExecutionTimeout) // others are logged in SQL by merge stored procedure
                         {
-                            _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", mergeStart, cancellationToken).Wait();
+                            _store.TryLogEvent(nameof(ImportResourcesInBufferInternal), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", mergeStart, cancellationToken).Wait();
                         }
 
                         Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
-                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInBufferMain)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferMain), "Error", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", mergeStart, cancellationToken).Wait();
+                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInBufferInternal)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
+                    _store.TryLogEvent(nameof(ImportResourcesInBufferInternal), "Error", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", mergeStart, cancellationToken).Wait();
 
                     throw;
                 }
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             resources.Clear();
         }
 
-        private async Task ImportResourcesInBufferMain(List<ImportResource> resources, List<ImportResource> loaded, List<ImportResource> conflicts, ImportMode importMode, int timeoutRetries, CancellationToken cancellationToken)
+        private async Task ImportResourcesInBufferInternal(List<ImportResource> resources, List<ImportResource> loaded, List<ImportResource> conflicts, ImportMode importMode, int timeoutRetries, CancellationToken cancellationToken)
         {
             var goodResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
             if (importMode == ImportMode.InitialLoad)
@@ -195,17 +195,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
-                var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts); // some resources might get version assigned
-                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion), timeoutRetries, cancellationToken);
-                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion), timeoutRetries, cancellationToken);
+                var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion).ToList(), timeoutRetries, cancellationToken);
+                await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion).ToList(), timeoutRetries, cancellationToken);
                 loaded.AddRange(inputDeduppedNoVersionNoConflict);
             }
         }
 
-        private async Task MergeResourcesAsync(IEnumerable<ImportResource> resources, int timeoutRetries, CancellationToken cancellationToken)
+        private async Task MergeResourcesAsync(IList<ImportResource> resources, int timeoutRetries, CancellationToken cancellationToken)
         {
-            var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
-            await _store.MergeInternalAsync(input, timeoutRetries, cancellationToken);
+            var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
+            await _store.MergeInternalAsync(input, true, timeoutRetries, cancellationToken);
+            input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
+            await _store.MergeInternalAsync(input, false, timeoutRetries, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
