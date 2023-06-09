@@ -107,6 +107,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
+                _exportJobRecord.Status = OperationStatus.Running;
+
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
                 // Add a request context so that bundle issues can be added by the SearchOptionFactory
@@ -193,6 +195,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
+            }
+            catch (JobSegmentCompletedException)
+            {
+                await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+
+                _logger.LogTrace("Successfully completed a segment of the job.");
             }
             catch (JobConflictException)
             {

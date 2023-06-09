@@ -136,6 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        [Obsolete("Unit test for obsolete method")]
         public async Task GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned()
         {
             byte queueType = (byte)TestQueueType.GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned;
@@ -162,6 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
+        [Obsolete("Unit test for obsolete method")]
         public async Task GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned()
         {
             byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned;
@@ -382,6 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
+        [Obsolete("Unit test for obsolete method")]
         public async Task GivenAJob_WhenExecutedWithHeavyHeartbeats_ThenHeavyHeartbeatsAreRecorded()
         {
             await this.RetryAsync(
