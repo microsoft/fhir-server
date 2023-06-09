@@ -572,7 +572,20 @@ BEGIN CATCH
 END CATCH')
         INSERT INTO dbo.Parameters (Id, Char) SELECT 'Insert MaxSurrogateId', 'LogEvent'
         EXECUTE dbo.LogEvent @Process='Insert MaxSurrogateId',@Status='Start'
-        INSERT INTO dbo.Parameters (Id, Bigint) SELECT 'PrecisionUpdate.MaxSurrogateId', max(ResourceSurrogateId) from resource
+        DECLARE @TypeId smallint
+        ,@MaxSurrogateIdTmp bigint
+        ,@MaxSurrogateId bigint
+        DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
+        INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+        WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
+        BEGIN
+          SET @TypeId = (SELECT TOP 1 ResourceTypeId FROM @Types ORDER BY ResourceTypeId DESC)
+          SET @MaxSurrogateIdTmp = (SELECT max(ResourceSurrogateId) FROM Resource WHERE ResourceTypeId = @TypeId)
+          IF @MaxSurrogateIdTmp > @MaxSurrogateId SET @MaxSurrogateId = @MaxSurrogateIdTmp
+          DELETE FROM @Types WHERE ResourceTypeId = @TypeId
+        END
+        INSERT INTO dbo.Parameters (Id, Bigint) SELECT 'PrecisionUpdate.MaxSurrogateId', @MaxSurrogateId
+
     END TRY
     BEGIN CATCH
         EXECUTE dbo.LogEvent @Process="Alter Procedure",@Status="Error"
@@ -599,7 +612,6 @@ END CATCH')
 
         DECLARE @LastProcessed varchar(100) = (SELECT Char FROM dbo.Parameters WHERE Id = @Id)
 
-        DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
         DECLARE @SurrogateIds TABLE (ResourceSurrogateId bigint)
   
         INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
