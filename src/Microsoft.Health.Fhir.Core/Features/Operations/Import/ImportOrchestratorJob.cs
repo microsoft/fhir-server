@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 for (var stream = 0; stream < numberOfStreams; stream++)
                 {
                     var newInput = input.Clone();
-                    newInput.Offset = stream * BytesToRead;
+                    newInput.Offset = (long)stream * BytesToRead; // make sure that arithmetic on long is used
                     newInput.BytesToRead = BytesToRead;
                     lock (inputs)
                     {
