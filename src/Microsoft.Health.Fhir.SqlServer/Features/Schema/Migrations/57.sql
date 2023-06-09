@@ -4108,9 +4108,9 @@ CREATE PROCEDURE dbo.MergeResources
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount;
-DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] MinSur=' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ' Rows=' + CONVERT (VARCHAR, count(*))
+DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(VersionId)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
-SET @Mode += ' BT=' + CONVERT (VARCHAR, @BeginTransaction) + ' ITC=' + CONVERT (VARCHAR, @InitialTranCount) + ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled);
+SET @Mode += ' ITC=' + CONVERT (VARCHAR, @InitialTranCount) + ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled);
 SET @AffectedRows = 0;
 BEGIN TRY
     DECLARE @ResourceInfos AS TABLE (
@@ -4124,6 +4124,12 @@ BEGIN TRY
         TypeId      SMALLINT NOT NULL,
         SurrogateId BIGINT   NOT NULL PRIMARY KEY (TypeId, SurrogateId),
         KeepHistory BIT     );
+    IF @BeginTransaction = 0
+       AND isnull((SELECT Number
+                   FROM   dbo.Parameters
+                   WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled'), 0) = 0
+        SET @BeginTransaction = 1;
+    SET @Mode += ' BT=' + CONVERT (VARCHAR, @BeginTransaction);
     IF @InitialTranCount = 0
        AND @BeginTransaction = 1
         BEGIN TRANSACTION;
