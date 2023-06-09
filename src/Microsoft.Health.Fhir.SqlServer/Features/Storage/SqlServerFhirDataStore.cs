@@ -165,6 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
             var prevResourceId = string.Empty;
+            var beginTransaction = false;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
             {
                 var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
@@ -297,9 +298,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
+                    beginTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
                 }
 
                 resource.ResourceSurrogateId = surrId;
+                if (resource.Version != InitialVersion) // do not begin transaction if all creates
+                {
+                    beginTransaction = true;
+                }
+
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
@@ -315,6 +322,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     AffectedRows: 0,
                     RaiseExceptionOnConflict: true,
                     IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
+                    BeginTransaction: beginTransaction,
                     tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
                 cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
