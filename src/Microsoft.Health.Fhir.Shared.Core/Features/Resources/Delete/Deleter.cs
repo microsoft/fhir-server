@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false), cancellationToken);
+                    UpsertOutcome result = await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null), cancellationToken);
 
                     version = result?.Wrapper.Version;
                     break;
@@ -89,17 +89,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 var resultsToDelete = deleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount - itemsDeleted);
                 if (request.DeleteOperation == DeleteOperation.SoftDelete)
                 {
+                    bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
+                    var wrapperTasks =
+
                     await _fhirDataStore.MergeAsync(
-                        resultsToDelete.Select(async item =>
+                        resultsToDelete.Select(item =>
                         {
                             var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
                             emptyInstance.Id = item.Resource.ResourceId;
 
                             ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
 
-                            bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
-                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false);
-                        }),
+                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
+                        }).ToList(),
                         cancellationToken);
                     itemsDeleted = resultsToDelete.Count();
                 }
