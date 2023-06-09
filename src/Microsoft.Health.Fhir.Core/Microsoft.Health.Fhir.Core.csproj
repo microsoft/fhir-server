@@ -25,6 +25,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\patient-export.json" />
     <EmbeddedResource Include="Data\OperationDefinition\reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\resource-reindex.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\bulk-delete.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
