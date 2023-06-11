@@ -6,9 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -16,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -38,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly IUrlResolver _urlResolver;
+        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         public ConformanceBuilderTests()
         {
@@ -48,13 +52,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             _urlResolver = Substitute.For<IUrlResolver>();
             _urlResolver.ResolveMetadataUrl(Arg.Any<bool>()).Returns(new System.Uri("https://test.com"));
-
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                Substitute.For<ISearchParameterStatusDataStore>(),
+                _searchParameterDefinitionManager,
+                Substitute.For<Core.Features.Search.Parameters.ISearchParameterSupportResolver>(),
+                Substitute.For<IMediator>(),
+                Substitute.For<Microsoft.Extensions.Logging.ILogger<SearchParameterStatusManager>>());
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
                 configuration,
                 _supportedProfiles,
-                _urlResolver);
+                _urlResolver,
+                _searchParameterStatusManager);
         }
 
         [Fact]
@@ -95,7 +105,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _urlResolver);
+                _urlResolver,
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -126,7 +137,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _urlResolver);
+                _urlResolver,
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -156,7 +168,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _urlResolver);
+                _urlResolver,
+                _searchParameterStatusManager);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -173,14 +186,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
+        public async System.Threading.Tasks.Task GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {
             string description = "Logical id of this artifact";
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                 .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
-            _builder.SyncSearchParameters();
+            await _builder.SyncSearchParametersAsync(CancellationToken.None);
 
             ITypedElement statement = _builder.Build();
 
@@ -230,12 +243,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
+        public async void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            _builder.SyncSearchParameters();
+            await _builder.SyncSearchParametersAsync(CancellationToken.None);
 
             ITypedElement statement = _builder.Build();
 

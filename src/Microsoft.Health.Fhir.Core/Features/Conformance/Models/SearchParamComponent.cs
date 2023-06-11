@@ -17,5 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         public Uri Definition { get; set; }
 
         public string Documentation { get; set; }
+
+        public SearchParamStatusExtensionComponent Extension { get; set; }
     }
 }
