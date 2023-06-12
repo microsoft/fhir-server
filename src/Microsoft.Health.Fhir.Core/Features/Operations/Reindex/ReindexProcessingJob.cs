@@ -42,10 +42,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IReindexUtilities _reindexUtilities;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private SemaphoreSlim _jobSemaphore;
         private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private JobInfo _jobInfo;
+        private ReindexProcessingJobResult _reindexProcessingJobResult;
+        private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
+        private readonly IReindexJobThrottleController _throttleController;
+        private IQueueClient _queueClient;
 
         public ReindexProcessingJob(
             IFhirOperationDataStore operationDatastore,
@@ -55,9 +58,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IReindexUtilities reindexUtilities,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IModelInfoProvider modelInfoProvider,
+            IReindexJobThrottleController throttleController,
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            IQueueClient queueClient)
         {
             EnsureArg.IsNotNull(operationDatastore, nameof(operationDatastore));
             EnsureArg.IsNotNull(reindexConfiguration, nameof(reindexConfiguration));
@@ -67,8 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(throttleController, nameof(throttleController));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
 
             _reindexJobConfiguration = reindexConfiguration.Value;
             _fhirOperationDataStore = operationDatastore;
@@ -78,8 +85,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexUtilities = reindexUtilities;
             _contextAccessor = fhirRequestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
+            _throttleController = throttleController;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
+            _queueClient = queueClient;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -87,44 +96,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
             _jobInfo = jobInfo;
-            var reindexJobRecord = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
+            _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
+            _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            return await ProcessQueryAsync(cancellationToken);
+            /*
+            if (_reindexProcessingJobDefinition.TargetDataStoreUsagePercentage != null &&
+                    _reindexProcessingJobDefinition.TargetDataStoreUsagePercentage > 0)
+            {
+                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+                {
+                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(_cancellationToken);
+                    _throttleController.Initialize(_reindexProcessingJobDefinition, provisionedCapacity);
+                }
+            }
+            else
+            {
+                _throttleController.Initialize(_reindexProcessingJobDefinition, null);
+            }
+            */
+
+            return JsonConvert.SerializeObject(await ProcessQueryAsync(cancellationToken));
         }
 
-        private async Task<string> GetResourcesToReindexAsync(ReindexJobRecord reindexJobRecord, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
         {
-            ReindexJobQueryStatus queryStatus = reindexJobRecord.QueryList.FirstOrDefault().Key;
-            SearchResultReindex searchResultReindex = GetSearchResultReindex(queryStatus.ResourceType, reindexJobRecord);
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
+                Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
 
             if (searchResultReindex != null && searchResultReindex.CurrentResourceSurrogateId > 0)
             {
-                // Always use the queryStatus.StartResourceSurrogateId for the start of the range
+                // Always use the StartResourceSurrogateId for the start of the range
                 // and the ResourceCount.EndResourceSurrogateId for the end. The sql will determine
                 // how many resources to actually return based on the configured maximumNumberOfResourcesPerQuery.
                 // When this function returns, it knows what the next starting value to use in
                 // searching for the next block of results and will use that as the queryStatus starting point
                 queryParametersList.AddRange(new[]
                 {
+                    // This EndResourceSurrogateId is only needed because of the way the sql is written. It is not populated initially.
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
-                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, queryStatus.StartResourceSurrogateId.ToString()),
+                    Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
                 });
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
             }
 
-            if (queryStatus.ContinuationToken != null)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
-            }
-
             string searchParameterHash = string.Empty;
-            if (!reindexJobRecord.ForceReindex && !reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out searchParameterHash))
+            if (!_reindexProcessingJobDefinition.ForceReindex && string.IsNullOrEmpty(_reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap))
             {
                 searchParameterHash = string.Empty;
             }
@@ -133,92 +153,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    var result = await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, false, cancellationToken, true);
-                    return JsonConvert.SerializeObject(result);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, false, cancellationToken, true);
                 }
                 catch (Exception ex)
                 {
-                    var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
+                    var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
                     var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}", queryStatus.ResourceType);
-                    queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
-                    LogReindexJobRecordErrorMessage(reindexJobRecord);
+                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}", _reindexProcessingJobDefinition.ResourceType);
+                    _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
+                    LogReindexProcessingJobErrorMessage();
 
                     throw reindexJobException;
                 }
             }
         }
 
-        private void LogReindexJobRecordErrorMessage(ReindexJobRecord reindexJobRecord)
+        private void LogReindexProcessingJobErrorMessage()
         {
-            var ser = JsonConvert.SerializeObject(reindexJobRecord);
+            var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             _logger.LogError($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}.");
         }
 
-        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SearchResultReindex searchResultReindex, ReindexJobRecord reindexJobRecord, CancellationToken cancellationToken)
+        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(CancellationToken cancellationToken)
         {
             try
             {
-                SearchResult results;
+                long currentResourceSurrogateId = 0;
+                SearchResult result = await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken);
 
-                await _jobSemaphore.WaitAsync(cancellationToken);
-                try
+                if (result?.MaxResourceSurrogateId > 0)
                 {
-                    results = await GetResourcesToReindexAsync(reindexJobRecord, cancellationToken);
+                    currentResourceSurrogateId = result.MaxResourceSurrogateId;
 
-                    // If continuation token then update next query but only if parent query hasn't been in pipeline.
-                    // For cases like retry or stale query we don't want to start another chain.
-                    if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
+                    // reindex has more work to do at this point
+                    // if the current is less than the max then we have more to do
+                    if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
                     {
-                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
-                        var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
+                        // since reindex won't have a continuation token we need to check that
+                        // we have more to query by checking MaxResourceSurrogateId
+                        var nextQuery = new ReindexJobQueryStatus(_reindexProcessingJobDefinition.ResourceType, null)
                         {
                             LastModified = Clock.UtcNow,
                             Status = OperationStatus.Queued,
+                            StartResourceSurrogateId = result.MaxResourceSurrogateId + 1,
                         };
-                        reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
-                        query.CreatedChild = true;
-                    }
-                    else if (results?.MaxResourceSurrogateId > 0 && !query.CreatedChild)
-                    {
-                        searchResultReindex.CurrentResourceSurrogateId = results.MaxResourceSurrogateId;
-
-                        // reindex has more work to do at this point
-                        if (results.MaxResourceSurrogateId < searchResultReindex.EndResourceSurrogateId)
-                        {
-                            // since reindex won't have a continuation token we need to check that
-                            // we have more to query by checking MaxResourceSurrogateId
-                            var nextQuery = new ReindexJobQueryStatus(query.ResourceType, null)
-                            {
-                                LastModified = Clock.UtcNow,
-                                Status = OperationStatus.Queued,
-                                StartResourceSurrogateId = results.MaxResourceSurrogateId + 1,
-                            };
-                            reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
-                            query.CreatedChild = true;
-                        }
+                        _reindexProcessingJobDefinition.StartResourceSurrogateId = currentResourceSurrogateId;
+                        var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
+                        _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId.FirstOrDefault());
                     }
                 }
-                finally
-                {
-                    _jobSemaphore.Release();
-                }
 
-                _logger.LogInformation("Reindex job current thread: {ThreadId}, job id: {JobId}.", Environment.CurrentManagedThreadId, _jobInfo.Id);
-                await _reindexUtilities.ProcessSearchResultsAsync(results, reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
-                searchResultReindex.CountReindexed += (long)(results?.TotalCount != null ? results.TotalCount : 0);
+                var dictionary = new Dictionary<string, string>();
+                dictionary.Add(_reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap);
+
+                await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, cancellationToken);
 
                 if (!_cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        if (results != null)
+                        if (result != null)
                         {
-                            reindexJobRecord.Progress += results.Results.Count();
-                            _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", reindexJobRecord.Progress, _jobInfo.Id);
+                            _reindexProcessingJobResult.SucceededResourceCount += result.Results.Count();
+                            _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                         }
-
-                        query.Status = OperationStatus.Completed;
                     }
                     catch (Exception ex)
                     {
@@ -226,55 +224,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         throw;
                     }
                 }
-
-                return query;
             }
             catch (FhirException ex)
             {
-                return await HandleQueryException(reindexJobRecord, query, ex, true, cancellationToken);
+                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: true", _jobInfo.Id);
             }
             catch (Exception ex)
             {
-                return await HandleQueryException(reindexJobRecord, query, ex, false, cancellationToken);
+                _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: false", _jobInfo.Id);
             }
         }
 
-        private async Task<ReindexJobQueryStatus> HandleQueryException(ReindexJobRecord reindexJobRecord, ReindexJobQueryStatus query, Exception ex, bool isFhirException, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<long>> EnqueueChildQueryProcessingJobAsync(CancellationToken cancellationToken)
         {
-            await _jobSemaphore.WaitAsync(cancellationToken);
+            var definitions = new List<string>();
+
+            // Finish mapping to processing job
+            definitions.Add(JsonConvert.SerializeObject(_reindexProcessingJobDefinition));
+
             try
             {
-                query.Error = ex.Message;
-                query.FailureCount++;
-                _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {FailureCount}. Job id: {JobId}.", reindexJobRecord.FailureCount, _jobInfo.Id);
-
-                if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
-                {
-                    if (isFhirException)
-                    {
-                        var issue = new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Error,
-                            OperationOutcomeConstants.IssueType.Exception,
-                            ex.Message);
-                        reindexJobRecord.Error.Add(issue);
-                    }
-
-                    query.Status = OperationStatus.Failed;
-                    reindexJobRecord.Status = OperationStatus.Failed;
-                }
-                else
-                {
-                    query.Status = OperationStatus.Queued;
-                }
-
-                LogReindexJobRecordErrorMessage(reindexJobRecord);
+                var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
+                return jobIds;
             }
-            finally
+            catch (Exception ex)
             {
-                _jobSemaphore.Release();
+                _logger.LogError(ex, "Failed to enqueue jobs.");
+                throw new RetriableJobException(ex.Message, ex);
             }
-
-            return query;
         }
 
         private static SearchResultReindex GetSearchResultReindex(string resourceType, ReindexJobRecord reindexJobRecord)

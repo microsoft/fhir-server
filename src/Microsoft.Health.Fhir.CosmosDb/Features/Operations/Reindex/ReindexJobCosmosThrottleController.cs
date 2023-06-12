@@ -42,18 +42,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             _logger = logger;
         }
 
-        public ReindexJobRecord ReindexJobRecord { get; set; } = null;
+        public ReindexProcessingJobDefinition ReindexJobRecord { get; set; } = null;
 
-        public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
+        public void Initialize(ReindexProcessingJobDefinition reindexJobRecord, int? provisionedDatastoreCapacity)
         {
             EnsureArg.IsNotNull(reindexJobRecord, nameof(reindexJobRecord));
 
-            ReindexJobRecord = reindexJobRecord;
             _provisionedRUThroughput = provisionedDatastoreCapacity;
             _jobConfiguredBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
 
-            if (ReindexJobRecord.TargetDataStoreUsagePercentage.HasValue
-                && ReindexJobRecord.TargetDataStoreUsagePercentage.Value > 0
+            if (reindexJobRecord.TargetDataStoreUsagePercentage.HasValue
+                && reindexJobRecord.TargetDataStoreUsagePercentage.Value > 0
                 && _provisionedRUThroughput.HasValue
                 && _provisionedRUThroughput > 0)
             {

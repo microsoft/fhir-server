@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     public interface IReindexJobThrottleController
     {
-        void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity);
+        void Initialize(ReindexProcessingJobDefinition reindexJobRecord, int? provisionedDatastoreCapacity);
 
         /// <summary>
         /// Gets the current delay to achieve a target resource utilization

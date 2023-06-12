@@ -8,18 +8,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexProcessingJobResult
     {
         /// <summary>
-        /// Succeeded imported resource count
+        /// Succeeded reindexed resource count
         /// </summary>
-        public long SucceededResources { get; set; }
+        public long SucceededResourceCount { get; set; }
 
         /// <summary>
         /// Failed processing resource count
         /// </summary>
-        public long FailedResources { get; set; }
+        public long FailedResourceCount { get; set; }
 
         /// <summary>
         /// Critical error during data processing.
         /// </summary>
-        public string ErrorDetails { get; set; }
+        public string Error { get; set; }
     }
 }

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 {
@@ -17,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             return 0;
         }
 
-        public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
+        public void Initialize(ReindexProcessingJobDefinition reindexJobRecord, int? provisionedDatastoreCapacity)
         {
             _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             return;

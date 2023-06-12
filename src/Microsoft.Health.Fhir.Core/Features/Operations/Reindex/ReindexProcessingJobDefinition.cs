@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -13,8 +14,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public long StartResourceSurrogateId { get; set; }
 
-        public long EndResourceSurrogateId { get; set; }
+        public string ResourceType { get; set; }
 
-        public long GroupId { get; set; }
+        public bool CreatedChild { get; set; }
+
+        public bool ForceReindex { get; set; }
+
+        public string ResourceTypeSearchParameterHashMap { get; set; }
+
+        public SearchResultReindex ResourceCount { get; set; }
+
+        public uint MaximumNumberOfResourcesPerQuery { get; set; }
+
+        // The below properties are only used for the ThrottlingController
+
+        public ushort? TargetDataStoreUsagePercentage { get; set; }
+
+        public int QueryDelayIntervalInMilliseconds { get; set; }
     }
 }
