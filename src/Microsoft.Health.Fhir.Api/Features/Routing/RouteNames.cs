@@ -74,5 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string GetBulkDeleteStatusById = "GetBulkDeleteStatusById";
 
         internal const string CancelBulkDelete = "CancelBulkDelete";
+
+        internal const string BulkDeleteDefinition = "BulkDeleteDefinition";
     }
 }

@@ -90,7 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 if (request.DeleteOperation == DeleteOperation.SoftDelete)
                 {
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
-                    var wrapperTasks =
 
                     await _fhirDataStore.MergeAsync(
                         resultsToDelete.Select(item =>

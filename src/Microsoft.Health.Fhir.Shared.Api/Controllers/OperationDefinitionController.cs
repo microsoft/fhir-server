@@ -120,6 +120,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.PurgeHistory);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.BulkDeleteOperationDefinition, Name = RouteNames.BulkDeleteDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> BulkDeleteOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.BulkDelete);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -151,6 +159,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.MemberMatch:
                 case OperationsConstants.PurgeHistory:
+                case OperationsConstants.BulkDelete:
                     operationEnabled = true;
                     break;
                 default:
