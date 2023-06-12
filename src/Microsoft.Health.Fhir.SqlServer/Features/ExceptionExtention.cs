@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
@@ -79,10 +80,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("object accessed by the statement has been modified by a ddl statement", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("is full due to", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("has reached its size quota", StringComparison.OrdinalIgnoreCase)
-                    || (str.Contains("failed to update database", StringComparison.OrdinalIgnoreCase) && str.Contains("database is read-only", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("connections to this database are no longer allowed", StringComparison.OrdinalIgnoreCase) // happened on SLO update from HS_Gen5_16 to HS_Gen4_1
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
-                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase));
+                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
+                    || str.Contains("Login failed for user", StringComparison.OrdinalIgnoreCase);
 
             ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.
             ////A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.)
