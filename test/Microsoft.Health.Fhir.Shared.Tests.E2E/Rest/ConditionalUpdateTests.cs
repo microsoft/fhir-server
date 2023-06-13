@@ -243,7 +243,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 resourceToCreate,
                 $"SearchParameter/id={id}"));
 
+            var operationOutcome = ex.OperationOutcome;
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(operationOutcome.Id);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Contains("A search parameter with the same code value 'code' already exists for base type 'Observation'", operationOutcome.Issue[1].Diagnostics);
         }
     }
 }
