@@ -4465,13 +4465,14 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT
+@Count INT, @TransactionId BIGINT=0 OUTPUT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @TransactionId AS BIGINT = NULL, @RunTransactionCheck AS BIT = (SELECT Number
-                                                                                                                                                                                                                                                                                           FROM   dbo.Parameters
-                                                                                                                                                                                                                                                                                           WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled');
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @RunTransactionCheck AS BIT = (SELECT Number
+                                                                                                                                                                                                                                                          FROM   dbo.Parameters
+                                                                                                                                                                                                                                                          WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled');
 BEGIN TRY
+    SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
@@ -4522,10 +4523,12 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
-@SurrogateIdRangeFirstValue BIGINT, @FailureReason VARCHAR (MAX)=NULL
+@TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @SurrogateIdRangeFirstValue), @st AS DATETIME = getUTCdate();
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate();
+SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
+DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId);
 BEGIN TRY
     UPDATE dbo.Transactions
     SET    IsCompleted   = 1,
@@ -4534,7 +4537,29 @@ BEGIN TRY
            IsVisible     = 1,
            VisibleDate   = getUTCdate(),
            FailureReason = @FailureReason
-    WHERE  SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue;
+    WHERE  SurrogateIdRangeFirstValue = @TransactionId
+           AND (IsControlledByClient = 1
+                OR @OverrideIsControlledByClientCheck = 1);
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.MergeResourcesPutTransactionHeartbeat
+@TransactionId BIGINT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesPutTransactionHeartbeat', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16;
+SET @Mode = 'TR=' + CONVERT (VARCHAR, @TransactionId);
+BEGIN TRY
+    UPDATE dbo.Transactions
+    SET    HeartbeatDate = getUTCdate()
+    WHERE  SurrogateIdRangeFirstValue = @TransactionId
+           AND IsControlledByClient = 1;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750

@@ -9,9 +9,11 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly TimeSpan _mergeResourcesHeartbeatPeriod = TimeSpan.FromSeconds(60);
 
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
         private static object _flagLocker = new object();
@@ -160,7 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // assume that most likely case is that all resources should be updated
-            (var minSurrId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            (var transactionId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
@@ -289,7 +292,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 long surrId;
                 if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
                 {
-                    surrId = minSurrId + index;
+                    surrId = transactionId + index;
                     resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                     ReplaceVersionIdAndLastUpdatedInMeta(resource);
                 }
@@ -316,30 +319,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 if (mergeWrappers.Count > 0) // do not call db with empty input
                 {
-                    // TODO: Remove tran enlist when true bundle logic is in place.
-                    using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
-                    using var cmd = conn.CreateNonRetrySqlCommand();
-                    VLatest.MergeResources.PopulateCommand(
-                        cmd,
-                        AffectedRows: 0,
-                        RaiseExceptionOnConflict: true,
-                        IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                        BeginTransaction: beginTransaction,
-                        tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                    cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
-                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, _mergeResourcesHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * _mergeResourcesHeartbeatPeriod.TotalSeconds), _mergeResourcesHeartbeatPeriod))
+                    {
+                        // TODO: Remove tran enlist when true bundle logic is in place.
+                        using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
+                        using var cmd = conn.CreateNonRetrySqlCommand();
+                        VLatest.MergeResources.PopulateCommand(
+                            cmd,
+                            AffectedRows: 0,
+                            RaiseExceptionOnConflict: true,
+                            IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
+                            BeginTransaction: beginTransaction,
+                            tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
+                        cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
+                        await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    }
                 }
             }
             catch (Exception e)
             {
-                // cleaup database here
-                await MergeResourcesCommitTransactionAsync(minSurrId, e.Message, cancellationToken);
+                if (!beginTransaction)
+                {
+                    // clean up database here
+                }
+
+                await MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                 throw;
             }
 
-            await MergeResourcesCommitTransactionAsync(minSurrId, null, cancellationToken);
+            await MergeResourcesCommitTransactionAsync(transactionId, null, cancellationToken);
 
             return results;
+        }
+
+        private async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                cmd.CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1; // +1 to avoid = SQL default timeout value
+                VLatest.MergeResourcesPutTransactionHeartbeat.PopulateCommand(cmd, transactionId);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeResourcesPutTransactionHeartbeatAsync)}");
+            }
         }
 
         internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -637,28 +663,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<(long SurrId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesBeginTransaction";
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
-            var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(surrogateIdParam);
+            var transactionIdParam = new SqlParameter("@TransactionIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return ((long)surrogateIdParam.Value, (int)sequenceParam.Value);
+            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
-        internal async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, string failureReason, CancellationToken cancellationToken)
+        internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesCommitTransaction";
-            cmd.Parameters.AddWithValue("@SurrogateIdRangeFirstValue", surrogateIdRangeFirstValue);
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             if (failureReason != null)
             {
                 cmd.Parameters.AddWithValue("@FailureReason", failureReason);

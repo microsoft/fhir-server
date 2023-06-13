@@ -1,11 +1,14 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesCommitTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesCommitTransaction @SurrogateIdRangeFirstValue bigint, @FailureReason varchar(max) = NULL
+CREATE PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint = NULL, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0, @SurrogateIdRangeFirstValue bigint = NULL -- TODO: Remove after deployment
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
-       ,@Mode varchar(200) = 'TR='+convert(varchar,@SurrogateIdRangeFirstValue)
        ,@st datetime = getUTCdate()
+
+SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
+
+DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)
 
 BEGIN TRY
   UPDATE dbo.Transactions 
@@ -15,7 +18,8 @@ BEGIN TRY
        ,IsVisible = 1 -- this will change in future
        ,VisibleDate = getUTCdate()
        ,FailureReason = @FailureReason
-    WHERE SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue
+    WHERE SurrogateIdRangeFirstValue = @TransactionId
+      AND (IsControlledByClient = 1 OR @OverrideIsControlledByClientCheck = 1)
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
