@@ -97,8 +97,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
 
-            var deleter = new Deleter(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider);
-
             var collection = new ServiceCollection();
 
             // an auth service that allows all.
@@ -109,6 +107,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
+
+            var deleter = new Deleter(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider);
+
             collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();

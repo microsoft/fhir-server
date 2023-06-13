@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                   ? (await _searchService.GetUsedResourceTypes(cancellationToken))
                                   : record.ResourceType.Split(',');
-                resourceTypes = (IReadOnlyList<string>)resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
+                resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
 
