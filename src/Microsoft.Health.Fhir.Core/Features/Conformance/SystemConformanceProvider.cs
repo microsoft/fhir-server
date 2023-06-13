@@ -12,10 +12,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -38,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IUrlResolver _urlResolver;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
@@ -58,7 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger,
-            IUrlResolver urlResolver)
+            IUrlResolver urlResolver,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -67,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
@@ -76,6 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _logger = logger;
             _disposed = false;
             _urlResolver = urlResolver;
+            _contextAccessor = contextAccessor;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -104,7 +110,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, _urlResolver);
+                        // Background jobs don't have functioning _urlResolvers, so we have to use a stand in. This value won't be cached for general use so that customers won't see it.
+                        Uri metadataUrl;
+                        if (IsBackgroundJob())
+                        {
+                            metadataUrl = new Uri("/metadata", UriKind.Relative);
+                            cacheResult = false;
+                        }
+                        else
+                        {
+                            metadataUrl = _urlResolver.ResolveMetadataUrl(false);
+                        }
+
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
@@ -112,6 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             foreach (IProvideCapability provider in providers)
                             {
                                 Stopwatch watch = Stopwatch.StartNew();
+
                                 try
                                 {
                                     _logger.LogInformation("SystemConformanceProvider: Building Capability Statement. Provider '{ProviderName}'.", provider.ToString());
@@ -119,16 +138,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                                 }
                                 catch (Exception e)
                                 {
-                                    if (!IsBackgroundJob())
+                                    if (IsBackgroundJob())
                                     {
-                                        _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when building a new CapabilityStatement.", provider.ToString());
-                                        throw;
-                                    }
-                                    else
-                                    {
+                                        _logger.LogWarning(e, "Failed to make Capability Statement during background job.");
+
                                         // Something has gone wrong, so we shouldn't save the result for general use.
                                         // Since this is a background job it doesn't need a full capability statement though. A partial one will still be accurate for its usage.
                                         cacheResult = false;
+                                    }
+                                    else
+                                    {
+                                        _logger.LogError(e, "SystemConformanceProvider: Failed running '{ProviderName}' when building a new CapabilityStatement.", provider.ToString());
+                                        throw;
                                     }
                                 }
                                 finally
@@ -169,16 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public bool IsBackgroundJob()
         {
-            try
-            {
-                _urlResolver.ResolveMetadataUrl(false);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "null arg");
-                return true;
-            }
+            return _contextAccessor.RequestContext.IsBackgroundTask;
         }
 
         public async Task BackgroudLoop()

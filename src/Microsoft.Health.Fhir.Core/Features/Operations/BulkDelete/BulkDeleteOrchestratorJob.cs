@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
             var definitions = new List<string>();
             if (string.IsNullOrEmpty(definition.Type))
             {
-                var resourceTypes = (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(_ => _.Name);
+                var resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
                 foreach (var resourceType in resourceTypes)
                 {

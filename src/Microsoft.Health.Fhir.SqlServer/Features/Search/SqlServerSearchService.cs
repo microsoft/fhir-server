@@ -687,14 +687,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchList;
         }
 
-        private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
+        private static string ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
         {
-            return (sqlDataReader.GetInt16(0), sqlDataReader.GetString(1));
+            return sqlDataReader.GetString(1);
         }
 
-        public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            var resourceTypes = new List<(short ResourceTypeId, string Name)>();
+            var resourceTypes = new List<string>();
 
             await _sqlRetryService.ExecuteSql(
                 async (cancellationToken, sqlException) =>

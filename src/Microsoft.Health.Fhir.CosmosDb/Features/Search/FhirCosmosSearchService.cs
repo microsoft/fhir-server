@@ -14,7 +14,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -87,9 +89,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
-        public override Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
+                FROM root r
+                WHERE r.isSystem = false
+                ORDER BY r.resourceTypeName");
+
+            var resourceTypes = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
+            return resourceTypes.results;
         }
 
         public override async Task<SearchResult> SearchAsync(

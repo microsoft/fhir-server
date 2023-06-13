@@ -203,10 +203,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var list = new List<(short resourceTypeId, string name)>();
-                list.Add((0, "Patient"));
-                list.Add((1, "Observation"));
-                list.Add((2, "Encounter"));
+                var list = new List<string>
+                {
+                    "Patient",
+                    "Observation",
+                    "Encounter",
+                };
 
                 return list;
             });
