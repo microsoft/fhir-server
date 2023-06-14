@@ -44,6 +44,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             }
 
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, false, cancellationToken);
+
+            if (jobs == null || jobs.Count == 0)
+            {
+                throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+            }
+
             var failed = false;
             var cancelled = false;
             var succeeded = true;
@@ -58,8 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                     failed = true;
                     succeeded = false;
 
-                    // TODO: fix exception logging
-                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Something went wrong :("));
+                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
 
                     // Need a way to get a failure result code. Most likely will be 503, 400, or 403
                     failureResultCode = HttpStatusCode.InternalServerError;

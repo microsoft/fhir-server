@@ -995,6 +995,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        [Fact]
+        public async Task GivenMultipleResourceTypes_WhenGettingUsedTypes_ThenAllUsedTypesAreReturned()
+        {
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            await Mediator.UpsertResourceAsync(patientResource1);
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Sequence"));
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Specimen"));
+
+            var expectedTypes = new List<string>()
+            {
+                "Observation",
+                "Patient",
+                "MolecularSequence",
+                "Specimen",
+            };
+
+            var resourceTypes = await _fixture.SearchService.GetUsedResourceTypes(CancellationToken.None);
+
+            // There may be other resource types in use from other tests, so only the ones this tests adds are checked
+            foreach (var type in expectedTypes)
+            {
+                Assert.Contains(type, resourceTypes);
+            }
+        }
+
         [Fact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()

@@ -96,8 +96,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 WHERE r.isSystem = false
                 ORDER BY r.resourceTypeName");
 
-            var resourceTypes = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
-            return resourceTypes.results;
+            string continuationToken = null;
+            var resourceTypes = new List<string>();
+
+            do
+            {
+                var results = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), continuationToken, cancellationToken: cancellationToken);
+                continuationToken = results.continuationToken;
+                resourceTypes.AddRange(results.results);
+            }
+            while (continuationToken != null);
+
+            return resourceTypes;
         }
 
         public override async Task<SearchResult> SearchAsync(
