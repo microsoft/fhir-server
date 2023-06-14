@@ -72,12 +72,7 @@ CREATE OR ALTER PROCEDURE dbo.MergeResourcesPutTransactionHeartbeat @Transaction
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesPutTransactionHeartbeat'
-       ,@Mode varchar(100)
-       ,@st datetime = getUTCdate()
-       ,@Rows int = 0
-       ,@PartitionId tinyint = @JobId % 16
-
-SET @Mode = 'TR='+convert(varchar,@TransactionId)
+       ,@Mode varchar(100)= 'TR='+convert(varchar,@TransactionId)
 
 BEGIN TRY
   UPDATE dbo.Transactions

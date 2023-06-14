@@ -4553,8 +4553,7 @@ CREATE PROCEDURE dbo.MergeResourcesPutTransactionHeartbeat
 @TransactionId BIGINT
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesPutTransactionHeartbeat', @Mode AS VARCHAR (100), @st AS DATETIME = getUTCdate(), @Rows AS INT = 0, @PartitionId AS TINYINT = @JobId % 16;
-SET @Mode = 'TR=' + CONVERT (VARCHAR, @TransactionId);
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesPutTransactionHeartbeat', @Mode AS VARCHAR (100) = 'TR=' + CONVERT (VARCHAR, @TransactionId);
 BEGIN TRY
     UPDATE dbo.Transactions
     SET    HeartbeatDate = getUTCdate()
