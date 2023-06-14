@@ -12,7 +12,7 @@
         <AspNetPackageVersion>7.0.1</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
       </ItemGroup>
     </When>
     <Otherwise>
@@ -21,7 +21,7 @@
         <AspNetPackageVersion>6.0.12</AspNetPackageVersion>
       </PropertyGroup>
       <ItemGroup>
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.1" />
       </ItemGroup>
     </Otherwise>
   </Choose>
