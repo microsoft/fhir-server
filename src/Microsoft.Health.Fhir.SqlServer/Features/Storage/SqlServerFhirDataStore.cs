@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
             var prevResourceId = string.Empty;
-            var beginTransaction = false;
+            var singleTransaction = false;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
             {
                 var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
@@ -302,13 +302,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
-                    beginTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
+                    singleTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
                 }
 
                 resource.ResourceSurrogateId = surrId;
                 if (resource.Version != InitialVersion) // do not begin transaction if all creates
                 {
-                    beginTransaction = true;
+                    singleTransaction = true;
                 }
 
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         cmd.CommandType = CommandType.StoredProcedure;
                         cmd.CommandText = "dbo.MergeResources";
                         cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
-                        cmd.Parameters.AddWithValue("@BeginTransaction", beginTransaction);
+                        cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
                         new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                         new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                         new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (Exception e)
             {
-                if (!beginTransaction)
+                if (!singleTransaction)
                 {
                     // clean up database here
                 }

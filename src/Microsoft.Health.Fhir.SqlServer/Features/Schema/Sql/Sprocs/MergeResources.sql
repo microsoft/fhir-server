@@ -8,7 +8,7 @@ CREATE PROCEDURE dbo.MergeResources
     @AffectedRows int = 0 OUT
    ,@RaiseExceptionOnConflict bit = 1
    ,@IsResourceChangeCaptureEnabled bit = 0
-   ,@BeginTransaction bit = 1
+   ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@CompartmentAssignments dbo.CompartmentAssignmentList READONLY -- TODO: Remove after version 57 got deployed
@@ -34,7 +34,7 @@ DECLARE @st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
-SET @Mode += ' ITC='+convert(varchar,@InitialTranCount)+' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
+SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)
 
 SET @AffectedRows = 0
 
@@ -54,13 +54,13 @@ BEGIN TRY
   DECLARE @PreviousSurrogateIds AS TABLE (TypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
 
   -- We do not need to begin transaction if all creates and overlap check is enabled
-  IF @BeginTransaction = 0
+  IF @SingleTransaction = 0
      AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled'),0) = 0
-    SET @BeginTransaction = 1
+    SET @SingleTransaction = 1
   
-  SET @Mode += ' BT='+convert(varchar,@BeginTransaction)
+  SET @Mode += ' ST='+convert(varchar,@SingleTransaction)
 
-  IF @InitialTranCount = 0 AND @BeginTransaction = 1 BEGIN TRANSACTION
+  IF @InitialTranCount = 0 AND @SingleTransaction = 1 BEGIN TRANSACTION
   
   INSERT INTO @ResourceInfos
       (
