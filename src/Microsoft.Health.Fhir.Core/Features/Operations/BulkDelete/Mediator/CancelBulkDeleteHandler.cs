@@ -46,17 +46,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             {
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, false, cancellationToken);
 
+                if (jobs == null || jobs.Count == 0)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, request.JobId));
+                }
+
                 var conflict = false;
+                var allComplete = true;
                 foreach (var job in jobs)
                 {
-                    if (job.Status == JobStatus.Failed || job.Status == JobStatus.Completed || job.Status == JobStatus.Cancelled)
+                    if (job.Status == JobStatus.Failed || job.Status == JobStatus.Cancelled)
                     {
                         conflict = true;
+                    }
+
+                    if (job.Status != JobStatus.Completed)
+                    {
+                        allComplete = false;
                     }
                 }
 
                 // If the job is already completed for any reason, return conflict status.
-                if (conflict)
+                if (conflict || allComplete)
                 {
                     return new CancelBulkDeleteResponse(HttpStatusCode.Conflict);
                 }

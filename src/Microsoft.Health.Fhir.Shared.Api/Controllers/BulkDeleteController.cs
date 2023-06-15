@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
@@ -37,8 +38,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IMediator mediator,
             IUrlResolver urlResolver)
         {
-            _mediator = mediator;
-            _urlResolver = urlResolver;
+            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
 
         [HttpGet]
