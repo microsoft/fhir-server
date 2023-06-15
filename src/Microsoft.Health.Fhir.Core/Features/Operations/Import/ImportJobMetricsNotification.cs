@@ -18,7 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             DateTimeOffset endTime,
             long? dataSize,
             long? succeededCount,
-            long? failedCount)
+            long? failedCount,
+            ImportMode importMode)
         {
             FhirOperation = AuditEventSubType.Import;
             ResourceType = null;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             DataSize = dataSize;
             SucceededCount = succeededCount;
             FailedCount = failedCount;
+            ImportMode = importMode;
         }
 
         public string FhirOperation { get; }
@@ -49,5 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long? SucceededCount { get; }
 
         public long? FailedCount { get; }
+
+        public ImportMode ImportMode { get; }
     }
 }

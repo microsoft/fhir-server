@@ -54,5 +54,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public int CreatedJobCount { get; set; } // TODO: remove in stage 3
 
         public long? TotalSizeInBytes { get; set; } // TODO: remove in stage 3
+
+        /// <summary>
+        /// Import mode.
+        /// </summary>
+        public ImportMode ImportMode { get; set; }
     }
 }

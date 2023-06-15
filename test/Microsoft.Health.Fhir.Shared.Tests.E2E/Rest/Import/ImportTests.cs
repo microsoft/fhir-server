@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -143,6 +144,103 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalImportInvalidResource_ThenErrorLogsShouldBeOutput_FailedRCountShouldMatch()
+        {
+            _metricHandler?.ResetCount();
+            string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
+            Assert.NotEmpty(result.Output);
+            Assert.Equal(1, result.Error.Count);
+            Assert.NotEmpty(result.Request);
+
+            string errorLocation = result.Error.ToArray()[0].Url;
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            Assert.True(errorContents.Count() >= 1); // when run locally there might be duplicates. no idea why.
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportJobMetricsNotification;
+                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceededCount);
+                Assert.Equal(1, notification.FailedCount);
+                Assert.Equal(ImportMode.IncrementalLoad, notification.ImportMode);
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Category, Categories.Authorization)]
+        public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+
+            request.Mode = ImportMode.IncrementalLoad.ToString();
+            request.Force = true;
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
+            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                List<INotification> notificationList;
+                _metricHandler.NotificationMapping.TryGetValue(typeof(ImportJobMetricsNotification), out notificationList);
+                Assert.Null(notificationList);
+            }
         }
 
         [Fact]

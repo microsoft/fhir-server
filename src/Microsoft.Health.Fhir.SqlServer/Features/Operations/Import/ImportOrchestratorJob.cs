@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _contextAccessor.RequestContext = fhirRequestContext;
 
             currentResult.Request = inputData.RequestUri.ToString();
+            currentResult.ImportMode = inputData.ImportMode;
 
             ImportOrchestratorJobErrorResult errorResult = null;
 
@@ -273,7 +274,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 Clock.UtcNow,
                 currentResult.TotalBytes,
                 currentResult.SucceededResources,
-                currentResult.FailedResources);
+                currentResult.FailedResources,
+                currentResult.ImportMode);
 
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
