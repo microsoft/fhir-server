@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 job.Definition = definition;
             }
 
-            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), false, Arg.Any<CancellationToken>()).Returns(jobs);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
             var request = new GetBulkDeleteRequest(1);
             var response = await _handler.Handle(request, CancellationToken.None);
 
