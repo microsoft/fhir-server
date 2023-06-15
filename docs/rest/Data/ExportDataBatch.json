@@ -5,6 +5,13 @@
         {
             "resource": {
                 "resourceType": "Patient",
+                "meta": {
+                    "tag": [
+                        {
+                            "code": "newData"
+                        }
+                    ]
+                },
                 "id": "export0",
                 "name": [
                     {
@@ -24,6 +31,13 @@
         {
             "resource": {
                 "resourceType": "Patient",
+                "meta": {
+                    "tag": [
+                        {
+                            "code": "oldData"
+                        }
+                    ]
+                },
                 "id": "export1",
                 "name": [
                     {
@@ -80,12 +94,21 @@
         {
             "resource": {
                 "resourceType": "Observation",
+                "meta": {
+                    "tag": [
+                        {
+                            "code": "oldData"
+                        }
+                    ]
+                },
                 "status": "final",
-                "code":{
-                    "coding": [{
-                        "system": "system2",
-                        "code": "code2"
-                    }]
+                "code": {
+                    "coding": [
+                        {
+                            "system": "system2",
+                            "code": "code2"
+                        }
+                    ]
                 },
                 "subject": {
                     "reference": "Patient/export1"
@@ -99,6 +122,13 @@
         {
             "resource": {
                 "resourceType": "Observation",
+                "meta": {
+                    "tag": [
+                        {
+                            "code": "oldData"
+                        }
+                    ]
+                },
                 "status": "amended",
                 "code":{
                     "coding": [{
