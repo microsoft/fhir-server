@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
         }
 
-        [HttpGet]
+        [HttpDelete]
         [Route(KnownRoutes.BulkDelete)]
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDelete([FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await SendDeleteRequest(null, hardDelete, purgeHistory);
         }
 
-        [HttpGet]
+        [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)

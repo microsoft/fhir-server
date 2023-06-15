@@ -14,7 +14,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexJobRecordExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)extensions\ResourceWrapperFactoryExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceWrapperFactoryExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />
@@ -43,7 +43,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\ConditionalDeleteResourceHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)features\resources\delete\Deleter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\Deleter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />

@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var request = new HttpRequestMessage
             {
-                Method = HttpMethod.Get,
+                Method = HttpMethod.Delete,
             };
 
             if (queryParams == null)

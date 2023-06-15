@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 throw new UnauthorizedFhirActionException();
             }
 
-            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, false, cancellationToken);
+            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, true, cancellationToken);
 
             if (jobs == null || jobs.Count == 0)
             {
