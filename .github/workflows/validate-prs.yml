@@ -44,7 +44,8 @@ jobs:
                labels.includes("Bug") == false &&
                labels.includes("Dependencies") == false && 
                labels.includes("Enhancement") == false &&
-               labels.includes("New-Feature") == false) {
+               labels.includes("New Feature") == false &&
+               labels.includes("New-Feature") == false)) {
               errors += '- Tag the PR with the type of update: **Bug**, **Build**, **Dependencies**, **Enhancement**, **New-Feature** or **Documentation**. \n';
             }
 
