@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirClientException fce)
             {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
             }
             catch (Exception e)
             {
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.True(
                 fce.StatusCode == HttpStatusCode.BadRequest,
-                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a' {nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a' {nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
         }
 
         [Theory]
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.True(
                 fce.StatusCode == HttpStatusCode.BadRequest,
-                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a '{nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.GetActivityId()}. Error: {fce.Message}");
+                $"A '{nameof(FhirClientException)}' with '{HttpStatusCode.BadRequest}' status code was expected, but instead a '{nameof(FhirClientException)}' with '{fce.StatusCode}' status code was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
         }
     }
 }

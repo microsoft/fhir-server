@@ -117,6 +117,7 @@ namespace Microsoft.Health.JobManagement
 
                 var progress = new Progress<string>((result) => { jobInfo.Result = result; });
 
+#pragma warning disable CS0618 // Type or member is obsolete. Needed for Import jobs, we should move away from this method.
                 var runningJob = useHeavyHeartbeats
                                ? ExecuteJobWithHeavyHeartbeatsAsync(
                                     _queueClient,
@@ -132,6 +133,7 @@ namespace Microsoft.Health.JobManagement
                                     cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
+#pragma warning restore CS0618 // Type or member is obsolete
 
                 jobInfo.Result = await runningJob;
             }
@@ -204,6 +206,7 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
+        [Obsolete("Heartbeats should only update timestamp, results should only be written when job reaches terminal state.")]
         public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));

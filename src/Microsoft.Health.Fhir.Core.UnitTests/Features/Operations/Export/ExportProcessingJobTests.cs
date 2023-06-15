@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -25,6 +26,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     [Trait(Traits.Category, Categories.Export)]
     public class ExportProcessingJobTests
     {
+        private readonly string _progressToken = "progress token";
+
         [Fact]
         public async Task GivenAnExportJob_WhenItSucceeds_ThenOutputsAreInTheResult()
         {
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Completed);
 
-            var processingJob = new ExportProcessingJob(MakeMockJob);
+            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient());
             var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
             Assert.Equal(expectedResults, taskResult);
 
@@ -54,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var exceptionMessage = "Test job failed";
             var expectedResults = GenerateJobRecord(OperationStatus.Failed, exceptionMessage);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
             var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
             Assert.Equal(exceptionMessage, exception.Message);
         }
@@ -66,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
             await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
@@ -79,8 +82,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(status);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob));
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
             await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResults_ThenANewProgressJobIsQueued()
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var expectedResults = GenerateJobRecord(OperationStatus.Running);
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
+
+            Assert.Single(queueClient.JobInfos);
+            Assert.Contains(_progressToken, queueClient.JobInfos[0].Definition);
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null)
@@ -117,6 +140,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 return mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+            });
+
+            return mockJob;
+        }
+
+        private IExportJobTask MakeMockJobWithProgressUpdate()
+        {
+            var mockJob = Substitute.For<IExportJobTask>();
+            mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(async x =>
+            {
+                var record = x.ArgAt<ExportJobRecord>(0);
+                record.Progress = new ExportJobProgress(_progressToken, 1);
+                try
+                {
+                    await mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                }
+                catch (JobSegmentCompletedException)
+                {
+                    record.Status = OperationStatus.Completed;
+                    await mockJob.UpdateExportJob(record, x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+                }
             });
 
             return mockJob;

@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -258,13 +259,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 _modelInfoProvider,
                                 _logger);
                         }
-                        catch (SearchParameterNotSupportedException ex)
+                        catch (FhirException ex)
                         {
-                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
-                        }
-                        catch (InvalidDefinitionException ex)
-                        {
-                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store.", searchParam.GetStringScalar("url"));
+                            StringBuilder issueDetails = new StringBuilder();
+                            foreach (OperationOutcomeIssue issue in ex.Issues)
+                            {
+                                issueDetails.Append(issue.Diagnostics).Append("; ");
+                            }
+
+                            _logger.LogWarning(ex, "Error loading search parameter {Url} from data store. Issues: {Issues}", searchParam.GetStringScalar("url"), issueDetails.ToString());
                         }
                         catch (Exception ex)
                         {

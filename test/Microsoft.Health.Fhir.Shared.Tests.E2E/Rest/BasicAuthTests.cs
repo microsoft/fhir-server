@@ -53,9 +53,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAUserWithNoCreatePermissions_WhenCreatingAResource_TheServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
         }
 
         [Fact]
@@ -66,9 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.UpdateAsync(createdResource));
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync(createdResource));
         }
 
         [Fact]
@@ -78,9 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.HardDeleteAsync(createdResource));
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.HardDeleteAsync(createdResource));
         }
 
         [Fact]
@@ -230,9 +226,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ConvertDataAsync(parameters));
-            Assert.Equal(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.ConvertDataAsync(parameters));
         }
 
         [SkippableFact]
@@ -243,7 +238,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
-            var result = await tempClient.ConvertDataAsync(parameters);
+            var response = await tempClient.ConvertDataAsync(parameters);
+
+            string result = await response.Content.ReadAsStringAsync();
+
             Assert.NotEmpty(result);
         }
 
@@ -253,9 +251,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
-            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.CreateAsync<ValueSet>(resource));
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource));
         }
 
         [Fact]
@@ -264,10 +261,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
-            var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.UpdateAsync<ValueSet>(resource));
 
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource));
         }
 
         [Fact]
@@ -276,10 +271,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
-            var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.CreateAsync<ValueSet>(resource, "identifier=boo"));
 
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource, "identifier=boo"));
         }
 
         [Fact]
@@ -289,10 +282,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
             var weakETag = "W/\"identifier=boo\"";
-            var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.UpdateAsync<ValueSet>(resource, weakETag));
 
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource, weakETag));
         }
 
         [Fact]
@@ -301,10 +292,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
-            var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.DeleteAsync<ValueSet>(resource));
 
-            Assert.StartsWith(ForbiddenMessage, fhirException.Message);
-            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.DeleteAsync<ValueSet>(resource));
         }
 
         [Fact]
@@ -319,6 +308,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, valueSetResponse.Response.StatusCode);
             var response = await tempClient.DeleteAsync<ValueSet>(valueSetResponse.Resource);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        }
+
+        private static async Task RunRequestsSupposedToFailWithForbiddenAccessAsync(Func<Task<FhirResponse>> request)
+        {
+            try
+            {
+                FhirResponse response = await request();
+
+                Assert.Fail($"Request was supposed to fail with '{nameof(FhirClientException)}'. Response status code '{response.StatusCode}'. Correlation Id: {response.GetActivityId()}.");
+            }
+            catch (FhirClientException fhirException)
+            {
+                Assert.StartsWith(ForbiddenMessage, fhirException.Message);
+                Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+            }
+            catch (Exception e)
+            {
+                Assert.Fail($"Invalid exception type '{e.GetType()}'.");
+            }
         }
     }
 }

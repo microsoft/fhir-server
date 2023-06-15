@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     mergeStart = DateTime.UtcNow;
-                    var results = await MergeInternalAsync(resources, cancellationToken);
+                    var results = await MergeInternalAsync(resources, false, 0, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -140,10 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    if (sqlEx != null)
-                    {
-                        await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", mergeStart, cancellationToken);
-                    }
+                    await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", mergeStart, cancellationToken);
 
                     throw trueEx;
                 }
@@ -151,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, int timeoutRetries, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -289,7 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 long surrId;
-                if (_ignoreInputLastUpdated.IsEnabled())
+                if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
                 {
                     surrId = minSurrId + index;
                     resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
@@ -319,7 +316,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     RaiseExceptionOnConflict: true,
                     IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
                     tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count);
+                cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -376,7 +373,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-            using var cmd = conn.CreateRetrySqlCommand();
+            using var cmd = conn.CreateNonRetrySqlCommand(); // do not use incorrect retry logic
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.GetResources";
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));

@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                    || HasDatabaseAvailabilityPattern(str)
                    || HasDatabaseOverloadPattern(str)
                    || HasDeadlockErrorPattern(str)
-                   || HasReaderOnClosedConnectionPattern(str);
+                   || HasIncorrectAsyncCallPattern(str);
         }
 
         internal static bool IsExecutionTimeout(this Exception e)
@@ -105,10 +105,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             ////The request limit for the database is 200 and has been reached.
         }
 
-        // TODO: This is temporary until transactions are removed from CSharp code, and we start using correct retry logic on merge.
-        private static bool HasReaderOnClosedConnectionPattern(string str)
+        // TODO: Remove when source of this exception is identified
+        private static bool HasIncorrectAsyncCallPattern(string str)
         {
-            return str.Contains("BeginExecuteReader requires an open and available Connection", StringComparison.OrdinalIgnoreCase) && str.Contains("current state is closed", StringComparison.OrdinalIgnoreCase);
+            return str.Contains("This method may not be called when another read operation is pending", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
