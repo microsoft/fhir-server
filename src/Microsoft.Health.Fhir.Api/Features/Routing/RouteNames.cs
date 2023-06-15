@@ -7,74 +7,74 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     internal static class RouteNames
     {
-        internal const string Metadata = "Metadata";
+        internal const string Metadata = nameof(Metadata);
 
-        internal const string WellKnownSmartConfiguration = "WellKnownSmartConfiguration";
+        internal const string WellKnownSmartConfiguration = nameof(WellKnownSmartConfiguration);
 
-        internal const string ReadResource = "ReadResource";
+        internal const string ReadResource = nameof(ReadResource);
 
-        internal const string ReadResourceWithVersionRoute = "ReadResourceWithVersionRoute";
+        internal const string ReadResourceWithVersionRoute = nameof(ReadResourceWithVersionRoute);
 
-        internal const string SearchResources = "SearchResources";
+        internal const string SearchResources = nameof(SearchResources);
 
-        internal const string SearchAllResources = "SearchAllResources";
+        internal const string SearchAllResources = nameof(SearchAllResources);
 
-        internal const string History = "History";
+        internal const string History = nameof(History);
 
-        internal const string HistoryType = "HistoryType";
+        internal const string HistoryType = nameof(HistoryType);
 
-        internal const string HistoryTypeId = "HistoryTypeId";
+        internal const string HistoryTypeId = nameof(HistoryTypeId);
 
-        internal const string SearchCompartmentByResourceType = "SearchCompartmentByResourceType";
+        internal const string SearchCompartmentByResourceType = nameof(SearchCompartmentByResourceType);
 
-        internal const string AadSmartOnFhirProxyAuthorize = "AadSmartOnFhirProxyAuthorize";
+        internal const string AadSmartOnFhirProxyAuthorize = nameof(AadSmartOnFhirProxyAuthorize);
 
-        internal const string AadSmartOnFhirProxyCallback = "AadSmartOnFhirProxyCallback";
+        internal const string AadSmartOnFhirProxyCallback = nameof(AadSmartOnFhirProxyCallback);
 
-        internal const string AadSmartOnFhirProxyToken = "AadSmartOnFhirProxyToken";
+        internal const string AadSmartOnFhirProxyToken = nameof(AadSmartOnFhirProxyToken);
 
-        internal const string GetExportStatusById = "GetExportStatusById";
+        internal const string GetExportStatusById = nameof(GetExportStatusById);
 
-        internal const string CancelExport = "CancelExport";
+        internal const string CancelExport = nameof(CancelExport);
 
-        internal const string GetReindexStatusById = "GetReindexStatusById";
+        internal const string GetReindexStatusById = nameof(GetReindexStatusById);
 
-        internal const string GetImportStatusById = "GetImportStatusById";
+        internal const string GetImportStatusById = nameof(GetImportStatusById);
 
-        internal const string CancelImport = "CancelImport";
+        internal const string CancelImport = nameof(CancelImport);
 
-        internal const string PostBundle = "PostBundle";
+        internal const string PostBundle = nameof(PostBundle);
 
-        internal const string PatientEverythingById = "PatientEverythingById";
+        internal const string PatientEverythingById = nameof(PatientEverythingById);
 
-        internal const string ReindexOperationDefintion = "ReindexOperationDefintion";
+        internal const string ReindexOperationDefintion = nameof(ReindexOperationDefintion);
 
-        internal const string ResourceReindexOperationDefinition = "ResourceReindexOperationDefinition";
+        internal const string ResourceReindexOperationDefinition = nameof(ResourceReindexOperationDefinition);
 
-        internal const string ExportOperationDefinition = "ExportOperationDefinition";
+        internal const string ExportOperationDefinition = nameof(ExportOperationDefinition);
 
-        internal const string PatientExportOperationDefinition = "PatientExportOperationDefinition";
+        internal const string PatientExportOperationDefinition = nameof(PatientExportOperationDefinition);
 
-        internal const string GroupExportOperationDefinition = "GroupExportOperationDefinition";
+        internal const string GroupExportOperationDefinition = nameof(GroupExportOperationDefinition);
 
-        internal const string AnonymizedExportOperationDefinition = "AnonymizedExportOperationDefinition";
+        internal const string AnonymizedExportOperationDefinition = nameof(AnonymizedExportOperationDefinition);
 
-        internal const string ConvertDataOperationDefinition = "ConvertDataOperationDefinition";
+        internal const string ConvertDataOperationDefinition = nameof(ConvertDataOperationDefinition);
 
-        internal const string MemberMatchOperationDefinition = "MemberMatchOperationDefinition";
+        internal const string MemberMatchOperationDefinition = nameof(MemberMatchOperationDefinition);
 
-        internal const string PurgeHistoryDefinition = "PurgeHistoryDefinition";
+        internal const string PurgeHistoryDefinition = nameof(PurgeHistoryDefinition);
 
-        internal const string SearchParameterState = "SearchParameterState";
+        internal const string SearchParameterState = nameof(SearchParameterState);
 
-        internal const string PostSearchParameterState = "PostSearchParameterState";
+        internal const string PostSearchParameterState = nameof(PostSearchParameterState);
 
-        internal const string UpdateSearchParameterState = "UpdateSearchParameterState";
+        internal const string UpdateSearchParameterState = nameof(UpdateSearchParameterState);
 
-        internal const string GetBulkDeleteStatusById = "GetBulkDeleteStatusById";
+        internal const string GetBulkDeleteStatusById = nameof(GetBulkDeleteStatusById);
 
-        internal const string CancelBulkDelete = "CancelBulkDelete";
+        internal const string CancelBulkDelete = nameof(CancelBulkDelete);
 
-        internal const string BulkDeleteDefinition = "BulkDeleteDefinition";
+        internal const string BulkDeleteDefinition = nameof(BulkDeleteDefinition);
     }
 }
