@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -42,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IReindexUtilities _reindexUtilities;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
@@ -115,13 +113,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             */
 
-            return JsonConvert.SerializeObject(await ProcessQueryAsync(cancellationToken));
+            await ProcessQueryAsync(cancellationToken);
+            return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
 
         private async Task<SearchResult> GetResourcesToReindexAsync(SearchResultReindex searchResultReindex, CancellationToken cancellationToken)
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
+                Tuple.Create(KnownQueryParameterNames.Count, _reindexProcessingJobDefinition.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, _reindexProcessingJobDefinition.ResourceType),
             };
 
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // searching for the next block of results and will use that as the queryStatus starting point
                 queryParametersList.AddRange(new[]
                 {
-                    // This EndResourceSurrogateId is only needed because of the way the sql is written. It is not populated initially.
+                    // This EndResourceSurrogateId is only needed because of the way the sql is written. It is not accurate initially.
                     Tuple.Create(KnownQueryParameterNames.EndSurrogateId, searchResultReindex.EndResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.StartSurrogateId, searchResultReindex.StartResourceSurrogateId.ToString()),
                     Tuple.Create(KnownQueryParameterNames.GlobalEndSurrogateId, "0"),
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _logger.LogError($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}.");
         }
 
-        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(CancellationToken cancellationToken)
+        private async Task ProcessQueryAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -186,20 +186,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     currentResourceSurrogateId = result.MaxResourceSurrogateId;
 
                     // reindex has more work to do at this point
-                    // if the current is less than the max then we have more to do
-                    if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
+                    if (result?.MaxResourceSurrogateId > 0)
                     {
-                        // since reindex won't have a continuation token we need to check that
-                        // we have more to query by checking MaxResourceSurrogateId
-                        var nextQuery = new ReindexJobQueryStatus(_reindexProcessingJobDefinition.ResourceType, null)
+                        _reindexProcessingJobDefinition.ResourceCount.CurrentResourceSurrogateId = result.MaxResourceSurrogateId;
+
+                        if (result.MaxResourceSurrogateId < _reindexProcessingJobDefinition.ResourceCount.EndResourceSurrogateId)
                         {
-                            LastModified = Clock.UtcNow,
-                            Status = OperationStatus.Queued,
-                            StartResourceSurrogateId = result.MaxResourceSurrogateId + 1,
-                        };
-                        _reindexProcessingJobDefinition.StartResourceSurrogateId = currentResourceSurrogateId;
-                        var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
-                        _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId.FirstOrDefault());
+                            // We need to create a child query to finish processing the reindex job
+                            _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
+                            _reindexProcessingJobDefinition.StartResourceSurrogateId = currentResourceSurrogateId;
+                            var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
+                            _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId[0]);
+                        }
                     }
                 }
 
@@ -208,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, cancellationToken);
 
-                if (!_cancellationToken.IsCancellationRequested)
+                if (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {

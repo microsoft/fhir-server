@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
             parametersResource.Add(JobRecordProperties.Id, new FhirString(job.Id));
 
+            /*
             if (job.Error != null && job.Error.Count > 0)
             {
                 var outputMessages = new List<Parameters.ParameterComponent>();
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
                 parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Output, Part = outputMessages });
             }
+            */
 
             if (job.StartTime.HasValue)
             {

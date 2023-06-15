@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
-using IdentityServer4.Models;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;

@@ -18,20 +18,17 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public class CreateReindexRequestHandler : IRequestHandler<CreateReindexRequest, CreateReindexResponse>, INotificationHandler<SearchParametersInitializedNotification>
+    public class CreateReindexRequestHandler : IRequestHandler<CreateReindexRequest, CreateReindexResponse>
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterOperations _searchParameterOperations;
-
-        private bool _searchParametersInitialized = false;
 
         public CreateReindexRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
@@ -60,11 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
-            }
-
-            if (!_searchParametersInitialized)
-            {
-                throw new PreconditionFailedException(Core.Resources.SearchParametersNotInitialized);
             }
 
             (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
@@ -108,12 +100,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
             return new CreateReindexResponse(outcome);
-        }
-
-        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
-        {
-            _searchParametersInitialized = true;
-            return Task.CompletedTask;
         }
     }
 }

@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             decimal? fraction,
             int? utcOffsetInMinutes)
         {
-            TimeSpan? utcOffset = utcOffsetInMinutes == null ? (TimeSpan?)null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
+            TimeSpan? utcOffset = utcOffsetInMinutes == null ? null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
             var dateTime = PartialDateTime.Parse(inputString);
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             decimal? fraction,
             int? utcOffsetInMinutes)
         {
-            TimeSpan? utcOffset = utcOffsetInMinutes == null ? (TimeSpan?)null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
+            TimeSpan? utcOffset = utcOffsetInMinutes == null ? null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
             var dateTime = PartialDateTime.Parse(inputString);
 

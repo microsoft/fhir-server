@@ -3,13 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable IDE0005 // Using directive is unnecessary.
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
-using Task=System.Threading.Tasks.Task;
+using Task = System.Threading.Tasks.Task;
+#pragma warning restore IDE0005 // Using directive is unnecessary.
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
@@ -68,5 +70,5 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 value);
         }
     }
-    #endif
+#endif
 }

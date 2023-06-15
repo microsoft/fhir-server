@@ -1115,6 +1115,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to A Reindex Job is currently running. Wait till it has completed before trying again..
+        /// </summary>
+        internal static string ReindexRunningException {
+            get {
+                return ResourceManager.GetString("ReindexRunningException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
         internal static string RequestedActionNotAllowed {

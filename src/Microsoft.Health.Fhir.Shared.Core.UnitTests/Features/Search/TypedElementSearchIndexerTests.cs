@@ -12,8 +12,10 @@ using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+#pragma warning disable IDE0005 // Using directive is unnecessary.
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+#pragma warning restore IDE0005 // Using directive is unnecessary.
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;

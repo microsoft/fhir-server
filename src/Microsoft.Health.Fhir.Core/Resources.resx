@@ -739,4 +739,7 @@
   <data name="SearchParametersNotInitialized" xml:space="preserve">
     <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
   </data>
+  <data name="ReindexRunningException" xml:space="preserve">
+    <value>A Reindex Job is currently running. Wait till it has completed before trying again.</value>
+  </data>
 </root>

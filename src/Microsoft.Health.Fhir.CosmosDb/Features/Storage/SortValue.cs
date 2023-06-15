@@ -6,7 +6,6 @@
 using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {

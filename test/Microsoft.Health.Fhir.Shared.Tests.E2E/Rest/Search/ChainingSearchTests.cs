@@ -11,7 +11,9 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+#pragma warning disable IDE0005 // Using directive is unnecessary.
 using Microsoft.Health.Fhir.Core.Models;
+#pragma warning restore IDE0005 // Using directive is unnecessary.
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;

@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -37,6 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public int CompletedJobs { get; set; }
 
         [JsonProperty(JobRecordProperties.Error)]
-        public ICollection<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
+        public IReadOnlyCollection<OperationOutcomeIssue> Error { get; set; } = new List<OperationOutcomeIssue>();
     }
 }

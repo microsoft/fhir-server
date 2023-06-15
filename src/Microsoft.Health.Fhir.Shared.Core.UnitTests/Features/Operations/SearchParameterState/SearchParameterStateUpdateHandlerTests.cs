@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -55,12 +56,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         private ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly ILogger<SearchParameterStatusManager> _logger = Substitute.For<ILogger<SearchParameterStatusManager>>();
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger2 = Substitute.For<ILogger<SearchParameterStateUpdateHandler>>();
+        private readonly IQueueClient _queueClient = Substitute.For<IQueueClient>();
 
         public SearchParameterStateUpdateHandlerTests()
         {
             _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
-            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2);
+            _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient);
             _cancellationToken = CancellationToken.None;
 
             _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);

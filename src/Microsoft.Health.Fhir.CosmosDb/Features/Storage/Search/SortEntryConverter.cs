@@ -5,9 +5,7 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 {

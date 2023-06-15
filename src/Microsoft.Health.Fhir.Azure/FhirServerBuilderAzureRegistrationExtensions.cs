@@ -7,7 +7,6 @@ using Azure.Storage.Blobs;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;

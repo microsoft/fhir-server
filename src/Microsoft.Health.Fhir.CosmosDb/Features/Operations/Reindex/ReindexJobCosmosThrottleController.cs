@@ -13,7 +13,6 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex

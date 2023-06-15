@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
@@ -25,6 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public SearchResultReindex ResourceCount { get; set; }
 
         public uint MaximumNumberOfResourcesPerQuery { get; set; }
+
+        public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
 
         // The below properties are only used for the ThrottlingController
 
