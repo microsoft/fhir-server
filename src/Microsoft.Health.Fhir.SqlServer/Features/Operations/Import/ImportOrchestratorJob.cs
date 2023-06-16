@@ -142,7 +142,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Cancelled;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -156,7 +157,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Cancelled;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -167,8 +169,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     HttpStatusCode = integrationDataStoreEx.StatusCode,
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
-
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Failed;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -179,8 +181,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = eTagEx.Message,
                 };
-
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Failed;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -195,7 +197,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Cancel other processing jobs
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Failed;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
             catch (RetriableJobException ex)
             {
@@ -216,7 +219,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode);
+                jobInfo.Status = JobStatus.Failed;
+                await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             }
 
             // Post-process operation cannot be cancelled.
@@ -245,7 +249,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 throw new JobExecutionException(errorResult.ErrorMessage, errorResult);
             }
 
-            await SendImportMetricsNotification(JobStatus.Completed, jobInfo, currentResult, inputData.ImportMode);
+            jobInfo.Status = JobStatus.Completed;
+            await SendImportMetricsNotification(jobInfo, currentResult, inputData.ImportMode);
             return JsonConvert.SerializeObject(currentResult);
         }
 
@@ -264,11 +269,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             });
         }
 
-        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, ImportMode importMode)
+        private async Task SendImportMetricsNotification(JobInfo jobInfo, ImportOrchestratorJobResult currentResult, ImportMode importMode)
         {
             var importJobMetricsNotification = new ImportJobMetricsNotification(
                 jobInfo.Id.ToString(),
-                jobStatus.ToString(),
+                jobInfo.Status.ToString(),
                 jobInfo.CreateDate,
                 Clock.UtcNow,
                 currentResult.TotalBytes,
