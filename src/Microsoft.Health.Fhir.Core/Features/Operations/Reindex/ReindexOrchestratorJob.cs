@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                await HandleException(ex);
+                HandleException(ex);
                 progress.Report(string.Format("Reindex Orchestrator job failed with exception: {0}, for JobId: {1}.", ex.Message, _jobInfo.Id));
             }
             finally
@@ -297,7 +297,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     TypeId = (int)JobType.ReindexProcessing,
                     StartResourceSurrogateId = input.Key.StartResourceSurrogateId,
-                    CreatedChild = false,
                     ForceReindex = _reindexJobRecord.ForceReindex,
                     ResourceTypeSearchParameterHashMap = GetHashMapByResourceType(input.Key.ResourceType),
                     ResourceCount = GetSearchResultReindex(input.Key.ResourceType),
@@ -430,31 +429,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task HandleException(Exception ex)
+        private void HandleException(Exception ex)
         {
-            await _jobSemaphore.WaitAsync(_cancellationToken);
-            try
-            {
-                var errorList = new List<OperationOutcomeIssue>()
+            var errorList = new List<OperationOutcomeIssue>()
                 {
                     new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,
                     ex.Message),
                 };
-                errorList.AddRange(_currentResult.Error);
-                _currentResult.Error = errorList;
+            errorList.AddRange(_currentResult.Error);
+            _currentResult.Error = errorList;
 
-                _reindexJobRecord.FailureCount++;
+            _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, Id: {Id}.", _reindexJobRecord.FailureCount, _jobInfo.Id);
+            _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, Id: {Id}.", _reindexJobRecord.FailureCount, _jobInfo.Id);
 
-                LogReindexJobRecordErrorMessage();
-            }
-            finally
-            {
-                _jobSemaphore.Release();
-            }
+            LogReindexJobRecordErrorMessage();
         }
 
         private async Task UpdateSearchParameterStatus(List<JobInfo> completedJobs, CancellationToken cancellationToken)
@@ -463,41 +454,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // were reindexed by this job. If so, then we should mark the search parameters
             // as fully reindexed
             var fullyIndexedParamUris = new List<string>();
-            var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
             var reindexedSearchParameters = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(completedJobs.First().Definition).SearchParameterUrls;
-
-            foreach (var jobDefinition in completedJobs.Select(j => JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(j.Definition)))
-            {
-                reindexedResourcesSet.Add(jobDefinition.ResourceTypeSearchParameterHashMap);
-            }
 
             foreach (var searchParameterUrl in reindexedSearchParameters)
             {
                 // Use base search param definition manager
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParameterUrl);
-                bool allResourcesForSearchParamIndexed = reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes);
+                var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status;
 
-                // Check to see if all resources associated with the search parameter are indexed before proceeding with status updates.
-                if (allResourcesForSearchParamIndexed)
+                switch (spStatus)
                 {
-                    var spStatus = searchParamStatusCollection.FirstOrDefault(sp => sp.Uri.Equals(searchParamInfo.Url)).Status;
-
-                    switch (spStatus)
-                    {
-                        case SearchParameterStatus.PendingDisable:
-                            _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Disabled.", _jobInfo.Id, searchParamInfo.Url);
-                            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
-                            break;
-                        case SearchParameterStatus.PendingDelete:
-                            _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Deleted.", _jobInfo.Id, searchParamInfo.Url);
-                            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
-                            break;
-                        case SearchParameterStatus.Supported:
-                        case SearchParameterStatus.Enabled:
-                            fullyIndexedParamUris.Add(searchParamInfo.Url.OriginalString);
-                            break;
-                    }
+                    case SearchParameterStatus.PendingDisable:
+                        _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Disabled.", _jobInfo.Id, searchParamInfo.Url);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Disabled, cancellationToken);
+                        break;
+                    case SearchParameterStatus.PendingDelete:
+                        _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameter: '{ParamUri}' to Deleted.", _jobInfo.Id, searchParamInfo.Url);
+                        await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParamInfo.Url.ToString() }, SearchParameterStatus.Deleted, cancellationToken);
+                        break;
+                    case SearchParameterStatus.Supported:
+                    case SearchParameterStatus.Enabled:
+                        fullyIndexedParamUris.Add(searchParamInfo.Url.OriginalString);
+                        break;
                 }
             }
 
