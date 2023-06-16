@@ -16,6 +16,7 @@ using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification.Navigation;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -87,6 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private int _requestCount;
         private BundleType? _bundleType;
+        private bool _bundleProcessingTypeIsInvalid = false;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -229,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
+        private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
         {
             if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
             {
@@ -246,7 +248,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 catch (Exception e)
                 {
-                    // TODO: Add a warning to the output resource that the bundle processing logic couldn't be parsed.
+                    _bundleProcessingTypeIsInvalid = true;
                     logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
 
                     return DefaultBundleProcessingLogic;
@@ -296,6 +298,35 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             finally
             {
                 FinishCollectingBundleStatistics(statistics);
+            }
+
+            AddFinalOperationOutcomesIfApplicable(responseBundle);
+        }
+
+        private void AddFinalOperationOutcomesIfApplicable(Hl7.Fhir.Model.Bundle responseBundle)
+        {
+            try
+            {
+                if (_bundleProcessingTypeIsInvalid)
+                {
+                    var entryComponent = new EntryComponent
+                    {
+                        Response = new ResponseComponent
+                        {
+                            Status = ((int)HttpStatusCode.MethodNotAllowed).ToString(),
+                            Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Warning,
+                                OperationOutcome.IssueType.Invalid,
+                                $"The bundle processing logic provided was invalid. The bundle was processed using {DefaultBundleProcessingLogic} processing."),
+                        },
+                    };
+
+                    responseBundle.Entry.Add(entryComponent);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error including additional operation outcomes. This error will not block the bundle processing.");
             }
         }
 
