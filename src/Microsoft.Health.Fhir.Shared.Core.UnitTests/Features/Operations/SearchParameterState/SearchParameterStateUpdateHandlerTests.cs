@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2);
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(DataActions.Reindex, _cancellationToken).Returns(DataActions.Reindex);
+            _authorizationService.CheckAccess(DataActions.SearchParameter, _cancellationToken).Returns(DataActions.SearchParameter);
             var searchParamDefinitionStore = new List<SearchParameterInfo>
             {
                 new SearchParameterInfo(

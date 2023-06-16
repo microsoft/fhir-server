@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT -- TODO: Remove @SurrogateIdRangeFirstValue
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -8,10 +8,11 @@ DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
        ,@st datetime = getUTCdate()
        ,@FirstValueVar sql_variant
        ,@LastValueVar sql_variant
-       ,@TransactionId bigint = NULL
        ,@RunTransactionCheck bit = (SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled')
 
 BEGIN TRY
+  SET @TransactionId = NULL
+
   IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
 
   SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
