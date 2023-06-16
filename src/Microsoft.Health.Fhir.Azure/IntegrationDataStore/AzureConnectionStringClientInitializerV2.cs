@@ -5,11 +5,9 @@
 
 using System;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureConnectionStringClientInitializerV2 : IIntegrationDataStoreClientInitilizer<CloudBlobClient>
+    public class AzureConnectionStringClientInitializerV2 : IIntegrationDataStoreClientInitilizer<BlobServiceClient>
     {
         private readonly IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private readonly ILogger<AzureConnectionStringClientInitializerV2> _logger;
@@ -31,27 +29,22 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             _logger = logger;
         }
 
-        public Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public Task<BlobServiceClient> GetAuthorizedClientAsync()
         {
-            return GetAuthorizedClientAsync(_integrationDataStoreConfiguration, cancellationToken);
+            return GetAuthorizedClientAsync(_integrationDataStoreConfiguration);
         }
 
-        public Task<CloudBlobClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration, CancellationToken cancellationToken)
+        public Task<BlobServiceClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
         {
             if (string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountConnection))
             {
                 throw new IntegrationDataStoreClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            if (!CloudStorageAccount.TryParse(integrationDataStoreConfiguration.StorageAccountConnection, out CloudStorageAccount cloudAccount))
-            {
-                throw new IntegrationDataStoreClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
-            }
-
-            CloudBlobClient blobClient;
+            BlobServiceClient blobClient = null;
             try
             {
-                blobClient = cloudAccount.CreateCloudBlobClient();
+                blobClient = new BlobServiceClient(integrationDataStoreConfiguration.StorageAccountConnection);
             }
             catch (Exception ex)
             {

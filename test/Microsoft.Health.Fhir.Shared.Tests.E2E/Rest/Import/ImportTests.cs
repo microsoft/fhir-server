@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "2", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request2, null, 1);
 
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request2, null);
 
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             // set existing
             var ndJson2 = PrepareResource(id, "2", "2002");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson2, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson2, _fixture.StorageAccount);
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null);
 
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = PrepareResource(id, "1", "2001");
             //// keep ndJson2 as is
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request2, null, 1);
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, "2", "2002");
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
 
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null);
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "2", "2002");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
 
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null);
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal("2", result.Resource.Meta.VersionId);
 
             ndJson = PrepareResource(id, "1", "2001");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
 
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request2, null);
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var lastUpdated = GetLastUpdated(lastUpdatedYear);
             var ndJson = PrepareResource(id, versionId, lastUpdatedYear);
             ndJson = ndJson + ndJson; // add one dup
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
 
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null, 1);
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var lastUpdated = GetLastUpdated(lastUpdatedYear);
             var ndJson = PrepareResource(id, versionId, lastUpdatedYear);
             ndJson = ndJson + ndJson; // add one dup
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
 
             var request = CreateImportRequest(location, ImportMode.InitialLoad);
             await ImportCheckAsync(request, null, 1);
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -306,7 +306,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -378,7 +378,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -474,8 +474,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string resourceId2 = Guid.NewGuid().ToString("N");
             string patientNdJsonResource2 = patientNdJsonResource.Replace("##PatientID##", resourceId2);
 
-            (Uri location1, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource1, _fixture.CloudStorageAccount);
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource2, _fixture.CloudStorageAccount);
+            (Uri location1, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource1, _fixture.StorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource2, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Request);
 
             string errorLocation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.StorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.True(errorContents.Count() >= 1); // when run locally there might be duplicates. no idea why.
 
             // Only check metric for local tests
@@ -578,7 +578,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
             string resourceId = Guid.NewGuid().ToString("N");
             patientNdJsonResource = patientNdJsonResource.Replace("##PatientID##", resourceId);
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -599,7 +599,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             await ImportCheckAsync(request, errorCount: 1);
             //// we have to re-create file as import registration is idempotent
-            (Uri location2, string etag2) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location2, string etag2) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
             request.Input = new List<InputResource>()
             {
                 new InputResource()
@@ -638,7 +638,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -723,7 +723,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -773,7 +773,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
