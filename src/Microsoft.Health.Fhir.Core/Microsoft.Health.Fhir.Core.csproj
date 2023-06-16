@@ -57,7 +57,6 @@
     <PackageReference Include="Polly" />
     <PackageReference Include="System.Collections.Immutable" />
     <PackageReference Include="System.Net.Http" />
-    <PackageReference Include="System.Security.Cryptography.Pkcs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Transitive Dependency of Microsoft.Health.SqlServer. Fixing version to mitigate CVE -->
