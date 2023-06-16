@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -356,6 +357,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         }
 
                         completedJobIds.Add(jobInfo.Id);
+                        _logger.LogInformation("Job with id: {JobId} and group id: {GroupId} completed.", jobInfo.Id, jobInfo.GroupId);
                     }
                 }
 
