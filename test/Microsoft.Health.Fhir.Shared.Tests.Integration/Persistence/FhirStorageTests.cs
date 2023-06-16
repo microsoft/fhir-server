@@ -1001,14 +1001,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             await Mediator.UpsertResourceAsync(patientResource1);
-            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Sequence"));
             await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Specimen"));
 
             var expectedTypes = new List<string>()
             {
                 "Observation",
                 "Patient",
-                "MolecularSequence",
                 "Specimen",
             };
 

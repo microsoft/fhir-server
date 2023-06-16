@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var content = await response.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-            await MonitorBulkDeleteJob(tag, response.Content.Headers.ContentLocation, resourceTypes);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
 
             var history = await _fhirClient.SearchAsync($"Patient/{resource.Id}/_history");
             Assert.Equal(2, history.Resource.Entry.Count);
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var content = await response.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-            await MonitorBulkDeleteJob(tag, response.Content.Headers.ContentLocation, resourceTypes);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
 
             await Assert.ThrowsAsync<FhirClientException>(async () => await _fhirClient.SearchAsync($"Patient/{resource.Id}/_history"));
         }
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var content = await response.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-            await MonitorBulkDeleteJob(tag, response.Content.Headers.ContentLocation, resourceTypes);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, resourceTypes);
 
             var history = await _fhirClient.SearchAsync($"Patient/{resource.Id}/_history");
             Assert.Single(history.Resource.Entry);
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 expectedResults.Remove("Device");
             }
 
-            await MonitorBulkDeleteJob(tag, response.Content.Headers.ContentLocation, expectedResults);
+            await MonitorBulkDeleteJob(response.Content.Headers.ContentLocation, expectedResults);
         }
 
         private HttpRequestMessage GenerateBulkDeleteRequest(
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return request;
         }
 
-        private async System.Threading.Tasks.Task MonitorBulkDeleteJob(string tag, Uri location, Dictionary<string, int> expectedResults)
+        private async System.Threading.Tasks.Task MonitorBulkDeleteJob(Uri location, Dictionary<string, int> expectedResults)
         {
             var result = (await _fhirClient.WaitForBulkDeleteStatus(location)).Resource;
 
