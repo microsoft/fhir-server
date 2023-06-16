@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
                         }).ToList(),
                         cancellationToken);
-                    itemsDeleted = resultsToDelete.Count();
+                    itemsDeleted += resultsToDelete.Count();
                 }
                 else
                 {
