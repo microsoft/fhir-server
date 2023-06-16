@@ -9,9 +9,11 @@ using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -43,10 +46,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const string InitialVersion = "1";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly ISqlServerFhirModel _model;
+        private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
-        private readonly VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>> _mergeResourcesTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
@@ -57,15 +59,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly TimeSpan _mergeResourcesHeartbeatPeriod = TimeSpan.FromSeconds(60);
 
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
         private static object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
-            ISqlServerFhirModel model,
+            SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
-            VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>> mergeResourcesTvpGeneratorVLatest,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
@@ -80,7 +82,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
-            _mergeResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(mergeResourcesTvpGeneratorVLatest, nameof(mergeResourcesTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
@@ -160,11 +161,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // assume that most likely case is that all resources should be updated
-            (var minSurrId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            (var transactionId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
             var prevResourceId = string.Empty;
+            var singleTransaction = false;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
             {
                 var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
@@ -288,7 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 long surrId;
                 if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
                 {
-                    surrId = minSurrId + index;
+                    surrId = transactionId + index;
                     resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
                     ReplaceVersionIdAndLastUpdatedInMeta(resource);
                 }
@@ -297,32 +299,86 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
+                    singleTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
                 }
 
                 resource.ResourceSurrogateId = surrId;
+                if (resource.Version != InitialVersion) // do not begin transaction if all creates
+                {
+                    singleTransaction = true;
+                }
+
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // do not call db with empty input
+            try
             {
-                // TODO: Remove tran enlist when true bundle logic is in place.
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
-                using var cmd = conn.CreateNonRetrySqlCommand();
-                VLatest.MergeResources.PopulateCommand(
-                    cmd,
-                    AffectedRows: 0,
-                    RaiseExceptionOnConflict: true,
-                    IsResourceChangeCaptureEnabled: _coreFeatures.SupportsResourceChangeCapture,
-                    tableValuedParameters: _mergeResourcesTvpGeneratorVLatest.Generate(mergeWrappers));
-                cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                if (mergeWrappers.Count > 0) // do not call db with empty input
+                {
+                    await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, _mergeResourcesHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * _mergeResourcesHeartbeatPeriod.TotalSeconds), _mergeResourcesHeartbeatPeriod))
+                    {
+                        // TODO: Remove tran enlist when true bundle logic is in place.
+                        using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: true);
+                        using var cmd = conn.CreateNonRetrySqlCommand();
+
+                        // do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.CommandText = "dbo.MergeResources";
+                        cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
+                        cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
+                        new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                        new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                        cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
+                        await cmd.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if (!singleTransaction)
+                {
+                    // clean up database here
+                }
+
+                await MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                throw;
             }
 
-            await MergeResourcesCommitTransactionAsync(minSurrId, cancellationToken);
+            await MergeResourcesCommitTransactionAsync(transactionId, null, cancellationToken);
 
             return results;
+        }
+
+        private async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
+                using var cmd = conn.CreateNonRetrySqlCommand();
+                cmd.CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1; // +1 to avoid = SQL default timeout value
+                VLatest.MergeResourcesPutTransactionHeartbeat.PopulateCommand(cmd, transactionId);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeResourcesPutTransactionHeartbeatAsync)}");
+            }
         }
 
         internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -620,28 +676,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<(long SurrId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesBeginTransaction";
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
-            var surrogateIdParam = new SqlParameter("@SurrogateIdRangeFirstValue", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(surrogateIdParam);
+            var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return ((long)surrogateIdParam.Value, (int)sequenceParam.Value);
+            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
-        internal async Task MergeResourcesCommitTransactionAsync(long surrogateIdRangeFirstValue, CancellationToken cancellationToken)
+        internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
         {
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
             using var cmd = conn.CreateNonRetrySqlCommand();
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResourcesCommitTransaction";
-            cmd.Parameters.AddWithValue("@SurrogateIdRangeFirstValue", surrogateIdRangeFirstValue);
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            if (failureReason != null)
+            {
+                cmd.Parameters.AddWithValue("@FailureReason", failureReason);
+            }
+
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
