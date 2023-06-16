@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenIncrementalImportInvalidResource_ThenErrorLogsShouldBeOutput_FailedRCountShouldMatch()
+        public async Task GivenIncrementalImportInvalidResource__WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
@@ -208,6 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
+            _metricHandler?.ResetCount();
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
