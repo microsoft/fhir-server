@@ -4187,7 +4187,7 @@ BEGIN TRY
                    PreviousSurrogateId,
                    KeepHistory
             FROM   @ResourceInfos
-            WHERE  isnull(PreviousSurrogateId, SurrogateId) <> SurrogateId;
+            WHERE  PreviousSurrogateId IS NOT NULL;
             IF @@rowcount > 0
                 BEGIN
                     UPDATE dbo.Resource

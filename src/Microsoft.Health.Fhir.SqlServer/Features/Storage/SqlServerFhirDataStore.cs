@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     // TODO: Remove ability to enlist in transaction
-                    var results = await MergeInternalAsync(resources, false, 0, true, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, true, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, int timeoutRetries, bool enlistInTransaction, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool enlistInTransaction, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -310,6 +310,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, _mergeResourcesHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * _mergeResourcesHeartbeatPeriod.TotalSeconds), _mergeResourcesHeartbeatPeriod))
                 {
                     var retries = 0;
+                    var timeoutRetries = 0;
                     while (true)
                     {
                         try
