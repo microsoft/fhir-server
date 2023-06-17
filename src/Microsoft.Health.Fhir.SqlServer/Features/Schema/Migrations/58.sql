@@ -4136,19 +4136,22 @@ BEGIN TRY
     SET @Mode += ' ST=' + CONVERT (VARCHAR, @SingleTransaction);
     IF @InitialTranCount = 0
         BEGIN TRANSACTION;
-    INSERT INTO @Existing (ResourceTypeId, SurrogateId, IsHistory)
-    SELECT B.ResourceTypeId,
-           B.ResourceSurrogateId,
-           B.IsHistory
-    FROM   (SELECT TOP (@DummyTop) *
-            FROM   @Resources) AS A
-           INNER JOIN
-           dbo.Resource AS B WITH (HOLDLOCK)
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-    IF @@rowcount > 0
-        SET @IsRetry = 1;
+    IF @InitialTranCount = 0
+        BEGIN
+            INSERT INTO @Existing (ResourceTypeId, SurrogateId, IsHistory)
+            SELECT B.ResourceTypeId,
+                   B.ResourceSurrogateId,
+                   B.IsHistory
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @Resources) AS A
+                   INNER JOIN
+                   dbo.Resource AS B WITH (HOLDLOCK)
+                   ON B.ResourceTypeId = A.ResourceTypeId
+                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            IF @@rowcount > 0
+                SET @IsRetry = 1;
+        END
     SET @Mode += ' R=' + CONVERT (VARCHAR, @IsRetry);
     IF @InitialTranCount = 0
        AND @IsRetry = 0

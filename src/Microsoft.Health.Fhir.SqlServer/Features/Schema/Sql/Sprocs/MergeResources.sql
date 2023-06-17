@@ -71,16 +71,19 @@ BEGIN TRY
   SET @Mode += ' ST='+convert(varchar,@SingleTransaction)
 
   -- perform retry check in transaction to hold locks
-  IF @InitialTranCount = 0 BEGIN TRANSACTION
+  IF @InitialTranCount = 0
+  BEGIN
+    BEGIN TRANSACTION
 
-  INSERT INTO @Existing
-          (  ResourceTypeId,           SurrogateId,   IsHistory )
-    SELECT B.ResourceTypeId, B.ResourceSurrogateId, B.IsHistory
-      FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
-           JOIN dbo.Resource B WITH (HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    INSERT INTO @Existing
+            (  ResourceTypeId,           SurrogateId,   IsHistory )
+      SELECT B.ResourceTypeId, B.ResourceSurrogateId, B.IsHistory
+        FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+             JOIN dbo.Resource B WITH (HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
-  IF @@rowcount > 0 SET @IsRetry = 1
+    IF @@rowcount > 0 SET @IsRetry = 1
+  END
 
   SET @Mode += ' R='+convert(varchar,@IsRetry)
 
