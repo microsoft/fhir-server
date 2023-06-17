@@ -205,9 +205,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private async Task MergeResourcesAsync(IList<ImportResource> resources, int timeoutRetries, CancellationToken cancellationToken)
         {
             var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
-            await _store.MergeInternalAsync(input, true, timeoutRetries, cancellationToken);
+            await _store.MergeInternalAsync(input, true, timeoutRetries, false, cancellationToken);
             input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleOperationId: null)).ToList();
-            await _store.MergeInternalAsync(input, false, timeoutRetries, cancellationToken);
+            await _store.MergeInternalAsync(input, false, timeoutRetries, false, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
