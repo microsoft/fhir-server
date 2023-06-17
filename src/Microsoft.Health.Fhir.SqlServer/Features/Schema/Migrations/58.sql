@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (57, 'started');
+VALUES (58, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -4473,14 +4473,16 @@ BEGIN TRY
             SELECT ResourceSurrogateId,
                    ClaimTypeId,
                    ClaimValue
-            FROM   @ResourceWriteClaims AS A
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ResourceWriteClaims) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.SurrogateId = A.ResourceSurrogateId
                                   AND B.IsHistory = 0)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.ResourceWriteClaim AS C
-                                   WHERE  C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                   WHERE  C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
             SELECT ResourceTypeId,
@@ -4490,7 +4492,8 @@ BEGIN TRY
                    ReferenceResourceTypeId,
                    ReferenceResourceId,
                    ReferenceResourceVersion
-            FROM   @ReferenceSearchParams AS A
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ReferenceSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4499,7 +4502,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.ReferenceSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
@@ -4508,7 +4512,8 @@ BEGIN TRY
                    SystemId,
                    Code,
                    CodeOverflow
-            FROM   @TokenSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4517,14 +4522,16 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
             SELECT ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
                    Text
-            FROM   @TokenTexts
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenTexts) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4533,7 +4540,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
             SELECT ResourceTypeId,
@@ -4543,7 +4551,8 @@ BEGIN TRY
                    TextOverflow,
                    IsMin,
                    IsMax
-            FROM   @StringSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @StringSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4552,14 +4561,16 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenText AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
             SELECT ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
                    Uri
-            FROM   @UriSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @UriSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4568,7 +4579,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.UriSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
             SELECT ResourceTypeId,
@@ -4577,7 +4589,8 @@ BEGIN TRY
                    SingleValue,
                    LowValue,
                    HighValue
-            FROM   @NumberSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @NumberSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4586,7 +4599,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.NumberSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
             SELECT ResourceTypeId,
@@ -4597,7 +4611,8 @@ BEGIN TRY
                    SingleValue,
                    LowValue,
                    HighValue
-            FROM   @QuantitySearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @QuantitySearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4606,7 +4621,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.QuantitySearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
             SELECT ResourceTypeId,
@@ -4617,7 +4633,8 @@ BEGIN TRY
                    IsLongerThanADay,
                    IsMin,
                    IsMax
-            FROM   @DateTimeSearchParms
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @DateTimeSearchParms) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4626,7 +4643,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
             SELECT ResourceTypeId,
@@ -4639,7 +4657,8 @@ BEGIN TRY
                    SystemId2,
                    Code2,
                    CodeOverflow2
-            FROM   @ReferenceTokenCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ReferenceTokenCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4648,7 +4667,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.DateTimeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
             SELECT ResourceTypeId,
@@ -4660,7 +4680,8 @@ BEGIN TRY
                    SystemId2,
                    Code2,
                    CodeOverflow2
-            FROM   @TokenTokenCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenTokenCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4669,7 +4690,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenTokenCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
             SELECT ResourceTypeId,
@@ -4681,7 +4703,8 @@ BEGIN TRY
                    StartDateTime2,
                    EndDateTime2,
                    IsLongerThanADay2
-            FROM   @TokenDateTimeCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenDateTimeCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4690,7 +4713,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenDateTimeCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
             SELECT ResourceTypeId,
@@ -4704,7 +4728,8 @@ BEGIN TRY
                    QuantityCodeId2,
                    LowValue2,
                    HighValue2
-            FROM   @TokenQuantityCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenQuantityCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4713,7 +4738,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenQuantityCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
             SELECT ResourceTypeId,
@@ -4724,7 +4750,8 @@ BEGIN TRY
                    CodeOverflow1,
                    Text2,
                    TextOverflow2
-            FROM   @TokenStringCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenStringCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4733,7 +4760,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenStringCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
             SELECT ResourceTypeId,
@@ -4749,7 +4777,8 @@ BEGIN TRY
                    LowValue3,
                    HighValue3,
                    HasRange
-            FROM   @TokenNumberNumberCompositeSearchParams
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenNumberNumberCompositeSearchParams) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
@@ -4758,7 +4787,8 @@ BEGIN TRY
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenNumberNumberCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId);
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
         END
     IF @IsResourceChangeCaptureEnabled = 1

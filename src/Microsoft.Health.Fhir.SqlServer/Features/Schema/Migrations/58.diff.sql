@@ -104,7 +104,7 @@ BEGIN TRY
     INSERT INTO @PreviousSurrogateIds
       SELECT ResourceTypeId, PreviousSurrogateId, KeepHistory
         FROM @ResourceInfos 
-        WHERE isnull(PreviousSurrogateId, SurrogateId) <> SurrogateId
+        WHERE PreviousSurrogateId IS NOT NULL
 
     IF @@rowcount > 0
     BEGIN
