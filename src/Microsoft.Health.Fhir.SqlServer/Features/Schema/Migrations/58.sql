@@ -4115,8 +4115,7 @@ SET @AffectedRows = 0;
 BEGIN TRY
     DECLARE @Existing AS TABLE (
         ResourceTypeId SMALLINT NOT NULL,
-        SurrogateId    BIGINT   NOT NULL,
-        IsHistory      BIT      NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
+        SurrogateId    BIGINT   NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
     DECLARE @ResourceInfos AS TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
         SurrogateId         BIGINT   NOT NULL,
@@ -4135,30 +4134,26 @@ BEGIN TRY
         SET @SingleTransaction = 1;
     SET @Mode += ' ST=' + CONVERT (VARCHAR, @SingleTransaction);
     IF @InitialTranCount = 0
-        BEGIN TRANSACTION;
-    IF @InitialTranCount = 0
         BEGIN
-            INSERT INTO @Existing (ResourceTypeId, SurrogateId, IsHistory)
+            BEGIN TRANSACTION;
+            INSERT INTO @Existing (ResourceTypeId, SurrogateId)
             SELECT B.ResourceTypeId,
-                   B.ResourceSurrogateId,
-                   B.IsHistory
+                   B.ResourceSurrogateId
             FROM   (SELECT TOP (@DummyTop) *
                     FROM   @Resources) AS A
                    INNER JOIN
-                   dbo.Resource AS B WITH (HOLDLOCK)
+                   dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
                    ON B.ResourceTypeId = A.ResourceTypeId
                       AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            WHERE  B.IsHistory = 0
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             IF @@rowcount > 0
                 SET @IsRetry = 1;
+            IF @IsRetry = 0
+                COMMIT TRANSACTION;
         END
     SET @Mode += ' R=' + CONVERT (VARCHAR, @IsRetry);
-    IF @InitialTranCount = 0
-       AND @IsRetry = 0
-       AND @SingleTransaction = 0
-        COMMIT TRANSACTION;
-    IF @InitialTranCount = 0
-       AND @SingleTransaction = 1
+    IF @SingleTransaction = 1
        AND @@trancount = 0
         BEGIN TRANSACTION;
     IF @IsRetry = 0
@@ -4480,8 +4475,7 @@ BEGIN TRY
                     FROM   @ResourceWriteClaims) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
-                           WHERE  B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                           WHERE  B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.ResourceWriteClaim AS C
                                    WHERE  C.ResourceSurrogateId = A.ResourceSurrogateId)
@@ -4500,8 +4494,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.ReferenceSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4520,8 +4513,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4538,8 +4530,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4559,8 +4550,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenText AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4577,8 +4567,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.UriSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4597,8 +4586,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.NumberSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4619,8 +4607,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.QuantitySearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4641,8 +4628,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4665,8 +4651,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.DateTimeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4688,8 +4673,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenTokenCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4711,8 +4695,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenDateTimeCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4736,8 +4719,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenQuantityCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4758,8 +4740,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenStringCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
@@ -4785,8 +4766,7 @@ BEGIN TRY
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId
-                                  AND B.IsHistory = 0)
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
                                    FROM   dbo.TokenNumberNumberCompositeSearchParam AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId

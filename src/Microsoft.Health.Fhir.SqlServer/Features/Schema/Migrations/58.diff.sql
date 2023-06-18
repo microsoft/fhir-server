@@ -44,7 +44,6 @@ BEGIN TRY
     (
        ResourceTypeId       smallint       NOT NULL
       ,SurrogateId          bigint         NOT NULL
-      ,IsHistory            bit            NOT NULL
 
       PRIMARY KEY (ResourceTypeId, SurrogateId)
     )
@@ -76,20 +75,21 @@ BEGIN TRY
     BEGIN TRANSACTION
 
     INSERT INTO @Existing
-            (  ResourceTypeId,           SurrogateId,   IsHistory )
-      SELECT B.ResourceTypeId, B.ResourceSurrogateId, B.IsHistory
+            (  ResourceTypeId,           SurrogateId )
+      SELECT B.ResourceTypeId, B.ResourceSurrogateId
         FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
-             JOIN dbo.Resource B WITH (HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+             JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+        WHERE B.IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
     IF @@rowcount > 0 SET @IsRetry = 1
+
+    IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
   END
 
   SET @Mode += ' R='+convert(varchar,@IsRetry)
 
-  IF @InitialTranCount = 0 AND @IsRetry = 0 AND @SingleTransaction = 0 COMMIT TRANSACTION -- commit check transaction 
-
-  IF @InitialTranCount = 0 AND @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
+  IF @SingleTransaction = 1 AND @@trancount = 0 BEGIN TRANSACTION
   
   IF @IsRetry = 0
   BEGIN
@@ -255,7 +255,7 @@ BEGIN TRY
            ( ResourceSurrogateId, ClaimTypeId, ClaimValue )
       SELECT ResourceSurrogateId, ClaimTypeId, ClaimValue
         FROM (SELECT TOP (@DummyTop) * FROM @ResourceWriteClaims) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.ResourceWriteClaim C WHERE C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -264,7 +264,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
         FROM (SELECT TOP (@DummyTop) * FROM @ReferenceSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.ReferenceSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -273,7 +273,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
         FROM (SELECT TOP (@DummyTop) * FROM @TokenSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -282,7 +282,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, Text )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text
         FROM (SELECT TOP (@DummyTop) * FROM @TokenTexts) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -291,7 +291,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax
         FROM (SELECT TOP (@DummyTop) * FROM @StringSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenText C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -300,7 +300,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri
         FROM (SELECT TOP (@DummyTop) * FROM @UriSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.UriSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -309,7 +309,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue
         FROM (SELECT TOP (@DummyTop) * FROM @NumberSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.NumberSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -318,7 +318,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue
         FROM (SELECT TOP (@DummyTop) * FROM @QuantitySearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.QuantitySearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -327,7 +327,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax
         FROM (SELECT TOP (@DummyTop) * FROM @DateTimeSearchParms) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -336,7 +336,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2
         FROM (SELECT TOP (@DummyTop) * FROM @ReferenceTokenCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.DateTimeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -345,7 +345,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2
         FROM (SELECT TOP (@DummyTop) * FROM @TokenTokenCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenTokenCompositeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -354,7 +354,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2
         FROM (SELECT TOP (@DummyTop) * FROM @TokenDateTimeCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenDateTimeCompositeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -363,7 +363,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2
         FROM (SELECT TOP (@DummyTop) * FROM @TokenQuantityCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenQuantityCompositeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -372,7 +372,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2 )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2
         FROM (SELECT TOP (@DummyTop) * FROM @TokenStringCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenStringCompositeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
@@ -381,7 +381,7 @@ BEGIN TRY
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange
         FROM (SELECT TOP (@DummyTop) * FROM @TokenNumberNumberCompositeSearchParams) A
-        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId AND B.IsHistory = 0)
+        WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
           AND NOT EXISTS (SELECT * FROM dbo.TokenNumberNumberCompositeSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
