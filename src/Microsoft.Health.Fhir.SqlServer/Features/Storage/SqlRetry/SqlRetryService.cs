@@ -224,6 +224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(logMessage, nameof(logMessage));
 
             var start = DateTime.UtcNow;
+            Exception lastException = null;
             int retry = 0;
             while (true)
             {
@@ -242,10 +243,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);
+                    if (retry > 0)
+                    {
+                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                    }
+
                     return;
                 }
                 catch (Exception ex)
                 {
+                    lastException = ex;
                     if (!IsRetriable(ex))
                     {
                         throw;
@@ -254,12 +261,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Error", $"retries={retry} error={ex}", start, cancellationToken);
+                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
                     logger.LogInformation(ex, $"Attempt {retry}: {logMessage}");
-                    await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Warn", $"retries={retry} error={ex}", start, cancellationToken);
                 }
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
