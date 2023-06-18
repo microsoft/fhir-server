@@ -254,12 +254,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText[..150]}", "Error", $"retries={retry} error={ex}", start, cancellationToken);
+                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Error", $"retries={retry} error={ex}", start, cancellationToken);
                         throw;
                     }
 
                     logger.LogInformation(ex, $"Attempt {retry}: {logMessage}");
-                    await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText[..150]}", "Warn", $"retries={retry} error={ex}", start, cancellationToken);
+                    await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Warn", $"retries={retry} error={ex}", start, cancellationToken);
                 }
 
                 await Task.Delay(_retryMillisecondsDelay, cancellationToken);
@@ -347,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await conn.OpenAsync(cancellationToken);
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "dbo.LogEvent";
-                cmd.Parameters.AddWithValue("@Process", process);
+                cmd.Parameters.AddWithValue("@Process", process[..100]);
                 cmd.Parameters.AddWithValue("@Status", status);
                 cmd.Parameters.AddWithValue("@Text", text);
                 if (startDate.HasValue)
