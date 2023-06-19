@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogToDatabase($"SqlRetryService:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
                     }
 
                     return;
@@ -262,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"SqlRetryService:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
