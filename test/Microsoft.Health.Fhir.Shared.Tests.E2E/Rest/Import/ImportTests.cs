@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Request);
 
             string errorLocation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLocation, _fixture.StorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.True(errorContents.Count() >= 1); // when run locally there might be duplicates. no idea why.
 
             // Only check metric for local tests
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _metricHandler?.ResetCount();
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
             var request = new ImportRequest()
             {
