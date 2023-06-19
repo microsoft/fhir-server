@@ -11,8 +11,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure;
-using Azure.Identity;
-using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -26,19 +24,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
-        // Well-known storage emulator account info, not to be used in production (see https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&bc=%2Fazure%2Fstorage%2Fblobs%2Fbreadcrumb%2Ftoc.json#configure-a-connection-string-for-azurite)
-        private const string StorageEmulatorConnectionStringPrefix = "UseDevelopmentStorage";
-        private const string StorageEmulatorAccountName = "devstoreaccount1";
-        private const string StorageEmulatorAccountKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-
-        private IIntegrationDataStoreClientInitilizer<BlobServiceClient> _integrationDataStoreClientInitializer;
+        private IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient> _integrationDataStoreClientInitializer;
         private IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
-        private bool _isAccessTokenClientInitializer;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
         public AzureBlobIntegrationDataStoreClient(
-            IIntegrationDataStoreClientInitilizer<BlobServiceClient> integrationDataStoreClientInitializer,
+            IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient> integrationDataStoreClientInitializer,
             IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<AzureBlobIntegrationDataStoreClient> logger)
         {
@@ -49,7 +41,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
             _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _integrationStoreRetryExceptionPolicyFactory = new IntegrationStoreRetryExceptionPolicyFactory(integrationDataStoreConfiguration);
-            _isAccessTokenClientInitializer = _integrationDataStoreClientInitializer is AzureAccessTokenClientInitializerV2;
             _logger = logger;
         }
 
@@ -57,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            return new AzureBlobSourceStream(() => GetBlobClient(resourceUri), startOffset, _logger);
+            return new AzureBlobSourceStream(async () => await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri), startOffset, _logger);
         }
 
         public async Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken)
@@ -109,7 +100,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                BlockBlobClient blob = GetBlockBlobClient(resourceUri);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await UploadBlockInternalAsync(blob, stream, blockId, cancellationToken);
                             });
             }
@@ -132,7 +123,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                BlockBlobClient blob = GetBlockBlobClient(resourceUri);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await CommitInternalAsync(blob, blockIds, cancellationToken);
                             });
             }
@@ -155,7 +146,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                BlockBlobClient blob = GetBlockBlobClient(resourceUri);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await AppendCommitInternalAsync(blob, blockIds, cancellationToken);
                             });
             }
@@ -177,7 +168,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                BlobClient blobClient = GetBlobClient(resourceUri);
+                                BlobClient blobClient = await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri);
                                 Response<BlobProperties> response = await blobClient.GetPropertiesAsync(null, cancellationToken);
                                 Dictionary<string, object> result = new Dictionary<string, object>();
                                 result[IntegrationDataStoreClientConstants.BlobPropertyETag] = response.Value.ETag.ToString();
@@ -200,7 +191,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                BlockBlobClient blob = GetBlockBlobClient(resourceUri);
+                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                 BlobLeaseClient lease = blob.GetBlobLeaseClient(proposedLeaseId);
                 Response<BlobLease> response = await lease.AcquireAsync(BlobLeaseClient.InfiniteLeaseDuration, null, cancellationToken);
                 return response?.Value?.LeaseId;
@@ -218,7 +209,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                BlockBlobClient blob = GetBlockBlobClient(resourceUri);
+                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                 BlobLeaseClient lease = blob.GetBlobLeaseClient(leaseId);
                 await lease.ReleaseAsync(null, cancellationToken);
             }
@@ -250,62 +241,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private static async Task CommitInternalAsync(BlockBlobClient blob, string[] blockIds, CancellationToken cancellationToken)
         {
             await blob.CommitBlockListAsync(blockIds, null, cancellationToken);
-        }
-
-        private BlockBlobClient GetBlockBlobClient(Uri blobUri)
-        {
-            if (_isAccessTokenClientInitializer)
-            {
-                return new BlockBlobClient(blobUri, new DefaultAzureCredential());
-            }
-
-            return new BlockBlobClient(blobUri, GetSharedKeyCredential(_integrationDataStoreConfiguration.StorageAccountConnection));
-        }
-
-        private BlobClient GetBlobClient(Uri blobUri)
-        {
-            if (_isAccessTokenClientInitializer)
-            {
-                return new BlobClient(blobUri, new DefaultAzureCredential());
-            }
-
-            return new BlobClient(blobUri, GetSharedKeyCredential(_integrationDataStoreConfiguration.StorageAccountConnection));
-        }
-
-        private static StorageSharedKeyCredential GetSharedKeyCredential(string connectionString)
-        {
-            EnsureArg.IsNotEmptyOrWhiteSpace(connectionString, nameof(connectionString));
-            if (connectionString.StartsWith(StorageEmulatorConnectionStringPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return new StorageSharedKeyCredential(StorageEmulatorAccountName, StorageEmulatorAccountKey);
-            }
-
-            string[] segments = connectionString.Split(";");
-            string accountName = null;
-            string accountKey = null;
-            foreach (var segment in segments)
-            {
-                int index = segment.IndexOf('=', StringComparison.Ordinal);
-                if (index >= 0)
-                {
-                    string key = segment.Substring(0, index);
-                    if (key.Equals("AccountName", StringComparison.OrdinalIgnoreCase))
-                    {
-                        accountName = segment.Substring(index + 1);
-                    }
-                    else if (key.Equals("AccountKey", StringComparison.OrdinalIgnoreCase))
-                    {
-                        accountKey = segment.Substring(index + 1);
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(accountKey))
-            {
-                throw new ArgumentException("Invalid connection string.", nameof(connectionString));
-            }
-
-            return new StorageSharedKeyCredential(accountName, accountKey);
         }
     }
 }

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private const int DefaultConcurrentCount = 3;
         public const int DefaultBlockBufferSize = 8 * 1024 * 1024;
 
-        private Func<BlobClient> _blobClientFactory;
+        private Func<Task<BlobClient>> _blobClientFactory;
         private long _startOffset;
         private long _position;
         private ILogger _logger;
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private BlobClient _blobClient;
         private readonly Queue<Task<Stream>> _downloadTasks = new Queue<Task<Stream>>();
 
-        public AzureBlobSourceStream(Func<BlobClient> blobClientFactory, long? startOffset, ILogger logger)
+        public AzureBlobSourceStream(Func<Task<BlobClient>> blobClientFactory, long? startOffset, ILogger logger)
         {
             EnsureArg.IsNotNull(blobClientFactory, nameof(blobClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -136,11 +136,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                     .WaitAndRetryAsync(
                         retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)),
-                        onRetry: (exception, retryCount) =>
+                        onRetryAsync: async (exception, retryCount) =>
                         {
                             _logger.LogWarning(exception, "Error while download blobs.");
 
-                            RefreshBlobClient();
+                            await RefreshBlobClientAsync();
                         })
                     .ExecuteAsync(() => DownloadDataFunc(offset, length));
         }
@@ -163,13 +163,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             if (_blobClient == null)
             {
-                _blobClient = _blobClientFactory();
+                _blobClient = _blobClientFactory().Result;
             }
         }
 
-        private void RefreshBlobClient()
+        private async Task RefreshBlobClientAsync()
         {
-            _blobClient = _blobClientFactory();
+            _blobClient = await _blobClientFactory();
         }
 
         private async Task<Stream> DownloadDataFunc(long offset, long length)

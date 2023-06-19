@@ -6,8 +6,10 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
+using Azure.Core;
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,7 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitilizer<BlobServiceClient>
+    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient>
     {
         private readonly IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private readonly ILogger<AzureAccessTokenClientInitializerV2> _logger;
@@ -30,6 +32,30 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _logger = logger;
+        }
+
+        public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
         }
 
         public async Task<BlobServiceClient> GetAuthorizedClientAsync()
@@ -51,7 +77,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                return Task.FromResult(new BlobServiceClient(storageAccountUri, new DefaultAzureCredential()));
+                return Task.FromResult(new BlobServiceClient(storageAccountUri, CreateDefaultTokenCredential()));
             }
             catch (AccessTokenProviderException atp)
             {
@@ -59,6 +85,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
                 throw new IntegrationDataStoreClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
+        }
+
+        private static TokenCredential CreateDefaultTokenCredential()
+        {
+            return new DefaultAzureCredential();
         }
     }
 }
