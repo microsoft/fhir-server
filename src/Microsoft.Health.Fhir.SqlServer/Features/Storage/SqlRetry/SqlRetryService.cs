@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -245,7 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogToDatabase($"SqlRetryService:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
                     }
 
                     return;
@@ -261,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"ExecuteSql.{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogToDatabase($"SqlRetryService:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
@@ -348,11 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                conn.RetryLogicProvider = null;
-                await conn.OpenAsync(cancellationToken);
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "dbo.LogEvent";
+                using var cmd = new SqlCommand() { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
                 cmd.Parameters.AddWithValue("@Process", process[..100]);
                 cmd.Parameters.AddWithValue("@Status", status);
                 cmd.Parameters.AddWithValue("@Text", text);
@@ -360,6 +357,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
+
+                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                conn.RetryLogicProvider = null;
+                await conn.OpenAsync(cancellationToken);
+                cmd.Connection = conn;
 
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
