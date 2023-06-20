@@ -20,7 +20,7 @@ BEGIN TRY
     EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = @LastValueVar OUT
     SET @SequenceRangeFirstValue = convert(int,@FirstValueVar)
     IF @SequenceRangeFirstValue > convert(int,@LastValueVar)
-    SET @FirstValueVar = NULL
+      SET @FirstValueVar = NULL
   END
 
   SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
@@ -65,7 +65,7 @@ BEGIN TRY
 
   SET @CurrentTransactionId = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions ORDER BY SurrogateIdRangeFirstValue DESC)
 
-  SET @MinNotCompletedTransactionId = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsCompleted = 0 AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId ORDER BY SurrogateIdRangeFirstValue)
+  SET @MinNotCompletedTransactionId = isnull((SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsCompleted = 0 AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId ORDER BY SurrogateIdRangeFirstValue),@CurrentTransactionId + 1)
 
   SET @MaxTransactionId = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsCompleted = 1 AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId AND SurrogateIdRangeFirstValue < @MinNotCompletedTransactionId ORDER BY SurrogateIdRangeFirstValue DESC)
 

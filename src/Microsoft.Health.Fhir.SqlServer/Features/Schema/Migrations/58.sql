@@ -4822,11 +4822,11 @@ BEGIN TRY
     SET @CurrentTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
                                  FROM     dbo.Transactions
                                  ORDER BY SurrogateIdRangeFirstValue DESC);
-    SET @MinNotCompletedTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
-                                         FROM     dbo.Transactions
-                                         WHERE    IsCompleted = 0
-                                                  AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId
-                                         ORDER BY SurrogateIdRangeFirstValue);
+    SET @MinNotCompletedTransactionId = isnull((SELECT   TOP 1 SurrogateIdRangeFirstValue
+                                                FROM     dbo.Transactions
+                                                WHERE    IsCompleted = 0
+                                                         AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId
+                                                ORDER BY SurrogateIdRangeFirstValue), @CurrentTransactionId + 1);
     SET @MaxTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
                              FROM     dbo.Transactions
                              WHERE    IsCompleted = 1
