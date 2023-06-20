@@ -9,10 +9,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Utility;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
                     var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}", _reindexProcessingJobDefinition.ResourceType);
+                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id);
                     _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
                     LogReindexProcessingJobErrorMessage();
 
@@ -123,11 +123,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
         {
+            long resourceCount = 0;
             try
             {
                 long currentResourceSurrogateId = 0;
                 SearchResult result = await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken);
-
+                resourceCount += result?.TotalCount ?? 0;
                 if (result?.MaxResourceSurrogateId > 0)
                 {
                     currentResourceSurrogateId = result.MaxResourceSurrogateId;
@@ -174,10 +175,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             catch (FhirException ex)
             {
                 _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: true", _jobInfo.Id);
+                LogReindexProcessingJobErrorMessage();
+                _reindexProcessingJobResult.Error = ex.Message;
+                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Reindex processing job error occurred. Job id: {Id}. Is FhirException: false", _jobInfo.Id);
+                LogReindexProcessingJobErrorMessage();
+                _reindexProcessingJobResult.Error = ex.Message;
+                _reindexProcessingJobResult.FailedResourceCount = resourceCount;
             }
         }
 
@@ -198,12 +205,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogError(ex, "Failed to enqueue jobs.");
                 throw new RetriableJobException(ex.Message, ex);
             }
-        }
-
-        private static SearchResultReindex GetSearchResultReindex(string resourceType, ReindexJobRecord reindexJobRecord)
-        {
-            reindexJobRecord.ResourceCounts.TryGetValue(resourceType, out SearchResultReindex searchResultReindex);
-            return searchResultReindex;
         }
     }
 }
