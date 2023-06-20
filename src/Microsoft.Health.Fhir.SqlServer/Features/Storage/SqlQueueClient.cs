@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 },
                 _logger,
-                "CompleteJobAsync failed.",
+                null,
                 cancellationToken);
         }
 
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            JobInfo jobInfo = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "DequeueAsync failed.", cancellationToken);
+            JobInfo jobInfo = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, null, cancellationToken);
             if (jobInfo != null)
             {
                 jobInfo.QueueType = queueType;
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             try
             {
-                return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "EnqueueJobs failed.", cancellationToken);
+                return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, null, cancellationToken);
             }
             catch (SqlException sqlEx)
             {

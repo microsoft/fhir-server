@@ -4104,7 +4104,7 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
@@ -4130,27 +4130,36 @@ BEGIN TRY
     IF @SingleTransaction = 0
        AND isnull((SELECT Number
                    FROM   dbo.Parameters
-                   WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled'), 0) = 0
+                   WHERE  Id = 'MergeResources.NoTransaction.IsEnabled'), 0) = 0
         SET @SingleTransaction = 1;
     SET @Mode += ' ST=' + CONVERT (VARCHAR, @SingleTransaction);
     IF @InitialTranCount = 0
         BEGIN
-            BEGIN TRANSACTION;
-            INSERT INTO @Existing (ResourceTypeId, SurrogateId)
-            SELECT B.ResourceTypeId,
-                   B.ResourceSurrogateId
-            FROM   (SELECT TOP (@DummyTop) *
-                    FROM   @Resources) AS A
-                   INNER JOIN
-                   dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
-                   ON B.ResourceTypeId = A.ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
-            WHERE  B.IsHistory = 0
-            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-            IF @@rowcount > 0
-                SET @IsRetry = 1;
-            IF @IsRetry = 0
-                COMMIT TRANSACTION;
+            IF EXISTS (SELECT *
+                       FROM   @Resources AS A
+                              INNER JOIN
+                              dbo.Resource AS B
+                              ON B.ResourceTypeId = A.ResourceTypeId
+                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                       WHERE  B.IsHistory = 0)
+                BEGIN
+                    BEGIN TRANSACTION;
+                    INSERT INTO @Existing (ResourceTypeId, SurrogateId)
+                    SELECT B.ResourceTypeId,
+                           B.ResourceSurrogateId
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @Resources) AS A
+                           INNER JOIN
+                           dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                    WHERE  B.IsHistory = 0
+                    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+                    IF @@rowcount > 0
+                        SET @IsRetry = 1;
+                    IF @IsRetry = 0
+                        COMMIT TRANSACTION;
+                END
         END
     SET @Mode += ' R=' + CONVERT (VARCHAR, @IsRetry);
     IF @SingleTransaction = 1
@@ -4776,6 +4785,8 @@ BEGIN TRY
         END
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.CaptureResourceIdsForChanges @Resources;
+    IF @TransactionId IS NOT NULL
+        EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     IF @InitialTranCount = 0
        AND @@trancount > 0
         COMMIT TRANSACTION;

@@ -222,7 +222,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
+            if (logMessage == null)
+            {
+                logMessage = $"{sqlCommand.CommandText} failed.";
+            }
 
             var start = DateTime.UtcNow;
             Exception lastException = null;
@@ -278,7 +281,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
 
             List<TResult> results = null;
             await ExecuteSql(

@@ -8,6 +8,7 @@ CREATE OR ALTER PROCEDURE dbo.MergeResources
     @AffectedRows int = 0 OUT
    ,@RaiseExceptionOnConflict bit = 1
    ,@IsResourceChangeCaptureEnabled bit = 0
+   ,@TransactionId bigint = NULL
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
@@ -40,13 +41,7 @@ SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(var
 SET @AffectedRows = 0
 
 BEGIN TRY
-  DECLARE @Existing AS TABLE
-    (
-       ResourceTypeId       smallint       NOT NULL
-      ,SurrogateId          bigint         NOT NULL
-
-      PRIMARY KEY (ResourceTypeId, SurrogateId)
-    )
+  DECLARE @Existing AS TABLE (ResourceTypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId))
 
   DECLARE @ResourceInfos AS TABLE
     (
@@ -62,9 +57,7 @@ BEGIN TRY
 
   DECLARE @PreviousSurrogateIds AS TABLE (TypeId smallint NOT NULL, SurrogateId bigint NOT NULL PRIMARY KEY (TypeId, SurrogateId), KeepHistory bit)
 
-  -- We do not need to begin transaction if all creates and overlap check is enabled
-  IF @SingleTransaction = 0
-     AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled'),0) = 0
+  IF @SingleTransaction = 0 AND isnull((SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.NoTransaction.IsEnabled'),0) = 0
     SET @SingleTransaction = 1
   
   SET @Mode += ' ST='+convert(varchar,@SingleTransaction)
@@ -72,19 +65,25 @@ BEGIN TRY
   -- perform retry check in transaction to hold locks
   IF @InitialTranCount = 0
   BEGIN
-    BEGIN TRANSACTION
+    IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
+                 FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                 WHERE B.IsHistory = 0
+              )
+    BEGIN
+      BEGIN TRANSACTION
 
-    INSERT INTO @Existing
-            (  ResourceTypeId,           SurrogateId )
-      SELECT B.ResourceTypeId, B.ResourceSurrogateId
-        FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
-             JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-        WHERE B.IsHistory = 0
-        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+      INSERT INTO @Existing
+              (  ResourceTypeId,           SurrogateId )
+        SELECT B.ResourceTypeId, B.ResourceSurrogateId
+          FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
+               JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+          WHERE B.IsHistory = 0
+          OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
-    IF @@rowcount > 0 SET @IsRetry = 1
+      IF @@rowcount > 0 SET @IsRetry = 1
 
-    IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
+      IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
+    END
   END
 
   SET @Mode += ' R='+convert(varchar,@IsRetry)
@@ -389,6 +388,9 @@ BEGIN TRY
 
   IF @IsResourceChangeCaptureEnabled = 1 --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
     EXECUTE dbo.CaptureResourceIdsForChanges @Resources
+
+  IF @TransactionId IS NOT NULL
+    EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
 
   IF @InitialTranCount = 0 AND @@trancount > 0 COMMIT TRANSACTION
 

@@ -361,8 +361,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            await MergeResourcesCommitTransactionAsync(transactionId, null, cancellationToken);
-
             return results;
         }
 
@@ -372,7 +370,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-                await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, $"{cmd.CommandText} failed.", cancellationToken);
+                await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
             }
             catch (Exception e)
             {
@@ -465,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     };
                 },
                 _logger,
-                $"{cmd.CommandText} failed.",
+                null,
                 cancellationToken);
             return resources;
         }
@@ -493,7 +491,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return new ResourceDateKey(_model.GetResourceTypeName(resourceTypeId), resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
                 },
                 _logger,
-                $"{cmd.CommandText} failed.",
+                null,
                 cancellationToken);
             return resources;
         }
@@ -672,7 +670,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, $"{cmd.CommandText} failed.", cancellationToken);
+            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
             return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
@@ -685,7 +683,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@FailureReason", failureReason);
             }
 
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, $"{cmd.CommandText} failed.", cancellationToken);
+            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
