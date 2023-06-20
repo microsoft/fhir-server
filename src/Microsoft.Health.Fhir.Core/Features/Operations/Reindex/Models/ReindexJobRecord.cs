@@ -26,10 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public const ushort MinMaximumConcurrency = 1;
         public const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
         public const uint MinMaximumNumberOfResourcesPerQuery = 1;
-        public const int MaxQueryDelayIntervalInMilliseconds = 500000;
-        public const int MinQueryDelayIntervalInMilliseconds = 5;
-        public const ushort MaxTargetDataStoreUsagePercentage = 100;
-        public const ushort MinTargetDataStoreUsagePercentage = 0;
 
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
@@ -74,26 +70,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             else
             {
                 MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
-            }
-
-            // check for QueryDelayIntervalInMilliseconds boundary
-            if (queryDelayIntervalInMilliseconds < MinQueryDelayIntervalInMilliseconds || queryDelayIntervalInMilliseconds > MaxQueryDelayIntervalInMilliseconds)
-            {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds), MinQueryDelayIntervalInMilliseconds.ToString(), MaxQueryDelayIntervalInMilliseconds.ToString()));
-            }
-            else
-            {
-                QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
-            }
-
-            // check for TargetDataStoreUsagePercentage boundary whic is only needed for CosmosDb
-            if (targetDataStoreUsagePercentage < MinTargetDataStoreUsagePercentage || targetDataStoreUsagePercentage > MaxTargetDataStoreUsagePercentage)
-            {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
-            }
-            else
-            {
-                TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
             }
 
             // check for TargetResourceTypes boundary
@@ -147,21 +123,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }
-
-        /// <summary>
-        /// Controls the time between queries of resources to be reindexed
-        /// </summary>
-        [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
-        public int QueryDelayIntervalInMilliseconds { get; set; }
-
-        /// <summary>
-        /// Controls the target percentage of how much of the allocated
-        /// data store resources to use
-        /// Ex: 1 - 100 percent of provisioned datastore resources
-        /// 0 means the value is not set, no throttling will occur
-        /// </summary>
-        [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
-        public ushort? TargetDataStoreUsagePercentage { get; set; }
 
         /// <summary>
         /// A user can optionally limit the scope of the Reindex job to specific

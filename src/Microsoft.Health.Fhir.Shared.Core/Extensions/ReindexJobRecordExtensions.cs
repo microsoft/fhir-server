@@ -29,19 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
             parametersResource.Add(JobRecordProperties.Id, new FhirString(job.Id));
 
-            /*
-            if (job.Error != null && job.Error.Count > 0)
-            {
-                var outputMessages = new List<Parameters.ParameterComponent>();
-                foreach (var error in job.Error)
-                {
-                    outputMessages.Add(new Parameters.ParameterComponent() { Name = error.Code, Value = new FhirString(error.Diagnostics) });
-                }
-
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Output, Part = outputMessages });
-            }
-            */
-
             if (job.StartTime.HasValue)
             {
                 parametersResource.Add(JobRecordProperties.StartTime, new FhirDateTime(job.StartTime.Value));
@@ -138,12 +125,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.TargetSearchParameterTypes, new FhirString(job.TargetSearchParameterTypeList));
             }
 
-            if (!string.IsNullOrEmpty(job.TargetDataStoreUsagePercentage.ToString()))
-            {
-                parametersResource.Add(JobRecordProperties.TargetDataStoreUsagePercentage, new FhirDecimal(job.TargetDataStoreUsagePercentage));
-            }
-
-            parametersResource.Add(JobRecordProperties.QueryDelayIntervalInMilliseconds, new FhirDecimal(job.QueryDelayIntervalInMilliseconds));
             parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerQuery, new FhirDecimal(job.MaximumNumberOfResourcesPerQuery));
 
             return parametersResource.ToResourceElement();

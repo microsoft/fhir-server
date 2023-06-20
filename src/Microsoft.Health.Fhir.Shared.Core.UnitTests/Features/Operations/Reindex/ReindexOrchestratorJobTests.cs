@@ -9,10 +9,6 @@ using System.Linq;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -40,19 +36,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
-        private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
         private const int _mockedSearchCount = 5;
 
-        private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
-
-        private readonly SearchParameterFixtureData _fixture;
-        private readonly IFhirDataStore _fhirDataStoreFactory = Substitute.For<IFhirDataStore>();
-        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
-        private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
-        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private SearchParameterStatusManager _searchParameterStatusmanager;
@@ -62,9 +48,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private SearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
-        private const uint BatchSize = 2U;
-
-        public ReindexOrchestratorJobTests(SearchParameterFixtureData fixture) => _fixture = fixture;
 
         public async Task InitializeAsync()
         {
@@ -73,24 +56,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterStatusmanager = await SearchParameterFixtureData.CreateSearchParameterStatusManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
             var job = CreateReindexJobRecord();
 
-            _throttleController.GetThrottleBasedDelay().Returns(0);
-            _throttleController.GetThrottleBatchSize().Returns(BatchSize);
             _reindexJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
                      _queueClient,
-                     () => _fhirDataStoreFactory.CreateMockScope(),
-                     Options.Create(_reindexJobConfiguration),
                      () => _searchService.CreateMockScope(),
                      _searchDefinitionManager,
-                     _reindexUtilities,
-                     _contextAccessor,
                      ModelInfoProvider.Instance,
                      _searchParameterStatusmanager,
                      _searchParameterOperations,
-                     NullLoggerFactory.Instance,
-                     _throttleController);
-
-            _reindexUtilities.UpdateSearchParameterStatusToEnabled(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
+                     NullLoggerFactory.Instance);
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
@@ -116,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // setup search result
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 true,
                 Arg.Any<CancellationToken>(),
@@ -125,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
 
             _searchService.SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 != expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 != expectedResourceType)),
                 Arg.Any<string>(),
                 true,
                 Arg.Any<CancellationToken>(),
@@ -154,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 true,
                 Arg.Any<CancellationToken>(),

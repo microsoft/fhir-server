@@ -23,33 +23,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexProcessingJob : IJob
     {
         private ILogger<ReindexOrchestratorJob> _logger;
-
-        // Determine if all of these will be needed.
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IReindexUtilities _reindexUtilities;
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
-        private readonly IReindexJobThrottleController _throttleController;
         private IQueueClient _queueClient;
 
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
             IReindexUtilities reindexUtilities,
-            IReindexJobThrottleController throttleController,
             ILoggerFactory loggerFactory,
             IQueueClient queueClient)
         {
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
-            EnsureArg.IsNotNull(throttleController, nameof(throttleController));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
 
             _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
             _reindexUtilities = reindexUtilities;
-            _throttleController = throttleController;
             _queueClient = queueClient;
         }
 
@@ -60,13 +54,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
-
-            // Check db usage and delay if needed.
-            var averageDbConsumption = _throttleController.UpdateDatastoreUsage();
-            _logger.LogInformation("Reindex average DB consumption: {AverageDbConsumption}", averageDbConsumption);
-            var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
-            _logger.LogInformation("Reindex throttle delay: {ThrottleDelayTime}", throttleDelayTime);
-            await Task.Delay(_reindexProcessingJobDefinition.QueryDelayIntervalInMilliseconds + throttleDelayTime, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
@@ -173,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         if (result != null)
                         {
-                            _reindexProcessingJobResult.SucceededResourceCount += result.Results.Count();
+                            _reindexProcessingJobResult.SucceededResourceCount += (long)result?.TotalCount;
                             _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
                         }
                     }

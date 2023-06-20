@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
@@ -135,10 +134,6 @@ namespace Microsoft.Health.Fhir.Web
                 .AsImplementedInterfaces();
             services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
 
-            services.Add<IReindexJobThrottleController>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
             IEnumerable<TypeRegistrationBuilder> jobs = services.TypesInSameAssembly(KnownAssemblies.Core)
                 .AssignableTo<IJob>()
                 .Transient()

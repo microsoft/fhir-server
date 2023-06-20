@@ -6,22 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -35,12 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public sealed class ReindexOrchestratorJob : IJob
     {
         private ILogger<ReindexOrchestratorJob> _logger;
-        private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly IReindexUtilities _reindexUtilities;
         private readonly IModelInfoProvider _modelInfoProvider;
         private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -49,52 +39,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexJobRecord _reindexJobRecord;
         private ReindexOrchestratorJobResult _currentResult;
         private IProgress<string> _progress;
-        private IReindexJobThrottleController _throttleController;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public ReindexOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<IFhirDataStore>> datastore,
-            IOptions<ReindexJobConfiguration> reindexConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IReindexUtilities reindexUtilities,
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IModelInfoProvider modelInfoProvider,
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
-            ILoggerFactory loggerFactory,
-            IReindexJobThrottleController throttlingController)
+            ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(datastore, nameof(datastore));
-            EnsureArg.IsNotNull(reindexConfiguration, nameof(reindexConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
-            EnsureArg.IsNotNull(throttlingController, nameof(throttlingController));
 
             _queueClient = queueClient;
-            _reindexJobConfiguration = reindexConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _fhirDataStoreFactory = datastore;
             _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _reindexUtilities = reindexUtilities;
-            _contextAccessor = fhirRequestContextAccessor;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterOperations = searchParameterOperations;
-            PollingPeriodSec = (int)_reindexJobConfiguration.JobPollingFrequency.TotalSeconds;
-            _throttleController = throttlingController;
         }
-
-        public int PollingPeriodSec { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -110,40 +80,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Check for any changes to Search Parameters
             await SyncSearchParameterStatusupdates(cancellationToken);
 
-            var originalRequestContext = _contextAccessor.RequestContext;
-
             try
             {
-                // Add a request context so Datastore consumption can be added
-                // this is only needed for CosmosDb
-                var fhirRequestContext = new FhirRequestContext(
-                    method: OperationsConstants.Reindex,
-                    uriString: "$reindex",
-                    baseUriString: "$reindex",
-                    correlationId: reindexJobRecord.Id,
-                    requestHeaders: new Dictionary<string, StringValues>(),
-                    responseHeaders: new Dictionary<string, StringValues>())
-                {
-                    IsBackgroundTask = true,
-                    AuditEventType = OperationsConstants.Reindex,
-                };
-
-                _contextAccessor.RequestContext = fhirRequestContext;
-
-                if (reindexJobRecord.TargetDataStoreUsagePercentage != null &&
-                    reindexJobRecord.TargetDataStoreUsagePercentage > 0)
-                {
-                    using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
-                    {
-                        var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(_cancellationToken);
-                        _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
-                    }
-                }
-                else
-                {
-                    _throttleController.Initialize(_reindexJobRecord, null);
-                }
-
                 // If we are resuming a job, we can detect that by checking the Reindex queue.
                 // There should be ReindexProcessingJobs in there.
                 var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, _jobInfo.GroupId, true, cancellationToken);
@@ -184,10 +122,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 HandleException(ex);
                 progress.Report(string.Format("Reindex Orchestrator job failed with exception: {0}, for JobId: {1}.", ex.Message, _jobInfo.Id));
-            }
-            finally
-            {
-                _contextAccessor.RequestContext = originalRequestContext;
             }
 
             return JsonConvert.SerializeObject(_currentResult);
@@ -301,7 +235,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.QueryList.TryAdd(query, 1);
             }
 
-            _throttleController.UpdateDatastoreUsage();
             return await EnqueueQueryProcessingJobsAsync(cancellationToken);
         }
 
@@ -329,8 +262,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     ResourceCount = GetSearchResultReindex(input.Key.ResourceType),
                     ResourceType = input.Key.ResourceType,
                     MaximumNumberOfResourcesPerQuery = _reindexJobRecord.MaximumNumberOfResourcesPerQuery,
-                    TargetDataStoreUsagePercentage = _reindexJobRecord.TargetDataStoreUsagePercentage,
-                    QueryDelayIntervalInMilliseconds = _reindexJobRecord.QueryDelayIntervalInMilliseconds,
                     SearchParameterUrls = _reindexJobRecord.SearchParams.ToImmutableList(),
                 };
                 reindexJobPayload.ResourceCount.ContinuationToken = input.Key.ContinuationToken;
@@ -403,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             SearchResultReindex searchResultReindex = GetSearchResultReindex(queryStatus.ResourceType);
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _throttleController.GetThrottleBatchSize().ToString(CultureInfo.InvariantCulture)),
+                Tuple.Create(KnownQueryParameterNames.Count, _reindexJobRecord.MaximumNumberOfResourcesPerQuery.ToString()),
                 Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
             };
 
@@ -499,7 +430,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             if (fullyIndexedParamUris.Count > 0)
             {
                 _logger.LogInformation("Reindex job updating the status of the fully indexed search parameter, Id: {Id}, parameters: '{ParamUris} to Enabled.'", _jobInfo.Id, string.Join("', '", fullyIndexedParamUris));
-                (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatusToEnabled(fullyIndexedParamUris, _cancellationToken);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(fullyIndexedParamUris, SearchParameterStatus.Enabled, _cancellationToken);
             }
 
             _progress.Report("Updating search parameter statuses complete.");

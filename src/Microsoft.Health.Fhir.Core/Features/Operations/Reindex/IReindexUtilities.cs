@@ -22,13 +22,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
         Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Sets the search parameters to enabled when a reindex job successfully completes
-        /// </summary>
-        /// <param name="searchParameterUris">The list of search parameter Uris</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>true if successful, or false with error message is unsuccessful</returns>
-        Task<(bool success, string message)> UpdateSearchParameterStatusToEnabled(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken);
     }
 }

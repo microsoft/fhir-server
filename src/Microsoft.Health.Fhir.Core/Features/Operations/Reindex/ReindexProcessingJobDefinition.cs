@@ -24,11 +24,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public uint MaximumNumberOfResourcesPerQuery { get; set; }
 
         public IReadOnlyCollection<string> SearchParameterUrls { get; set; }
-
-        // The below properties are only used for the ThrottlingController
-
-        public ushort? TargetDataStoreUsagePercentage { get; set; }
-
-        public int QueryDelayIntervalInMilliseconds { get; set; }
     }
 }
