@@ -4810,6 +4810,50 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.MergeResourcesAdvanceTransactionVisibility
+@AffectedRows INT=0 OUTPUT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = '', @st AS DATETIME = getUTCdate(), @msg AS VARCHAR (1000), @MaxTransactionId AS BIGINT, @MinTransactionId AS BIGINT, @MinNotCompletedTransactionId AS BIGINT, @CurrentTransactionId AS BIGINT;
+SET @AffectedRows = 0;
+BEGIN TRY
+    EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUTPUT;
+    SET @MinTransactionId += 1;
+    SET @CurrentTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
+                                 FROM     dbo.Transactions
+                                 ORDER BY SurrogateIdRangeFirstValue DESC);
+    SET @MinNotCompletedTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
+                                         FROM     dbo.Transactions
+                                         WHERE    IsCompleted = 0
+                                                  AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId
+                                         ORDER BY SurrogateIdRangeFirstValue);
+    SET @MaxTransactionId = (SELECT   TOP 1 SurrogateIdRangeFirstValue
+                             FROM     dbo.Transactions
+                             WHERE    IsCompleted = 1
+                                      AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId
+                                      AND SurrogateIdRangeFirstValue < @MinNotCompletedTransactionId
+                             ORDER BY SurrogateIdRangeFirstValue DESC);
+    IF @MaxTransactionId >= @MinTransactionId
+        BEGIN
+            UPDATE A
+            SET    IsVisible   = 1,
+                   VisibleDate = getUTCdate()
+            FROM   dbo.Transactions AS A WITH (INDEX (1))
+            WHERE  SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId
+                   AND SurrogateIdRangeFirstValue <= @MaxTransactionId;
+            SET @AffectedRows += @@rowcount;
+        END
+    SET @msg = 'Min=' + CONVERT (VARCHAR, @MinTransactionId) + ' C=' + CONVERT (VARCHAR, @CurrentTransactionId) + ' MinNC=' + CONVERT (VARCHAR, @MinNotCompletedTransactionId) + ' Max=' + CONVERT (VARCHAR, @MaxTransactionId);
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @AffectedRows, @Text = @msg;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
 @Count INT, @TransactionId BIGINT=0 OUTPUT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT
 AS
@@ -4872,27 +4916,59 @@ CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
 @TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate();
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate(), @InitialTranCount AS INT = @@trancount, @IsCompletedBefore AS BIT;
 SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
-DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId);
+DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId) + ' OC=' + isnull(CONVERT (VARCHAR, @OverrideIsControlledByClientCheck), 'NULL');
 BEGIN TRY
+    IF @InitialTranCount = 0
+        BEGIN TRANSACTION;
     UPDATE dbo.Transactions
-    SET    IsCompleted   = 1,
-           IsSuccess     = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
-           EndDate       = getUTCdate(),
-           IsVisible     = 1,
-           VisibleDate   = getUTCdate(),
-           FailureReason = @FailureReason
+    SET    IsCompleted        = 1,
+           @IsCompletedBefore = IsCompleted,
+           EndDate            = getUTCdate(),
+           IsSuccess          = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
+           FailureReason      = @FailureReason
     WHERE  SurrogateIdRangeFirstValue = @TransactionId
            AND (IsControlledByClient = 1
                 OR @OverrideIsControlledByClientCheck = 1);
+    SET @Rows = @@rowcount;
+    IF @Rows = 0
+        BEGIN
+            SET @msg = 'Transaction [' + CONVERT (VARCHAR (20), @TransactionId) + '] is not controlled by client or does not exist.';
+            RAISERROR (@msg, 18, 127);
+        END
+    IF @IsCompletedBefore = 1
+        BEGIN
+            IF @InitialTranCount = 0
+                ROLLBACK;
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Target = '@IsCompletedBefore', @Text = '=1';
+            RETURN;
+        END
+    IF @InitialTranCount = 0
+        COMMIT TRANSACTION;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
+    IF @InitialTranCount = 0
+       AND @@trancount > 0
+        ROLLBACK;
     IF error_number() = 1750
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
     THROW;
 END CATCH
+
+GO
+CREATE PROCEDURE dbo.MergeResourcesGetTransactionVisibility
+@TransactionId BIGINT OUTPUT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = '', @st AS DATETIME = getUTCdate();
+SET @TransactionId = isnull((SELECT   TOP 1 SurrogateIdRangeFirstValue
+                             FROM     dbo.Transactions
+                             WHERE    IsVisible = 1
+                             ORDER BY SurrogateIdRangeFirstValue DESC), -1);
+EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount, @Text = @TransactionId;
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesPutTransactionHeartbeat
