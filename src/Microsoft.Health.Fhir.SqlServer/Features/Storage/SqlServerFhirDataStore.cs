@@ -322,6 +322,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             cmd.CommandType = CommandType.StoredProcedure;
                             cmd.CommandText = "dbo.MergeResources";
                             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
+                            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
                             cmd.Parameters.AddWithValue("@SingleTransaction", singleTransaction);
                             new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
                             new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
