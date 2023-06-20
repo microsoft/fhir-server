@@ -663,12 +663,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesAdvanceTransactionVisibility", CommandType = CommandType.StoredProcedure };
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-        }
-
         internal async Task<long> MergeResourcesGetTransactionVisibilityAsync(CancellationToken cancellationToken)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTransactionVisibility", CommandType = CommandType.StoredProcedure };

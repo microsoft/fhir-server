@@ -69,6 +69,7 @@ DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
        ,@st datetime = getUTCdate()
        ,@InitialTranCount int = @@trancount
        ,@IsCompletedBefore bit
+       ,@Rows int
 
 SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
 

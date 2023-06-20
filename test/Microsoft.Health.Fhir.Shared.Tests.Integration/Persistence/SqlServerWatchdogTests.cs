@@ -132,6 +132,47 @@ END
             wd.Dispose();
         }
 
+        [Fact]
+        public async Task AdvanceVisibility()
+        {
+            var visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            Assert.Equal(-1, visibility);
+            var tranInfo = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tranInfo.TransactionId, null, CancellationToken.None);
+            _testOutputHelper.WriteLine($"Transaction={tranInfo.TransactionId}.");
+            visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            Assert.Equal(-1, visibility);
+            _testOutputHelper.WriteLine($"Visibility={visibility}.");
+
+            var wd = new TransactionWatchdog(() => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
+
+            await wd.StartAsync(true, 1, 2, cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            startTime = DateTime.UtcNow;
+            while (tranInfo.TransactionId != await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None) && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
+            visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            Assert.Equal(tranInfo.TransactionId, visibility);
+            _testOutputHelper.WriteLine($"Visibility={visibility}.");
+
+            wd.Dispose();
+        }
+
         private void ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
