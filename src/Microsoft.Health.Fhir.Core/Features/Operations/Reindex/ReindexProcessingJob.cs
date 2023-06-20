@@ -10,18 +10,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -31,17 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexProcessingJob : IJob
     {
         private ILogger<ReindexOrchestratorJob> _logger;
-        private IFhirOperationDataStore _fhirOperationDataStore;
-        private ReindexJobConfiguration _reindexJobConfiguration;
 
         // Determine if all of these will be needed.
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IReindexUtilities _reindexUtilities;
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ISearchParameterOperations _searchParameterOperations;
         private JobInfo _jobInfo;
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
@@ -49,43 +34,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private IQueueClient _queueClient;
 
         public ReindexProcessingJob(
-            IFhirOperationDataStore operationDatastore,
-            IOptions<ReindexJobConfiguration> reindexConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
-            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IModelInfoProvider modelInfoProvider,
             IReindexJobThrottleController throttleController,
-            SearchParameterStatusManager searchParameterStatusManager,
-            ISearchParameterOperations searchParameterOperations,
             ILoggerFactory loggerFactory,
             IQueueClient queueClient)
         {
-            EnsureArg.IsNotNull(operationDatastore, nameof(operationDatastore));
-            EnsureArg.IsNotNull(reindexConfiguration, nameof(reindexConfiguration));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(throttleController, nameof(throttleController));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
-            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
 
-            _reindexJobConfiguration = reindexConfiguration.Value;
-            _fhirOperationDataStore = operationDatastore;
             _logger = loggerFactory.CreateLogger<ReindexOrchestratorJob>();
             _searchServiceFactory = searchServiceFactory;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
-            _contextAccessor = fhirRequestContextAccessor;
-            _modelInfoProvider = modelInfoProvider;
             _throttleController = throttleController;
-            _searchParameterStatusManager = searchParameterStatusManager;
-            _searchParameterOperations = searchParameterOperations;
             _queueClient = queueClient;
         }
 
@@ -94,24 +58,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
             _jobInfo = jobInfo;
-            _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
+            _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
 
-            /*
-            if (_reindexProcessingJobDefinition.TargetDataStoreUsagePercentage != null &&
-                    _reindexProcessingJobDefinition.TargetDataStoreUsagePercentage > 0)
-            {
-                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
-                {
-                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(_cancellationToken);
-                    _throttleController.Initialize(_reindexProcessingJobDefinition, provisionedCapacity);
-                }
-            }
-            else
-            {
-                _throttleController.Initialize(_reindexProcessingJobDefinition, null);
-            }
-            */
+            // Check db usage and delay if needed.
+            var averageDbConsumption = _throttleController.UpdateDatastoreUsage();
+            _logger.LogInformation("Reindex average DB consumption: {AverageDbConsumption}", averageDbConsumption);
+            var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
+            _logger.LogInformation("Reindex throttle delay: {ThrottleDelayTime}", throttleDelayTime);
+            await Task.Delay(_reindexProcessingJobDefinition.QueryDelayIntervalInMilliseconds + throttleDelayTime, cancellationToken);
 
             await ProcessQueryAsync(cancellationToken);
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
@@ -141,6 +96,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 });
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IgnoreSearchParamHash, "true"));
+            }
+
+            if (_reindexProcessingJobDefinition.ResourceCount.ContinuationToken != null)
+            {
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, _reindexProcessingJobDefinition.ResourceCount.ContinuationToken));
             }
 
             string searchParameterHash = string.Empty;
@@ -194,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             // We need to create a child query to finish processing the reindex job
                             _reindexProcessingJobDefinition.ResourceCount.StartResourceSurrogateId = result.MaxResourceSurrogateId + 1;
-                            _reindexProcessingJobDefinition.StartResourceSurrogateId = currentResourceSurrogateId;
+                            _reindexProcessingJobDefinition.ResourceCount.ContinuationToken = result.ContinuationToken;
+
                             var generatedJobId = await EnqueueChildQueryProcessingJobAsync(cancellationToken);
                             _logger.LogInformation("Reindex processing job created a child query to finish processing, job id: {JobId}, group id: {GroupId}. New job id: {NewJobId}", _jobInfo.Id, _jobInfo.GroupId, generatedJobId[0]);
                         }

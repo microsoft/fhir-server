@@ -276,7 +276,6 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
         }
 
-        var def = jobInfo.Definition;
         var status = jobInfo.Status;
         var result = jobInfo.Result;
         var record = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);

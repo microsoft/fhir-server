@@ -13,8 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     {
         public int TypeId { get; set; }
 
-        public long StartResourceSurrogateId { get; set; }
-
         public string ResourceType { get; set; }
 
         public bool ForceReindex { get; set; }

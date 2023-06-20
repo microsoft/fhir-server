@@ -1,0 +1,225 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
+using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
+using Microsoft.Health.JobManagement.UnitTests;
+using Microsoft.Health.Test.Utilities;
+using Newtonsoft.Json;
+using NSubstitute;
+using Xunit;
+using Task = System.Threading.Tasks.Task;
+
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
+{
+    [CollectionDefinition("ReindexOrchestratorJobTests", DisableParallelization = true)]
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.IndexAndReindex)]
+    public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
+    {
+        private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
+        private const int _mockedSearchCount = 5;
+
+        private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
+
+        private readonly SearchParameterFixtureData _fixture;
+        private readonly IFhirDataStore _fhirDataStoreFactory = Substitute.For<IFhirDataStore>();
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
+        private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
+        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private SearchParameterStatusManager _searchParameterStatusmanager;
+        private Func<ReindexOrchestratorJob> _reindexJobTaskFactory;
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+        private readonly IQueueClient _queueClient = new TestQueueClient();
+
+        private SearchParameterDefinitionManager _searchDefinitionManager;
+        private CancellationToken _cancellationToken;
+        private const uint BatchSize = 2U;
+
+        public ReindexOrchestratorJobTests(SearchParameterFixtureData fixture) => _fixture = fixture;
+
+        public async Task InitializeAsync()
+        {
+            _cancellationToken = _cancellationTokenSource.Token;
+            _searchDefinitionManager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            _searchParameterStatusmanager = await SearchParameterFixtureData.CreateSearchParameterStatusManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            var job = CreateReindexJobRecord();
+
+            _throttleController.GetThrottleBasedDelay().Returns(0);
+            _throttleController.GetThrottleBatchSize().Returns(BatchSize);
+            _reindexJobTaskFactory = () =>
+                 new ReindexOrchestratorJob(
+                     _queueClient,
+                     () => _fhirDataStoreFactory.CreateMockScope(),
+                     Options.Create(_reindexJobConfiguration),
+                     () => _searchService.CreateMockScope(),
+                     _searchDefinitionManager,
+                     _reindexUtilities,
+                     _contextAccessor,
+                     ModelInfoProvider.Instance,
+                     _searchParameterStatusmanager,
+                     _searchParameterOperations,
+                     NullLoggerFactory.Instance,
+                     _throttleController);
+
+            _reindexUtilities.UpdateSearchParameterStatusToEnabled(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
+        [Fact]
+        public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
+        {
+            // Get one search parameter and configure it such that it needs to be reindexed
+            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
+            param.IsSearchable = false;
+            var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
+
+            ReindexJobRecord job = CreateReindexJobRecord();
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 1,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            // setup search result
+            _searchService.SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Any<string>(),
+                true,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
+
+            _searchService.SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 != expectedResourceType)),
+                Arg.Any<string>(),
+                true,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(0, new List<Tuple<string, string>>()));
+
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                false,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(CreateSearchResult());
+            try
+            {
+                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+            }
+            catch (RetriableJobException ex)
+            {
+                Assert.Equal("Reindex job with Id: 1 has been started. Status: Running.", ex.Message);
+            }
+
+            // verify search for count
+            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), Arg.Is(true), Arg.Any<CancellationToken>(), true);
+
+            // verify search for results
+            await _searchService.Received().SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == BatchSize.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
+                Arg.Any<string>(),
+                true,
+                Arg.Any<CancellationToken>(),
+                true);
+
+            var reindexJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, 1, true, Arg.Any<CancellationToken>());
+            var processingJob = reindexJobs.FirstOrDefault();
+
+            Assert.Equal(1, reindexJobs.Count);
+            Assert.NotNull(processingJob);
+
+            var processingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(processingJob.Definition);
+            Assert.Equal(_mockedSearchCount, processingJobDefinition.ResourceCount.Count);
+            Assert.Equal(expectedResourceType, processingJobDefinition.ResourceType);
+            Assert.Contains(param.Url.ToString(), processingJobDefinition.SearchParameterUrls);
+
+            param.IsSearchable = true;
+        }
+
+        [Fact]
+        public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
+        {
+            var job = CreateReindexJobRecord();
+            JobInfo jobInfo = new JobInfo()
+            {
+                Id = 3,
+                Definition = JsonConvert.SerializeObject(job),
+                QueueType = (byte)QueueType.Reindex,
+                GroupId = 3,
+                CreateDate = DateTime.UtcNow,
+                Status = JobStatus.Running,
+            };
+
+            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+
+            Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
+            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
+            Assert.False(jobs.Any());
+        }
+
+        private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
+        {
+            var resultList = new List<SearchResultEntry>();
+
+            for (var i = 0; i < resourceCount; i++)
+            {
+                var wrapper = Substitute.For<ResourceWrapper>();
+                var entry = new SearchResultEntry(wrapper);
+                resultList.Add(entry);
+            }
+
+            var searchResult = new SearchResult(resultList, continuationToken, null, new List<Tuple<string, string>>());
+            searchResult.MaxResourceSurrogateId = 1;
+            searchResult.TotalCount = resultList.Count;
+            return searchResult;
+        }
+
+        private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100, IReadOnlyDictionary<string, string> paramHashMap = null)
+        {
+            if (paramHashMap == null)
+            {
+                paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
+            }
+
+            return new ReindexJobRecord(paramHashMap, new List<string>(), new List<string>(), new List<string>(), maxiumumConcurrency: 1, maxResourcePerQuery);
+        }
+    }
+}

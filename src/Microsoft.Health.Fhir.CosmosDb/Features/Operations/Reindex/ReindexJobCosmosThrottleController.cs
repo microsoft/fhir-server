@@ -13,6 +13,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
@@ -41,9 +42,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             _logger = logger;
         }
 
-        public ReindexProcessingJobDefinition ReindexJobRecord { get; set; } = null;
+        public ReindexJobRecord ReindexJobRecord { get; set; } = null;
 
-        public void Initialize(ReindexProcessingJobDefinition reindexJobRecord, int? provisionedDatastoreCapacity)
+        public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
         {
             EnsureArg.IsNotNull(reindexJobRecord, nameof(reindexJobRecord));
 
