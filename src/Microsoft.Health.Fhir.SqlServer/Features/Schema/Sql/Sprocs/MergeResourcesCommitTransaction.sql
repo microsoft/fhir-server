@@ -8,6 +8,7 @@ DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
        ,@InitialTranCount int = @@trancount
        ,@IsCompletedBefore bit
        ,@Rows int
+       ,@msg varchar(1000)
 
 SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
 
