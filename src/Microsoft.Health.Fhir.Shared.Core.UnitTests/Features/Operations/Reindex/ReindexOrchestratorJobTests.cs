@@ -31,7 +31,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
-    [CollectionDefinition("ReindexOrchestratorJobTests", DisableParallelization = true)]
+    [CollectionDefinition("ReindexOrchestratorJobTests")]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
