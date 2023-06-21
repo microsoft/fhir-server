@@ -30,10 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     public class ReindexProcessingJobTests
     {
-        private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
         private const int _mockedSearchCount = 5;
-
-        private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
