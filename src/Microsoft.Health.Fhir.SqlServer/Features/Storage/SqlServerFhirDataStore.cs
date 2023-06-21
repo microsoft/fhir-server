@@ -12,6 +12,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -360,6 +361,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
                 }
+            }
+            else
+            {
+                await MergeResourcesCommitTransactionAsync(transactionId, null, cancellationToken);
             }
 
             return results;
