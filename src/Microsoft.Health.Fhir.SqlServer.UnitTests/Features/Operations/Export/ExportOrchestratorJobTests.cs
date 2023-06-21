@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -203,11 +202,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var list = new List<(short resourceTypeId, string name)>();
-                list.Add((0, "Patient"));
-                list.Add((1, "Observation"));
-                list.Add((2, "Encounter"));
-
+                var list = new List<string>
+                {
+                    "Patient",
+                    "Observation",
+                    "Encounter",
+                };
                 return list;
             });
 
