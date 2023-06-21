@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(jobInfo.GroupId, childJob.GroupId);
             var childJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(childJob.Definition);
             Assert.Equal(2, childJobDefinition.ResourceCount.StartResourceSurrogateId);
-            Assert.Equal(2, childJobDefinition.ResourceCount.CurrentResourceSurrogateId);
+            Assert.Equal(1, childJobDefinition.ResourceCount.CurrentResourceSurrogateId);
             Assert.Equal(2, childJobDefinition.ResourceCount.EndResourceSurrogateId);
             Assert.Equal(job.ResourceCount.ContinuationToken, childJobDefinition.ResourceCount.ContinuationToken);
         }
