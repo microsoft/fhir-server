@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                await MergeResourcesCommitTransactionAsync(transactionId, null, cancellationToken);
+                await MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
             }
 
             return results;
