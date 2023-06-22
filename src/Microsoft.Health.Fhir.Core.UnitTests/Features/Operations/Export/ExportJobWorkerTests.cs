@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 DefaultMaximumNumberOfConcurrentJobAllowed,
                 DefaultJobHeartbeatTimeoutThreshold,
                 _cancellationToken)
-                .ThrowsForAnyArgs<Exception>();
+                .ThrowsAsyncForAnyArgs<Exception>();
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
 

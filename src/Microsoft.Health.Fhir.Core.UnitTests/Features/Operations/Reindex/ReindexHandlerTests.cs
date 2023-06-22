@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobRecord = CreateJobRecord();
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
-            _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Throws(new JobNotFoundException("not found"));
+            _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).ThrowsAsync(new JobNotFoundException("not found"));
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobRecord = CreateJobRecord();
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
-            _fhirOperationDataStore.GetReindexJobByIdAsync("id", CancellationToken.None).Throws(new Exception(null, new RequestRateExceededException(TimeSpan.FromMilliseconds(100))));
+            _fhirOperationDataStore.GetReindexJobByIdAsync("id", CancellationToken.None).ThrowsAsync(new Exception(null, new RequestRateExceededException(TimeSpan.FromMilliseconds(100))));
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 

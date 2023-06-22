@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var expectedSearchOptions = new SearchOptions();
 
-            _searchOptionsFactory.Create(resourceType, _queryParameters).Returns(expectedSearchOptions);
+            _searchOptionsFactory.Create(Arg.Is(resourceType), Arg.Is(_queryParameters)).Returns(expectedSearchOptions);
 
             var expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
 

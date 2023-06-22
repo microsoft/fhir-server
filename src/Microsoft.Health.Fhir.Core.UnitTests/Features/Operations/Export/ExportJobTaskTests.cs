@@ -1989,7 +1989,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Any<ExportJobConfiguration>(),
                 Arg.Any<CancellationToken>(),
                 Arg.Any<string>())
-                .Throws(new DestinationConnectionException(errorMessage, HttpStatusCode.BadRequest));
+                .ThrowsAsync(new DestinationConnectionException(errorMessage, HttpStatusCode.BadRequest));
 
             var exportJobTask = CreateExportJobTask(exportDestinationClient: exportDestinationClient);
 
