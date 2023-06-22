@@ -437,10 +437,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
             new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource); }, _logger, null, cancellationToken);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, false); }, _logger, null, cancellationToken);
         }
 
-        private ResourceWrapper ReadWrapper(SqlDataReader reader, VLatest.ResourceTable table)
+        private ResourceWrapper ReadWrapper(SqlDataReader reader, VLatest.ResourceTable table, bool readRequestMethod)
         {
             var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
             var resourceId = reader.Read(table.ResourceId, 1);
@@ -451,6 +451,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var rawResourceBytes = reader.GetSqlBytes(6).Value;
             var isRawResourceMetaSet = reader.Read(table.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(table.SearchParamHash, 8);
+            var requestMethod = readRequestMethod ? reader.Read(table.RequestMethod, 9) : null;
 
             using var rawResourceStream = new MemoryStream(rawResourceBytes);
             var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
@@ -460,7 +461,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 version.ToString(CultureInfo.InvariantCulture),
                 _model.GetResourceTypeName(resourceTypeId),
                 new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                null,
+                readRequestMethod ? new ResourceRequest(requestMethod) : null,
                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                 isDeleted,
                 searchIndices: null,

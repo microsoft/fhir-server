@@ -159,6 +159,7 @@ END
             var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
             patient.Id = Guid.NewGuid().ToString();
             var wrapper = factory.Create(patient.ToResourceElement(), false, true);
+            wrapper.ResourceSurrogateId = tran.TransactionId;
             var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
 
             ExecuteSql("INSERT INTO Parameters (Id,Number) SELECT 'MergeResources.NoTransaction.IsEnabled', 1");

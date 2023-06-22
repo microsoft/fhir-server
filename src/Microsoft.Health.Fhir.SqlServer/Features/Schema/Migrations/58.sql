@@ -3682,7 +3682,8 @@ BEGIN TRY
            IsHistory,
            RawResource,
            IsRawResourceMetaSet,
-           SearchParamHash
+           SearchParamHash,
+           RequestMethod
     FROM   (SELECT TOP (@DummyTop) *
             FROM   @Keys) AS A
            INNER JOIN
