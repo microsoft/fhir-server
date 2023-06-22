@@ -726,7 +726,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransaction", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource); }, _logger, null, cancellationToken);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, true); }, _logger, null, cancellationToken);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
