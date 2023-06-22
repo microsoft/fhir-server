@@ -4,9 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Serialization;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Compartment;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
@@ -133,9 +144,38 @@ END
         }
 
         [Fact]
+        public async Task RollTransactionForward()
+        {
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, null, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
+
+            await wd.StartAsync(true, 1, 2, cts.Token);
+
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            ////await _fixture.Med.UpsertResourceAsync(patient.ToResourceElement());
+            ////var a = _fixture.SearchParameterDefinitionManager;
+
+            var tran = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
+
+            wd.Dispose();
+        }
+
+        [Fact]
         public async Task AdvanceVisibility()
         {
-            var wd = new TransactionWatchdog(() => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, GetResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
@@ -199,6 +239,38 @@ END
             Assert.Equal(tran3.TransactionId, visibility);
 
             wd.Dispose();
+        }
+
+        private ResourceWrapperFactory GetResourceWrapperFactory()
+        {
+            var serializer = new FhirJsonSerializer();
+            var rawResourceFactory = new RawResourceFactory(serializer);
+
+            var dummyRequestContext = new FhirRequestContext(
+                "POST",
+                "https://localhost/Patient",
+                "https://localhost/",
+                Guid.NewGuid().ToString(),
+                new Dictionary<string, StringValues>(),
+                new Dictionary<string, StringValues>());
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
+
+            var claimsExtractor = Substitute.For<IClaimsExtractor>();
+            var compartmentIndexer = Substitute.For<ICompartmentIndexer>();
+            var searchIndexer = Substitute.For<ISearchIndexer>();
+
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            searchParameterDefinitionManager.GetSearchParameterHashForResourceType(Arg.Any<string>()).Returns("hash");
+
+            return new ResourceWrapperFactory(
+                rawResourceFactory,
+                fhirRequestContextAccessor,
+                searchIndexer,
+                claimsExtractor,
+                compartmentIndexer,
+                searchParameterDefinitionManager,
+                Deserializers.ResourceDeserializer);
         }
 
         private void ExecuteSql(string sql)
