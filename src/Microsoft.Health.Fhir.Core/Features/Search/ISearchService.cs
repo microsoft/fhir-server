@@ -100,13 +100,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        IAsyncEnumerable<(DateTimeOffset StartDateTime, DateTimeOffset EndDateTime, uint Count)> GetApproximateRecordCountDateTimeRanges(
-            string resourceType,
-            DateTimeOffset startDateTime,
-            DateTimeOffset endDateTime,
-            int targetNumberOfRecords,
-            CancellationToken cancellationToken);
-
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
     }
 }

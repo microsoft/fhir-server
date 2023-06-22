@@ -9,8 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -90,58 +88,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
-        // #TODO - wait for implementation in https://github.com/microsoft/fhir-server/pull/3322
-        // Stub for now.
         public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            /*QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
+            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
                 FROM root r
-                WHERE r.isSystem = false
-                ORDER BY r.resourceTypeName");
+                WHERE r.isSystem = false");
 
-            string continuationToken = null;
-            */
+            var requestOptions = new QueryRequestOptions();
 
-            var resourceTypes = new List<string>
-            {
-                "AllergyIntolerance",
-                "CarePlan",
-                "CareTeam",
-                "Claim",
-                "Condition",
-                "Device",
-                "DiagnosticReport",
-                "DocumentReference",
-                "Encounter",
-                "ExplanationOfBenefit",
-                "ImagingStudy",
-                "Immunization",
-                "Location",
-                "Medication",
-                "MedicationAdministration",
-                "MedicationRequest",
-                "Patient",
-                "Observation",
-                "Organization",
-                "Practitioner",
-                "PractitionerRole",
-                "Procedure",
-                "Provenance",
-                "SupplyDelivery",
-            };
-
-            await Task.Delay(1, cancellationToken);
-
-            /*
-            do
-            {
-                var results = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), continuationToken, cancellationToken: cancellationToken);
-                continuationToken = results.continuationToken;
-                resourceTypes.AddRange(results.results);
-            }
-            while (continuationToken != null);
-            */
-            return resourceTypes;
+            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -424,74 +379,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 cancellationToken);
 
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
-        }
-
-        public override async IAsyncEnumerable<(DateTimeOffset StartDateTime, DateTimeOffset EndDateTime, uint Count)> GetApproximateRecordCountDateTimeRanges(
-            string resourceType,
-            DateTimeOffset startDateTime,
-            DateTimeOffset endDateTime,
-            int targetNumberOfRecords,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            List<(DateTimeOffset StartDateTime, DateTimeOffset EndDateTime, uint Count)> results = new();
-
-            // Get the total count of resources in the range
-            var summary = await GetMaxAndMinTsForResourcesInRange(resourceType, startDateTime, endDateTime, cancellationToken);
-
-            // If summary tells us this can happen in a single job / query
-            if (summary.Count < targetNumberOfRecords)
-            {
-                yield return (summary.MinLastModified, summary.MaxLastModified, summary.Count);
-            }
-
-            // We need to split more. Divide the secodns between min/max by the expected groups of target number of records
-            // This is not precise but gets closer.
-            var estimatedSpanForRecordSize = (summary.MaxLastModified - summary.MinLastModified) / (summary.Count / targetNumberOfRecords);
-            var totalCount = summary.Count;
-            var currentStart = summary.MinLastModified;
-            var currentEnd = currentStart + estimatedSpanForRecordSize;
-
-            // #TODO - make sure start is less than end
-
-            // #TODO - make logic more clear - kinda meh
-            do
-            {
-                var rangeSummary = await GetMaxAndMinTsForResourcesInRange(resourceType, currentStart, currentEnd, cancellationToken);
-                yield return (currentStart, currentEnd, rangeSummary.Count);
-                currentStart = currentEnd.AddTicks(1);
-                currentEnd = currentStart + estimatedSpanForRecordSize;
-            }
-            while (currentEnd - estimatedSpanForRecordSize < summary.MaxLastModified);
-        }
-
-        private async Task<(DateTimeOffset MinLastModified, DateTimeOffset MaxLastModified, uint Count)> GetMaxAndMinTsForResourcesInRange(
-            string resourceType,
-            DateTimeOffset startDateTime,
-            DateTimeOffset endDateTime,
-            CancellationToken cancellationToken)
-        {
-            var sb = new StringBuilder();
-            sb.Append("SELECT ");
-            sb.Append("MAX(r.lastModified) AS maxLastModified, MIN(r.lastModified) AS minLastModified, ");
-            sb.Append("COUNT(1) as resourceCount ");
-            sb.Append("FROM ");
-            sb.Append("root r ");
-            sb.Append("WHERE ");
-            sb.Append("r.isSystem = false ");
-            sb.Append("AND r.isDeleted = false ");
-            sb.Append("AND r.isHistory = false ");
-            sb.Append($"AND r.resourceTypeName = '{resourceType}' ");
-
-            // TODO only add min if it not zero
-            sb.Append($"AND r.lastModified >= '{new PartialDateTime(startDateTime)}' ");
-            sb.Append($"AND r.lastModified <= '{new PartialDateTime(endDateTime)}' ");
-
-            var results = await _fhirDataStore.ExecuteDocumentQueryAsync<Dictionary<string, string>>(new QueryDefinition(sb.ToString()), new QueryRequestOptions(), null, cancellationToken: cancellationToken);
-
-            return (
-                DateTimeOffset.Parse(results.results.Single()["minLastModified"]),
-                DateTimeOffset.Parse(results.results.Single()["maxLastModified"]),
-                uint.Parse(results.results.Single()["resourceCount"]));
         }
 
         /// <summary>

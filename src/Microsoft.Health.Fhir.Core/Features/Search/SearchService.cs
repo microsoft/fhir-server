@@ -225,16 +225,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public virtual IAsyncEnumerable<(DateTimeOffset StartDateTime, DateTimeOffset EndDateTime, uint Count)> GetApproximateRecordCountDateTimeRanges(
-            string resourceType,
-            DateTimeOffset startDateTime,
-            DateTimeOffset endDateTime,
-            int targetNumberOfRecords,
-            CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />

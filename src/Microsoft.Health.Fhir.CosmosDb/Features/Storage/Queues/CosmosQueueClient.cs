@@ -453,7 +453,8 @@ public class CosmosQueueClient : IQueueClient
                 .WithParameter("@groupId", groupId.ToString())
                 .WithParameter("@queueType", queueType);
 
-            var response = await ExecuteQueryAsync(sqlQuerySpec, 100, cancellationToken);
+            // We currently don't know the max number of jobs in a group. Not setting a limit.
+            var response = await ExecuteQueryAsync(sqlQuerySpec, -1, cancellationToken);
 
             return response.ToList();
     }
@@ -509,7 +510,7 @@ public class CosmosQueueClient : IQueueClient
         var items = new List<JobGroupWrapper>();
         FeedResponse<JobGroupWrapper> response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
 
-        while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && items.Count < itemCount)
+        while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && (items.Count < itemCount || itemCount < 0))
         {
             items.AddRange(response);
             response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
