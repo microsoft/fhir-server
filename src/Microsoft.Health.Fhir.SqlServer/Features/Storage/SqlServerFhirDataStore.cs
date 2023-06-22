@@ -467,7 +467,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 searchIndices: null,
                 compartmentIndices: null,
                 lastModifiedClaims: null,
-                searchParameterHash: searchParamHash)
+                searchParameterHash: searchParamHash,
+                resourceSurrogateId: resourceSurrogateId)
             {
                 IsHistory = isHistory,
             };
