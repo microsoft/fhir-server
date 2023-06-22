@@ -14,6 +14,7 @@ BEGIN TRY
   SELECT SurrogateIdRangeFirstValue
     FROM dbo.Transactions 
     WHERE SurrogateIdRangeFirstValue > @MinTransactionId
+      AND IsCompleted = 0
       AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
     ORDER BY SurrogateIdRangeFirstValue
 

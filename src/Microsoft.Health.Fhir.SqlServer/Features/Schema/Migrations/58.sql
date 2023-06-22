@@ -5004,6 +5004,7 @@ BEGIN TRY
     SELECT   SurrogateIdRangeFirstValue
     FROM     dbo.Transactions
     WHERE    SurrogateIdRangeFirstValue > @MinTransactionId
+             AND IsCompleted = 0
              AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
     ORDER BY SurrogateIdRangeFirstValue;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;

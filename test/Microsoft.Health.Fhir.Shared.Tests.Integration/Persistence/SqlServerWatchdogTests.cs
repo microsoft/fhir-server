@@ -146,7 +146,7 @@ END
         [Fact]
         public async Task RollTransactionForward()
         {
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, null, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, GetResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));

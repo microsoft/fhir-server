@@ -64,11 +64,11 @@ BEGIN TRY
   EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUT
 
   SELECT SurrogateIdRangeFirstValue
-        ,SurrogateIdRangeLastValue
     FROM dbo.Transactions 
     WHERE SurrogateIdRangeFirstValue > @MinTransactionId
+      AND IsCompleted = 0
       AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
-    ORDER BY SurrogateIdRangeFirstValue DESC
+    ORDER BY SurrogateIdRangeFirstValue
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
