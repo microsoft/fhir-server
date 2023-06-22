@@ -18,10 +18,14 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
@@ -112,7 +116,7 @@ BEGIN
 END
                 ");
 
-            _testOutputHelper.WriteLine($"EventLog.Count={GetCount()}.");
+            _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
 
             var wd = new CleanupEventLogWatchdog(
                 () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
@@ -132,13 +136,13 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            while ((GetCount() > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
+            while ((GetCount("EventLog") > 1000) && (DateTime.UtcNow - startTime).TotalSeconds < 120)
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
             }
 
-            _testOutputHelper.WriteLine($"EventLog.Count={GetCount()}.");
-            Assert.True(GetCount() <= 1000, "Count is low");
+            _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
+            Assert.True(GetCount("EventLog") <= 1000, "Count is low");
 
             wd.Dispose();
         }
@@ -146,13 +150,45 @@ END
         [Fact]
         public async Task RollTransactionForward()
         {
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, GetResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
+            var factory = CreateResourceWrapperFactory();
 
+            var tran = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
+
+            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
+            patient.Id = Guid.NewGuid().ToString();
+            var wrapper = factory.Create(patient.ToResourceElement(), false, true);
+            var mergeWrapper = new MergeResourceWrapper(wrapper, true, true);
+
+            ExecuteSql("INSERT INTO Parameters (Id,Number) SELECT 'MergeResources.NoTransaction.IsEnabled', 1");
+
+            ExecuteSql(@"
+CREATE TRIGGER dbo.tmp_NumberSearchParam ON dbo.NumberSearchParam
+FOR INSERT
+AS
+BEGIN
+  RAISERROR('Test',18,127)
+  RETURN
+END
+            ");
+
+            try
+            {
+                await _fixture.SqlServerFhirDataStore.MergeResourcesWrapperAsync(tran.TransactionId, false, new[] { mergeWrapper }, false, 0, cts.Token);
+            }
+            catch (SqlException e)
+            {
+                Assert.Equal("Test", e.Message);
+            }
+
+            Assert.Equal(1, GetCount("Resource")); // resource inserted
+            Assert.Equal(0, GetCount("NumberSearchParam")); // number is not inserted
+
+            ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
+
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(true, 1, 2, cts.Token);
-
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
@@ -162,12 +198,13 @@ END
             Assert.True(wd.IsLeaseHolder, "Is lease holder");
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
-            var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
-            patient.Id = Guid.NewGuid().ToString();
-            ////await _fixture.Med.UpsertResourceAsync(patient.ToResourceElement());
-            ////var a = _fixture.SearchParameterDefinitionManager;
+            startTime = DateTime.UtcNow;
+            while (GetCount("NumberSearchParam") == 0 && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.1));
+            }
 
-            var tran = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
+            Assert.Equal(1, GetCount("NumberSearchParam")); // wd rolled forward transaction
 
             wd.Dispose();
         }
@@ -175,13 +212,11 @@ END
         [Fact]
         public async Task AdvanceVisibility()
         {
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, GetResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
-
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(true, 1, 2, cts.Token);
-
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
@@ -192,19 +227,19 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             // create 3 trans
-            var tran1 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
-            var tran2 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
-            var tran3 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, CancellationToken.None);
-            var visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            var tran1 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
+            var tran2 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
+            var tran3 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
+            var visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token);
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(-1, visibility);
 
             // commit 1
-            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran1.TransactionId, null, CancellationToken.None);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran1.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran1={tran1.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -213,11 +248,11 @@ END
             Assert.Equal(tran1.TransactionId, visibility);
 
             // commit 3
-            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran3.TransactionId, null, CancellationToken.None);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran3.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran3={tran3.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -226,11 +261,11 @@ END
             Assert.Equal(tran1.TransactionId, visibility); // remains t1 though t3 is committed.
 
             // commit 2
-            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran2.TransactionId, null, CancellationToken.None);
+            await _fixture.SqlServerFhirDataStore.MergeResourcesCommitTransactionAsync(tran2.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran2={tran2.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -241,11 +276,10 @@ END
             wd.Dispose();
         }
 
-        private ResourceWrapperFactory GetResourceWrapperFactory()
+        private ResourceWrapperFactory CreateResourceWrapperFactory()
         {
             var serializer = new FhirJsonSerializer();
             var rawResourceFactory = new RawResourceFactory(serializer);
-
             var dummyRequestContext = new FhirRequestContext(
                 "POST",
                 "https://localhost/Patient",
@@ -256,19 +290,18 @@ END
             var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
-            var claimsExtractor = Substitute.For<IClaimsExtractor>();
-            var compartmentIndexer = Substitute.For<ICompartmentIndexer>();
             var searchIndexer = Substitute.For<ISearchIndexer>();
+            searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("param", "param", SearchParamType.Number, new Uri("http://hl7.org/fhir/SearchParameter/Medication-lot-number")), new NumberSearchValue(1000)) });
 
-            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var searchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             searchParameterDefinitionManager.GetSearchParameterHashForResourceType(Arg.Any<string>()).Returns("hash");
 
             return new ResourceWrapperFactory(
                 rawResourceFactory,
                 fhirRequestContextAccessor,
                 searchIndexer,
-                claimsExtractor,
-                compartmentIndexer,
+                Substitute.For<IClaimsExtractor>(),
+                Substitute.For<ICompartmentIndexer>(),
                 searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer);
         }
@@ -282,11 +315,11 @@ END
             cmd.ExecuteNonQuery();
         }
 
-        private long GetCount()
+        private long GetCount(string table)
         {
             using var conn = new SqlConnection(_fixture.TestConnectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('EventLog')", conn);
+            using var cmd = new SqlCommand($"SELECT sum(row_count) FROM sys.dm_db_partition_stats WHERE object_id = object_id('{table}') AND index_id IN (0,1)", conn);
             var res = cmd.ExecuteScalar();
             return (long)res;
         }

@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT -- TODO: Remove @SurrogateIdRangeFirstValue
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -26,8 +26,8 @@ BEGIN TRY
   SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
 
   INSERT INTO dbo.Transactions
-         (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue )
-    SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1
+         (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue,                      HeartbeatDate )
+    SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
 
   SET @TransactionId = @SurrogateIdRangeFirstValue
 END TRY

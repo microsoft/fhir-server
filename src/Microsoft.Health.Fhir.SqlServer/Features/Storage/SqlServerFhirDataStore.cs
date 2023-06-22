@@ -675,7 +675,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return (long)transactionIdParam.Value;
         }
 
-        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken)
+        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
@@ -683,6 +683,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.Parameters.Add(transactionIdParam);
             var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
             cmd.Parameters.Add(sequenceParam);
+            if (heartbeatDate.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
+            }
+
             await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
             return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
