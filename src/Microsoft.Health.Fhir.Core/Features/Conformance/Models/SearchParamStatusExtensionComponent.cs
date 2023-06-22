@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
     /// Represents an extension of the SearchParameter that displays the current state of enabling for a given search parameter in the CapabilityStatement that is generated when the Metadata endpoint is called.
     ///
     /// The extension has the following constraints:
-    /// - URL for the extension: http://hl7.org/fhir/StructureDefinition/SearchParameter-Status
+    /// - URL for the extension: http://azurehealthcareapis.com/fhir/StructureDefinition/SearchParameter/status
     /// - Status value must be a string
     /// - Status value must be one of the following options: "enabled", "disabled", "deleted", "pendingDisable", "pendingDelete", "supported", "unsupported"
     /// </summary>
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         {
             EnsureArg.IsNotNull(status, nameof(status));
 
-            Url = "http://hl7.org/fhir/StructureDefinition/SearchParameter-Status";
+            Url = "status";
             Value = new FhirString(status);
         }
     }

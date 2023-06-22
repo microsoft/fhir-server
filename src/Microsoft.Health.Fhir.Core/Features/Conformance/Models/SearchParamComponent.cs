@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
-    public class SearchParamComponent
+    public class SearchParamComponent : IExtendable
     {
         public string Name { get; set; }
 
@@ -18,6 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public string Documentation { get; set; }
 
-        public SearchParamStatusExtensionComponent Extension { get; set; }
+        // FHIR Extension that contains url that equals "status" and a value that is a FhirString
+#pragma warning disable CA2227 // Collection properties should be read only
+        public List<Extension> Extension { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
     }
 }

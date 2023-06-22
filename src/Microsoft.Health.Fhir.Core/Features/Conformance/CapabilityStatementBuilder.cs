@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -196,7 +197,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Type = x.Type,
                         Definition = x.Url,
                         Documentation = x.Description,
-                        Extension = new SearchParamStatusExtensionComponent(searchParamStatuses.FirstOrDefault(s => s.Uri == x.Url, new ResourceSearchParameterStatus() { Status = SearchParameterStatus.Enabled }).Status.ToString()),
+                        Extension = new List<Extension>()
+                        {
+                            new Extension("status", new FhirString(searchParamStatuses.FirstOrDefault(s => s.Uri == x.Url, new ResourceSearchParameterStatus() { Status = SearchParameterStatus.Enabled }).Status.ToString())),
+                        },
                     }))
                     {
                         // Exclude _type search param under resource

@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
+            builder.Apply(AddSelectableSearchParameterDetails);
         }
 
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
@@ -124,6 +125,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddMemberMatchDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.MemberMatch);
+        }
+
+        public void AddSelectableSearchParameterDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.SearchParameterStatus);
         }
     }
 }
