@@ -3642,6 +3642,66 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.GetResourcesByTransaction
+@TransactionId BIGINT, @IncludeHistory BIT=0
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'T=' + CONVERT (VARCHAR, @TransactionId) + ' H=' + CONVERT (VARCHAR, @IncludeHistory), @st AS DATETIME = getUTCdate(), @LastSurrogateId AS BIGINT, @DummyTop AS BIGINT = 9223372036854775807, @TypeId AS SMALLINT;
+BEGIN TRY
+    DECLARE @Types TABLE (
+        TypeId SMALLINT      PRIMARY KEY,
+        Name   VARCHAR (100));
+    INSERT INTO @Types
+    EXECUTE dbo.GetUsedResourceTypes ;
+    SET @LastSurrogateId = (SELECT SurrogateIdRangeLastValue
+                            FROM   dbo.Transactions
+                            WHERE  SurrogateIdRangeFirstValue = @TransactionId);
+    DECLARE @Keys TABLE (
+        TypeId      SMALLINT,
+        SurrogateId BIGINT   PRIMARY KEY (TypeId, SurrogateId));
+    WHILE EXISTS (SELECT *
+                  FROM   @Types)
+        BEGIN
+            SET @TypeId = (SELECT   TOP 1 TypeId
+                           FROM     @Types
+                           ORDER BY TypeId);
+            INSERT INTO @Keys
+            SELECT @TypeId,
+                   ResourceSurrogateId
+            FROM   dbo.Resource
+            WHERE  ResourceTypeId = @TypeId
+                   AND ResourceSurrogateId BETWEEN @TransactionId AND @LastSurrogateId;
+            DELETE @Types
+            WHERE  TypeId = @TypeId;
+        END
+    SELECT ResourceTypeId,
+           ResourceId,
+           ResourceSurrogateId,
+           Version,
+           IsDeleted,
+           IsHistory,
+           RawResource,
+           IsRawResourceMetaSet,
+           SearchParamHash
+    FROM   (SELECT TOP (@DummyTop) *
+            FROM   @Keys) AS A
+           INNER JOIN
+           dbo.Resource AS B
+           ON ResourceTypeId = TypeId
+              AND ResourceSurrogateId = SurrogateId
+    WHERE  IsHistory = 0
+           OR @IncludeHistory = 1
+    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
 @ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @GlobalStartId BIGINT=NULL, @GlobalEndId BIGINT=NULL
 AS
@@ -4929,6 +4989,26 @@ BEGIN CATCH
         ROLLBACK;
     IF error_number() = 1750
         THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.MergeResourcesGetTimeoutTransactions
+@TimeoutSec INT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'T=' + CONVERT (VARCHAR, @TimeoutSec), @st AS DATETIME = getUTCdate(), @MinTransactionId AS BIGINT;
+BEGIN TRY
+    EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUTPUT;
+    SELECT   SurrogateIdRangeFirstValue
+    FROM     dbo.Transactions
+    WHERE    SurrogateIdRangeFirstValue > @MinTransactionId
+             AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
+    ORDER BY SurrogateIdRangeFirstValue;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+END TRY
+BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
     THROW;
 END CATCH

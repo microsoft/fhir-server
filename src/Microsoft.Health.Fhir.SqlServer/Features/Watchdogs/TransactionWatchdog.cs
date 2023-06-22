@@ -4,29 +4,33 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public class TransactionWatchdog : Watchdog<TransactionWatchdog>
+    internal class TransactionWatchdog : Watchdog<TransactionWatchdog>
     {
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly SqlServerFhirDataStore _store;
+        private readonly IResourceWrapperFactory _factory;
         private readonly ILogger<TransactionWatchdog> _logger;
         private CancellationToken _cancellationToken;
         private const double _periodSec = 5;
         private const double _leasePeriodSec = 30;
 
-        public TransactionWatchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<TransactionWatchdog> logger)
+        public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<TransactionWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _store = EnsureArg.IsNotNull(store, nameof(store));
+            _factory = EnsureArg.IsNotNull(factory, nameof(factory));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
@@ -39,16 +43,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         protected override async Task ExecuteAsync()
         {
             _logger.LogInformation("TransactionWatchdog starting...");
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "dbo.MergeResourcesAdvanceTransactionVisibility";
-            cmd.CommandType = CommandType.StoredProcedure;
-            var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(affectedRowsParam);
-            await cmd.ExecuteNonQueryAsync(_cancellationToken);
-            var affectedRows = (int)affectedRowsParam.Value;
+            var affectedRows = await _store.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
             _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
+
+            if (affectedRows > 0)
+            {
+                return;
+            }
+
+            var timeoutTransactions = await _store.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, _cancellationToken);
+            foreach (var tranId in timeoutTransactions)
+            {
+                _logger.LogInformation("TransactionWatchdog found timeout transaction={Transaction}, attempting to roll forward...", tranId);
+                var resources = await _store.GetResourcesByTransactionAsync(tranId, _cancellationToken);
+                if (resources.Count == 0)
+                {
+                    await _store.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", _cancellationToken);
+                    _logger.LogInformation("TransactionWatchdog committed transaction {Transaction} with 0 resources", tranId);
+                    continue;
+                }
+
+                foreach (var resource in resources)
+                {
+                    _factory.Update(resource);
+                }
+
+                await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(_ => new MergeResourceWrapper(_, true, true)).ToList(), false, 0, _cancellationToken);
+                await _store.MergeResourcesCommitTransactionAsync(tranId, null, _cancellationToken);
+                _logger.LogInformation("TransactionWatchdog committed transaction {Transaction} with {Resources} resources", tranId, resources.Count);
+            }
         }
     }
 }
