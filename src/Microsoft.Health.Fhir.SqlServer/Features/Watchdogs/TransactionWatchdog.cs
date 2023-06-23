@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly IResourceWrapperFactory _factory;
         private readonly ILogger<TransactionWatchdog> _logger;
         private CancellationToken _cancellationToken;
-        private const double _periodSec = 5;
-        private const double _leasePeriodSec = 30;
+        private const double _periodSec = 3;
+        private const double _leasePeriodSec = 20;
 
         public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<TransactionWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
