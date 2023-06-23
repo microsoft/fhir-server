@@ -437,6 +437,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
             new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
+            var start = DateTime.UtcNow;
             var timeoutRetries = 0;
             while (true)
             {
@@ -449,7 +450,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
                     {
                         _logger.LogWarning(e, $"Error on {nameof(GetAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
-                        await TryLogEvent(nameof(GetAsync), "Warn", $"timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                        await TryLogEvent(nameof(GetAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
