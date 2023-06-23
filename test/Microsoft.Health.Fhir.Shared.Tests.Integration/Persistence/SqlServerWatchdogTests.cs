@@ -150,6 +150,10 @@ END
         [Fact]
         public async Task RollTransactionForward()
         {
+            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
+            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");
+
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
             var factory = CreateResourceWrapperFactory();
@@ -213,6 +217,8 @@ END
         [Fact]
         public async Task AdvanceVisibility()
         {
+            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
+
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
@@ -292,7 +298,7 @@ END
             fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
             var searchIndexer = Substitute.For<ISearchIndexer>();
-            searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("param", "param", SearchParamType.Number, new Uri("http://hl7.org/fhir/SearchParameter/Medication-lot-number")), new NumberSearchValue(1000)) });
+            searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("param", "param", SearchParamType.Number, new Uri("http://hl7.org/fhir/SearchParameter/Immunization-lot-number")), new NumberSearchValue(1000)) });
 
             var searchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
             searchParameterDefinitionManager.GetSearchParameterHashForResourceType(Arg.Any<string>()).Returns("hash");
