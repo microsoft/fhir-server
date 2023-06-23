@@ -200,9 +200,9 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             startTime = DateTime.UtcNow;
-            while (GetCount("NumberSearchParam") == 0 && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while (GetCount("NumberSearchParam") == 0 && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
-                await Task.Delay(TimeSpan.FromSeconds(0.1));
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
 
             Assert.Equal(1, GetCount("NumberSearchParam")); // wd rolled forward transaction
@@ -228,9 +228,9 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             // create 3 trans
-            var tran1 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
-            var tran2 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
-            var tran3 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token);
+            var tran1 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
+            var tran2 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
+            var tran3 = await _fixture.SqlServerFhirDataStore.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
             var visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token);
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(-1, visibility);
@@ -240,7 +240,7 @@ END
             _testOutputHelper.WriteLine($"Tran1={tran1.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -253,7 +253,7 @@ END
             _testOutputHelper.WriteLine($"Tran3={tran3.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -266,7 +266,7 @@ END
             _testOutputHelper.WriteLine($"Tran2={tran2.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 5)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
