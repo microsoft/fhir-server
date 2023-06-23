@@ -12,7 +12,6 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
