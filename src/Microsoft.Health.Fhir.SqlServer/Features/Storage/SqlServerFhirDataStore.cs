@@ -12,6 +12,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using EnsureThat;
 using Hl7.FhirPath.Sprache;
 using Microsoft.Data.SqlClient;
@@ -437,7 +438,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
             new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, false); }, _logger, null, cancellationToken);
+            var timeoutRetries = 0;
+            while (true)
+            {
+                try
+                {
+                    return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, false); }, _logger, null, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(GetAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(GetAsync), "Warn", $"timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+                }
+            }
         }
 
         private ResourceWrapper ReadWrapper(SqlDataReader reader, VLatest.ResourceTable table, bool readRequestMethod)
