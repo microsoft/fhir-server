@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportResourceLoader : IImportResourceLoader
     {
         private const int DefaultChannelMaxCapacity = 500;
-        private const int DefaultMaxBatchSize = 1000;
+        private const int DefaultMaxBatchSize = 1;
         private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
