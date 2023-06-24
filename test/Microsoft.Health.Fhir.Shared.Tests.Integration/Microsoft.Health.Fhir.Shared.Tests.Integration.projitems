@@ -13,6 +13,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureDisabledTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ChangeFeed\SqlServerFhirResourceChangeCaptureEnabledTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CosmosDbExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\SqlServerExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreReindexTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreExportTests.cs" />
