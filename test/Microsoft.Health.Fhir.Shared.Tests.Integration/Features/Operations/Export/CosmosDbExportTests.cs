@@ -19,8 +19,8 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Xunit.Abstractions;
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly ISearchService _searchService;
         private readonly CosmosFhirOperationDataStore _operationDataStore;
-        private readonly CosmosQueueClient _queueClient;
+        private readonly IQueueClient _queueClient;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly byte _queueType = (byte)QueueType.Export;
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
             _searchService = _fixture.GetService<ISearchService>();
             _operationDataStore = _fixture.GetService<CosmosFhirOperationDataStore>();
-            _queueClient = _fixture.GetService<CosmosQueueClient>();
+            _queueClient = _fixture.GetService<IQueueClient>();
             _fhirStorageTestHelper = _fixture.GetService<IFhirStorageTestHelper>();
         }
 
@@ -58,13 +58,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
 
-                await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
+                await RunExport(null, coordJob, 4, null); // 4=coord+3 resource types
 
-                await RunExportWithCancel("Patient", coordJob, 11, null); // 11=coord+1000/SurrogateIdRangeSize
+                await RunExportWithCancel("Patient", coordJob, 2, null); // 2=coord+1 resource type
 
-                await RunExport("Patient,Observation", coordJob, 21, null); // 21=coord+2*1000/SurrogateIdRangeSize
-
-                await RunExport(null, coordJob, 31, null); // 31=coord+3*1000/SurrogateIdRangeSize
+                await RunExport("Patient,Observation", coordJob, 3, null); // 3=coord+2 resource type
             }
             finally
             {
