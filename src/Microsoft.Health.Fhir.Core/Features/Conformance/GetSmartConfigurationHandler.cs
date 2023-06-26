@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (_securityConfiguration.Authorization.Enabled)
+            if (_securityConfiguration.Authorization.Enabled || _securityConfiguration.Authorization.EnableSmartWithoutAuth)
             {
                 string baseEndpoint = _securityConfiguration.Authentication.Authority;
 
