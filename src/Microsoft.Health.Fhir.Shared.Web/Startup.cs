@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddApplicationInsightsTelemetry(services);
+            AddAzureMonitorOpenTelemetry(services);
         }
 
         private void AddTaskHostingService(IServiceCollection services)
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             string instrumentationKey = Configuration["ApplicationInsights:InstrumentationKey"];
 
-            if (!string.IsNullOrWhiteSpace(instrumentationKey))
+            if (!string.IsNullOrWhiteSpace(instrumentationKey) && string.IsNullOrWhiteSpace(Configuration["AzureMonitor:ConnectionString"]))
             {
                 services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
@@ -211,15 +212,14 @@ namespace Microsoft.Health.Fhir.Web
         }
 
         /// <summary>
-        /// Adds ApplicationInsights for telemetry and logging.
+        /// Adds AzureMonitorOpenTelemetry for telemetry and logging.
         /// </summary>
         private void AddAzureMonitorOpenTelemetry(IServiceCollection services)
         {
-            string instrumentationKey = Configuration["ApplicationInsights:InstrumentationKey"];
+            string connectionString = Configuration["AzureMonitor:ConnectionString"];
 
-            if (!string.IsNullOrWhiteSpace(instrumentationKey))
+            if (!string.IsNullOrWhiteSpace(connectionString))
             {
-                var connectionString = "InstrumentationKey=47be7b75-0baa-40a2-8bb8-4f67dfe658e1;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/";
                 services.AddOpenTelemetry()
                     .UseAzureMonitor(options => options.ConnectionString = connectionString)
                     .ConfigureResource(resourceBuilder =>
