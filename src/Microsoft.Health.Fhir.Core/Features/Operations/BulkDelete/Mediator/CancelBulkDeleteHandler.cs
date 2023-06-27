@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 
                 // Try to cancel the job.
                 _logger.LogInformation("Attempting to cancel bulk delete job {JobId}", request.JobId);
-                await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, cancellationToken);
+                await _queueClient.CancelJobByGroupIdAsync(QueueType.BulkDelete, request.JobId, cancellationToken);
 
                 return new CancelBulkDeleteResponse(HttpStatusCode.Accepted);
             }

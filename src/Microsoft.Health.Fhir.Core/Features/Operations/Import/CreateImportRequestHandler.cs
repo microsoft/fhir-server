@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             };
 
             var definition = JsonConvert.SerializeObject(definitionObj);
-            var jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, false, false, cancellationToken))[0];
+            var jobInfo = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, definitions: definition))[0];
             return new CreateImportResponse(jobInfo.Id.ToString());
         }
     }

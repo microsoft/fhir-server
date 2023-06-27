@@ -17,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 throw new UnauthorizedFhirActionException();
             }
 
-            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, request.JobId, true, cancellationToken);
+            var jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.BulkDelete, request.JobId, true, cancellationToken);
 
             if (jobs == null || jobs.Count == 0)
             {
@@ -80,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 }
                 else if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && job.Result != null)
                 {
-                    var result = JsonConvert.DeserializeObject<BulkDeleteResult>(job.Result);
+                    var result = job.DeserializeResult<BulkDeleteResult>();
                     foreach (var key in result.ResourcesDeleted.Keys)
                     {
                         if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))

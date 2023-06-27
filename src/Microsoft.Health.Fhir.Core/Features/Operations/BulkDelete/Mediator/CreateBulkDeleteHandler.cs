@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             var definitions = new List<string>();
             var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, request.DeleteOperation, request.ResourceType, searchParameters, _contextAccessor.RequestContext.Uri.ToString(), _contextAccessor.RequestContext.BaseUri.ToString());
             definitions.Add(JsonConvert.SerializeObject(processingDefinition));
-            var jobInfo = await _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, definitions.ToArray(), null, false, false, cancellationToken);
+            var jobInfo = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definitions.ToArray());
 
             if (jobInfo == null || jobInfo.Count == 0)
             {

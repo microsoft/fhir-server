@@ -9,10 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
-namespace Microsoft.Health.Fhir.Core.Extensions
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
     public static class BulkDeleteMediatorExtensions
     {

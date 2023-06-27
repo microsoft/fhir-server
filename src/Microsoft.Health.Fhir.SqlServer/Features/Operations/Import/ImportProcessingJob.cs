@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+            var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
             var currentResult = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(

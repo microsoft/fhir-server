@@ -20,6 +20,21 @@ public static class JobInfoExtensions
         return jobDataDefinition?.TypeId;
     }
 
+    public static T DeserializeDefinition<T>(this JobInfo jobInfo)
+        where T : IJobData
+    {
+        EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+        return JsonConvert.DeserializeObject<T>(jobInfo.Definition);
+    }
+
+    public static T DeserializeResult<T>(this JobInfo jobInfo)
+    {
+        EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+        return JsonConvert.DeserializeObject<T>(jobInfo.Result);
+    }
+
     [SuppressMessage("Code", "CA1812:Avoid uninstantiated internal classes", Justification = "Used by JsonConvert")]
     internal sealed class JobDataDefinition : IJobData
     {

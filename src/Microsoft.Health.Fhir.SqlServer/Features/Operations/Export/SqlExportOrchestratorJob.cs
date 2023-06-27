@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
-            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
+                            await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions);
                             atLeastOneWorkerJobRegistered = true;
                         }
                     }
@@ -111,13 +111,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 if (!atLeastOneWorkerJobRegistered)
                 {
                     var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                    await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: JsonConvert.SerializeObject(processingRecord));
                 }
             }
             else if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: JsonConvert.SerializeObject(processingRecord));
             }
 
             record.Status = OperationStatus.Completed;

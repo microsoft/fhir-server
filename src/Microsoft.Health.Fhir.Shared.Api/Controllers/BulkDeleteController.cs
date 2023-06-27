@@ -17,9 +17,9 @@ using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.ValueSets;
@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDelete)]
+        [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDelete([FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
         {
@@ -52,6 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
+        [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
         {

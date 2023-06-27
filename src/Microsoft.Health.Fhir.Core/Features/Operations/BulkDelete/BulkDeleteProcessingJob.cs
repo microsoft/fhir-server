@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
             try
             {
-                BulkDeleteDefinition definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(jobInfo.Definition);
+                BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
                 var fhirRequestContext = new FhirRequestContext(
                     method: "BulkDelete",
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
 
-                using IScoped<IDeleter> deleter = _deleterFactory();
+                using IScoped<IDeleter> deleter = _deleterFactory.Invoke();
                 var itemsDeleted = await deleter.Value.DeleteMultipleAsync(new ConditionalDeleteResourceRequest(definition.Type, (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters, definition.DeleteOperation, -1), cancellationToken);
 
                 var result = new BulkDeleteResult();

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            BulkDeleteDefinition definition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(jobInfo.Definition);
+            BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
             var definitions = new List<string>();
             if (string.IsNullOrEmpty(definition.Type))
@@ -58,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 definitions.Add(JsonConvert.SerializeObject(processingDefinition));
             }
 
-            await _queueClient.EnqueueAsync((byte)QueueType.BulkDelete, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: definitions.ToArray());
             return "Completed";
         }
     }
