@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class CosmosExportOrchestratorJob : IJob
     {
+        private const int DefaultNumberOfSurrogateIdRanges = 100;
+
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
 
@@ -32,6 +35,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
         }
 
+        internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
+
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
@@ -39,6 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
+            var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
@@ -51,14 +57,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                   : record.ResourceType.Split(',');
                 resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
-                var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-                var till = record.Till.ToDateTimeOffset();
+                var since = record.Since == null ? new PartialDateTime(DateTime.UnixEpoch).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
+                var globalStartId = since.DateTime.Ticks - DateTime.UnixEpoch.Ticks;
+                var till = record.Till.ToDateTimeOffset();
+                var globalEndId = till.Ticks - DateTime.UnixEpoch.Ticks - 1; // -1 is so _till value can be used as _since in the next time based export
+
+                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                                        .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                                        .Where(x => x.EndSurrogateId != null) // This is to handle current mock tests. It is not needed but does not hurt.
+                                        .GroupBy(x => x.ResourceType)
+                                        .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
+
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
-                    var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type);
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancel);
-                    atLeastOneWorkerJobRegistered = true;
+                    var startId = globalStartId;
+                    if (enqueued.TryGetValue(type, out var max))
+                    {
+                        startId = max + 1;
+                    }
+
+                    var rows = 1;
+                    while (rows > 0)
+                    {
+                        var definitions = new List<string>();
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
+                        foreach (var range in ranges)
+                        {
+                            if (range.EndId > startId)
+                            {
+                                startId = range.EndId;
+                            }
+
+                            var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
+                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                        }
+
+                        startId++; // make sure we do not intersect ranges
+
+                        rows = definitions.Count;
+                        if (rows > 0)
+                        {
+                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
+                            atLeastOneWorkerJobRegistered = true;
+                        }
+                    }
                 });
 
                 if (!atLeastOneWorkerJobRegistered)
@@ -77,7 +120,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, DateTimeOffset? since = null, DateTimeOffset? till = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string globalStartSurrogateId = null, string globalEndSurrogateId = null)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -92,8 +135,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 container = $"export-{groupId}";
             }
 
-            // #TODO - not sure on storing surrogateIds for the Cosmos export - should we just store the since and till for the child jobs?
-            // Needs research on how the ExportJob uses since and till.
             var rec = new ExportJobRecord(
                         record.RequestUri,
                         record.ExportType,
@@ -103,12 +144,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         record.Hash,
                         record.RollingFileSizeInMB,
                         record.RequestorClaims,
-                        since != null ? new PartialDateTime(since.Value) : record.Since,
-                        till != null ? new PartialDateTime(till.Value) : record.Till,
-                        null,
-                        null,
-                        null,
-                        null,
+                        since == null ? record.Since : since,
+                        till == null ? record.Till : till,
+                        startSurrogateId,
+                        endSurrogateId,
+                        globalStartSurrogateId,
+                        globalEndSurrogateId,
                         record.GroupId,
                         record.StorageAccountConnectionHash,
                         record.StorageAccountUri,

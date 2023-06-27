@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -97,6 +98,87 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             var requestOptions = new QueryRequestOptions();
 
             return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
+        }
+
+        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
+            string resourceType,
+            long startId,
+            long endId,
+            int rangeSize,
+            int numberOfRanges,
+            bool up,
+            CancellationToken cancellationToken)
+        {
+            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
+                FROM root r
+                WHERE r.isSystem = false
+                AND r.isHistory = false
+                AND r.resourceTypeName = @resourceTypeName
+                AND r.lastModified >= TicksToDateTime(@startDateTime)
+                AND r.lastModified <= TicksToDateTime(@endDateTime)
+                ORDER BY r.lastModified")
+               .WithParameter("@resourceTypeName", resourceType)
+               .WithParameter("@startDateTime", startId)
+               .WithParameter("@endDateTime", endId);
+
+            QueryRequestOptions requestOptions = new QueryRequestOptions
+            {
+                MaxItemCount = rangeSize * numberOfRanges,
+            };
+
+            string continuationToken = null;
+            List<(long, long)> searchList = new();
+            IReadOnlyList<DateTime> results = null;
+            int index = 0;
+            long currentStart = 0;
+
+            do
+            {
+                // Only fetch new results when we've exhausted the previous results
+                if (results is null || index >= results.Count)
+                {
+                    if (index > 0)
+                    {
+                        index = index % results.Count;
+                    }
+
+                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTime>(sqlQuerySpec, requestOptions, continuationToken, cancellationToken: cancellationToken);
+
+                    // results = await _fhirDataStore.ExecutePagedQueryAsync<DateTime>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
+                }
+
+                while (index < results.Count && searchList.Count < numberOfRanges)
+                {
+                    if (currentStart == 0 && results.Any())
+                    {
+                        currentStart = results[index].Ticks - DateTime.UnixEpoch.Ticks;
+                    }
+
+                    // Skip forward to the next boundry.
+                    index += rangeSize - 1;
+
+                    if (index < results.Count)
+                    {
+                        searchList.Add((currentStart, results[index].Ticks - DateTime.UnixEpoch.Ticks));
+                        currentStart = 0;
+                        index++;
+                    }
+                }
+
+                if (continuationToken is null)
+                {
+                    break;
+                }
+            }
+            while (searchList.Count < numberOfRanges);
+
+            // Add any partially full range at the end
+            if (currentStart != 0)
+            {
+                searchList.Add((currentStart, results[results.Count - 1].Ticks - DateTime.UnixEpoch.Ticks));
+            }
+
+            return searchList;
         }
 
         public override async Task<SearchResult> SearchAsync(
