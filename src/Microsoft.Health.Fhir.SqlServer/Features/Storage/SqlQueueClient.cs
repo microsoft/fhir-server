@@ -230,9 +230,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommandWrapper.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
                 sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
                 await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-
-                var result = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                return result?.Id.ToString();
+                if (sqlDataReader.HasRows)
+                {
+                    var result = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
+                    return result?.Id.ToString();
+                }
+                else
+                {
+                    return null;
+                }
             }
             catch (Exception ex)
             {

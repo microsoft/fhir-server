@@ -216,6 +216,9 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         }
 
         var jobInfo = results[0];
+        jobRecord.Id = jobInfo.Id.ToString();
+        jobRecord.GroupId = jobInfo.GroupId;
+        jobRecord.Status = OperationStatus.Queued;
         return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(jobInfo.Version.ToString()));
     }
 
@@ -279,6 +282,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var status = jobInfo.Status;
         var result = jobInfo.Result;
         var record = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
+        record.Id = jobInfo.Id.ToString();
+        record.GroupId = jobInfo.GroupId;
 
         if (status == JobStatus.Completed)
         {

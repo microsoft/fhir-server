@@ -174,6 +174,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public int TypeId { get; internal set; }
 
         [JsonProperty(JobRecordProperties.GroupId)]
-        public long GroupId { get; private set; }
+        public long GroupId { get; set; }
     }
 }
