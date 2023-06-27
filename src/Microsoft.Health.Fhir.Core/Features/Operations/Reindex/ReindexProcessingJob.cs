@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ReindexProcessingJobResult _reindexProcessingJobResult;
         private ReindexProcessingJobDefinition _reindexProcessingJobDefinition;
         private IQueueClient _queueClient;
+        private IProgress<string> _progress;
 
         public ReindexProcessingJob(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -54,7 +55,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _jobInfo = jobInfo;
             _reindexProcessingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(jobInfo.Definition);
             _reindexProcessingJobResult = new ReindexProcessingJobResult();
+            _progress = progress;
 
+            _progress.Report("Starting reindex processing job.");
             await ProcessQueryAsync(cancellationToken);
             return JsonConvert.SerializeObject(_reindexProcessingJobResult);
         }
@@ -106,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     var message = $"Error running reindex query for resource type {_reindexProcessingJobDefinition.ResourceType}.";
                     var reindexJobException = new ReindexJobException(message, ex);
-                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id);
+                    _logger.LogError(ex, "Error running reindex query for resource type {ResourceType}, job id: {Id}, group id: {GroupId}.", _reindexProcessingJobDefinition.ResourceType, _jobInfo.Id, _jobInfo.GroupId);
                     _reindexProcessingJobResult.Error = reindexJobException.Message + " : " + ex.Message;
                     LogReindexProcessingJobErrorMessage();
 
@@ -118,7 +121,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private void LogReindexProcessingJobErrorMessage()
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
-            _logger.LogError($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}.");
+            var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
+            _logger.LogError($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}. ReindexProcessing Job Result: {result}.");
+            _progress.Report("ReindexProcessingJob Error: " + _reindexProcessingJobResult.Error);
         }
 
         private async Task ProcessQueryAsync(CancellationToken cancellationToken)
@@ -163,11 +168,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             _reindexProcessingJobResult.SucceededResourceCount += (long)result?.TotalCount;
                             _logger.LogInformation("Reindex processing job complete. Current number of resources indexed by this job: {Progress}, job id: {Id}", _reindexProcessingJobResult.SucceededResourceCount, _jobInfo.Id);
+                            _progress.Report("Reindex processing job complete.");
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Reindex processing job error occurred recording progress. Job id: {Id}", _jobInfo.Id);
+                        _logger.LogWarning(ex, "Reindex processing job error occurred recording progress. Job id: {Id}, group id: {GroupId}.", _jobInfo.Id, _jobInfo.GroupId);
                         throw;
                     }
                 }
@@ -190,10 +196,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task<IReadOnlyList<long>> EnqueueChildQueryProcessingJobAsync(CancellationToken cancellationToken)
         {
-            var definitions = new List<string>();
-
-            // Finish mapping to processing job
-            definitions.Add(JsonConvert.SerializeObject(_reindexProcessingJobDefinition));
+            var definitions = new List<string>
+            {
+                // Finish mapping to processing job
+                JsonConvert.SerializeObject(_reindexProcessingJobDefinition),
+            };
 
             try
             {
@@ -202,7 +209,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue jobs.");
+                _logger.LogError(ex, "Failed to enqueue child jobs.");
+                _reindexProcessingJobResult.Error = ex.Message;
                 throw new RetriableJobException(ex.Message, ex);
             }
         }

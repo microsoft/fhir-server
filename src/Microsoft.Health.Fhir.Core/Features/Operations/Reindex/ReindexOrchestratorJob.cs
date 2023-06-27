@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var queryProcessingJobs = jobs.Where(j => j.Id != _jobInfo.Id).ToList();
                 if (queryProcessingJobs.Any())
                 {
-                    progress.Report(string.Format("Checking to see if all reindex query processing jobs for JobId: {0}, Group Id: {1}, are still running.", _jobInfo.Id, _jobInfo.GroupId));
+                    progress.Report(string.Format("Checking to see if all reindex query processing jobs for JobId: {0}, Group Id: {1}, are complete.", _jobInfo.Id, _jobInfo.GroupId));
 
                     await CheckForCompletionAsync(progress, queryProcessingJobs, cancellationToken);
                 }
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     if (jobIds == null || !jobIds.Any())
                     {
                         // Nothing to process so we are done.
-                        progress.Report(string.Format("Nothing to process for reindex job with Id: {0}. Status: {1}.", _jobInfo.Id, OperationStatus.Completed));
+                        progress.Report(string.Format("Nothing to process for reindex job with Id: {0}. Status: {1}. Completing Reindex Job.", _jobInfo.Id, OperationStatus.Completed));
                         AddErrorResult(OperationOutcomeConstants.IssueSeverity.Information, OperationOutcomeConstants.IssueType.Informational, "Nothing to process. Reindex complete.");
                         return JsonConvert.SerializeObject(_currentResult);
                     }
@@ -240,13 +240,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void AddErrorResult(string severity, string issueType, string message)
         {
-            var errorList = new List<OperationOutcomeIssue>();
-            errorList.Add(new OperationOutcomeIssue(
-            severity,
-            issueType,
-            message));
+            var errorList = new List<OperationOutcomeIssue>
+            {
+                new OperationOutcomeIssue(
+                    severity,
+                    issueType,
+                    message),
+            };
             errorList.AddRange(_currentResult.Error);
             _currentResult.Error = errorList;
+            _progress.Report(message);
         }
 
         private async Task<IReadOnlyList<long>> EnqueueQueryProcessingJobsAsync(CancellationToken cancellationToken)
@@ -273,12 +276,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 var jobIds = (await _queueClient.EnqueueAsync((byte)QueueType.Reindex, definitions.ToArray(), _jobInfo.GroupId, false, false, cancellationToken)).Select(_ => _.Id).OrderBy(_ => _).ToList();
+                _logger.LogInformation("Enqueued {Count} query processing jobs. job id: {Id}, group id: {GroupId}.", jobIds.Count, _jobInfo.Id, _jobInfo.GroupId);
+                _progress.Report($"Enqueued {jobIds.Count} query processing jobs.");
                 return jobIds;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue jobs.");
-                throw new RetriableJobException(ex.Message, ex);
+                _logger.LogError(ex, "Failed to enqueue jobs. job id: {Id}", _jobInfo.Id);
+                throw;
             }
         }
 
@@ -485,6 +490,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private void LogReindexJobRecordErrorMessage()
         {
+            _reindexJobRecord.Status = OperationStatus.Failed;
             var ser = JsonConvert.SerializeObject(_reindexJobRecord);
             _logger.LogError($"ReindexJob Error: Current ReindexJobRecord for reference: {ser}, id: {_jobInfo.Id}");
         }
@@ -505,6 +511,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (_jobInfo.CancelRequested)
                 {
+                    progress.Report(string.Format("Reindex job status update, Id: {0}. Cancel requested.", _jobInfo.Id));
                     throw new OperationCanceledException("Reindex operation cancelled by customer.");
                 }
 
