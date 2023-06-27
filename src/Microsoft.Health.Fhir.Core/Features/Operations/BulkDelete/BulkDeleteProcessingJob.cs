@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob
     {
-        private readonly Func<IScoped<IDeleter>> _deleterFactory;
+        private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
 
         public BulkDeleteProcessingJob(
-            Func<IScoped<IDeleter>> deleterFactory,
+            Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator)
         {
@@ -64,8 +64,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
 
-                using IScoped<IDeleter> deleter = _deleterFactory.Invoke();
-                var itemsDeleted = await deleter.Value.DeleteMultipleAsync(new ConditionalDeleteResourceRequest(definition.Type, (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters, definition.DeleteOperation, -1), cancellationToken);
+                using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
+                var itemsDeleted = await deleter.Value.DeleteMultipleAsync(
+                    new ConditionalDeleteResourceRequest(
+                        definition.Type,
+                        (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
+                        definition.DeleteOperation,
+                        maxDeleteCount: null,
+                        deleteAll: true),
+                    cancellationToken);
 
                 var result = new BulkDeleteResult();
                 result.ResourcesDeleted.Add(definition.Type, itemsDeleted);

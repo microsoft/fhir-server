@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             GetResourceHandler = new GetResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, DisabledFhirAuthorizationService.Instance, FhirRequestContextAccessor, SearchService);
 
-            var deleter = new Deleter(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider);
 
             var collection = new ServiceCollection();
 

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
-        private readonly IDeleter _deleter;
+        private readonly IDeletionService _deleter;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            IDeleter deleter)
+            IDeletionService deleter)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

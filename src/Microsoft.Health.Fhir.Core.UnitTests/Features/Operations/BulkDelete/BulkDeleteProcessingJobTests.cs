@@ -29,14 +29,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     [Trait(Traits.Category, Categories.BulkDelete)]
     public class BulkDeleteProcessingJobTests
     {
-        private IDeleter _deleter;
+        private IDeletionService _deleter;
         private IProgress<string> _progress;
         private BulkDeleteProcessingJob _processingJob;
 
         public BulkDeleteProcessingJobTests()
         {
-            _deleter = Substitute.For<IDeleter>();
-            var deleter = Substitute.For<IScoped<IDeleter>>();
+            _deleter = Substitute.For<IDeletionService>();
+            var deleter = Substitute.For<IScoped<IDeletionService>>();
             deleter.Value.Returns(_deleter);
             _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>());
 

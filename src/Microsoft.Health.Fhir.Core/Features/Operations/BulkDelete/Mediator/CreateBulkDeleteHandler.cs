@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             searchParameters.Add(Tuple.Create("_lastUpdated", $"lt{dateCurrent}"));
 
             // Should not run bulk delete if any of the search parameters are invalid as it can lead to unpredicatable results
-            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, 1, cancellationToken);
+            await _searchService.ConditionalSearchAsync(request.ResourceType, searchParameters, cancellationToken, 1);
             if (_contextAccessor.RequestContext?.BundleIssues?.Count > 0)
             {
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());

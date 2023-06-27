@@ -9,7 +9,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public interface IDeleter
+    public interface IDeletionService
     {
         public Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken);
 
