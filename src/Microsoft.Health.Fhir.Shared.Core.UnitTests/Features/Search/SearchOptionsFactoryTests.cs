@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private const string DefaultResourceType = "Patient";
         private const string ContinuationTokenParamName = "ct";
+        private const string UnknownParam = "unknownParameter";
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
-            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), UnknownParam).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
             _coreFeatures = new CoreFeatureConfiguration();
@@ -308,11 +309,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
         {
-            const string paramName = "unknownParameter";
-
             var queryParameters = new[]
             {
-                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+                Tuple.Create(KnownQueryParameterNames.Sort, UnknownParam),
             };
 
             SearchOptions options = CreateSearchOptions(
