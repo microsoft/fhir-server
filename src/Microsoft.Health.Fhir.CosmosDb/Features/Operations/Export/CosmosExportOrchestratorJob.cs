@@ -58,14 +58,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.UnixEpoch).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-
                 var till = record.Till.ToDateTimeOffset().AddTicks(-1); // -1 is so _till value can be used as _since in the next time based export
+
+                // Find sgroup jobs in flight in case orchestrator was restarted
+                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                                        .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                                        .GroupBy(x => x.ResourceType)
+                                        .ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
 
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
+                    var startTime = since;
+                    if (enqueued.TryGetValue(type, out var max))
+                    {
+                        startTime = max.Value.AddTicks(1);
+                    }
+
                     var definitions = new List<string>();
 
-                    await foreach (var range in _searchService.GetResourceTimeRanges(type, since, till, timeRangeSize, cancel))
+                    await foreach (var range in _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel))
                     {
                         if (definitions.Count >= NumberOfTimeRangesPerJob)
                         {

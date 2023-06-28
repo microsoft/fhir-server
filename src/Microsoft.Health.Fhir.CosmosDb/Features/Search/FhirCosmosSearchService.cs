@@ -210,19 +210,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             DateTimeOffset startTime,
             DateTimeOffset endTime,
             int rangeSize,
+            int numberOfRanges,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            // Using PartialDateTime in parameters ensures dates are formatted correctly when converted to string.
             QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
                 FROM root r
                 WHERE r.isSystem = false
                 AND r.isHistory = false
                 AND r.resourceTypeName = @resourceTypeName
-                AND r.lastModified >= TicksToDateTime(@startTime)
-                AND r.lastModified <= TicksToDateTime(@endTime)
+                AND r.lastModified >= @startTime
+                AND r.lastModified <= @endTime
                 ORDER BY r.lastModified")
                .WithParameter("@resourceTypeName", resourceType)
-               .WithParameter("@startTime", startTime)
-               .WithParameter("@endTime", endTime);
+               .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
+               .WithParameter("@endTime", new PartialDateTime(endTime).ToString());
+
+            var requestOptions = new QueryRequestOptions();
+            
+            // requestOptions.MaxItemCount = rangeSize * numberOfRanges;
 
             string continuationToken = null;
             IReadOnlyList<DateTimeOffset> results = null;
@@ -239,7 +245,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         index = index % results.Count;
                     }
 
-                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(sqlQuerySpec, new QueryRequestOptions(), continuationToken, cancellationToken: cancellationToken);
+                    // #TODO - do we need error handling here?
+                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(sqlQuerySpec, requestOptions, continuationToken, cancellationToken: cancellationToken);
                 }
 
                 while (index < results.Count)

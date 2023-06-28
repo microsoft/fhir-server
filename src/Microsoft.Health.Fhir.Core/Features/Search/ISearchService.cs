@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             DateTimeOffset startTime,
             DateTimeOffset endTime,
             int rangeSize,
+            int numberOfRanges,
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
