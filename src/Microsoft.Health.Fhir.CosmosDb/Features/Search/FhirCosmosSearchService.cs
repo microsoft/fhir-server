@@ -100,87 +100,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
         }
 
-        public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(
-            string resourceType,
-            long startId,
-            long endId,
-            int rangeSize,
-            int numberOfRanges,
-            bool up,
-            CancellationToken cancellationToken)
-        {
-            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
-                FROM root r
-                WHERE r.isSystem = false
-                AND r.isHistory = false
-                AND r.resourceTypeName = @resourceTypeName
-                AND r.lastModified >= TicksToDateTime(@startDateTime)
-                AND r.lastModified <= TicksToDateTime(@endDateTime)
-                ORDER BY r.lastModified")
-               .WithParameter("@resourceTypeName", resourceType)
-               .WithParameter("@startDateTime", startId)
-               .WithParameter("@endDateTime", endId);
-
-            QueryRequestOptions requestOptions = new QueryRequestOptions
-            {
-                MaxItemCount = rangeSize * numberOfRanges,
-            };
-
-            string continuationToken = null;
-            List<(long, long)> searchList = new();
-            IReadOnlyList<DateTime> results = null;
-            int index = 0;
-            long currentStart = 0;
-
-            do
-            {
-                // Only fetch new results when we've exhausted the previous results
-                if (results is null || index >= results.Count)
-                {
-                    if (index > 0)
-                    {
-                        index = index % results.Count;
-                    }
-
-                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTime>(sqlQuerySpec, requestOptions, continuationToken, cancellationToken: cancellationToken);
-
-                    // results = await _fhirDataStore.ExecutePagedQueryAsync<DateTime>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
-                }
-
-                while (index < results.Count && searchList.Count < numberOfRanges)
-                {
-                    if (currentStart == 0 && results.Any())
-                    {
-                        currentStart = results[index].Ticks - DateTime.UnixEpoch.Ticks;
-                    }
-
-                    // Skip forward to the next boundry.
-                    index += rangeSize - 1;
-
-                    if (index < results.Count)
-                    {
-                        searchList.Add((currentStart, results[index].Ticks - DateTime.UnixEpoch.Ticks));
-                        currentStart = 0;
-                        index++;
-                    }
-                }
-
-                if (continuationToken is null)
-                {
-                    break;
-                }
-            }
-            while (searchList.Count < numberOfRanges);
-
-            // Add any partially full range at the end
-            if (currentStart != 0)
-            {
-                searchList.Add((currentStart, results[results.Count - 1].Ticks - DateTime.UnixEpoch.Ticks));
-            }
-
-            return searchList;
-        }
-
         public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
@@ -284,6 +203,70 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return searchResult;
+        }
+
+        public override async IAsyncEnumerable<(DateTimeOffset StartTime, DateTimeOffset EndTime)> GetResourceTimeRanges(
+            string resourceType,
+            DateTimeOffset startTime,
+            DateTimeOffset endTime,
+            int rangeSize,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
+                FROM root r
+                WHERE r.isSystem = false
+                AND r.isHistory = false
+                AND r.resourceTypeName = @resourceTypeName
+                AND r.lastModified >= TicksToDateTime(@startTime)
+                AND r.lastModified <= TicksToDateTime(@endTime)
+                ORDER BY r.lastModified")
+               .WithParameter("@resourceTypeName", resourceType)
+               .WithParameter("@startTime", startTime)
+               .WithParameter("@endTime", endTime);
+
+            string continuationToken = null;
+            IReadOnlyList<DateTimeOffset> results = null;
+            int index = 0;
+            DateTimeOffset? currentStart = null;
+
+            do
+            {
+                // Only fetch new results when we've exhausted the previous results
+                if (results is null || index >= results.Count)
+                {
+                    if (index > 0)
+                    {
+                        index = index % results.Count;
+                    }
+
+                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(sqlQuerySpec, new QueryRequestOptions(), continuationToken, cancellationToken: cancellationToken);
+                }
+
+                while (index < results.Count)
+                {
+                    if (currentStart is null && results.Any())
+                    {
+                        currentStart = results[index];
+                    }
+
+                    // Skip forward to the next boundry.
+                    index += rangeSize - 1;
+
+                    if (index < results.Count)
+                    {
+                        yield return (currentStart.Value, results[index]);
+                        currentStart = null;
+                        index++;
+                    }
+                }
+            }
+            while (continuationToken is not null);
+
+            // Add any partially full range at the end
+            if (currentStart is not null)
+            {
+                yield return (currentStart.Value, results[results.Count - 1]);
+            }
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
