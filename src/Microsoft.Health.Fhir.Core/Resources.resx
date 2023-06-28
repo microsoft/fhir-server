@@ -742,4 +742,8 @@
   <data name="ReindexRunningException" xml:space="preserve">
     <value>A Reindex Job is currently running. Wait till it has completed before trying again.</value>
   </data>
+  <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
+    <value>Found job id '{0}', but it is a child job and not the primary reindex job. </value>
+    <comment>{0} is the job id</comment>
+  </data>
 </root>

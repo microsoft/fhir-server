@@ -281,7 +281,16 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         var status = jobInfo.Status;
         var result = jobInfo.Result;
-        var record = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
+        ReindexJobRecord record;
+        try
+        {
+            record = JsonConvert.DeserializeObject<ReindexJobRecord>(jobInfo.Definition);
+        }
+        catch
+        {
+            throw new JobNotFoundException(string.Format(Core.Resources.JobNotReindexOrchestratorJob, id));
+        }
+
         record.Id = jobInfo.Id.ToString();
         record.GroupId = jobInfo.GroupId;
 
