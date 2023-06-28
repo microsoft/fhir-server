@@ -141,14 +141,14 @@ namespace Microsoft.Health.JobManagement
             }
             catch (RetriableJobException ex)
             {
-                _logger.LogError(ex, "Job {JobId} of type {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
 
                 // Not complete the job for retriable exception.
                 return;
             }
             catch (JobExecutionException ex)
             {
-                _logger.LogError(ex, "Job {JobId} of type {JobType} failed.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                 jobInfo.Status = JobStatus.Failed;
 
@@ -158,14 +158,14 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
+                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job {JobId} of type {JobType} failed with generic exception.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
 
                 object error = new { message = ex.Message, stackTrace = ex.StackTrace };
                 jobInfo.Result = JsonConvert.SerializeObject(error);
@@ -177,7 +177,7 @@ namespace Microsoft.Health.JobManagement
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
+                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
@@ -187,11 +187,11 @@ namespace Microsoft.Health.JobManagement
             {
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                _logger.LogInformation("Job {JobId} of type {JobType} completed.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogInformation("Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
             catch (Exception completeEx)
             {
-                _logger.LogError(completeEx, "Job {JobId} of type {JobType} failed to complete.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
         }
 
