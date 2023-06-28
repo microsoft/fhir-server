@@ -634,7 +634,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(Arg.Is(reference)).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType.ToString(), resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -658,7 +658,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{(withResourceType ? resourceType + "/" : null)}{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, withResourceType ? resourceType.ToString() : null, resourceId));
+            _referenceSearchValueParser.Parse(Arg.Is(reference)).Returns(new ReferenceSearchValue(referenceLocations, null, withResourceType ? resourceType.ToString() : null, resourceId));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),

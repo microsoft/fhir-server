@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
         public static IScoped<T> CreateMockScope<T>(this T obj)
         {
             var scope = Substitute.For<IScoped<T>>();
-            scope.Value.ReturnsForAnyArgs(obj);
+            scope.Value.Returns(obj);
             return scope;
         }
     }
