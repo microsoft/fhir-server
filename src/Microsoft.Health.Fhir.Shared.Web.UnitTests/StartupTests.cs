@@ -84,5 +84,29 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
                 || descriptor.ImplementationType == typeof(CloudRoleNameTelemetryInitializer)
                 || descriptor.ImplementationType == typeof(UserAgentHeaderTelemetryInitializer)));
         }
+
+        [Fact]
+        public void GivenAppSettings_WhenApplicationInsightsOffAndOpenTelemetryOff_ThenNoTelemetryShouldBeEnabled()
+        {
+            Mock<IConfiguration> configuration = new Mock<IConfiguration>();
+            configuration.Setup(x => x[ApplicationInsightsConfigurationName]).Returns(string.Empty);
+            configuration.Setup(x => x[AzureMonitorConfigurationName]).Returns((string)null);
+
+            IList<ServiceDescriptor> serviceDescriptors = new List<ServiceDescriptor>();
+            Mock<IServiceCollection> services = new Mock<IServiceCollection>();
+            services.Setup(x => x.Count).Returns(serviceDescriptors.Count);
+            services.Setup(x => x[It.IsAny<int>()]).Returns((int i) => serviceDescriptors[i]);
+            services.Setup(x => x.Add(It.IsAny<ServiceDescriptor>())).Callback<ServiceDescriptor>((ServiceDescriptor descriptor) => serviceDescriptors.Add(descriptor));
+
+            Startup startup = new Startup(configuration.Object);
+            var addAppInsightsTelemetryMethod = startup.GetType().GetMethod(AddApplicationInsightsTelemetryMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            addAppInsightsTelemetryMethod.Invoke(startup, new object[] { services.Object });
+            Assert.Empty(serviceDescriptors);
+
+            serviceDescriptors.Clear();
+            var addOpenTelemetryMethod = startup.GetType().GetMethod(AddAzureMonitorOpenTelemetryMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            addOpenTelemetryMethod.Invoke(startup, new object[] { services.Object });
+            Assert.Empty(serviceDescriptors);
+        }
     }
 }
