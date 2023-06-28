@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
         public override async Task<UpsertResourceResponse> HandleNoMatch(ConditionalCreateResourceRequest request, CancellationToken cancellationToken)
         {
-            return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleOperationId), cancellationToken);
+            return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource, request.BundleResourceContext), cancellationToken);
         }
 
         public override Task<UpsertResourceResponse> HandleSingleMatch(ConditionalCreateResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)

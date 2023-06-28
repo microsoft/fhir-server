@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else if (count == 1)
             {
-                return await _mediator.Send(new DeleteResourceRequest(request.ResourceType, matchedResults.First().Resource.ResourceId, request.DeleteOperation, bundleOperationId: request.BundleOperationId), cancellationToken);
+                return await _mediator.Send(new DeleteResourceRequest(request.ResourceType, matchedResults.First().Resource.ResourceId, request.DeleteOperation, bundleResourceContext: request.BundleResourceContext), cancellationToken);
             }
             else
             {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             {
                 foreach (SearchResultEntry item in matchedResults.Take(request.MaxDeleteCount - itemsDeleted))
                 {
-                    DeleteResourceResponse result = await _mediator.Send(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation, request.BundleOperationId), cancellationToken);
+                    DeleteResourceResponse result = await _mediator.Send(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation, request.BundleResourceContext), cancellationToken);
                     itemsDeleted += result.ResourcesDeleted;
                 }
 

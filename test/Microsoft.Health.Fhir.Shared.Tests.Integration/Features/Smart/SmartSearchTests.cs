@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.Handle(new GetResourceRequest(new ResourceKey("Patient", "smart-patient-B"), bundleOperationId: null), CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.Handle(new GetResourceRequest(new ResourceKey("Patient", "smart-patient-B"), bundleResourceContext: null), CancellationToken.None));
         }
 
         [SkippableFact]

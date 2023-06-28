@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         resourceIdProvider.Create = () => persistedId;
                     }
 
-                    SetupContexts(request, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
 
                     // Attempt 1.
                     await request.Handler.Invoke(httpContext);
@@ -318,6 +318,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static void SetupContexts(
             RouteContext request,
+            HTTPVerb httpVerb,
             HttpContext httpContext,
             IBundleOrchestratorOperation bundleOperation,
             IFhirRequestContext requestContext,
@@ -347,6 +348,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Assign the current Bundle Orchestrator Operation ID as part of the downstream requests.
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
+
+            // Assign the current Bundle Orchestrator Operation ID as part of the downstream requests.
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
 

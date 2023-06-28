@@ -44,6 +44,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const int MergeAsyncDegreeOfParallelism = -1; // Max degree of parallelism during merge async. -1 will attempt to use all resources available in the system.
+
         private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
 
         /// <summary>
@@ -135,8 +137,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             }
 
+            Stopwatch watch = Stopwatch.StartNew();
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
-            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
+            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = MergeAsyncDegreeOfParallelism };
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
             {
                 DataStoreOperationIdentifier identifier = resource.GetIdentifier();
@@ -161,6 +164,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     results.TryAdd(identifier, new DataStoreOperationOutcome(fhirException));
                 }
             });
+
+            if (resources.Count > 2)
+            {
+                _logger.LogDebug("CosmosDbMergeAsync - Resource: {CountOfResources} - Parallelism: {MaxDegreeOfParallelism} - {ElapsedTime}ms", resources.Count, parallelOptions.MaxDegreeOfParallelism, watch.ElapsedMilliseconds);
+            }
 
             return results;
         }

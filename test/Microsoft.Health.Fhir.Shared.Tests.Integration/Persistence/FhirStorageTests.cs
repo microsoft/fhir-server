@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
-            var saveResult = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetJsonSample("Weight"), bundleOperationId: null));
+            var saveResult = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetJsonSample("Weight"), bundleResourceContext: null));
             var getResult = (await Mediator.GetResourceAsync(new ResourceKey("Observation", saveResult.Id))).ToResourceElement(_deserializer);
 
             Assert.NotNull(getResult);
