@@ -91,23 +91,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
+            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
                 FROM root r
-                WHERE r.isSystem = false
-                ORDER BY r.resourceTypeName");
+                WHERE r.isSystem = false");
 
-            string continuationToken = null;
-            var resourceTypes = new List<string>();
+            var requestOptions = new QueryRequestOptions();
 
-            do
-            {
-                var results = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), continuationToken, cancellationToken: cancellationToken);
-                continuationToken = results.continuationToken;
-                resourceTypes.AddRange(results.results);
-            }
-            while (continuationToken != null);
-
-            return resourceTypes;
+            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
         }
 
         public override async Task<SearchResult> SearchAsync(

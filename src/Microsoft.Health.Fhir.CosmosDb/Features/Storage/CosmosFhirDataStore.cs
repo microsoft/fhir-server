@@ -628,6 +628,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return (results, page.ContinuationToken);
         }
 
+        // This method should only be called by async jobs as some queries could take a long time to traverse all pages. 
+        internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
+
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
+            var results = new List<T>();
+
+            return await retryPolicy.ExecuteAsync(async () =>
+                {
+                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
+                    {
+                        while (itr.HasMoreResults)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            FeedResponse<T> response = await itr.ReadNextAsync(cancellationToken);
+                            results.AddRange(response.ToList());
+                        }
+
+                        return results;
+                    }
+                });
+        }
+
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
         {
             List<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName).Where(x => x.SortStatus != SortParameterStatus.Disabled).ToList();
