@@ -492,7 +492,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             _reindexJobRecord.Status = OperationStatus.Failed;
             var ser = JsonConvert.SerializeObject(_reindexJobRecord);
-            _logger.LogError($"ReindexJob Error: Current ReindexJobRecord for reference: {ser}, id: {_jobInfo.Id}");
+            _logger.LogInformation($"ReindexJob Error: Current ReindexJobRecord for reference: {ser}, id: {_jobInfo.Id}");
         }
 
         private async Task CheckForCompletionAsync(IProgress<string> progress, List<JobInfo> jobInfos, CancellationToken cancellationToken)
@@ -557,7 +557,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                OperationOutcomeConstants.IssueSeverity.Error,
                                OperationOutcomeConstants.IssueType.Incomplete,
                                userMessage);
-                            _logger.LogError("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
+                            _logger.LogWarning("{TotalCount} resource(s) of the following type(s) failed to be reindexed: '{Types}' for job id: {Id}.", totalCount, string.Join("', '", resourcesTypes), _jobInfo.Id);
 
                             LogReindexJobRecordErrorMessage();
                         }

@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var ser = JsonConvert.SerializeObject(_reindexProcessingJobDefinition);
             var result = JsonConvert.SerializeObject(_reindexProcessingJobResult);
-            _logger.LogError($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}. ReindexProcessing Job Result: {result}.");
+            _logger.LogInformation($"ReindexProcessingJob Error: Current ReindexJobRecord: {ser}, job id: {_jobInfo.Id}, group id: {_jobInfo.GroupId}. ReindexProcessing Job Result: {result}.");
             _progress.Report("ReindexProcessingJob Error: " + _reindexProcessingJobResult.Error);
         }
 
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue child jobs.");
+                _logger.LogWarning(ex, "Failed to enqueue child jobs.");
                 _reindexProcessingJobResult.Error = ex.Message;
                 throw new RetriableJobException(ex.Message, ex);
             }
