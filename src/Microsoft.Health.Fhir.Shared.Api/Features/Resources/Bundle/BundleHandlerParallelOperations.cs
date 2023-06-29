@@ -53,40 +53,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
-            HTTPVerb httpVerb,
+            List<ResourceExecutionContext> resources,
+            IBundleOrchestratorOperation bundleOperation,
             EntryComponent throttledEntryComponent,
             BundleHandlerStatistics statistics,
             CancellationToken cancellationToken)
         {
-            if (!_requests[httpVerb].Any())
+            if (!resources.Any())
             {
                 return await Task.FromResult(throttledEntryComponent);
             }
 
             const int GCCollectTrigger = 150;
-            int totalNumberOfRequests = _requests[httpVerb].Count;
-            IBundleOrchestratorOperation bundleOperation = null;
 
             IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
             RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
             FhirJsonParser fhirJsonParser = _fhirJsonParser;
             IBundleHttpContextAccessor bundleHttpContextAccessor = _bundleHttpContextAccessor;
-
-            _logger.LogTrace("BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.", totalNumberOfRequests, httpVerb);
-
-            try
-            {
-                // This logic works well for Batches. Transactions should have a single Bundle Operation.
-                bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                    _bundleType == BundleType.Transaction ? BundleOrchestratorOperationType.Transaction : BundleOrchestratorOperationType.Batch,
-                    label: httpVerb.ToString(),
-                    expectedNumberOfResources: totalNumberOfRequests);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "BundleHandler - There was an error while initializing a new Bundle Operation: {ErrorMessage}", ex.Message);
-                throw;
-            }
 
             // Parallel Resource Handling Function.
             Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
@@ -96,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     RunGarbageCollection();
                 }
 
-                _logger.LogTrace("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", httpVerb, resourceExecutionContext.Index, totalNumberOfRequests);
+                _logger.LogTrace("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                 // Creating new instances per record in the bundle, and making their access thread-safe.
                 // Avoiding possible internal conflicts due the parallel access from multiple threads.
@@ -107,7 +90,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 EntryComponent entry = await HandleRequestAsync(
                     responseBundle,
-                    httpVerb,
+                    resourceExecutionContext.HttpVerb,
                     throttledEntryComponent,
                     _bundleType,
                     bundleOperation,
@@ -124,16 +107,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger,
                     ct);
 
-                statistics.RegisterNewEntry(httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
+                statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
 
-                await SetResourceProcessingStatusAsync(httpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
+                await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
                 watch.Stop();
-                _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", httpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
+                _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
             };
 
             List<Task> requestsPerResource = new List<Task>();
-            foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
+            foreach (ResourceExecutionContext resourceContext in resources)
             {
                 requestsPerResource.Add(handleRequestFunction(resourceContext, cancellationToken));
             }
@@ -367,18 +350,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
             {
+                HttpVerb = httpVerb;
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
             }
 
-            public RouteContext Context { get; private set; } // Request
+            public HTTPVerb HttpVerb { get; private set; }
 
-            public int Index { get; private set; } // Entry index
+            public RouteContext Context { get; private set; }
 
-            public string PersistedId { get; private set; } // Persisted Id
+            public int Index { get; private set; }
+
+            public string PersistedId { get; private set; }
         }
     }
 }

@@ -181,6 +181,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             try
             {
+                BundleProcessingLogic processingLogic = (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel) ? BundleProcessingLogic.Parallel : BundleProcessingLogic.Sequential;
+
                 var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
                 _bundleType = bundleResource.Type;
 
@@ -193,7 +195,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.BatchResponse,
                     };
 
-                    BundleProcessingLogic processingLogic = (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel) ? BundleProcessingLogic.Parallel : BundleProcessingLogic.Sequential;
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
 
                     var response = new BundleResponse(responseBundle.ToResourceElement());
@@ -202,8 +203,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     return response;
                 }
-
-                if (_bundleType == BundleType.Transaction)
+                else if (_bundleType == BundleType.Transaction)
                 {
                     // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
                     await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
@@ -215,14 +215,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.TransactionResponse,
                     };
 
-                    var response = await ExecuteTransactionForAllRequestsAsync(responseBundle, cancellationToken);
+                    var response = await ExecuteTransactionForAllRequestsAsync(responseBundle, processingLogic, cancellationToken);
 
                     await PublishNotification(responseBundle, BundleType.Transaction);
 
                     return response;
                 }
-
-                throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
+                else
+                {
+                    throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
+                }
             }
             finally
             {
@@ -280,18 +282,71 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             BundleHandlerStatistics statistics = CreateNewBundleHandlerStatistics(processingLogic);
             try
             {
-                // Besides the need to run requests in parallel, the verb execution order should still be respected.
-                EntryComponent throttledEntryComponent = null;
-                foreach (HTTPVerb verb in _verbExecutionOrder)
+                if (processingLogic == BundleProcessingLogic.Sequential)
                 {
-                    if (processingLogic == BundleProcessingLogic.Parallel)
+                    // This logic is applicable for sequential batches and transactions.
+
+                    // Batches and transactions will follow the same logic, and process resources split by HTTPVerb groups.
+                    EntryComponent throttledEntryComponent = null;
+                    foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
-                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
+                            responseBundle: responseBundle,
+                            httpVerb: verb,
+                            throttledEntryComponent: throttledEntryComponent,
+                            statistics: statistics,
+                            cancellationToken: cancellationToken);
                     }
-                    else
+                }
+                else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Batch)
+                {
+                    // Besides the need to run requests in parallel, the verb execution order should still be respected.
+                    EntryComponent throttledEntryComponent = null;
+                    foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
-                        throttledEntryComponent = await ExecuteRequestsInSequenceAsync(responseBundle, verb, throttledEntryComponent, statistics, cancellationToken);
+                        IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                            type: BundleOrchestratorOperationType.Batch,
+                            label: verb.ToString(),
+                            expectedNumberOfResources: _requests[verb].Count);
+
+                        _logger.LogTrace(
+                            "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
+                            bundleOperation.OriginalExpectedNumberOfResources,
+                            verb);
+
+                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(
+                            responseBundle: responseBundle,
+                            resources: _requests[verb],
+                            bundleOperation: bundleOperation,
+                            throttledEntryComponent: throttledEntryComponent,
+                            statistics: statistics,
+                            cancellationToken: cancellationToken);
                     }
+                }
+                else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Transaction)
+                {
+                    List<ResourceExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
+
+                    IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                        type: BundleOrchestratorOperationType.Transaction,
+                        label: "Transaction",
+                        expectedNumberOfResources: resources.Count);
+
+                    _logger.LogTrace(
+                        "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
+                        bundleOperation.OriginalExpectedNumberOfResources);
+
+                    EntryComponent throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(
+                        responseBundle: responseBundle,
+                        resources: resources,
+                        bundleOperation: bundleOperation,
+                        throttledEntryComponent: null,
+                        statistics: statistics,
+                        cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    throw new InvalidOperationException(string.Format(Api.Resources.BundleInvalidCombination, _bundleType, processingLogic));
                 }
             }
             finally
@@ -350,18 +405,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
         }
 
-        private async Task<BundleResponse> ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, CancellationToken cancellationToken)
+        private async Task<BundleResponse> ExecuteTransactionForAllRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
         {
             try
             {
-                using (var transaction = _transactionHandler.BeginTransaction())
+                if (processingLogic == BundleProcessingLogic.Sequential)
                 {
-                    // TODO: At this point all transactions are still processed sequentially, but it'll be changed soon. Work item 101624.
-                    BundleProcessingLogic processingLogic = BundleProcessingLogic.Sequential;
-
+                    using (var transaction = _transactionHandler.BeginTransaction())
+                    {
+                        await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
+                        transaction.Complete();
+                    }
+                }
+                else
+                {
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
-
-                    transaction.Complete();
                 }
             }
             catch (TransactionAbortedException)
@@ -499,7 +557,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(routeContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -510,7 +568,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task<EntryComponent> ExecuteRequestsInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
+        private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
             const int GCCollectTrigger = 150;
 
