@@ -629,35 +629,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return (results, page.ContinuationToken);
         }
 
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, int returnAfterResultCount = -1, CancellationToken cancellationToken = default)
+        internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             var results = new List<T>();
-            string outputContinuationToken = null;
 
             return await retryPolicy.ExecuteAsync(async () =>
+            {
+                using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, null, feedOptions))
                 {
-                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, continuationToken, feedOptions))
+                    while (itr.HasMoreResults)
                     {
-                        while (itr.HasMoreResults)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                            FeedResponse<T> response = await itr.ReadNextAsync(cancellationToken);
-                            results.AddRange(response.ToList());
-
-                            if (returnAfterResultCount > 0 && results.Count > returnAfterResultCount)
-                            {
-                                outputContinuationToken = response.ContinuationToken;
-                                break;
-                            }
-                        }
-
-                        return (results, outputContinuationToken);
+                        FeedResponse<T> response = await itr.ReadNextAsync(cancellationToken);
+                        results.AddRange(response.ToList());
                     }
-                });
+
+                    return results;
+                }
+            });
         }
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)

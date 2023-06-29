@@ -95,9 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 FROM root r
                 WHERE r.isSystem = false");
 
-            var requestOptions = new QueryRequestOptions();
-
-            return (await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken)).results;
+            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
         }
 
         public override async Task<SearchResult> SearchAsync(
