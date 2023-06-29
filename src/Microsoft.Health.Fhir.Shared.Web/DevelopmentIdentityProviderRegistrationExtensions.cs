@@ -171,8 +171,10 @@ namespace Microsoft.Health.Fhir.Web
 
             scopes.Add(new ApiScope("patient/*.*"));
             scopes.Add(new ApiScope("user/*.*"));
+            scopes.Add(new ApiScope("system/*.*"));
             scopes.Add(new ApiScope("patient/*.read"));
             scopes.Add(new ApiScope("user/*.write"));
+            scopes.Add(new ApiScope("user/*.read"));
 
             foreach (var resourceType in resourceTypes)
             {
@@ -182,6 +184,8 @@ namespace Microsoft.Health.Fhir.Web
                 scopes.Add(new ApiScope($"user/{resourceType}.read"));
                 scopes.Add(new ApiScope($"patient/{resourceType}.write"));
                 scopes.Add(new ApiScope($"user/{resourceType}.write"));
+                scopes.Add(new ApiScope($"system/{resourceType}.write"));
+                scopes.Add(new ApiScope($"system/{resourceType}.read"));
             }
 
             return scopes;
