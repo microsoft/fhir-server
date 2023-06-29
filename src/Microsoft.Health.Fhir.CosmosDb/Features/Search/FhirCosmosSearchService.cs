@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -203,77 +202,85 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return searchResult;
         }
 
-        public override async IAsyncEnumerable<(DateTimeOffset StartTime, DateTimeOffset EndTime)> GetResourceTimeRanges(
+        public override async Task<IReadOnlyList<(DateTimeOffset StartTime, DateTimeOffset EndTime)>> GetResourceTimeRanges(
             string resourceType,
             DateTimeOffset startTime,
             DateTimeOffset endTime,
             int rangeSize,
             int numberOfRanges,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
+            CancellationToken cancellationToken)
         {
-            // Using PartialDateTime in parameters ensures dates are formatted correctly when converted to string.
-            QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
-                FROM root r
-                WHERE r.isSystem = false
-                AND r.isHistory = false
-                AND r.resourceTypeName = @resourceTypeName
-                AND r.lastModified >= @startTime
-                AND r.lastModified <= @endTime
-                ORDER BY r.lastModified")
-               .WithParameter("@resourceTypeName", resourceType)
-               .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
-               .WithParameter("@endTime", new PartialDateTime(endTime).ToString());
+            List<(DateTimeOffset, DateTimeOffset)> results = new();
 
-            string continuationToken = null;
-            int endIndex = rangeSize - 1;
-            DateTimeOffset? currentStart = null;
+            // Fetch the first time in the range.
+            var minResourceTime = await FetchResults(startTime, endTime, 0, 1);
 
-            IReadOnlyList<string> results = new List<string>();
+            if (!minResourceTime.Any())
+            {
+                return results;
+            }
+
+            startTime = minResourceTime[0];
+
+            // Find the remaining time ranges.
             do
             {
-                if (endIndex >= results.Count)
+                var resourceRange = await FetchResults(startTime, endTime, rangeSize - 1, 2);
+
+                if (!resourceRange.Any())
                 {
-                    endIndex = endIndex - results.Count;
-
-                    var requestOptions = new QueryRequestOptions
-                    {
-                        MaxItemCount = rangeSize,
-                    };
-
-                    // Getting results back as strings so we only deserialize what we need.
-                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, requestOptions, continuationToken, false, TimeSpan.FromSeconds(180), cancellationToken: cancellationToken);
-
-                    // Store the start value in case the range spans multiple requests.
-                    if (currentStart is null && results.Any())
-                    {
-                        currentStart = DateTimeOffset.Parse(results[0]);
-                    }
+                    break;
                 }
-                else
+
+                var currentEndTime = resourceRange[0];
+
+                if (resourceRange.Count < 2)
                 {
-                    var rtn = (currentStart.Value, DateTimeOffset.Parse(results[endIndex]));
-
-                    // Set the start of the next range to the end of the current range.
-                    if (results.Count > endIndex + 1)
-                    {
-                        currentStart = DateTimeOffset.Parse(results[endIndex + 1]);
-                    }
-                    else
-                    {
-                        currentStart = null;
-                    }
-
-                    endIndex += rangeSize;
-
-                    yield return rtn;
+                    results.Add((startTime, currentEndTime));
+                    break;
                 }
+
+                // Prevent duplicated ranges if there are records with the same lastModified time.
+                if (endTime == resourceRange[1])
+                {
+                    endTime.AddTicks(-1);
+                }
+
+                results.Add((startTime, currentEndTime));
+
+                // Set the start of the next range.
+                startTime = resourceRange[1];
             }
-            while (continuationToken is not null);
+            while (results.Count < numberOfRanges);
 
-            // Add any partially full range at the end
-            if (currentStart is not null)
+            return results;
+
+            async Task<IReadOnlyList<DateTimeOffset>> FetchResults(DateTimeOffset startTime, DateTimeOffset endTime, int offset, int limit)
             {
-                yield return (currentStart.Value, DateTimeOffset.Parse(results[results.Count - 1]));
+                // Using PartialDateTime in parameters ensures dates are formatted correctly when converted to string.
+                QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
+                    FROM root r
+                    WHERE r.isSystem = false
+                    AND r.isHistory = false
+                    AND r.isDeleted = false
+                    AND r.resourceTypeName = @resourceTypeName
+                    AND r.lastModified >= @startTime
+                    AND r.lastModified <= @endTime
+                    ORDER BY r.lastModified
+                    OFFSET @offset LIMIT @limit")
+                    .WithParameter("@resourceTypeName", resourceType)
+                    .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
+                    .WithParameter("@endTime", new PartialDateTime(endTime).ToString())
+                    .WithParameter("@offset", offset)
+                    .WithParameter("@limit", limit);
+
+                var response = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(
+                    sqlQuerySpec,
+                    new QueryRequestOptions(),
+                    mustNotExceedMaxItemCount: false,
+                    cancellationToken: cancellationToken);
+
+                return response.results;
             }
         }
 

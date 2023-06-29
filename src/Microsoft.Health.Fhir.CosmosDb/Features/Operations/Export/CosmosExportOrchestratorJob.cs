@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private const int DefaultNumberOfTimeRangesPerJob = 100;
-        private const double CosmosCountMultiplierForMinimumFillFactor = 2.01;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -67,7 +66,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                         .GroupBy(x => x.ResourceType)
                                         .ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
+                // #TODO - move max par back to 4
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
                     if (enqueued.TryGetValue(type, out var max))
@@ -75,34 +75,34 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         startTime = max.Value.AddTicks(1);
                     }
 
-                    var definitions = new List<string>();
+                    var rows = 0;
 
-                    await foreach (var range in _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel))
+                    do
                     {
-                        var processingRecord = CreateExportRecord(
-                            record,
-                            jobInfo.GroupId,
-                            resourceType: type,
-                            since: new PartialDateTime(range.StartTime),
-                            till: new PartialDateTime(range.EndTime),
-                            countOverride: (uint)(timeRangeSize * CosmosCountMultiplierForMinimumFillFactor));
+                        var definitions = new List<string>();
+                        var ranges = await _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel);
 
-                        definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                        definitions.Add(type);
+                        foreach (var range in ranges)
+                        {
+                            var processingRecord = CreateExportRecord(
+                                record,
+                                jobInfo.GroupId,
+                                resourceType: type,
+                                since: new PartialDateTime(range.StartTime),
+                                till: new PartialDateTime(range.EndTime));
 
-                        if (definitions.Count >= NumberOfTimeRangesPerJob)
+                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                        }
+
+                        rows = definitions.Count;
+
+                        if (rows > 0)
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
                             atLeastOneWorkerJobRegistered = true;
-                            definitions.Clear();
                         }
                     }
-
-                    if (definitions.Any())
-                    {
-                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
-                        atLeastOneWorkerJobRegistered = true;
-                    }
+                    while (rows > 0);
                 });
 
                 if (!atLeastOneWorkerJobRegistered)
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, uint countOverride = 0)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -137,33 +137,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             }
 
             var rec = new ExportJobRecord(
-                        record.RequestUri,
-                        record.ExportType,
-                        format,
-                        string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
-                        record.Filters,
-                        record.Hash,
-                        record.RollingFileSizeInMB,
-                        record.RequestorClaims,
-                        since == null ? record.Since : since,
-                        till == null ? record.Till : till,
-                        null,
-                        null,
-                        null,
-                        null,
-                        record.GroupId,
-                        record.StorageAccountConnectionHash,
-                        record.StorageAccountUri,
-                        record.AnonymizationConfigurationCollectionReference,
-                        record.AnonymizationConfigurationLocation,
-                        record.AnonymizationConfigurationFileETag,
-                        countOverride == 0 ? record.MaximumNumberOfResourcesPerQuery : countOverride,
-                        record.NumberOfPagesPerCommit,
-                        container,
-                        record.IsParallel,
-                        record.SchemaVersion,
-                        (int)JobType.ExportProcessing,
-                        record.SmartRequest);
+                        requestUri: record.RequestUri,
+                        exportType: record.ExportType,
+                        exportFormat: format,
+                        resourceType: string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
+                        filters: record.Filters,
+                        hash: record.Hash,
+                        rollingFileSizeInMB: record.RollingFileSizeInMB,
+                        requestorClaims: record.RequestorClaims,
+                        since: since ?? record.Since,
+                        till: till ?? record.Till,
+                        groupId: record.GroupId,
+                        storageAccountConnectionHash: record.StorageAccountConnectionHash,
+                        storageAccountUri: record.StorageAccountUri,
+                        anonymizationConfigurationCollectionReference: record.AnonymizationConfigurationCollectionReference,
+                        anonymizationConfigurationLocation: record.AnonymizationConfigurationLocation,
+                        anonymizationConfigurationFileETag: record.AnonymizationConfigurationFileETag,
+                        maximumNumberOfResourcesPerQuery: record.MaximumNumberOfResourcesPerQuery,
+                        numberOfPagesPerCommit: record.NumberOfPagesPerCommit,
+                        storageAccountContainerName: container,
+                        isParallel: record.IsParallel,
+                        schemaVersion: record.SchemaVersion,
+                        typeId: (int)JobType.ExportProcessing,
+                        smartRequest: record.SmartRequest);
             rec.Id = string.Empty;
             rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
             return rec;

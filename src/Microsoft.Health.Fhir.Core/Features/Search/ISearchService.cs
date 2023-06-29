@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        IAsyncEnumerable<(DateTimeOffset StartTime, DateTimeOffset EndTime)> GetResourceTimeRanges(
+        Task<IReadOnlyList<(DateTimeOffset StartTime, DateTimeOffset EndTime)>> GetResourceTimeRanges(
             string resourceType,
             DateTimeOffset startTime,
             DateTimeOffset endTime,

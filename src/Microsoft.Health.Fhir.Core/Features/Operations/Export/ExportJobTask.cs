@@ -526,6 +526,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList,
                     searchResult.ContinuationToken,
                     false,
+                    _exportJobRecord.ExportType == ExportJobType.All,
                     cancellationToken);
             }
 
@@ -660,7 +661,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
-                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, true, cancellationToken);
+                await ProcessProgressChange(progress, queryParametersList, searchResult.ContinuationToken, true, false, cancellationToken);
             }
 
             // Commit one last time for any pending changes.
@@ -707,6 +708,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList,
             string continuationToken,
             bool onlyCommitFull,
+            bool skipJobUpdate,
             CancellationToken cancellationToken)
         {
             // Update the continuation token in local cache and queryParams.
@@ -737,8 +739,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _fileManager.CommitFiles();
 
-                // Update the job record.
-                await UpdateJobRecordAsync(cancellationToken);
+                if (!skipJobUpdate)
+                {
+                    // Update the job record.
+                    await UpdateJobRecordAsync(cancellationToken);
+                }
             }
         }
 
