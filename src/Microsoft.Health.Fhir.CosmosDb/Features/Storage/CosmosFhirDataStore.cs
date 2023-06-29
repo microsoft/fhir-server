@@ -160,6 +160,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     results.TryAdd(identifier, new DataStoreOperationOutcome(fhirException));
                 }
+                catch (Exception ex)
+                {
+                    throw new PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(ex, results);
+                }
             });
 
             return results;
@@ -628,7 +632,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return (results, page.ContinuationToken);
         }
 
-        // This method should only be called by async jobs as some queries could take a long time to traverse all pages. 
+        // This method should only be called by async jobs as some queries could take a long time to traverse all pages.
         internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));

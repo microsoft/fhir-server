@@ -58,12 +58,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 
             foreach (var job in jobs)
             {
+                BulkDeleteResult result = null;
+                try
+                {
+                    result = job.DeserializeResult<BulkDeleteResult>();
+                }
+                catch
+                {
+                    // Do nothing
+                }
+
                 if (job.Status == JobStatus.Failed)
                 {
                     failed = true;
                     succeeded = false;
 
-                    issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
+                    if (result != null)
+                    {
+                        foreach (var issue in result.Issues)
+                        {
+                            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue.Message));
+                        }
+                    }
+                    else
+                    {
+                        issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
+                    }
 
                     // Need a way to get a failure result code. Most likely will be 503, 400, or 403
                     failureResultCode = HttpStatusCode.InternalServerError;
@@ -77,9 +97,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                 {
                     succeeded = false;
                 }
-                else if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && job.Result != null)
+
+                if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && result != null)
                 {
-                    var result = job.DeserializeResult<BulkDeleteResult>();
                     foreach (var key in result.ResourcesDeleted.Keys)
                     {
                         if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))

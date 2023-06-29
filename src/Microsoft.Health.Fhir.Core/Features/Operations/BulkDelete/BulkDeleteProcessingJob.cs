@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
@@ -63,21 +64,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 };
 
                 _contextAccessor.RequestContext = fhirRequestContext;
-
-                using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
-                var itemsDeleted = await deleter.Value.DeleteMultipleAsync(
-                    new ConditionalDeleteResourceRequest(
-                        definition.Type,
-                        (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
-                        definition.DeleteOperation,
-                        maxDeleteCount: null,
-                        deleteAll: true),
-                    cancellationToken);
-
                 var result = new BulkDeleteResult();
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
+                long itemsDeleted;
+                using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
 
+                try
+                {
+                    itemsDeleted = await deleter.Value.DeleteMultipleAsync(
+                        new ConditionalDeleteResourceRequest(
+                            definition.Type,
+                            (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
+                            definition.DeleteOperation,
+                            maxDeleteCount: null,
+                            deleteAll: true),
+                        cancellationToken);
+                }
+                catch (PartialSuccessException<long> ex)
+                {
+                    itemsDeleted = ex.PartialResults;
+                    result.Issues.Add(ex);
+                }
+
+                result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
                 await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted), cancellationToken);
+
+                if (result.Issues.Count > 0)
+                {
+                    var exception = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues[0].Message}", result);
+                    exception.RequestCancellationOnFailure = true;
+                    throw exception;
+                }
 
                 return JsonConvert.SerializeObject(result);
             }

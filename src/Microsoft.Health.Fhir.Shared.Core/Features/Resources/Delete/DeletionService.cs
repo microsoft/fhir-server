@@ -76,61 +76,77 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<int> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<long> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.MaxDeleteCount);
 
-            int itemsDeleted = 0;
+            long itemsDeleted = 0;
 
             // Delete the matched results...
-            while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
+            try
             {
-                var resultsToDelete = request.DeleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount.Value - itemsDeleted);
-                if (request.DeleteOperation == DeleteOperation.SoftDelete)
+                while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
-                    bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
+                    var resultsToDelete = request.DeleteAll ? matchedResults : matchedResults.Take((int)(request.MaxDeleteCount.Value - itemsDeleted));
+                    if (request.DeleteOperation == DeleteOperation.SoftDelete)
+                    {
+                        bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
 
-                    await _fhirDataStore.MergeAsync(
-                        resultsToDelete.Select(item =>
+                        try
                         {
-                            var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
-                            emptyInstance.Id = item.Resource.ResourceId;
+                            await _fhirDataStore.MergeAsync(
+                                resultsToDelete.Select(item =>
+                                {
+                                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
+                                    emptyInstance.Id = item.Resource.ResourceId;
 
-                            ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
+                                    ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
 
-                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
-                        }).ToList(),
-                        cancellationToken);
-                    itemsDeleted += resultsToDelete.Count();
-                }
-                else
-                {
-                    var options = new ParallelOptions()
+                                    return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
+                                }).ToList(),
+                                cancellationToken);
+                        }
+                        catch (PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
+                        {
+                            itemsDeleted += ex.PartialResults.Count;
+                            throw;
+                        }
+
+                        itemsDeleted += resultsToDelete.Count();
+                    }
+                    else
                     {
-                        MaxDegreeOfParallelism = 4,
-                        CancellationToken = cancellationToken,
-                    };
+                        var options = new ParallelOptions()
+                        {
+                            MaxDegreeOfParallelism = 4,
+                            CancellationToken = cancellationToken,
+                        };
 
-                    await Parallel.ForEachAsync(resultsToDelete, options, async (item, ct) =>
+                        await Parallel.ForEachAsync(resultsToDelete, options, async (item, ct) =>
+                        {
+                            await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), ct);
+                            Interlocked.Increment(ref itemsDeleted);
+                        });
+                    }
+
+                    if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted > 0 || request.DeleteAll))
                     {
-                        await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), ct);
-                        Interlocked.Increment(ref itemsDeleted);
-                    });
+                        (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
+                            request.ResourceType,
+                            request.ConditionalParameters,
+                            cancellationToken,
+                            request.DeleteAll ? null : (int)(request.MaxDeleteCount - itemsDeleted),
+                            ct);
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-
-                if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted > 0 || request.DeleteAll))
-                {
-                    (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
-                        request.ResourceType,
-                        request.ConditionalParameters,
-                        cancellationToken,
-                        request.DeleteAll ? null : request.MaxDeleteCount - itemsDeleted,
-                        ct);
-                }
-                else
-                {
-                    break;
-                }
+            }
+            catch (Exception ex)
+            {
+                throw new PartialSuccessException<long>(ex, itemsDeleted);
             }
 
             return itemsDeleted;
