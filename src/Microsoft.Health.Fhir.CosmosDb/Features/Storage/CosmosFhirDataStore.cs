@@ -535,7 +535,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);
             });
 
-            if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count >= feedOptions.MaxItemCount)
+            // Using totalDesiredCount since the Cosmos query can update feedOptions.MaxItemCount
+            if (!cosmosQuery.HasMoreResults || totalDesiredCount == 0 || page.Count >= totalDesiredCount)
             {
                 if (page.Count == 0)
                 {
@@ -628,16 +629,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return (results, page.ContinuationToken);
         }
 
-        internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, int returnAfterResultCount = -1, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
-
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
+
             var results = new List<T>();
+            string outputContinuationToken = null;
 
             return await retryPolicy.ExecuteAsync(async () =>
                 {
-                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
+                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, continuationToken, feedOptions))
                     {
                         while (itr.HasMoreResults)
                         {
@@ -645,9 +647,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                             FeedResponse<T> response = await itr.ReadNextAsync(cancellationToken);
                             results.AddRange(response.ToList());
+
+                            if (returnAfterResultCount > 0 && results.Count > returnAfterResultCount)
+                            {
+                                outputContinuationToken = response.ContinuationToken;
+                                break;
+                            }
                         }
 
-                        return results;
+                        return (results, outputContinuationToken);
                     }
                 });
         }

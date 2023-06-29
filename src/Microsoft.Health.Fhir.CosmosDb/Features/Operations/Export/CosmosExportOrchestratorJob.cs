@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private const int DefaultNumberOfTimeRangesPerJob = 100;
+        private const double CosmosCountMultiplierForMinimumFillFactor = 2.01;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                         .GroupBy(x => x.ResourceType)
                                         .ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken }, async (type, cancel) =>
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
                     if (enqueued.TryGetValue(type, out var max))
@@ -78,16 +79,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                     await foreach (var range in _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel))
                     {
+                        var processingRecord = CreateExportRecord(
+                            record,
+                            jobInfo.GroupId,
+                            resourceType: type,
+                            since: new PartialDateTime(range.StartTime),
+                            till: new PartialDateTime(range.EndTime),
+                            countOverride: (uint)(timeRangeSize * CosmosCountMultiplierForMinimumFillFactor));
+
+                        definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                        definitions.Add(type);
+
                         if (definitions.Count >= NumberOfTimeRangesPerJob)
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
                             atLeastOneWorkerJobRegistered = true;
                             definitions.Clear();
                         }
-
-                        var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, since: new PartialDateTime(range.StartTime), till: new PartialDateTime(range.EndTime));
-                        definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                        definitions.Add(type);
                     }
 
                     if (definitions.Any())
@@ -113,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, uint countOverride = 0)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -149,7 +157,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         record.AnonymizationConfigurationCollectionReference,
                         record.AnonymizationConfigurationLocation,
                         record.AnonymizationConfigurationFileETag,
-                        record.MaximumNumberOfResourcesPerQuery,
+                        countOverride == 0 ? record.MaximumNumberOfResourcesPerQuery : countOverride,
                         record.NumberOfPagesPerCommit,
                         container,
                         record.IsParallel,

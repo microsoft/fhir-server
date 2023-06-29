@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             var requestOptions = new QueryRequestOptions();
 
-            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
+            return (await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken)).results;
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -226,45 +226,48 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
                .WithParameter("@endTime", new PartialDateTime(endTime).ToString());
 
-            var requestOptions = new QueryRequestOptions();
-            
-            // requestOptions.MaxItemCount = rangeSize * numberOfRanges;
-
             string continuationToken = null;
-            IReadOnlyList<DateTimeOffset> results = null;
-            int index = 0;
+            int endIndex = rangeSize - 1;
             DateTimeOffset? currentStart = null;
 
+            IReadOnlyList<string> results = new List<string>();
             do
             {
-                // Only fetch new results when we've exhausted the previous results
-                if (results is null || index >= results.Count)
+                if (endIndex >= results.Count)
                 {
-                    if (index > 0)
+                    endIndex = endIndex - results.Count;
+
+                    var requestOptions = new QueryRequestOptions
                     {
-                        index = index % results.Count;
-                    }
+                        MaxItemCount = rangeSize,
+                    };
 
-                    // #TODO - do we need error handling here?
-                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(sqlQuerySpec, requestOptions, continuationToken, cancellationToken: cancellationToken);
-                }
+                    // Getting results back as strings so we only deserialize what we need.
+                    (results, continuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<string>(sqlQuerySpec, requestOptions, continuationToken, false, TimeSpan.FromSeconds(180), cancellationToken: cancellationToken);
 
-                while (index < results.Count)
-                {
+                    // Store the start value in case the range spans multiple requests.
                     if (currentStart is null && results.Any())
                     {
-                        currentStart = results[index];
+                        currentStart = DateTimeOffset.Parse(results[0]);
                     }
+                }
+                else
+                {
+                    var rtn = (currentStart.Value, DateTimeOffset.Parse(results[endIndex]));
 
-                    // Skip forward to the next boundry.
-                    index += rangeSize - 1;
-
-                    if (index < results.Count)
+                    // Set the start of the next range to the end of the current range.
+                    if (results.Count > endIndex + 1)
                     {
-                        yield return (currentStart.Value, results[index]);
-                        currentStart = null;
-                        index++;
+                        currentStart = DateTimeOffset.Parse(results[endIndex + 1]);
                     }
+                    else
+                    {
+                        currentStart = null;
+                    }
+
+                    endIndex += rangeSize;
+
+                    yield return rtn;
                 }
             }
             while (continuationToken is not null);
@@ -272,7 +275,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             // Add any partially full range at the end
             if (currentStart is not null)
             {
-                yield return (currentStart.Value, results[results.Count - 1]);
+                yield return (currentStart.Value, DateTimeOffset.Parse(results[results.Count - 1]));
             }
         }
 
