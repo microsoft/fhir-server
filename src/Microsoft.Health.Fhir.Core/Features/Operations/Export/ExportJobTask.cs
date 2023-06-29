@@ -451,6 +451,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
+            int exportedResourceCount = 0;
+
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -481,6 +483,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             cancellationToken);
                         break;
                 }
+
+                exportedResourceCount += searchResult.Results.Count();
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
@@ -521,12 +525,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
+                // Skip the job update if the search service didn't return all the results but a continuation token instead.
+                // This will allow the task to continue in this thread vs raising a JobSegmentCompletedException and creating a new task for another worker.
+                bool skipJobUpdate = _exportJobRecord.ExportType == ExportJobType.All && exportedResourceCount < _exportJobRecord.MaximumNumberOfResourcesPerQuery;
+
                 await ProcessProgressChange(
                     progress,
                     queryParametersList,
                     searchResult.ContinuationToken,
                     false,
-                    _exportJobRecord.ExportType == ExportJobType.All,
+                    skipJobUpdate,
                     cancellationToken);
             }
 

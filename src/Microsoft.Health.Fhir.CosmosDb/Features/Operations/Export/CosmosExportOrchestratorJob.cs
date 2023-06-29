@@ -66,8 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                         .GroupBy(x => x.ResourceType)
                                         .ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
 
-                // #TODO - move max par back to 4
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 1, CancellationToken = cancellationToken }, async (type, cancel) =>
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
                     if (enqueued.TryGetValue(type, out var max))
