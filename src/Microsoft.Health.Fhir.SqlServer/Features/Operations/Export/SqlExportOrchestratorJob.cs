@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                     var rows = 1;
                     while (rows > 0)
                     {
-                        var definitions = new List<string>();
+                        var definitions = new List<ExportJobRecord>();
                         var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
                         foreach (var range in ranges)
                         {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                             }
 
                             var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                            definitions.Add(processingRecord);
                         }
 
                         startId++; // make sure we do not intersect ranges
@@ -111,13 +111,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 if (!atLeastOneWorkerJobRegistered)
                 {
                     var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                    await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: JsonConvert.SerializeObject(processingRecord));
+                    await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
             }
             else if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: JsonConvert.SerializeObject(processingRecord));
+                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 
             record.Status = OperationStatus.Completed;

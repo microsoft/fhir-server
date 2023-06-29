@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: JsonConvert.SerializeObject(processingRecord));
+                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 
             record.Status = OperationStatus.Completed;

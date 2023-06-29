@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 var result = new BulkDeleteResult();
                 long itemsDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
+                Exception exception = null;
 
                 try
                 {
@@ -82,17 +83,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 catch (PartialSuccessException<long> ex)
                 {
                     itemsDeleted = ex.PartialResults;
-                    result.Issues.Add(ex);
+                    result.Issues.Add(ex.Message);
+                    exception = ex;
                 }
 
                 result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
                 await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted), cancellationToken);
 
-                if (result.Issues.Count > 0)
+                if (exception != null)
                 {
-                    var exception = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues[0].Message}", result);
-                    exception.RequestCancellationOnFailure = true;
-                    throw exception;
+                    var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues[0]}", result, exception);
+                    jobException.RequestCancellationOnFailure = true;
+                    throw jobException;
                 }
 
                 return JsonConvert.SerializeObject(result);

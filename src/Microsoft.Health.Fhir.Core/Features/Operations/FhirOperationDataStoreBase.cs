@@ -44,8 +44,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     {
         var clone = jobRecord.Clone();
         clone.QueuedTime = DateTime.Parse("1900-01-01");
-        var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
-        var results = await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, isCompleted: clone.Status == OperationStatus.Completed, definitions: def);
+        var results = await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, isCompleted: clone.Status == OperationStatus.Completed, definitions: clone);
 
         if (results.Count != 1)
         {

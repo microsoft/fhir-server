@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
-        [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
+        [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
         {

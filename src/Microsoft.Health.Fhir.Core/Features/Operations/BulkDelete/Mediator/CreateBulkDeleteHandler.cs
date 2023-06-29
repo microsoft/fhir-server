@@ -22,7 +22,6 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 {
@@ -68,8 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
 
             var definitions = new List<string>();
             var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, request.DeleteOperation, request.ResourceType, searchParameters, _contextAccessor.RequestContext.Uri.ToString(), _contextAccessor.RequestContext.BaseUri.ToString());
-            definitions.Add(JsonConvert.SerializeObject(processingDefinition));
-            var jobInfo = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: definitions.ToArray());
+            var jobInfo = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
 
             if (jobInfo == null || jobInfo.Count == 0)
             {

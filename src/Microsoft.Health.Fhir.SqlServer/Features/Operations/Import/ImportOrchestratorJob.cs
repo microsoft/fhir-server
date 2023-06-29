@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -384,7 +383,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
-            var definitions = new List<string>();
+            var definitions = new List<ImportProcessingJobDefinition>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
             {
                 var importJobPayload = new ImportProcessingJobDefinition()
@@ -400,7 +399,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ImportMode = coordDefinition.ImportMode,
                 };
 
-                definitions.Add(JsonConvert.SerializeObject(importJobPayload));
+                definitions.Add(importJobPayload);
             }
 
             try

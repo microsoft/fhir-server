@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 {
@@ -40,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
-            var definitions = new List<string>();
+            var definitions = new List<BulkDeleteDefinition>();
             if (string.IsNullOrEmpty(definition.Type))
             {
                 var resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
@@ -48,13 +47,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                 foreach (var resourceType in resourceTypes)
                 {
                     var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl);
-                    definitions.Add(JsonConvert.SerializeObject(processingDefinition));
+                    definitions.Add(processingDefinition);
                 }
             }
             else
             {
                 var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl);
-                definitions.Add(JsonConvert.SerializeObject(processingDefinition));
+                definitions.Add(processingDefinition);
             }
 
             await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: definitions.ToArray());

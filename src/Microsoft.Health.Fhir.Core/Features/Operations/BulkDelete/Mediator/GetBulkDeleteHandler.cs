@@ -77,7 +77,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                     {
                         foreach (var issue in result.Issues)
                         {
-                            issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue.Message));
+                            if (issue == "A task was canceled." && job.CancelRequested)
+                            {
+                                cancelled = true;
+                            }
+                            else
+                            {
+                                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: issue));
+                            }
                         }
                     }
                     else
@@ -111,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             }
 
             var fhirResults = resourcesDeleted.Where(x => x.Value > 0).Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)));
-            if (failed)
+            if (failed && issues.Count > 0)
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
             }
@@ -122,6 +129,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job Canceled"));
                 return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
+            }
+            else if (failed)
+            {
+                issues.Add(new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Exception, detailsText: "Encountered an unhandled exception. The job will be marked as failed."));
+                return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
             }
             else if (succeeded)
             {
