@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.UnixEpoch).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-                var till = record.Till.ToDateTimeOffset().AddMilliseconds(-1); // -1 is so _till value can be used as _since in the next time based export
+                var till = record.Till.ToDateTimeOffset().AddTicks(-1); // -1 is so _till value can be used as _since in the next time based export
 
                 // Find sgroup jobs in flight in case orchestrator was restarted
                 var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
@@ -69,9 +69,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
-                    if (enqueued.TryGetValue(type, out var max))
+                    if (enqueued.TryGetValue(type, out var max) && max is not null)
                     {
-                        startTime = max.Value.AddMilliseconds(1);
+                        startTime = max.Value.AddTicks(1);
                     }
 
                     var rows = 0;
@@ -93,7 +93,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                             definitions.Add(JsonConvert.SerializeObject(processingRecord));
                         }
 
-                        startTime = ranges.Max(x => x.EndTime).AddMilliseconds(1);
+                        if (ranges.Any())
+                        {
+                            startTime = ranges.Max(x => x.EndTime).AddTicks(1);
+                        }
+
                         rows = definitions.Count;
 
                         if (rows > 0)

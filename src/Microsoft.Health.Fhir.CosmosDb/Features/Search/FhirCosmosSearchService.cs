@@ -212,8 +212,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             List<(DateTimeOffset, DateTimeOffset)> results = new();
 
-            // Fetch the first time in the range.
-            var minResourceTime = await FetchResults(startTime, endTime, 0, 1);
+            // Fetch the first and last time in the range.
+            var minResourceTime = await FetchResults(startTime, endTime, 0, 1, true);
 
             if (!minResourceTime.Any())
             {
@@ -225,39 +225,40 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             // Find the remaining time ranges.
             for (int i = 0; i < numberOfRanges; i++)
             {
-                var resourceRange = await FetchResults(startTime, endTime, rangeSize - 1, 1);
+                var searchResult = await FetchResults(startTime, endTime, rangeSize, 1, true);
 
-                if (!resourceRange.Any())
+                if (!searchResult.Any())
                 {
                     break;
                 }
 
-                var currentEndTime = resourceRange[0];
-
-                if (resourceRange.Count < 2)
-                {
-                    results.Add((startTime, currentEndTime));
-                    break;
-                }
-
-                // Prevent duplicated ranges if there are records with the same lastModified time.
-                if (endTime == resourceRange[1])
-                {
-                    endTime.AddMilliseconds(-1);
-                }
+                var newStartTime = searchResult[0];
+                var currentEndTime = newStartTime.AddTicks(-1);
 
                 results.Add((startTime, currentEndTime));
 
                 // Set the start of the next range.
-                startTime = resourceRange[1];
+                startTime = newStartTime;
+            }
+
+            // For non-full results, add the last range with the last resource.
+            if (results.Count < numberOfRanges)
+            {
+                var maxResourceTime = await FetchResults(startTime, endTime, 0, 1, false);
+
+                // Check not needed but doesn't hurt.
+                if (maxResourceTime.Any())
+                {
+                    results.Add((startTime, maxResourceTime[0]));
+                }
             }
 
             return results;
 
-            async Task<IReadOnlyList<DateTimeOffset>> FetchResults(DateTimeOffset startTime, DateTimeOffset endTime, int offset, int limit)
+            async Task<IReadOnlyList<DateTimeOffset>> FetchResults(DateTimeOffset startTime, DateTimeOffset endTime, int offset, int limit, bool asc)
             {
                 // Using PartialDateTime in parameters ensures dates are formatted correctly when converted to string.
-                QueryDefinition sqlQuerySpec = new QueryDefinition(@"SELECT VALUE r.lastModified
+                string queryText = @"SELECT VALUE r.lastModified
                     FROM root r
                     WHERE r.isSystem = false
                     AND r.isHistory = false
@@ -265,8 +266,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     AND r.resourceTypeName = @resourceTypeName
                     AND r.lastModified >= @startTime
                     AND r.lastModified <= @endTime
-                    ORDER BY r.lastModified
-                    OFFSET @offset LIMIT @limit")
+                    ORDER BY r.lastModified asc
+                    OFFSET @offset LIMIT @limit";
+
+                if (asc == false)
+                {
+                    queryText = queryText.Replace("asc", "desc", StringComparison.Ordinal);
+                }
+
+                QueryDefinition sqlQuerySpec = new QueryDefinition(queryText)
                     .WithParameter("@resourceTypeName", resourceType)
                     .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
                     .WithParameter("@endTime", new PartialDateTime(endTime).ToString())
