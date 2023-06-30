@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             startTime = minResourceTime[0];
 
             // Find the remaining time ranges.
-            do
+            for (int i = 0; i < numberOfRanges; i++)
             {
                 var resourceRange = await FetchResults(startTime, endTime, rangeSize - 1, 2);
 
@@ -251,7 +251,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // Set the start of the next range.
                 startTime = resourceRange[1];
             }
-            while (results.Count < numberOfRanges);
 
             return results;
 
