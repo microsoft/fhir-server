@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
-                    if (enqueued.TryGetValue(type, out var max) && max is not null)
+                    if (enqueued.TryGetValue(type, out var max) && max.HasValue)
                     {
                         startTime = max.Value.AddTicks(1);
                     }
