@@ -128,6 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
+        public bool IsLargeAsyncOperation { get; internal set; }
+
         /// <summary>
         /// Performs a shallow clone of this instance
         /// </summary>

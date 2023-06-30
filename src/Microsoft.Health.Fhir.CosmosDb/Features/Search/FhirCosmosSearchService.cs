@@ -493,6 +493,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                   MaxItemCount = searchOptions.MaxItemCount,
                               };
 
+            // Large async operations (like export) want the specified number of results returned from the serach.
+            if (searchOptions.IsLargeAsyncOperation)
+            {
+                feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+            }
+
             // If the database has many physical physical partitions, and this query is selective, we will want to instruct
             // the Cosmos DB SDK to query the partitions in parallel. If the query is not selective, we want to stick to
             // sequential querying, so that we do not waste RUs and time on results that will be discarded.
@@ -566,7 +572,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
                 else
                 {
-                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                    // Large async operations (like export) want all results returned made available by the databease to save resources.
+                    var mustNotExceedMaxItemCount = searchOptions.IsLargeAsyncOperation ? false : searchOptions.MaxItemCountSpecifiedByClient;
+
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, mustNotExceedMaxItemCount, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
                 }
 
                 if (queryPartitionStatistics != null && messagesList != null)

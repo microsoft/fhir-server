@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
-                // Add a request context so that bundle issues can be added by the SearchOptionFactory
+                // Add a request context so that bundle issues can be added by the SearchOptionsFactory
                 var fhirRequestContext = new FhirRequestContext(
                     method: "Export",
                     uriString: "$export",
@@ -456,69 +456,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
             while (progress.ContinuationToken != null || progress.Page == 0)
             {
-                List<SearchResultEntry> searchResultEntries = new();
-                string continuationToken = null;
+                SearchResult searchResult = null;
 
                 // Search and process the results.
                 switch (_exportJobRecord.ExportType)
                 {
                     case ExportJobType.All:
-                        using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                        {
-                            // Fetch all the expected results
-                            do
-                            {
-                                var allSearchResult = await searchService.Value.SearchAsync(
-                                    resourceType: resourceType,
-                                    queryParametersList,
-                                    cancellationToken,
-                                    true);
-
-                                searchResultEntries.AddRange(allSearchResult.Results);
-
-                                queryParametersList.RemoveAll(x => x.Item1 == KnownQueryParameterNames.ContinuationToken);
-                                continuationToken = allSearchResult.ContinuationToken;
-
-                                if (continuationToken is not null)
-                                {
-                                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
-                                }
-                            }
-                            while (searchResultEntries.Count < _exportJobRecord.MaximumNumberOfResourcesPerQuery || continuationToken is not null);
-                        }
-
-                        break;
                     case ExportJobType.Patient:
                         using (IScoped<ISearchService> searchService = _searchServiceFactory())
                         {
-                            var patientSearchResult = await searchService.Value.SearchAsync(
+                            searchResult = await searchService.Value.SearchAsync(
                                 resourceType: resourceType,
                                 queryParametersList,
                                 cancellationToken,
                                 true);
-
-                            searchResultEntries.AddRange(patientSearchResult.Results);
-                            continuationToken = patientSearchResult.ContinuationToken;
                         }
 
                         break;
                     case ExportJobType.Group:
-                        var groupSearchResult = await GetGroupPatients(
+                        searchResult = await GetGroupPatients(
                             _exportJobRecord.GroupId,
                             queryParametersList,
                             _exportJobRecord.QueuedTime,
                             cancellationToken);
-
-                        searchResultEntries.AddRange(groupSearchResult.Results);
-                        continuationToken = groupSearchResult.ContinuationToken;
-
                         break;
                 }
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
                     uint resultIndex = 0;
-                    foreach (SearchResultEntry result in searchResultEntries)
+                    foreach (SearchResultEntry result in searchResult.Results)
                     {
                         // If a job is resumed in the middle of processing patient compartment resources it will skip patients it has already exported compartment information for.
                         // This assumes the order of the search results is the same every time the same search is performed.
@@ -545,10 +512,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    ProcessSearchResults(searchResultEntries, anonymizer);
+                    ProcessSearchResults(searchResult.Results, anonymizer);
                 }
 
-                if (continuationToken == null)
+                if (searchResult.ContinuationToken == null)
                 {
                     // No more continuation token, we are done.
                     break;
@@ -557,7 +524,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await ProcessProgressChange(
                     progress,
                     queryParametersList,
-                    continuationToken,
+                    searchResult.ContinuationToken,
                     false,
                     cancellationToken);
             }
