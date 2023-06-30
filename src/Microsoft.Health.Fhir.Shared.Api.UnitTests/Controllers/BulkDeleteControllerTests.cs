@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenRequestForPurgeHistory_WhenHardDeleteIsNotIncluded_ThenBadRequestIsReturned()
         {
             var controller = new BulkDeleteController(Substitute.For<IMediator>(), Substitute.For<IUrlResolver>());
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await controller.BulkDelete(false, true));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await controller.BulkDelete(false, true, false));
         }
     }
 }

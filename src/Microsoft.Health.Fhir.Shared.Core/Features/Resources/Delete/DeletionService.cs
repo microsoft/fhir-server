@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -76,18 +77,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<long> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<IEnumerable<string>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.MaxDeleteCount);
 
-            long itemsDeleted = 0;
+            var itemsDeleted = new List<string>();
 
             // Delete the matched results...
             try
             {
                 while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
-                    var resultsToDelete = request.DeleteAll ? matchedResults : matchedResults.Take((int)(request.MaxDeleteCount.Value - itemsDeleted));
+                    var resultsToDelete = request.DeleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount.Value - itemsDeleted.Count);
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
                         bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
@@ -108,11 +109,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                         catch (PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
                         {
-                            itemsDeleted += ex.PartialResults.Count;
+                            itemsDeleted = itemsDeleted.Concat(ex.PartialResults.Select(item => item.Key.Id)).ToList();
                             throw;
                         }
 
-                        itemsDeleted += resultsToDelete.Count();
+                        itemsDeleted = itemsDeleted.Concat(resultsToDelete.Select(item => item.Resource.ResourceId)).ToList();
                     }
                     else
                     {
@@ -122,20 +123,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             CancellationToken = cancellationToken,
                         };
 
-                        await Parallel.ForEachAsync(resultsToDelete, options, async (item, ct) =>
+                        var parallelBag = new ConcurrentBag<string>();
+                        try
                         {
-                            await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), ct);
-                            Interlocked.Increment(ref itemsDeleted);
-                        });
+                            await Parallel.ForEachAsync(resultsToDelete, options, async (item, ct) =>
+                            {
+                                parallelBag.Add((await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), ct)).Id);
+                            });
+                        }
+                        finally
+                        {
+                            itemsDeleted = itemsDeleted.Concat(parallelBag).ToList();
+                        }
                     }
 
-                    if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted > 0 || request.DeleteAll))
+                    if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted.Count > 0 || request.DeleteAll))
                     {
                         (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                             request.ResourceType,
                             request.ConditionalParameters,
                             cancellationToken,
-                            request.DeleteAll ? null : (int)(request.MaxDeleteCount - itemsDeleted),
+                            request.DeleteAll ? null : request.MaxDeleteCount - itemsDeleted.Count,
                             ct);
                     }
                     else
@@ -146,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             catch (Exception ex)
             {
-                throw new PartialSuccessException<long>(ex, itemsDeleted);
+                throw new PartialSuccessException<IEnumerable<string>>(ex, itemsDeleted);
             }
 
             return itemsDeleted;

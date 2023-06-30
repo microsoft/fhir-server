@@ -46,13 +46,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl);
+                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.ReportIds, definition.Url, definition.BaseUrl);
                     definitions.Add(processingDefinition);
                 }
             }
             else
             {
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl);
+                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.ReportIds, definition.Url, definition.BaseUrl);
                 definitions.Add(processingDefinition);
             }
 

@@ -30,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     [Trait(Traits.Category, Categories.BulkDelete)]
     public class GetBulkDeleteHandlerTests
     {
+        private readonly string _countLabel = "ResourceDeletedCount";
+
         private IAuthorizationService<DataActions> _authorizationService;
         private IQueueClient _queueClient;
         private GetBulkDeleteHandler _handler;
@@ -57,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 new Tuple<string, Base>(KnownResourceTypes.Observation, new FhirDecimal(5)),
             };
 
+            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            {
+                { _countLabel, resourcesDeleted },
+            };
+
             await RunGetBulkDeleteTest(
                 new List<JobInfo>()
                 {
@@ -76,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         Result = JsonConvert.SerializeObject(observationResult),
                     },
                 },
-                new GetBulkDeleteResponse(resourcesDeleted, null, System.Net.HttpStatusCode.OK));
+                new GetBulkDeleteResponse(resultsDictionary, null, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]
@@ -91,6 +98,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             {
                 new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
                 new Tuple<string, Base>(KnownResourceTypes.Observation, new FhirDecimal(5)),
+            };
+
+            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            {
+                { _countLabel, resourcesDeleted },
             };
 
             var issues = new List<OperationOutcomeIssue>()
@@ -119,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         Result = JsonConvert.SerializeObject(observationResult),
                     },
                 },
-                new GetBulkDeleteResponse(resourcesDeleted, issues, System.Net.HttpStatusCode.Accepted));
+                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.Accepted));
         }
 
         [Fact]
@@ -131,6 +143,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
                 new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
+            };
+
+            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            {
+                { _countLabel, resourcesDeleted },
             };
 
             var issues = new List<OperationOutcomeIssue>()
@@ -163,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         Status = JobStatus.Running,
                     },
                 },
-                new GetBulkDeleteResponse(resourcesDeleted, issues, System.Net.HttpStatusCode.InternalServerError));
+                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
         [Fact]
@@ -175,6 +192,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
                 new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
+            };
+
+            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            {
+                { _countLabel, resourcesDeleted },
             };
 
             var issues = new List<OperationOutcomeIssue>()
@@ -202,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         Status = JobStatus.Running,
                     },
                 },
-                new GetBulkDeleteResponse(resourcesDeleted, issues, System.Net.HttpStatusCode.OK));
+                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]
@@ -228,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
 
-            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, "test", "test"));
+            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, false, "test", "test"));
             foreach (var job in jobs)
             {
                 job.Definition = definition;

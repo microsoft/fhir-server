@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
     public class GetBulkDeleteResponse
     {
         public GetBulkDeleteResponse(
-            IEnumerable<Tuple<string, Base>> results,
+            IDictionary<string, IEnumerable<Tuple<string, Base>>> results,
             IList<OperationOutcomeIssue> issues,
             HttpStatusCode httpStatusCode)
         {
@@ -23,7 +23,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             HttpStatusCode = httpStatusCode;
         }
 
-        public IEnumerable<Tuple<string, Base>> Results { get; }
+        /// <summary>
+        /// Results to put into the Parameters object returned for the request.
+        /// </summary>
+        public IDictionary<string, IEnumerable<Tuple<string, Base>>> Results { get; }
 
         public IList<OperationOutcomeIssue> Issues { get; }
 

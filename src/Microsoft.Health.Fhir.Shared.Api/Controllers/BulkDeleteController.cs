@@ -46,18 +46,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDelete)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDelete([FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
+        public async Task<IActionResult> BulkDelete([FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ReportIds)] bool reportIds)
         {
-            return await SendDeleteRequest(null, hardDelete, purgeHistory);
+            return await SendDeleteRequest(null, hardDelete, purgeHistory, reportIds);
         }
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery] bool hardDelete, [FromQuery] bool purgeHistory)
+        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ReportIds)] bool reportIds)
         {
-            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory);
+            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory, reportIds);
         }
 
         [HttpGet]
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetBulkDeleteStatusById(long idParameter)
         {
             var result = await _mediator.GetBulkDeleteStatusAsync(idParameter, HttpContext.RequestAborted);
-            return JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode, "Resources Deleted");
+            return JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
         }
 
         [HttpDelete]
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory)
+        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory, bool reportIds)
         {
             if (!hardDelete && purgeHistory)
             {
@@ -88,10 +88,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
             searchParameters = searchParameters.Where(
                 param => !param.Item1.Equals(KnownQueryParameterNames.HardDelete, StringComparison.OrdinalIgnoreCase)
-                && !param.Item1.Equals(KnownQueryParameterNames.PurgeHistory, StringComparison.OrdinalIgnoreCase)).ToList();
+                && !param.Item1.Equals(KnownQueryParameterNames.PurgeHistory, StringComparison.OrdinalIgnoreCase)
+                && !param.Item1.Equals(KnownQueryParameterNames.ReportIds, StringComparison.OrdinalIgnoreCase)).ToList();
 
             var deleteOperation = hardDelete ? (purgeHistory ? DeleteOperation.PurgeHistory : DeleteOperation.HardDelete) : DeleteOperation.SoftDelete;
-            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, HttpContext.RequestAborted);
+            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, reportIds, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());

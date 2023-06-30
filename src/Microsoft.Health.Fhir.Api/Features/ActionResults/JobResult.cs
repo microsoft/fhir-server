@@ -9,6 +9,7 @@ using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
-        public static JobResult FromResults(IEnumerable<Tuple<string, Base>> results, IList<OperationOutcomeIssue> issues, HttpStatusCode statusCode, string resultsTitle = "Results")
+        public static JobResult FromResults(IDictionary<string, IEnumerable<Tuple<string, Base>>> results, IList<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
         {
             var resource = new Parameters();
 
@@ -41,9 +42,19 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 resource.Add("Issues", operationOutcome);
             }
 
-            if (results?.GetEnumerator().MoveNext() == true)
+            if (results?.Count > 0)
             {
-                resource.Add(resultsTitle, results);
+                try
+                {
+                    foreach (var item in results)
+                    {
+                        resource.Add(item.Key, item.Value);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new BadRequestException(ex.Message);
+                }
             }
 
             return new JobResult(resource, statusCode);

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                long itemsDeleted;
+                IEnumerable<string> itemsDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
 
@@ -80,15 +81,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                             deleteAll: true),
                         cancellationToken);
                 }
-                catch (PartialSuccessException<long> ex)
+                catch (PartialSuccessException<IEnumerable<string>> ex)
                 {
                     itemsDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted);
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted), cancellationToken);
+                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count());
+                if (definition.ReportIds)
+                {
+                    result.ResourcesDeletedIds.Add(definition.Type, itemsDeleted.ToList());
+                }
+
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count()), cancellationToken);
 
                 if (exception != null)
                 {

@@ -15,11 +15,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
         public CreateBulkDeleteRequest(
             DeleteOperation deleteOperation,
             string resourceType,
-            IList<Tuple<string, string>> conditionalParameters)
+            IList<Tuple<string, string>> conditionalParameters,
+            bool reportIds)
         {
             DeleteOperation = deleteOperation;
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
+            ReportIds = reportIds;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -27,5 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
         public string ResourceType { get; }
 
         public IList<Tuple<string, string>> ConditionalParameters { get; }
+
+        public bool ReportIds { get; }
     }
 }
