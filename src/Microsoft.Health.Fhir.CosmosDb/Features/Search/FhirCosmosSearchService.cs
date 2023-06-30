@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             // Find the remaining time ranges.
             for (int i = 0; i < numberOfRanges; i++)
             {
-                var resourceRange = await FetchResults(startTime, endTime, rangeSize - 1, 2);
+                var resourceRange = await FetchResults(startTime, endTime, rangeSize - 1, 1);
 
                 if (!resourceRange.Any())
                 {
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // Prevent duplicated ranges if there are records with the same lastModified time.
                 if (endTime == resourceRange[1])
                 {
-                    endTime.AddTicks(-1);
+                    endTime.AddMilliseconds(-1);
                 }
 
                 results.Add((startTime, currentEndTime));
