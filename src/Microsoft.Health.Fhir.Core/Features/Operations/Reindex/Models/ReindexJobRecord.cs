@@ -98,7 +98,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.ResourceCounts)]
         [JsonConverter(typeof(ReindexJobQueryResourceCountsConverter))]
-        public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, SearchResultReindex>();
+#pragma warning disable CA2227 // Collection properties should be read only
+        public ConcurrentDictionary<string, SearchResultReindex> ResourceCounts { get; set; } = new ConcurrentDictionary<string, SearchResultReindex>();
+#pragma warning restore CA2227 // Collection properties should be read only
 
         [JsonProperty(JobRecordProperties.Count)]
         public long Count { get; set; }

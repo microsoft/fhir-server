@@ -134,6 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 long currentResourceSurrogateId = 0;
                 SearchResult result = await GetResourcesToReindexAsync(_reindexProcessingJobDefinition.ResourceCount, cancellationToken);
                 resourceCount += result?.TotalCount ?? 0;
+                _reindexProcessingJobResult.SearchParameterUrls = _reindexProcessingJobDefinition?.SearchParameterUrls;
                 if (result?.MaxResourceSurrogateId > 0)
                 {
                     currentResourceSurrogateId = result.MaxResourceSurrogateId;
@@ -155,8 +156,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                var dictionary = new Dictionary<string, string>();
-                dictionary.Add(_reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap);
+                var dictionary = new Dictionary<string, string>
+                {
+                    { _reindexProcessingJobDefinition.ResourceType, _reindexProcessingJobDefinition.ResourceTypeSearchParameterHashMap },
+                };
 
                 await _reindexUtilities.ProcessSearchResultsAsync(result, dictionary, cancellationToken);
 
