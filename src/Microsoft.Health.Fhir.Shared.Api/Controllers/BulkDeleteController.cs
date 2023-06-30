@@ -66,7 +66,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetBulkDeleteStatusById(long idParameter)
         {
             var result = await _mediator.GetBulkDeleteStatusAsync(idParameter, HttpContext.RequestAborted);
-            return JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
+            var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
+            if (result.HttpStatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                actionResult.Headers.Add(KnownHeaders.Progress, Resources.InProgress);
+            }
+
+            return actionResult;
         }
 
         [HttpDelete]

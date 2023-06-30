@@ -400,4 +400,8 @@
   <data name="NoSoftPurge" xml:space="preserve">
     <value>Hard delete must be requested in order to purge history.</value>
   </data>
+  <data name="InProgress" xml:space="preserve">
+    <value>in progress</value>
+    <comment>Header value for the X-Progress header to indicate a job is in progress</comment>
+  </data>
 </root>

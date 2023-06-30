@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         // FHIR Headers
         public const string IfNoneExist = "If-None-Exist";
         public const string ProvenanceHeader = "X-Provenance";
+        public const string Progress = "X-Progress";
 
         // HTTP Headers
         public const string RetryAfter = "Retry-After";
