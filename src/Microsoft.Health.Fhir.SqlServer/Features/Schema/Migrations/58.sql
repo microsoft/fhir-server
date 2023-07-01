@@ -3646,20 +3646,17 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE dbo.GetResourcesByTransaction
+CREATE PROCEDURE dbo.GetResourcesByTransactionId
 @TransactionId BIGINT, @IncludeHistory BIT=0
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'T=' + CONVERT (VARCHAR, @TransactionId) + ' H=' + CONVERT (VARCHAR, @IncludeHistory), @st AS DATETIME = getUTCdate(), @LastSurrogateId AS BIGINT, @DummyTop AS BIGINT = 9223372036854775807, @TypeId AS SMALLINT;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'T=' + CONVERT (VARCHAR, @TransactionId) + ' H=' + CONVERT (VARCHAR, @IncludeHistory), @st AS DATETIME = getUTCdate(), @DummyTop AS BIGINT = 9223372036854775807, @TypeId AS SMALLINT;
 BEGIN TRY
     DECLARE @Types TABLE (
         TypeId SMALLINT      PRIMARY KEY,
         Name   VARCHAR (100));
     INSERT INTO @Types
     EXECUTE dbo.GetUsedResourceTypes ;
-    SET @LastSurrogateId = (SELECT SurrogateIdRangeLastValue
-                            FROM   dbo.Transactions
-                            WHERE  SurrogateIdRangeFirstValue = @TransactionId);
     DECLARE @Keys TABLE (
         TypeId      SMALLINT,
         SurrogateId BIGINT   PRIMARY KEY (TypeId, SurrogateId));
@@ -3674,7 +3671,7 @@ BEGIN TRY
                    ResourceSurrogateId
             FROM   dbo.Resource
             WHERE  ResourceTypeId = @TypeId
-                   AND ResourceSurrogateId BETWEEN @TransactionId AND @LastSurrogateId;
+                   AND Transactiond = @TransactionId;
             DELETE @Types
             WHERE  TypeId = @TypeId;
         END

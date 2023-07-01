@@ -741,9 +741,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return reader.GetInt64(0); }, _logger, null, cancellationToken);
         }
 
-        internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionAsync(long transactionId, CancellationToken cancellationToken)
+        internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransaction", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, true); }, _logger, null, cancellationToken);
         }

@@ -4,15 +4,14 @@ GO
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('Resource') AND name = 'IX_ResourceTypeId_TransactionId')
   CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.Resource (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (ONLINE = ON) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
---DROP PROCEDURE dbo.GetResourcesByTransaction
+--DROP PROCEDURE dbo.GetResourcesByTransactionId
 GO
-CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransaction @TransactionId bigint, @IncludeHistory bit = 0
+CREATE PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(100) = 'T='+convert(varchar,@TransactionId)+' H='+convert(varchar,@IncludeHistory)
        ,@st datetime = getUTCdate()
-       ,@LastSurrogateId bigint
        ,@DummyTop bigint = 9223372036854775807
        ,@TypeId smallint
 
@@ -20,14 +19,12 @@ BEGIN TRY
   DECLARE @Types TABLE (TypeId smallint PRIMARY KEY, Name varchar(100))
   INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
 
-  SET @LastSurrogateId = (SELECT SurrogateIdRangeLastValue FROM dbo.Transactions WHERE SurrogateIdRangeFirstValue = @TransactionId)
-
   DECLARE @Keys TABLE (TypeId smallint, SurrogateId bigint PRIMARY KEY (TypeId, SurrogateId))
   WHILE EXISTS (SELECT * FROM @Types)
   BEGIN
     SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
 
-    INSERT INTO @Keys SELECT @TypeId, ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND ResourceSurrogateId BETWEEN @TransactionId AND @LastSurrogateId
+    INSERT INTO @Keys SELECT @TypeId, ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND Transactiond = @TransactionId
 
     DELETE FROM @Types WHERE TypeId = @TypeId
   END
@@ -56,7 +53,8 @@ BEGIN CATCH
 END CATCH
 GO
 --DECLARE @Tran bigint = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM Transactions WHERE IsVisible = 1 ORDER BY 1 DESC)
---EXECUTE GetResourcesByTransaction @Tran
+--EXECUTE GetResourcesByTransactionId @Tran
+
 --DROP PROCEDURE MergeResourcesGetTimeoutTransactions
 GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesGetTimeoutTransactions @TimeoutSec int

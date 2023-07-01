@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 var st = DateTime.UtcNow;
                 _logger.LogInformation("TransactionWatchdog found timed out transaction={Transaction}, attempting to roll forward...", tranId);
-                var resources = await _store.GetResourcesByTransactionAsync(tranId, _cancellationToken);
+                var resources = await _store.GetResourcesByTransactionIdAsync(tranId, _cancellationToken);
                 if (resources.Count == 0)
                 {
                     await _store.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", _cancellationToken);
