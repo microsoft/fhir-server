@@ -148,6 +148,7 @@ END
             var surrId = DateTime.UtcNow.DateToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
+        (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
   SELECT ResourceTypeId
         ,newid()
         ,1
