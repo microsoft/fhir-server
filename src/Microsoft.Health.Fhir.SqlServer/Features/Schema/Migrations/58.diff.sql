@@ -1,3 +1,9 @@
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'TransactionId')
+  ALTER TABLE dbo.Resource ADD TransactionId bigint NULL
+GO
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('Resource') AND name = 'IX_ResourceTypeId_TransactionId')
+  CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.Resource (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (ONLINE = ON) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+GO
 --DROP PROCEDURE dbo.GetResourcesByTransaction
 GO
 CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransaction @TransactionId bigint, @IncludeHistory bit = 0
