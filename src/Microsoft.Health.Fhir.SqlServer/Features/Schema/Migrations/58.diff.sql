@@ -24,7 +24,7 @@ BEGIN TRY
   BEGIN
     SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
 
-    INSERT INTO @Keys SELECT @TypeId, ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND Transactiond = @TransactionId
+    INSERT INTO @Keys SELECT @TypeId, ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND TransactionId = @TransactionId
 
     DELETE FROM @Types WHERE TypeId = @TypeId
   END

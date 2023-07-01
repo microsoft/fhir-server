@@ -3671,7 +3671,7 @@ BEGIN TRY
                    ResourceSurrogateId
             FROM   dbo.Resource
             WHERE  ResourceTypeId = @TypeId
-                   AND Transactiond = @TransactionId;
+                   AND TransactionId = @TransactionId;
             DELETE @Types
             WHERE  TypeId = @TypeId;
         END
