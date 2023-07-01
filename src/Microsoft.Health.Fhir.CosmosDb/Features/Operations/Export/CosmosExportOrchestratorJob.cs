@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private const int DefaultNumberOfTimeRangesPerJob = 100;
+        private const int DefaultParallelizationFactor = 8;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -36,6 +37,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
         }
 
         internal int NumberOfTimeRangesPerJob { get; set; } = DefaultNumberOfTimeRangesPerJob;
+
+        internal int ParallelizationFactor { get; set; } = DefaultParallelizationFactor;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -52,23 +55,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             {
                 var atLeastOneWorkerJobRegistered = false;
 
-                var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken))
-                                  : record.ResourceType.Split(',');
-                resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
+                IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
+                                 ? (await _searchService.GetUsedResourceTypesWithCount(cancellationToken))
+                                    .OrderByDescending(x => x.Count)
+                                    .Select(x => x.ResourceType)
+                                    .ToList()
+                                 : record.ResourceType.Split(',');
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.UnixEpoch).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
                 var till = record.Till.ToDateTimeOffset().AddTicks(-1); // -1 is so _till value can be used as _since in the next time based export
 
-                // Find sgroup jobs in flight in case orchestrator was restarted
-                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                // Find group jobs in flight in case orchestrator was restarted
+                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude main orchestrator
+                                        .Where(x => x.GetJobTypeId() != (int)JobType.ExportOrchestrator)
                                         .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
-                                        .GroupBy(x => x.ResourceType)
-                                        .ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
+                                        .GroupBy(x => x.ResourceType).ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = ParallelizationFactor, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startTime = since;
+
+                    // Reset the start time in case this jobs is resuming.
                     if (enqueued.TryGetValue(type, out var max) && max.HasValue)
                     {
                         startTime = max.Value.AddTicks(1);
@@ -79,6 +86,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                     do
                     {
                         var definitions = new List<string>();
+
+                        // Find all the resource ranges to split export processing jobs into the specified rangeSize for performance.
                         var ranges = await _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel);
 
                         foreach (var range in ranges)

@@ -159,7 +159,13 @@ public class CosmosQueueClient : IQueueClient
         }
 
         using IScoped<Container> container = _containerFactory.Invoke();
-        ItemResponse<JobGroupWrapper> result = await container.Value.CreateItemAsync(jobInfo, new PartitionKey(JobGroupWrapper.JobInfoPartitionKey), cancellationToken: cancellationToken);
+
+        var result = await _retryPolicy.ExecuteAsync(
+            async ct => await container.Value.CreateItemAsync(
+                jobInfo,
+                new PartitionKey(JobGroupWrapper.JobInfoPartitionKey),
+                cancellationToken: ct),
+            cancellationToken);
 
         return result.Resource.ToJobInfo().ToList();
     }

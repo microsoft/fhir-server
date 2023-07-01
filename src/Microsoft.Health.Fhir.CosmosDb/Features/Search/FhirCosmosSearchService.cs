@@ -88,13 +88,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
-        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<(string ResourceType, uint Count)>> GetUsedResourceTypesWithCount(CancellationToken cancellationToken)
         {
-            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
+            var sqlQuerySpec = new QueryDefinition(@"SELECT r.resourceTypeName, COUNT(1) as resourceCount
                 FROM root r
-                WHERE r.isSystem = false");
+                WHERE r.isSystem = false
+                GROUP BY r.resourceTypeName");
 
-            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
+            var results = await _fhirDataStore.ExecutePagedQueryAsync<Dictionary<string, string>>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
+
+            return results.Select(x => (x["resourceTypeName"], uint.Parse(x["resourceCount"]))).ToList();
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -493,12 +496,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                   MaxItemCount = searchOptions.MaxItemCount,
                               };
 
-            // Large async operations (like export) want the specified number of results returned from the serach.
-            if (searchOptions.IsLargeAsyncOperation)
-            {
-                feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
-            }
-
             // If the database has many physical physical partitions, and this query is selective, we will want to instruct
             // the Cosmos DB SDK to query the partitions in parallel. If the query is not selective, we want to stick to
             // sequential querying, so that we do not waste RUs and time on results that will be discarded.
@@ -556,7 +553,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
                     string.IsNullOrEmpty(searchOptions.ContinuationToken) &&
                     string.IsNullOrEmpty(continuationToken) &&
-                    searchEnumerationTimeoutOverrideIfSequential == null)
+                    searchEnumerationTimeoutOverrideIfSequential == null &&
+                    searchOptions.IsLargeAsyncOperation != true)
                 {
                     searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
 
@@ -572,8 +570,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
                 else
                 {
-                    // Large async operations (like export) want all results returned made available by the databease to save resources.
+                    // Large async operations (like export) want all results returned that are made available.
                     var mustNotExceedMaxItemCount = searchOptions.IsLargeAsyncOperation ? false : searchOptions.MaxItemCountSpecifiedByClient;
+
+                    // Large async operations also need the full result set. Accounting for the till factor to achieve that.
+                    if (searchOptions.IsLargeAsyncOperation)
+                    {
+                        feedOptions.MaxItemCount = (int)(feedOptions.MaxItemCount / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
+                    }
 
                     (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, mustNotExceedMaxItemCount, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
                 }
