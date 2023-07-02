@@ -6,7 +6,7 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('Resource')
 GO
 --DROP PROCEDURE dbo.GetResourcesByTransactionId
 GO
-CREATE PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0
+CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -397,8 +397,8 @@ BEGIN TRY
     END
 
     INSERT INTO dbo.Resource 
-           ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash )
-      SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash
+           ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+      SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
         FROM @Resources
     SET @AffectedRows += @@rowcount
 

@@ -4364,7 +4364,7 @@ BEGIN TRY
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
                 END
-            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
+            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
             SELECT ResourceTypeId,
                    ResourceId,
                    Version,
@@ -4374,7 +4374,8 @@ BEGIN TRY
                    RequestMethod,
                    RawResource,
                    IsRawResourceMetaSet,
-                   SearchParamHash
+                   SearchParamHash,
+                   @TransactionId
             FROM   @Resources;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
