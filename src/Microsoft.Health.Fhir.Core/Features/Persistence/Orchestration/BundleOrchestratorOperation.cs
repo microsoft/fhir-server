@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -24,6 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         /// List of resource to be sent to the data layer.
         /// </summary>
         private readonly ConcurrentDictionary<DataStoreOperationIdentifier, ResourceWrapperOperation> _resources;
+
+        /// <summary>
+        /// List of known HTTP Verbs in the operation.
+        /// </summary>
+        private readonly ConcurrentDictionary<HTTPVerb, byte> _knownHttpVerbsInOperation;
 
         /// <summary>
         /// Thread safe locking object reference.
@@ -67,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             _logger = logger;
 
             _resources = new ConcurrentDictionary<DataStoreOperationIdentifier, ResourceWrapperOperation>();
+            _knownHttpVerbsInOperation = new ConcurrentDictionary<HTTPVerb, byte>();
 
             _lock = new object();
 
@@ -118,6 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             identifier = resource.GetIdentifier();
             if (_resources.TryAdd(identifier, resource))
             {
+                _knownHttpVerbsInOperation.TryAdd(resource.BundleResourceContext.HttpVerb, 0);
+
                 // Await for the merge async task to complete merging all resources.
                 var ingestedResources = await _mergeAsyncTask;
 
@@ -217,6 +226,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     SetStatusSafe(BundleOrchestratorOperationStatus.Processing);
 
                     cancellationToken.ThrowIfCancellationRequested();
+
+                    IReadOnlyList<ResourceWrapperOperation> resources = null;
+                    if (_knownHttpVerbsInOperation.Count == 1)
+                    {
+                        resources = _resources.Values.ToList();
+                    }
+                    else if (_knownHttpVerbsInOperation.Count > 1)
+                    {
+                        // TODO: Sort resources by HTTP Verb priority.
+                        resources = _resources.Values.ToList();
+                    }
+                    else
+                    {
+                        throw new BundleOrchestratorException($"At least one HTTP Verb should be known. No HTTP Verbs were mapped so far.");
+                    }
 
                     IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), cancellationToken);
 

@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
                     bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: request.BundleResourceContext?.BundleOperationId), cancellationToken);
+                    UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, request.BundleResourceContext), cancellationToken);
 
                     version = result?.Wrapper.Version;
                     break;

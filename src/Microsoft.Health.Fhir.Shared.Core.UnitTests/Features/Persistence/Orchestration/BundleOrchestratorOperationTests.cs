@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -23,6 +25,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
     [Trait(Traits.Category, Categories.BundleOrchestrator)]
     public class BundleOrchestratorOperationTests
     {
+        private static readonly Random _rnd = new Random((int)DateTime.UtcNow.Ticks);
+
         [Theory]
         [InlineData(10)]
         [InlineData(100)]
@@ -45,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             for (int i = 0; i < numberOfResources; i++)
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
+                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, new BundleResourceContext(GetRandomHttpVerb(), operation.Id));
 
                 Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync[i] = appendedResourceTask;
@@ -90,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Parallel.For(0, numberOfResources, async (i, task) =>
             {
                 DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
+                ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, new BundleResourceContext(GetRandomHttpVerb(), operation.Id));
 
                 Task<UpsertOutcome> appendedResourceTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 tasksWaitingForMergeAsync.Add(appendedResourceTask);
@@ -166,7 +170,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
                 else
                 {
                     DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-                    ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
+                    ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, new BundleResourceContext(GetRandomHttpVerb(), operation.Id));
 
                     appendTask = operation.AppendResourceAsync(resourceWrapper, dataStore, cts.Token);
                 }
@@ -203,7 +207,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             List<Task> tasksWaitingForMergeAsync = new List<Task>(capacity: numberOfResources);
 
             DomainResource resource = BundleTestsCommonFunctions.GetSamplePatient(Guid.NewGuid());
-            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, operation.Id);
+            ResourceWrapperOperation resourceWrapper = await BundleTestsCommonFunctions.GetResourceWrapperOperationAsync(resource, new BundleResourceContext(GetRandomHttpVerb(), operation.Id));
 
             // A single resource will be appended to this operation.
             // In this test, we are forcing the operation to timeout while waiting for the remain resources.
@@ -215,6 +219,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             Assert.Equal(BundleOrchestratorOperationStatus.Canceled, operation.Status);
             Assert.Equal(numberOfResources, operation.OriginalExpectedNumberOfResources);
             Assert.Equal(numberOfResources, operation.CurrentExpectedNumberOfResources);
+        }
+
+        private static HTTPVerb GetRandomHttpVerb()
+        {
+            int nextHttpVerb = _rnd.Next(0, 6);
+            return (HTTPVerb)nextHttpVerb;
         }
     }
 }
