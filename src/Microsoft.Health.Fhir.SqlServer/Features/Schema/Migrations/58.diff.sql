@@ -6,7 +6,7 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('Resource')
 GO
 --DROP PROCEDURE dbo.GetResourcesByTransactionId
 GO
-CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0
+CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0, @ReturnResourceKeysOnly bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -29,20 +29,31 @@ BEGIN TRY
     DELETE FROM @Types WHERE TypeId = @TypeId
   END
 
-  SELECT ResourceTypeId
-        ,ResourceId
-        ,ResourceSurrogateId
-        ,Version
-        ,IsDeleted
-        ,IsHistory
-        ,RawResource
-        ,IsRawResourceMetaSet
-        ,SearchParamHash
-        ,RequestMethod
-    FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
-         JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
-    WHERE IsHistory = 0 OR @IncludeHistory = 1
-    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  IF @ReturnResourceKeysOnly = 0
+    SELECT ResourceTypeId
+          ,ResourceId
+          ,ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+          ,IsHistory
+          ,RawResource
+          ,IsRawResourceMetaSet
+          ,SearchParamHash
+          ,RequestMethod
+      FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
+           JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
+      WHERE IsHistory = 0 OR @IncludeHistory = 1
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    SELECT ResourceTypeId
+          ,ResourceId
+          ,ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+      FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
+           JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
+      WHERE IsHistory = 0 OR @IncludeHistory = 1
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
 END TRY
