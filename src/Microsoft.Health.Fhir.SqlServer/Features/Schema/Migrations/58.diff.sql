@@ -1,3 +1,4 @@
+-- Index creation is 1hoiur per 1 TB.
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'TransactionId')
   ALTER TABLE dbo.Resource ADD TransactionId bigint NULL
 GO
