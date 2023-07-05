@@ -197,10 +197,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Type = x.Type,
                         Definition = x.Url,
                         Documentation = x.Description,
-                        Extension = new List<Extension>()
-                        {
-                            new Extension("status", new FhirString(searchParamStatuses.FirstOrDefault(s => s.Uri == x.Url, new ResourceSearchParameterStatus() { Status = SearchParameterStatus.Enabled }).Status.ToString())),
-                        },
                     }))
                     {
                         // Exclude _type search param under resource
@@ -209,6 +205,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             continue;
                         }
 
+                        string status = string.Format("Current status of search parameter is {0}. ", searchParamStatuses.SingleOrDefault(x => x.Uri == searchParam.Definition)?.Status.ToString());
+                        searchParam.Documentation = status = status + searchParam.Documentation;
                         c.SearchParam.Add(searchParam);
                     }
                 });
