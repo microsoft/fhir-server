@@ -26,19 +26,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
     {
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
         private readonly IUrlResolver _urlResolver;
 
         public OperationsCapabilityProvider(
             IOptions<OperationsConfiguration> operationConfiguration,
             IOptions<FeatureConfiguration> featureConfiguration,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfiguration,
             IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(operationConfiguration?.Value, nameof(operationConfiguration));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
+            EnsureArg.IsNotNull(coreFeatureConfiguration?.Value, nameof(coreFeatureConfiguration));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _operationConfiguration = operationConfiguration.Value;
             _featureConfiguration = featureConfiguration.Value;
+            _coreFeatureConfiguration = coreFeatureConfiguration.Value;
             _urlResolver = urlResolver;
         }
 
@@ -66,7 +70,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
-            builder.Apply(AddSelectableSearchParameterDetails);
+
+            if (_coreFeatureConfiguration.SupportsSelectableSearchParameters)
+            {
+                builder.Apply(AddSelectableSearchParameterDetails);
+            }
         }
 
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
