@@ -3,8 +3,8 @@ name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 parameters:
 - name: BuildConfiguration
   default: release
-- name: nugetMultiFeedWarnLevel
-  default: warn
+- name: NugetSecurityAnalysisWarningLevel
+  default: warn   
 
 variables:
 - name: vmImage
@@ -26,8 +26,6 @@ jobs:
     displayName: Use .NET sdk
     inputs:
       useGlobalJson: true
-
-  - task: NuGetAuthenticate@1
 
   - task: DotNetCoreCLI@1
     name: ''
