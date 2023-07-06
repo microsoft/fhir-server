@@ -26,6 +26,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// </summary>
     public class AuditHelper : IAuditHelper
     {
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
@@ -101,7 +103,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
-                    customHeaders: _auditHeaderReader.Read(httpContext));
+                    customHeaders: _auditHeaderReader.Read(httpContext),
+                    operationType: httpContext.Request?.Method,
+                    callerAgent: DefaultCallerAgent);
             }
         }
 

@@ -112,7 +112,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 correlationId: CorrelationId,
                 callerIpAddress: CallerIpAddressInString,
                 callerClaims: Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
         }
 
         [Fact]
@@ -173,7 +175,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 CorrelationId,
                 CallerIpAddressInString,
                 Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
+        }
+
+        [Theory]
+        [InlineData("DELETE")]
+        [InlineData("GET")]
+        [InlineData("PATCH")]
+        [InlineData("POST")]
+        [InlineData("PUT")]
+        public void GivenHttpMethod_WhenLogExecutingIsCalled_ThenAuditLogShouldNotHaveRightOperationType(string httpMethod)
+        {
+            _httpContext.Request.Method = httpMethod;
+
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.Received().LogAudit(
+                auditAction: Arg.Any<AuditAction>(),
+                operation: Arg.Any<string>(),
+                resourceType: Arg.Any<string>(),
+                requestUri: Arg.Any<Uri>(),
+                statusCode: Arg.Any<HttpStatusCode?>(),
+                correlationId: Arg.Any<string>(),
+                callerIpAddress: Arg.Any<string>(),
+                callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
+                operationType: httpMethod,
+                callerAgent: AuditHelper.DefaultCallerAgent);
         }
     }
 }
