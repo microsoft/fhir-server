@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (reference.Reference.Contains('?', StringComparison.Ordinal))
                 {
-                    throw new NotSupportedException("Conditional reference is not supported for initial $import.");
+                    throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
             }
         }
