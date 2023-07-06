@@ -4,7 +4,7 @@ parameters:
 - name: BuildConfiguration
   default: release
 - name: nugetMultiFeedWarnLevel
-  default: warn   
+  default: none   
 
 variables:
 - name: vmImage
