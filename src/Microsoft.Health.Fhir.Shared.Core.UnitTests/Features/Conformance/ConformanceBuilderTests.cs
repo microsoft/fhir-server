@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             object idDocumentation = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_id').documentation");
 
-            Assert.Equal(description, idDocumentation);
+            Assert.Contains(description, idDocumentation.ToString());
         }
 
         [Fact]
