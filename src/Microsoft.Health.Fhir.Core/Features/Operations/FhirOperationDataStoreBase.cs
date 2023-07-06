@@ -396,7 +396,13 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     private static void PopulateReindexJobRecordDataFromJobs(JobInfo jobInfo, List<JobInfo> groupJobs, ref ReindexJobRecord record)
     {
-        var processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault().Result)?.SearchParameterUrls;
+        var subJob = groupJobs.Where(x => x.Id != jobInfo.Id).FirstOrDefault().Result;
+        IReadOnlyCollection<string> processingJob = null;
+        if (subJob != null)
+        {
+            processingJob = JsonConvert.DeserializeObject<ReindexProcessingJobResult>(subJob)?.SearchParameterUrls;
+        }
+
         if (processingJob != null)
         {
             foreach (var sp in processingJob)
