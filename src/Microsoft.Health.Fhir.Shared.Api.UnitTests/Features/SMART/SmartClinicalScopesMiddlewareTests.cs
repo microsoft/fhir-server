@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write, "user"),
                 },
             };
             yield return new object[]
@@ -328,7 +328,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write, "user"),
+                },
+            };
+
+            yield return new object[]
+            {
+                "user.VisionPrescription.write user.all.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("VisionPrescription", DataActions.Write, "user"),
+                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user"),
                 },
             };
 
