@@ -4,7 +4,7 @@ parameters:
 - name: BuildConfiguration
   default: release
 - name: NugetSecurityAnalysisWarningLevel
-  default: war
+  default: warn
 
 variables:
 - name: vmImage
