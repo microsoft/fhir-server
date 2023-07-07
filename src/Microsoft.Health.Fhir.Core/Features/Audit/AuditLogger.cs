@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 correlationId,
                 claimsInString,
                 customerHeadersInString,
-                operationType?.Trim(),
-                callerAgent?.Trim());
+                operationType,
+                callerAgent);
         }
     }
 }
