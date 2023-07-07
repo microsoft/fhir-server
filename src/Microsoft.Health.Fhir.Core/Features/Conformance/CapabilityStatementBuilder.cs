@@ -64,7 +64,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _searchParameterStatusManager = searchParameterStatusManager;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, ISupportedProfilesStore supportedProfiles, IUrlResolver urlResolver, SearchParameterStatusManager searchParameterStatusManager)
+        public static ICapabilityStatementBuilder Create(
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IOptions<CoreFeatureConfiguration> configuration,
+            ISupportedProfilesStore supportedProfiles,
+            IUrlResolver urlResolver,
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));

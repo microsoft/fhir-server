@@ -6,7 +6,7 @@
     "name": "Selectable search parameters",
     "status": "active",
     "kind": "operation",
-    "description": "Allows for disabling of search parameters that are not being utilized in order to save space in the datastore. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "description": "Allows for disabling or enabling of search parameters so that only the ones that are used are enabled in order to save space in the datastore. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
     "code": "status",
     "system": false,
     "type": true,
