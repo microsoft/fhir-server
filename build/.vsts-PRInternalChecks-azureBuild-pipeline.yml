@@ -3,8 +3,8 @@ name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 parameters:
 - name: BuildConfiguration
   default: release
-- name: NugetSecurityAnalysisWarningLevel
-  default: warn   
+- name: nugetMultiFeedWarnLevel
+  default: none   
 
 variables:
 - name: vmImage
