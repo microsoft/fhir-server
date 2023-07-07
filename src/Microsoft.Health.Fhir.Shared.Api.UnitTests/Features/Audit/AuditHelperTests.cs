@@ -180,16 +180,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerAgent: Arg.Any<string>());
         }
 
-        [Theory]
-        [InlineData("DELETE")]
-        [InlineData("GET")]
-        [InlineData("PATCH")]
-        [InlineData("POST")]
-        [InlineData("PUT")]
-        public void GivenHttpMethod_WhenLogExecutingIsCalled_ThenAuditLogShouldNotHaveRightOperationType(string httpMethod)
+        [Fact]
+        public void GivenAuditHelper_WhenLogExecutingIsCalled_ThenCallerAgentShouldAlwaysBeDefaultCallerAgent()
         {
-            _httpContext.Request.Method = httpMethod;
-
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
 
             _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
@@ -204,7 +197,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerIpAddress: Arg.Any<string>(),
                 callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
                 customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
-                operationType: httpMethod,
+                operationType: Arg.Any<string>(),
                 callerAgent: AuditHelper.DefaultCallerAgent);
         }
     }

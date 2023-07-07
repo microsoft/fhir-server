@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,7 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
     /// </summary>
     public class AuditLogger : IAuditLogger
     {
-        private const string AuditEventType = "AuditEvent";
+        internal const string AuditEventType = "AuditEvent";
+        internal const string UnknownOperationType = "Unknown";
 
         private static readonly string AuditMessageFormat =
             "ActionType: {ActionType}" + Environment.NewLine +
@@ -36,6 +38,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             "CustomHeaders: {CustomHeaders}" + Environment.NewLine +
             "OperationType: {OperationType}" + Environment.NewLine +
             "CallerAgent: {CallerAgent}" + Environment.NewLine;
+
+        private static readonly HashSet<string> ValidOperationTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+#if NET7_0_OR_GREATER
+            HttpMethod.Connect.Method,
+#endif
+            HttpMethod.Delete.Method,
+            HttpMethod.Get.Method,
+            HttpMethod.Head.Method,
+            HttpMethod.Options.Method,
+            HttpMethod.Patch.Method,
+            HttpMethod.Post.Method,
+            HttpMethod.Put.Method,
+            HttpMethod.Trace.Method,
+        };
 
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
@@ -93,8 +110,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 correlationId,
                 claimsInString,
                 customerHeadersInString,
-                operationType,
+                SanitizeOperationType(operationType),
                 callerAgent);
+        }
+
+        private static string SanitizeOperationType(string operationType)
+        {
+            if (string.IsNullOrWhiteSpace(operationType) || !ValidOperationTypes.Contains(operationType))
+            {
+                return UnknownOperationType;
+            }
+
+            return operationType;
         }
     }
 }
