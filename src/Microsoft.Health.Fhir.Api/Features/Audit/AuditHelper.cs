@@ -108,7 +108,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
-                var operationType = httpContext.Request?.Method?.Replace(Environment.NewLine, " ", StringComparison.Ordinal);
+                var operationType = SanitizeOperationType(httpContext.Request?.Method);
+
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext),
-                    operationType: SanitizeOperationType(operationType),
+                    operationType: operationType,
                     callerAgent: DefaultCallerAgent);
             }
         }
@@ -149,13 +150,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private static string SanitizeOperationType(string operationType)
         {
             // Note: string.Replace() is to suffice a code scanning alert for log injection.
-            var operation = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
-            if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
+            var sanitizedOperationType = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
+            if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
             {
                 return UnknownOperationType;
             }
 
-            return operation;
+            return sanitizedOperationType;
         }
     }
 }
