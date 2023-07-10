@@ -265,7 +265,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     }
 
     /// <summary>
-    /// Returns a reindx orchestrator job by id.
+    /// Returns a reindex orchestrator job by id.
     /// </summary>
     /// <param name="jobId">Assumed to be a ReindexOrchestratorJob.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
