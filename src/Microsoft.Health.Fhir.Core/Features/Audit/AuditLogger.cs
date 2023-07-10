@@ -96,6 +96,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             }
 
             // Note: string.Replace() is to suffice a code scanning alert for log injection.
+            var sanitizedOperationType = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal);
+
             _logger.LogInformation(
 #pragma warning disable CA2254 // Template should be a static expression
                 AuditMessageFormat,
@@ -111,11 +113,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 correlationId,
                 claimsInString,
                 customerHeadersInString,
-                SanitizeOperationType(operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)),
+                ValidateOperationType(sanitizedOperationType),
                 callerAgent);
         }
 
-        private static string SanitizeOperationType(string operationType)
+        private static string ValidateOperationType(string operationType)
         {
             var operation = operationType?.Trim();
             if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
