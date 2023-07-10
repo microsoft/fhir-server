@@ -116,12 +116,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
 
         private static string SanitizeOperationType(string operationType)
         {
-            if (string.IsNullOrWhiteSpace(operationType) || !ValidOperationTypes.Contains(operationType))
+            var operation = operationType?.Replace(Environment.NewLine, string.Empty, StringComparison.Ordinal)?.Trim();
+            if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
             {
                 return UnknownOperationType;
             }
 
-            return operationType;
+            return operation;
         }
     }
 }

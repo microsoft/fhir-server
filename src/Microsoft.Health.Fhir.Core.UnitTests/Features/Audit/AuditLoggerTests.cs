@@ -57,12 +57,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Audit
         }
 
         [Theory]
-        [InlineData("DELETE")]
-        [InlineData("GET")]
-        [InlineData("PATCH")]
-        [InlineData("POST")]
-        [InlineData("PUT")]
-        public void GivenHttpMethod_WhenLogExecutingIsCalled_ThenAuditLogShouldNotHaveRightOperationType(string httpMethod)
+        [InlineData("DELETE", "DELETE")]
+        [InlineData("GET", "GET")]
+        [InlineData("PATCH", "PATCH")]
+        [InlineData("POST", "POST")]
+        [InlineData("PUT", "PUT")]
+        [InlineData(" DELETE   ", "DELETE")]
+        [InlineData("INVALID", AuditLogger.UnknownOperationType)]
+        [InlineData("1234", AuditLogger.UnknownOperationType)]
+        [InlineData("\nPOSTT\n", AuditLogger.UnknownOperationType)]
+        [InlineData("\r\n  PUT   \r\n", "PUT")]
+        [InlineData("   ", AuditLogger.UnknownOperationType)]
+        [InlineData("PAT\r\nCH", "PATCH")]
+        [InlineData(null, AuditLogger.UnknownOperationType)]
+        public void GivenOperationType_WhenLogAuditIsCalled_ThenRightOperationTypeShouldBeLogged(
+            string actualOperationType,
+            string expectedOperationType)
         {
             _auditLogger.LogAudit(
                 auditAction: DefaultAuditAction,
@@ -74,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Audit
                 callerIpAddress: DefaultCallerIpAddress,
                 callerClaims: null,
                 customHeaders: null,
-                operationType: httpMethod,
+                operationType: actualOperationType,
                 callerAgent: DefaultCallerAgent);
 
             var logs = _logger.GetLogs();
@@ -95,50 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Audit
             Assert.Equal(NullValue, logElements[AuthorityKeyName]);
             Assert.Equal(NullValue, logElements[ClaimsKeyName]);
             Assert.Equal(NullValue, logElements[CustomHeadersKeyName]);
-            Assert.Equal(httpMethod, logElements[OperationTypeKeyName]);
-            Assert.Equal(DefaultCallerAgent, logElements[CallerAgentKeyName]);
-        }
-
-        [Theory]
-        [InlineData(" DELETE   ")]
-        [InlineData("INVALID")]
-        [InlineData("1234")]
-        [InlineData("\nPOST\n")]
-        [InlineData("\r\nPUT\r\n")]
-        public void GivenInvalidHttpMethod_WhenLogExecutingIsCalled_ThenAuditLogShouldNotHaveUnknownOperationType(string httpMethod)
-        {
-            _auditLogger.LogAudit(
-                auditAction: DefaultAuditAction,
-                operation: DefaultOperation,
-                resourceType: DefaultResourceType,
-                requestUri: DefaultRequestUri,
-                statusCode: DefaultHttpStatusCode,
-                correlationId: DefaultCorrelationId,
-                callerIpAddress: DefaultCallerIpAddress,
-                callerClaims: null,
-                customHeaders: null,
-                operationType: httpMethod,
-                callerAgent: DefaultCallerAgent);
-
-            var logs = _logger.GetLogs();
-            Assert.Equal(1, logs.Count);
-
-            var logElements = logs[0].State
-                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
-                .Select(x => new string[] { x.Substring(0, x.IndexOf(':')).Trim(), x.Substring(x.IndexOf(':') + 1).Trim() })
-                .ToDictionary(x => x[0], x => x[1].Trim());
-            Assert.Equal(DefaultAuditAction.ToString(), logElements[ActionTypeKeyName]);
-            Assert.Equal(AuditLogger.AuditEventType, logElements[EventTypeKeyName]);
-            Assert.Equal(DefaultOperation, logElements[ActionKeyName]);
-            Assert.Equal(DefaultResourceType, logElements[ResourceTypeKeyName]);
-            Assert.Equal(DefaultRequestUri.OriginalString, logElements[RequestUriKeyName]);
-            Assert.Equal(DefaultHttpStatusCode.ToString(), logElements[StatusCodeKeyName]);
-            Assert.Equal(DefaultCorrelationId, logElements[CorrelationIdKeyName]);
-            Assert.Equal(NullValue, logElements[AudienceKeyName]);
-            Assert.Equal(NullValue, logElements[AuthorityKeyName]);
-            Assert.Equal(NullValue, logElements[ClaimsKeyName]);
-            Assert.Equal(NullValue, logElements[CustomHeadersKeyName]);
-            Assert.Equal(AuditLogger.UnknownOperationType, logElements[OperationTypeKeyName]);
+            Assert.Equal(expectedOperationType, logElements[OperationTypeKeyName]);
             Assert.Equal(DefaultCallerAgent, logElements[CallerAgentKeyName]);
         }
     }
