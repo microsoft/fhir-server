@@ -1,12 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <None Remove="Data\OperationDefinition\member-match.json" />
+    <None Remove="Data\OperationDefinition\search-parameter-status.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\OperationDefinition\convert-data.json" />
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\search-parameter-status.json" />
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />

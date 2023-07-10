@@ -668,9 +668,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.PopulateDefaultResourceInteractions()
-                .SyncSearchParameters()
-                .AddGlobalSearchParameters()
+            var task = Task.Run(() => builder.PopulateDefaultResourceInteractions()
+                .SyncSearchParametersAsync(CancellationToken.None));
+            task.Wait();
+            builder.AddGlobalSearchParameters()
                 .SyncProfiles();
 
             if (_coreFeatures.SupportsBatch)
