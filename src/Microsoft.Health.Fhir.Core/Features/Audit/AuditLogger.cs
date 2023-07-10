@@ -95,8 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 customerHeadersInString = string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}"));
             }
 
-            // Note: string.Replace() is to suffice a code scanning alert for log injection.
-            var sanitizedOperationType = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal);
+            var sanitizedOperationType = SanitizeOperationType(operationType);
 
             _logger.LogInformation(
 #pragma warning disable CA2254 // Template should be a static expression
@@ -113,13 +112,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 correlationId,
                 claimsInString,
                 customerHeadersInString,
-                ValidateOperationType(sanitizedOperationType),
+                sanitizedOperationType,
                 callerAgent);
         }
 
-        private static string ValidateOperationType(string operationType)
+        private static string SanitizeOperationType(string operationType)
         {
-            var operation = operationType?.Trim();
+            // Note: string.Replace() is to suffice a code scanning alert for log injection.
+            var operation = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
             if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
             {
                 return UnknownOperationType;
