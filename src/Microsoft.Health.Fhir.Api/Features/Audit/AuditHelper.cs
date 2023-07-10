@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
+                var operationType = httpContext.Request?.Method?.Replace(Environment.NewLine, " ", StringComparison.Ordinal);
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext),
-                    operationType: SanitizeOperationType(httpContext.Request?.Method),
+                    operationType: SanitizeOperationType(operationType),
                     callerAgent: DefaultCallerAgent);
             }
         }
