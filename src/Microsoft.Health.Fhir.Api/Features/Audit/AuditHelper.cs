@@ -27,6 +27,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     public class AuditHelper : IAuditHelper
     {
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        internal const string UnknownOperationType = "Unknown";
+
+        private static readonly HashSet<string> ValidOperationTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            HttpMethods.Connect,
+            HttpMethods.Delete,
+            HttpMethods.Get,
+            HttpMethods.Head,
+            HttpMethods.Options,
+            HttpMethods.Patch,
+            HttpMethods.Post,
+            HttpMethods.Put,
+            HttpMethods.Trace,
+        };
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
@@ -104,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext),
-                    operationType: httpContext.Request?.Method,
+                    operationType: SanitizeOperationType(httpContext.Request?.Method),
                     callerAgent: DefaultCallerAgent);
             }
         }
@@ -129,6 +143,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
             // Return an array of FieldInfos
             return anonymousOperations;
+        }
+
+        private static string SanitizeOperationType(string operationType)
+        {
+            // Note: string.Replace() is to suffice a code scanning alert for log injection.
+            var operation = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
+            if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
+            {
+                return UnknownOperationType;
+            }
+
+            return operation;
         }
     }
 }

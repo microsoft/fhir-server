@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,8 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
     /// </summary>
     public class AuditLogger : IAuditLogger
     {
-        internal const string AuditEventType = "AuditEvent";
-        internal const string UnknownOperationType = "Unknown";
+        private const string AuditEventType = "AuditEvent";
 
         private static readonly string AuditMessageFormat =
             "ActionType: {ActionType}" + Environment.NewLine +
@@ -38,21 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             "CustomHeaders: {CustomHeaders}" + Environment.NewLine +
             "OperationType: {OperationType}" + Environment.NewLine +
             "CallerAgent: {CallerAgent}" + Environment.NewLine;
-
-        private static readonly HashSet<string> ValidOperationTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-#if NET7_0_OR_GREATER
-            HttpMethod.Connect.Method,
-#endif
-            HttpMethod.Delete.Method,
-            HttpMethod.Get.Method,
-            HttpMethod.Head.Method,
-            HttpMethod.Options.Method,
-            HttpMethod.Patch.Method,
-            HttpMethod.Post.Method,
-            HttpMethod.Put.Method,
-            HttpMethod.Trace.Method,
-        };
 
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
@@ -95,8 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 customerHeadersInString = string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}"));
             }
 
-            var sanitizedOperationType = SanitizeOperationType(operationType);
-
             _logger.LogInformation(
 #pragma warning disable CA2254 // Template should be a static expression
                 AuditMessageFormat,
@@ -112,20 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 correlationId,
                 claimsInString,
                 customerHeadersInString,
-                sanitizedOperationType,
+                operationType,
                 callerAgent);
-        }
-
-        private static string SanitizeOperationType(string operationType)
-        {
-            // Note: string.Replace() is to suffice a code scanning alert for log injection.
-            var operation = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
-            if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
-            {
-                return UnknownOperationType;
-            }
-
-            return operation;
         }
     }
 }
