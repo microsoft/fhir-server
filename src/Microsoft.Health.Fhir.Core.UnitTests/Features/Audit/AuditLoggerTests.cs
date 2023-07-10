@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Audit
         [InlineData("\nPOSTT\n", AuditLogger.UnknownOperationType)]
         [InlineData("\r\n  PUT   \r\n", "PUT")]
         [InlineData("   ", AuditLogger.UnknownOperationType)]
-        [InlineData("PAT\r\nCH", "PATCH")]
+        [InlineData("PAT\r\nCH", AuditLogger.UnknownOperationType)]
         [InlineData(null, AuditLogger.UnknownOperationType)]
         public void GivenOperationType_WhenLogAuditIsCalled_ThenRightOperationTypeShouldBeLogged(
             string actualOperationType,

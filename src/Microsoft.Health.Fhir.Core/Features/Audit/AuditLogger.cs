@@ -116,7 +116,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
 
         private static string SanitizeOperationType(string operationType)
         {
-            var operation = operationType?.Replace(Environment.NewLine, string.Empty, StringComparison.Ordinal)?.Trim();
+            // Note: string.Replace call is to work around a code scanning alert for log injection.
+            var operation = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
             if (string.IsNullOrWhiteSpace(operation) || !ValidOperationTypes.Contains(operation))
             {
                 return UnknownOperationType;
