@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,6 +29,9 @@ using Microsoft.Health.Fhir.Shared.Web;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Net.Http.Headers;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Resources;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -113,6 +118,7 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddApplicationInsightsTelemetry(services);
+            AddAzureMonitorOpenTelemetry(services);
         }
 
         private void AddTaskHostingService(IServiceCollection services)
@@ -178,7 +184,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             string instrumentationKey = Configuration["ApplicationInsights:InstrumentationKey"];
 
-            if (!string.IsNullOrWhiteSpace(instrumentationKey))
+            if (!string.IsNullOrWhiteSpace(instrumentationKey) && string.IsNullOrWhiteSpace(Configuration["AzureMonitor:ConnectionString"]))
             {
                 services.AddHttpContextAccessor();
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
@@ -203,6 +209,41 @@ namespace Microsoft.Health.Fhir.Web
                     options.RequireHttpsMetadata = true;
                     options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
                 });
+        }
+
+        /// <summary>
+        /// Adds AzureMonitorOpenTelemetry for telemetry and logging.
+        /// </summary>
+        private void AddAzureMonitorOpenTelemetry(IServiceCollection services)
+        {
+            string connectionString = Configuration["AzureMonitor:ConnectionString"];
+
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                services.AddOpenTelemetry()
+                    .UseAzureMonitor(options => options.ConnectionString = connectionString)
+                    .ConfigureResource(resourceBuilder =>
+                    {
+                        var resourceAttributes = new Dictionary<string, object>()
+                        {
+                            { "service.name", "Microsoft FHIR Server" },
+                        };
+
+                        resourceBuilder.AddAttributes(resourceAttributes);
+                    });
+                services.Configure<AspNetCoreInstrumentationOptions>(options =>
+                    {
+                        options.RecordException = true;
+                        options.EnrichWithHttpRequest = (activity, request) =>
+                        {
+                            if (request.Headers.TryGetValue(HeaderNames.UserAgent, out var userAgent))
+                            {
+                                string propertyName = HeaderNames.UserAgent.Replace('-', '_').ToLower(CultureInfo.InvariantCulture);
+                                activity.AddTag(propertyName, userAgent);
+                            }
+                        };
+                    });
+            }
         }
     }
 }

@@ -254,3 +254,32 @@ content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 < ./Data/BundleTransaction.json
+
+
+### Testing Transaction bundle for Smart user with Write only access
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=smart-patient-A
+&client_secret=smart-patient-A
+&scope=patient/Observation.*
+
+### Test a Bundle with GET request inside, should not return only patient data
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  'type': 'batch',
+  'resourceType': 'Bundle',
+  'entry': [
+    {
+      'request': {
+        'method': 'GET',
+        'url': '/Observation'
+      }
+    }
+  ]
+}

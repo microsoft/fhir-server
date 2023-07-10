@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public const string SqlServer = "SqlServer";
 
         /// <summary>Maximum number of (re)try attempts on a retriable error.</summary>
-        public int MaxRetries { get; set; } = 5;
+        public int MaxRetries { get; set; } = 100;
 
         /// <summary>Delay between retry attempts.</summary>
         public int RetryMillisecondsDelay { get; set; } = 5000;
