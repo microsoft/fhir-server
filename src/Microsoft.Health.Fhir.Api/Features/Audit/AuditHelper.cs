@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
-                // Note: string.Replace() is to suffice a code scanning alert for log injection.
+                // Note: HttpUtility.HtmlEncode() is to suffice a code scanning alert for log injection.
                 var sanitizedOperationType = HttpUtility.HtmlEncode(httpContext.Request?.Method?.Trim());
                 if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
                 {
