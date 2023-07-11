@@ -86,6 +86,42 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
         }
 
+        [Fact]
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturned()
+        {
+            EnableDatabaseLogging();
+
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", create.VersionId);
+
+            var newValue = Samples.GetDefaultOrganization().UpdateId(create.Id);
+            newValue.ToPoco<Hl7.Fhir.Model.Organization>().Text = new Hl7.Fhir.Model.Narrative { Status = Hl7.Fhir.Model.Narrative.NarrativeStatus.Generated, Div = $"<div>Whatever</div>" };
+            var update = await _fixture.Mediator.UpsertResourceAsync(newValue);
+            Assert.Equal("2", update.RawResourceElement.VersionId);
+
+            var history = await _fixture.Mediator.SearchResourceHistoryAsync(Core.Models.KnownResourceTypes.Organization, create.Id);
+            var bundle = history.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Single(bundle.Entry);
+
+            var changeStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
+            var changes = await changeStore.GetRecordsAsync(1, 200, CancellationToken.None);
+            Assert.NotNull(changes);
+            var change = changes.Where(x => x.ResourceVersion.ToString() == create.VersionId && x.ResourceId == create.Id).FirstOrDefault();
+            Assert.NotNull(change);
+            Assert.Equal(ResourceChangeTypeCreated, change.ResourceChangeTypeId);
+            change = changes.Where(x => x.ResourceVersion.ToString() == update.RawResourceElement.VersionId && x.ResourceId == create.Id).FirstOrDefault();
+            Assert.NotNull(change);
+            Assert.Equal(ResourceChangeTypeUpdated, change.ResourceChangeTypeId);
+        }
+
+        private void EnableDatabaseLogging()
+        {
+            using var conn = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p'";
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+        }
+
         /// <summary>
         /// A basic smoke test verifying that the code can
         /// insert and read resource changes after deleting a resource.

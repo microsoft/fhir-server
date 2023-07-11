@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             RawResourceElement organizationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
 
             ResourceElement newResourceValues = Samples.GetDefaultOrganization().UpdateId(organizationResource.Id);
+            //// next line is a must to make test valid, otherwise we do not attempt to save resource
+            newResourceValues.ToPoco<Organization>().Text = new Narrative { Status = Narrative.NarrativeStatus.Generated, Div = $"<div>{ContentUpdated}</div>" };
 
             SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(organizationResource.VersionId));
 
