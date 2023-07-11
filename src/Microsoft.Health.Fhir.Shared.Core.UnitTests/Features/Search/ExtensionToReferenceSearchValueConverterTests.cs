@@ -30,7 +30,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public ExtensionToReferenceSearchValueConverterTests()
         {
-            _fhirRequestContextAccessor.RequestContext.BaseUri.Returns(new Uri("https://test:12345"));
+            var uri = new Uri("https://test:12345");
+            _fhirRequestContextAccessor.RequestContext.BaseUri.Returns(uri);
             _referenceSearchValueParser = new ReferenceSearchValueParser(_fhirRequestContextAccessor);
         }
 

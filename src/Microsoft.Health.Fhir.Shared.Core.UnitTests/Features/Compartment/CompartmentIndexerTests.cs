@@ -78,10 +78,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
         public void GivenSearchIndicesWithResourceTypeAndCompartmentTypeAndNullReferenceSearchResourceType_WhenExtracted_ThenNoIndicesExtracted(ResourceType resourceType, CompartmentType compartmentType, ReferenceKind referenceKind, string expectedResourceId)
         {
             HashSet<string> compParams = null;
+            var returnHash = new HashSet<string> { _referenceSearchTestParam.Code };
             _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _referenceSearchTestParam.Code };
+                    x[2] = returnHash;
                     return true;
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
