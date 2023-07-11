@@ -109,10 +109,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
                 // Note: string.Replace() is to suffice a code scanning alert for log injection.
-                var sanitizedOperationType = httpContext.Request?.Method?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
-                if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
+                var operationType = httpContext.Request?.Method;
+                var sanitizedOperationType = UnknownOperationType;
+                if (!string.IsNullOrWhiteSpace(operationType) && !ValidOperationTypes.Contains(sanitizedOperationType))
                 {
-                    sanitizedOperationType = UnknownOperationType;
+                    sanitizedOperationType = ValidOperationTypes.Where(x => x == operationType).Single();
                 }
 
                 _auditLogger.LogAudit(
