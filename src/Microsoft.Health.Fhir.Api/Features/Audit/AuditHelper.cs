@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 // Note: string.Replace() is to suffice a code scanning alert for log injection.
                 var operationType = httpContext.Request?.Method;
                 var sanitizedOperationType = UnknownOperationType;
-                if (!string.IsNullOrWhiteSpace(operationType) && !ValidOperationTypes.Contains(sanitizedOperationType))
+                if (!string.IsNullOrWhiteSpace(operationType) && !ValidOperationTypes.Contains(operationType))
                 {
                     sanitizedOperationType = ValidOperationTypes.Where(x => x == operationType).Single();
                 }
