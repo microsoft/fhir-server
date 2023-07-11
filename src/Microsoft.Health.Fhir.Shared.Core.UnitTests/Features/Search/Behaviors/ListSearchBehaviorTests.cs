@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             so.UnsupportedSearchParams = new Tuple<string, string>[0];
 
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
-            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>()).Returns(so);
+            _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<bool>()).Returns(so);
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();
 
