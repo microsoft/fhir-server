@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
@@ -109,11 +110,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
                 // Note: string.Replace() is to suffice a code scanning alert for log injection.
-                var operationType = httpContext.Request?.Method;
-                var sanitizedOperationType = UnknownOperationType;
-                if (!string.IsNullOrWhiteSpace(operationType) && !ValidOperationTypes.Contains(operationType))
+                var sanitizedOperationType = HttpUtility.HtmlEncode(httpContext.Request?.Method?.Trim());
+                if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
                 {
-                    sanitizedOperationType = ValidOperationTypes.Where(x => x == operationType).Single();
+                    sanitizedOperationType = UnknownOperationType;
                 }
 
                 _auditLogger.LogAudit(
