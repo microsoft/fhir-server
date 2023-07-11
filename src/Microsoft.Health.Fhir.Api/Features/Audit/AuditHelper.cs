@@ -108,7 +108,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
-                var operationType = SanitizeOperationType(httpContext.Request?.Method);
+                // Note: string.Replace() is to suffice a code scanning alert for log injection.
+                var sanitizedOperationType = httpContext.Request?.Method?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
+                if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
+                {
+                    sanitizedOperationType = UnknownOperationType;
+                }
 
                 _auditLogger.LogAudit(
                     auditAction,
@@ -120,7 +125,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext),
-                    operationType: operationType,
+                    operationType: sanitizedOperationType,
                     callerAgent: DefaultCallerAgent);
             }
         }
@@ -145,18 +150,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
             // Return an array of FieldInfos
             return anonymousOperations;
-        }
-
-        private static string SanitizeOperationType(string operationType)
-        {
-            // Note: string.Replace() is to suffice a code scanning alert for log injection.
-            var sanitizedOperationType = operationType?.Replace(Environment.NewLine, " ", StringComparison.Ordinal)?.Trim();
-            if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
-            {
-                return UnknownOperationType;
-            }
-
-            return sanitizedOperationType;
         }
     }
 }
