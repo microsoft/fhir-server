@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public static MockModelInfoProviderBuilder Create(FhirSpecification version)
         {
             IModelInfoProvider provider = Substitute.For<IModelInfoProvider>();
-            provider.Version.Returns(version);
+            provider.Version.Returns<FhirSpecification>(version);
 
             // Adds normative types by default
             var seenTypes = new HashSet<string>
