@@ -34,14 +34,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     [CollectionDefinition("ReindexOrchestratorJobTests")]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
+    public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>
     {
         private const int _mockedSearchCount = 5;
 
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private SearchParameterStatusManager _searchParameterStatusmanager;
+        private ISearchParameterStatusManager _searchParameterStatusmanager;
         private Func<ReindexOrchestratorJob> _reindexJobTaskFactory;
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IQueueClient _queueClient = new TestQueueClient();
@@ -49,11 +49,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private ISearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
 
-        public async Task InitializeAsync()
+        public ReindexOrchestratorJobTests()
         {
             _cancellationToken = _cancellationTokenSource.Token;
             _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _searchParameterStatusmanager = await SearchParameterFixtureData.CreateSearchParameterStatusManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            _searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
+
             var job = CreateReindexJobRecord();
             List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
             {
@@ -65,11 +66,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     baseResourceTypes: new List<string>()
                     {
                         "Account",
+                        "_count",
+                        "_type",
                     })
                 {
                     IsSearchable = true,
+                    SearchParameterStatus = SearchParameterStatus.Enabled,
                 },
             };
+            List<ResourceSearchParameterStatus> status = new List<ResourceSearchParameterStatus>()
+            {
+                new ResourceSearchParameterStatus()
+                {
+                    LastUpdated = DateTime.UtcNow,
+                    Uri = new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    Status = SearchParameterStatus.Enabled,
+                },
+            };
+
+            _searchParameterStatusmanager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>()).Returns(status);
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
             _reindexJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
@@ -81,8 +96,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                      _searchParameterOperations,
                      NullLoggerFactory.Instance);
         }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()

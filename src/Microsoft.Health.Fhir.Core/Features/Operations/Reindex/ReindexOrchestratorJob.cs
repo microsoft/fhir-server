@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ILogger<ReindexOrchestratorJob> _logger;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private CancellationToken _cancellationToken;
         private readonly ISearchParameterOperations _searchParameterOperations;
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
-            SearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterOperations searchParameterOperations,
             ILoggerFactory loggerFactory)
         {
