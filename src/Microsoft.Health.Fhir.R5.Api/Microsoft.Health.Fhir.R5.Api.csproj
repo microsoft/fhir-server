@@ -5,6 +5,9 @@
   <PropertyGroup>
     <DefineConstants>R5</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Remove="C:\Users\jaerwin\.nuget\packages\hl7.fhir.specification.r5\4.3.0\contentFiles\any\any\specification.zip" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" />

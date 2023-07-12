@@ -6,6 +6,9 @@
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Content Remove="C:\Users\jaerwin\.nuget\packages\hl7.fhir.specification.r4\4.3.0\contentFiles\any\any\specification.zip" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
   </ItemGroup>
 

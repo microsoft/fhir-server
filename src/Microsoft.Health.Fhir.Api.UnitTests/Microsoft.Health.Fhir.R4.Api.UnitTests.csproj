@@ -3,6 +3,9 @@
     <RootNamespace>Microsoft.Health.Fhir.Api.UnitTests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Content Remove="C:\Users\jaerwin\.nuget\packages\hl7.fhir.specification.r4\4.3.0\contentFiles\any\any\specification.zip" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />

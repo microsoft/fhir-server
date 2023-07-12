@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Expression,
                 searchParam.Target?.Select(x => x?.ToString()).ToArray(),
                 searchParam.Base?.Select(x => x?.ToString()).ToArray(),
-                searchParam.Description?.Value);
+                searchParam.Description);
         }
 
         public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)

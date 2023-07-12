@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
         {
             // Ensure the search parameter's code value does not already exist for its base type(s)
-            foreach (ResourceType? baseType in searchParam.Base)
+            foreach (var baseType in searchParam.Base)
             {
                 if (searchParam.Code is null)
                 {

@@ -11,10 +11,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Extensions
     {
         public static Device AssignPatient(this Device device, ResourceReference patient)
         {
-#if Stu3 || R4
+#if Stu3 || R4 || R4B
             device.Patient = patient;
-#else
-            device.Subject = patient;
+#endif
+
+#if R5
+            // device.Subject = patient;
 #endif
             return device;
         }

@@ -5,6 +5,16 @@
     <RootNamespace>Microsoft.Health.Fhir.Web</RootNamespace>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <Content Include="hl7.fhir.r5.core#5.0.0.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="hl7.fhir.r5.expansions#5.0.0.tgz">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" />
     <PackageReference Include="IdentityServer4" />

@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using NSubstitute;
 using Polly;
 using Polly.Retry;
+using static Hl7.Fhir.Model.CapabilityStatement;
 using Task = System.Threading.Tasks.Task;
 #if !R5
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;

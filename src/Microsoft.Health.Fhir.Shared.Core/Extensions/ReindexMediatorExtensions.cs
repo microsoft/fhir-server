@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 targetResourceTypes.AddRange(targetResourceTypesString.Split(",").Select(s => s.Trim()));
                 foreach (var resourceType in targetResourceTypes)
                 {
-                    if (!Enum.TryParse<Hl7.Fhir.Model.ResourceType>(resourceType, out var result))
+                    if (!VersionSpecificResourceTypeValidator.IsValidResourceType(resourceType))
                     {
                         throw new RequestNotValidException(string.Format(Resources.ResourceNotSupported, resourceType));
                     }

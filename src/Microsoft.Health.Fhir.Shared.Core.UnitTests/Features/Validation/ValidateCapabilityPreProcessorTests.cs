@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         public ValidateCapabilityPreProcessorTests()
         {
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, interactions: new[] { TypeRestfulInteraction.Read });
+            VersionSpecificMockResourceFactory.SetupMockResource(statement, ResourceType.Observation, interactions: new[] { TypeRestfulInteraction.Read });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToTypedElement().ToResourceElement());

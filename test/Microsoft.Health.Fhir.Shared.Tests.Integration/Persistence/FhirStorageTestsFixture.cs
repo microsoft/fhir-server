@@ -139,18 +139,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             CapabilityStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
 
-            CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
-            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            VersionSpecificMockResourceFactory.SetupMockResource(CapabilityStatement, ResourceType.Observation, null);
+            var observationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type.ToString() == ResourceType.Observation.ToString());
             observationResource.UpdateCreate = true;
             observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
 
-            CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Organization, null);
-            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Organization);
+            VersionSpecificMockResourceFactory.SetupMockResource(CapabilityStatement, ResourceType.Organization, null);
+            var organizationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type.ToString() == ResourceType.Organization.ToString());
             organizationResource.UpdateCreate = true;
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
-            CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
-            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Medication);
+            VersionSpecificMockResourceFactory.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
+            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type.ToString() == ResourceType.Medication.ToString());
             medicationResource.UpdateCreate = true;
             medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
