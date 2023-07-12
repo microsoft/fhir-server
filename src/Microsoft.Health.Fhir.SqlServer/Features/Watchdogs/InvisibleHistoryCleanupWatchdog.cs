@@ -21,9 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
         private CancellationToken _cancellationToken;
-        private const double _periodSec = 1 * 3600;
-        private const double _leasePeriodSec = 2 * 3600;
-        private const double _retentionPeriodDays = 30;
+        private double _retentionPeriodDays = 7;
 
         public InvisibleHistoryCleanupWatchdog(SqlServerFhirDataStore store, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<InvisibleHistoryCleanupWatchdog> logger)
             : base(sqlConnectionWrapperFactory, logger)
@@ -35,11 +33,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
+        internal async Task StartAsync(CancellationToken cancellationToken, double? periodSec = null, double? leasePeriodSec = null, double? retentionPeriodDays = null)
         {
             _cancellationToken = cancellationToken;
             await InitLastCleanedUpTransactionId();
-            await StartAsync(true, _periodSec, _leasePeriodSec, cancellationToken);
+            await StartAsync(true, periodSec ?? 3600, leasePeriodSec ?? 2 * 3600, cancellationToken);
+            if (retentionPeriodDays.HasValue)
+            {
+                _retentionPeriodDays = retentionPeriodDays.Value;
+            }
         }
 
         protected override async Task ExecuteAsync()

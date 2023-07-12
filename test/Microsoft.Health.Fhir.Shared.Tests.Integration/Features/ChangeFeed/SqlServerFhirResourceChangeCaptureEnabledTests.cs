@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,11 +11,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 {
@@ -27,13 +31,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     public class SqlServerFhirResourceChangeCaptureEnabledTests : IClassFixture<SqlServerFhirResourceChangeCaptureFixture>
     {
         private readonly SqlServerFhirResourceChangeCaptureFixture _fixture;
+        private readonly ITestOutputHelper _testOutputHelper;
         private const byte ResourceChangeTypeCreated = 0; // 0 is for the resource creating.
         private const byte ResourceChangeTypeUpdated = 1; // 1 is for resource update.
         private const byte ResourceChangeTypeDeleted = 2; // 2 is for resource deletion.
 
-        public SqlServerFhirResourceChangeCaptureEnabledTests(SqlServerFhirResourceChangeCaptureFixture fixture)
+        public SqlServerFhirResourceChangeCaptureEnabledTests(SqlServerFhirResourceChangeCaptureFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
+            _testOutputHelper = testOutputHelper;
         }
 
         /// <summary>
@@ -88,7 +94,46 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         }
 
         [Fact]
-        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturned()
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
+
+            var wd = new InvisibleHistoryCleanupWatchdog(store, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
+            await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            // create 2 records (1 invisible)
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", create.VersionId);
+            var newValue = Samples.GetDefaultOrganization().UpdateId(create.Id);
+            newValue.ToPoco<Hl7.Fhir.Model.Organization>().Text = new Hl7.Fhir.Model.Narrative { Status = Hl7.Fhir.Model.Narrative.NarrativeStatus.Generated, Div = $"<div>Whatever</div>" };
+            var update = await _fixture.Mediator.UpsertResourceAsync(newValue);
+            Assert.Equal("2", update.RawResourceElement.VersionId);
+            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+
+            // check 2 records exist
+            Assert.Equal(2, await GetCount());
+
+            await Task.Delay(5000);
+
+            // chech only 1 record remains
+            Assert.Equal(1, await GetCount());
+        }
+
+        [Fact]
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturnedAndChangesAreReturned()
         {
             EnableDatabaseLogging();
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
@@ -193,6 +238,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
             Assert.NotNull(resourceChangeData);
             Assert.Equal(saveResult.RawResourceElement.InstanceType, resourceChangeData.ResourceTypeName);
+        }
+
+        private async void ExecuteSql(string sql)
+        {
+            using var conn = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandTimeout = 120;
+            cmd.CommandText = sql;
+            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        private async Task<int> GetCount()
+        {
+            using var conn = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandTimeout = 120;
+            cmd.CommandText = "SELECT count(*) FROM dbo.Resource";
+            return (int)await cmd.ExecuteScalarAsync(CancellationToken.None);
         }
     }
 }
