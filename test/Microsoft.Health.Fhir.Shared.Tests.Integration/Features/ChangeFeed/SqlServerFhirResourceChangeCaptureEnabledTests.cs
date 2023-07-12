@@ -121,15 +121,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             newValue.ToPoco<Hl7.Fhir.Model.Organization>().Text = new Hl7.Fhir.Model.Narrative { Status = Hl7.Fhir.Model.Narrative.NarrativeStatus.Generated, Div = $"<div>Whatever</div>" };
             var update = await _fixture.Mediator.UpsertResourceAsync(newValue);
             Assert.Equal("2", update.RawResourceElement.VersionId);
-            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
 
             // check 2 records exist
             Assert.Equal(2, await GetCount());
 
+            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
             await Task.Delay(5000);
 
-            // chech only 1 record remains
+            // check only 1 record remains
             Assert.Equal(1, await GetCount());
+        }
+
+        [Fact]
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_InvisibleHistoryIsRetainedAndIsRemovedByWatchdog()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(TimeSpan.FromSeconds(60));
+
+            var wd = new InvisibleHistoryCleanupWatchdog(store, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
+            await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
+            var startTime = DateTime.UtcNow;
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
+            }
+
+            Assert.True(wd.IsLeaseHolder, "Is lease holder");
+            _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
+
+            // create 1 resource and hard delete it
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", create.VersionId);
+            await store.HardDeleteAsync(new ResourceKey("Organization", create.Id), false, cts.Token);
+
+            // check 1 record exist
+            Assert.Equal(1, await GetCount());
+
+            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            await Task.Delay(5000);
+
+            // check no records
+            Assert.Equal(0, await GetCount());
         }
 
         [Fact]
