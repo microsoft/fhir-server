@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
@@ -18,11 +19,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private bool _storageReady = false;
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
+        private readonly TransactionWatchdog _transactionWatchdog;
 
-        public WatchdogsBackgroundService(DefragWatchdog defragWatchdog, CleanupEventLogWatchdog cleanupEventLogWatchdog)
+        public WatchdogsBackgroundService(DefragWatchdog defragWatchdog, CleanupEventLogWatchdog cleanupEventLogWatchdog, Func<IScoped<TransactionWatchdog>> transactionWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
+            _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke().Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             await _defragWatchdog.StartAsync(stoppingToken);
             await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
+            await _transactionWatchdog.StartAsync(stoppingToken);
 
             while (true)
             {
@@ -53,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _defragWatchdog.Dispose();
             _cleanupEventLogWatchdog.Dispose();
+            _transactionWatchdog.Dispose();
             base.Dispose();
         }
     }

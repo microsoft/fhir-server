@@ -266,6 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, ImportMode importMode)
         {
+            _logger.LogInformation("SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
             var importJobMetricsNotification = new ImportJobMetricsNotification(
                 jobInfo.Id.ToString(),
                 jobStatus.ToString(),

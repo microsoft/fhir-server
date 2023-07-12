@@ -212,6 +212,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
@@ -220,6 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 bulkReindexResourceTvpGeneratorVLatest,
                 Options.Create(new CoreFeatureConfiguration()),
                 bundleOrchestrator,
+                sqlRetryService,
                 defaultSqlConnectionWrapperFactory,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,

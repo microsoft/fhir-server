@@ -67,6 +67,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string SearchParameterState = nameof(SearchParameterState);
 
+        internal const string SearchParameterStatusOperationDefinition = "SearchParameterStatusOperationDefinition";
+
         internal const string PostSearchParameterState = nameof(PostSearchParameterState);
 
         internal const string UpdateSearchParameterState = nameof(UpdateSearchParameterState);

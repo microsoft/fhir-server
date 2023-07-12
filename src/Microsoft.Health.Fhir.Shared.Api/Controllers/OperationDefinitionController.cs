@@ -33,19 +33,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
+        private readonly CoreFeatureConfiguration _coreFeatureConfiguration;
 
         public OperationDefinitionController(
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
-            IOptions<FeatureConfiguration> featureConfig)
+            IOptions<FeatureConfiguration> featureConfig,
+            IOptions<CoreFeatureConfiguration> coreFeatureConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value, nameof(operationsConfig));
             EnsureArg.IsNotNull(featureConfig?.Value, nameof(featureConfig));
+            EnsureArg.IsNotNull(coreFeatureConfig?.Value, nameof(coreFeatureConfig));
 
             _mediator = mediator;
             _operationConfiguration = operationsConfig.Value;
             _featureConfiguration = featureConfig.Value;
+            _coreFeatureConfiguration = coreFeatureConfig.Value;
         }
 
         [HttpGet]
@@ -128,6 +132,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.BulkDelete);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.SearchParametersStatusQuery, Name = RouteNames.SearchParameterStatusOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchParameterStatusOperationDefintion()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.SearchParameterStatus);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -161,6 +173,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case OperationsConstants.PurgeHistory:
                 case OperationsConstants.BulkDelete:
                     operationEnabled = true;
+                    break;
+                case OperationsConstants.SearchParameterStatus:
+                    operationEnabled = _coreFeatureConfiguration.SupportsSelectableSearchParameters;
                     break;
                 default:
                     break;
