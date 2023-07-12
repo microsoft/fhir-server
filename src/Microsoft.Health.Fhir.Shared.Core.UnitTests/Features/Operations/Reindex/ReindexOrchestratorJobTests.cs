@@ -46,16 +46,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IQueueClient _queueClient = new TestQueueClient();
 
-        private SearchParameterDefinitionManager _searchDefinitionManager;
+        private ISearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
 
         public async Task InitializeAsync()
         {
             _cancellationToken = _cancellationTokenSource.Token;
-            _searchDefinitionManager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterStatusmanager = await SearchParameterFixtureData.CreateSearchParameterStatusManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
             var job = CreateReindexJobRecord();
-
+            List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
+            {
+                new SearchParameterInfo(
+                    "Account",
+                    "status",
+                    ValueSets.SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    baseResourceTypes: new List<string>()
+                    {
+                        "Account",
+                    })
+                {
+                    IsSearchable = true,
+                },
+            };
+            _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
             _reindexJobTaskFactory = () =>
                  new ReindexOrchestratorJob(
                      _queueClient,
