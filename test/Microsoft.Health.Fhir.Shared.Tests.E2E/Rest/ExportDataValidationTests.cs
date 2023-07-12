@@ -151,13 +151,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var encounter = new Encounter()
             {
-                Status = Encounter.EncounterStatus.InProgress,
 #if !R5
+                Status = Encounter.EncounterStatus.InProgress,
                 Class = new Coding()
                 {
                     Code = "test",
                 },
 #else
+                Status = EncounterStatus.InProgress,
                 Class = new List<CodeableConcept>()
                 {
                     new CodeableConcept()

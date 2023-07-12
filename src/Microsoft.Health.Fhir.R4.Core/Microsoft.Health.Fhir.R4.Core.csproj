@@ -15,7 +15,6 @@
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="Firely.Fhir.Packages" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="Hl7.Fhir.Specification.Data.R4" PrivateAssets="build;analyzers" />
     <PackageReference Include="Hl7.Fhir.R4" />
     <PackageReference Include="Hl7.Fhir.Validation.Legacy.R4" />
     <PackageReference Include="MediatR" />

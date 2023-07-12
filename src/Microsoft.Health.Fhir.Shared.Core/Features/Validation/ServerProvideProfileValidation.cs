@@ -119,7 +119,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                         {
                                             properties[ArtifactSummaryProperties.OriginKey] = searchItem.Resource.RawResource.Data;
                                         };
+#if !Stu3
+                                    var artifacts = new ArtifactSummaryGenerator(ModelInfo.ModelInspector).Generate(navStream, setOrigin);
+#else
                                     var artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
+#endif
 
                                     foreach (var artifact in artifacts)
                                     {

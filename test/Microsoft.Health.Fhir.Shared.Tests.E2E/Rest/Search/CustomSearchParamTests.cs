@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #if !R5
             searchParam.Base = new List<ResourceType?>() { ResourceType.Specimen, ResourceType.Immunization };
 #else
-            searchParam.Base = new List<AllResourceTypes?>() { AllResourceTypes.Specimen, AllResourceTypes.Immunization };
+            searchParam.Base = new List<VersionIndependentResourceTypesAll?>() { VersionIndependentResourceTypesAll.Specimen, VersionIndependentResourceTypesAll.Immunization };
 #endif
 
             // POST a new Specimen

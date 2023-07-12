@@ -13,11 +13,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         public static SearchParameter CreateSearchParameter(string url, string code, string[] resourceTypes, string name = null, string expression = null, SearchParamType? type = SearchParamType.Token)
         {
-            var baseTypes = new List<AllResourceTypes?>();
+            var baseTypes = new List<VersionIndependentResourceTypesAll?>();
 
             foreach (var resourceType in resourceTypes)
             {
-                baseTypes.Add(Enum.Parse<AllResourceTypes>(resourceType));
+                baseTypes.Add(Enum.Parse<VersionIndependentResourceTypesAll>(resourceType));
             }
 
             return new SearchParameter()
