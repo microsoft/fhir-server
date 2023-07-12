@@ -30,7 +30,7 @@ CREATE PROCEDURE dbo.MergeResources
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = 'MergeResources'
+       ,@SP varchar(100) = object_name(@@procid)
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
@@ -120,6 +120,7 @@ BEGIN TRY
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value
              ,SearchParamHash = NULL
+             ,HistoryTransactionId = @TransactionId
           WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       ELSE
         DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)

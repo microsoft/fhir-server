@@ -855,7 +855,8 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    TransactionId        BIGINT          NULL,
+    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
 );
 
@@ -863,6 +864,10 @@ ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
 
 CREATE INDEX IX_ResourceTypeId_TransactionId
     ON dbo.Resource(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE INDEX IX_ResourceTypeId_HistoryTransactionId
+    ON dbo.Resource(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
@@ -3966,86 +3971,117 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE PROCEDURE dbo.HardDeleteResource_2
-@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @keepCurrentVersion SMALLINT
+CREATE PROCEDURE dbo.HardDeleteResource
+@ResourceTypeId SMALLINT, @ResourceId VARCHAR (64), @KeepCurrentVersion BIT, @IsResourceChangeCaptureEnabled BIT
 AS
 SET NOCOUNT ON;
-SET XACT_ABORT ON;
-BEGIN TRANSACTION;
-DECLARE @resourceSurrogateIds TABLE (
-    ResourceSurrogateId BIGINT NOT NULL);
-DELETE dbo.Resource
-OUTPUT deleted.ResourceSurrogateId INTO @resourceSurrogateIds
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceId = @resourceId
-       AND NOT (@keepCurrentVersion = 1
-                AND IsHistory = 0)
-       AND NOT (IsHistory = 1
-                AND RawResource = 0xF);
-DELETE dbo.ResourceWriteClaim
-WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                               FROM   @resourceSurrogateIds);
-DELETE dbo.CompartmentAssignment
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.ReferenceSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenText
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.StringSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.UriSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.NumberSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.QuantitySearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.DateTimeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.ReferenceTokenCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenTokenCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenDateTimeCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenQuantityCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenStringCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-DELETE dbo.TokenNumberNumberCompositeSearchParam
-WHERE  ResourceTypeId = @resourceTypeId
-       AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
-                                   FROM   @resourceSurrogateIds);
-COMMIT TRANSACTION;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = 'RT=' + CONVERT (VARCHAR, @ResourceTypeId) + ' R=' + @ResourceId + ' V=' + CONVERT (VARCHAR, @KeepCurrentVersion) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled), @st AS DATETIME = getUTCdate(), @TransactionId AS BIGINT;
+BEGIN TRY
+    IF @IsResourceChangeCaptureEnabled = 1
+        EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUTPUT;
+    IF @KeepCurrentVersion = 0
+        BEGIN TRANSACTION;
+    DECLARE @SurrogateIds TABLE (
+        ResourceSurrogateId BIGINT NOT NULL);
+    IF @IsResourceChangeCaptureEnabled = 0
+        DELETE dbo.Resource
+        OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceId = @ResourceId
+               AND (@KeepCurrentVersion = 0
+                    OR IsHistory = 1)
+               AND RawResource <> 0xF;
+    ELSE
+        BEGIN
+            UPDATE dbo.Resource
+            SET    IsHistory            = 1,
+                   RawResource          = 0xF,
+                   SearchParamHash      = NULL,
+                   HistoryTransactionId = @TransactionId
+            OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceId = @ResourceId
+                   AND (@KeepCurrentVersion = 0
+                        OR IsHistory = 1)
+                   AND RawResource <> 0xF;
+        END
+    IF @KeepCurrentVersion = 0
+        BEGIN
+            DELETE dbo.ResourceWriteClaim
+            WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                           FROM   @SurrogateIds);
+            DELETE dbo.CompartmentAssignment
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.ReferenceSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenText
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.StringSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.UriSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.NumberSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.QuantitySearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.DateTimeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.ReferenceTokenCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenTokenCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenDateTimeCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenQuantityCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenStringCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+            DELETE dbo.TokenNumberNumberCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds);
+        END
+    IF @@trancount > 0
+        COMMIT TRANSACTION;
+    IF @IsResourceChangeCaptureEnabled = 1
+        EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
+END TRY
+BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
+    THROW;
+END CATCH
 
 GO
 CREATE PROCEDURE dbo.InitDefrag
@@ -4206,7 +4242,7 @@ CREATE PROCEDURE dbo.MergeResources
 @AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
 SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
@@ -4306,9 +4342,10 @@ BEGIN TRY
                     SET @AffectedRows += @@rowcount;
                     IF @IsResourceChangeCaptureEnabled = 1
                         UPDATE dbo.Resource
-                        SET    IsHistory       = 1,
-                               RawResource     = 0xF,
-                               SearchParamHash = NULL
+                        SET    IsHistory            = 1,
+                               RawResource          = 0xF,
+                               SearchParamHash      = NULL,
+                               HistoryTransactionId = @TransactionId
                         WHERE  EXISTS (SELECT *
                                        FROM   @PreviousSurrogateIds
                                        WHERE  TypeId = ResourceTypeId
