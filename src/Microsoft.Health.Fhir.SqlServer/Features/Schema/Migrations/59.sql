@@ -5103,7 +5103,7 @@ BEGIN TRY
                            ORDER BY TypeId);
             DELETE dbo.Resource
             WHERE  ResourceTypeId = @TypeId
-                   AND TransactionId = @TransactionId
+                   AND HistoryTransactionId = @TransactionId
                    AND IsHistory = 1
                    AND RawResource = 0xF;
             SET @AffectedRows += @@rowcount;

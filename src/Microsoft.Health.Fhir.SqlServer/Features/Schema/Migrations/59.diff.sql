@@ -10,6 +10,7 @@ BEGIN
   EXECUTE('UPDATE dbo.Transactions SET InvisibleHistoryRemovedDate = getUTCdate()')
 END
 GO
+
 --DROP PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory
 GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
@@ -30,7 +31,7 @@ BEGIN TRY
   BEGIN
     SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
 
-    DELETE FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND TransactionId = @TransactionId AND IsHistory = 1 AND RawResource = 0xF
+    DELETE FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND HistoryTransactionId = @TransactionId AND IsHistory = 1 AND RawResource = 0xF
     SET @AffectedRows += @@rowcount
 
     DELETE FROM @Types WHERE TypeId = @TypeId
@@ -73,7 +74,7 @@ GO
 
 --DROP PROCEDURE dbo.MergeResourcesPutTransactionInvisibleHistory
 GO
-CREATE PROCEDURE dbo.MergeResourcesPutTransactionInvisibleHistory @TransactionId bigint
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesPutTransactionInvisibleHistory @TransactionId bigint
 AS
 set nocount on
 DECLARE @SP varchar(100) = object_name(@@procid)
@@ -513,7 +514,6 @@ BEGIN CATCH
     THROW
 END CATCH
 GO
-
 
 CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
