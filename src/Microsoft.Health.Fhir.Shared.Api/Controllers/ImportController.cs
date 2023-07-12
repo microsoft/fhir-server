@@ -89,10 +89,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> Import([FromBody] Parameters importTaskParameters)
         {
             CheckIfImportIsEnabled();
-
             ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
+            _logger.LogInformation("Import Mode {ImportMode}", importRequest.Mode);
             var initialLoad = ImportMode.InitialLoad.ToString().Equals(importRequest.Mode, StringComparison.OrdinalIgnoreCase);
             if (!initialLoad
                 && !ImportMode.IncrementalLoad.ToString().Equals(importRequest.Mode, StringComparison.OrdinalIgnoreCase)

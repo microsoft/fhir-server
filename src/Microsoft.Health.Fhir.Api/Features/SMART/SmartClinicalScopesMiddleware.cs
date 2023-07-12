@@ -99,14 +99,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         switch (accessLevel)
                         {
                             case "read":
-                                permittedDataActions |= DataActions.Read;
+                                permittedDataActions = DataActions.Read;
                                 break;
                             case "write":
-                                permittedDataActions |= DataActions.Write;
+                                permittedDataActions = DataActions.Write;
                                 break;
                             case "*":
                             case AllDataActions:
-                                permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
+                                permittedDataActions = DataActions.Read | DataActions.Write | DataActions.Export;
                                 break;
                         }
 

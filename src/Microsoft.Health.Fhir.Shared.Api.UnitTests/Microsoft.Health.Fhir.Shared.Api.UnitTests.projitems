@@ -55,6 +55,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportRequestExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\InitialImportLockMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidatorTests.cs" />

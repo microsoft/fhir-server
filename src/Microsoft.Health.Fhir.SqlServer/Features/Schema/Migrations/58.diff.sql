@@ -1,6 +1,261 @@
-﻿--DROP PROCEDURE dbo.MergeResources
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = object_id('Resource') AND name = 'TransactionId')
+  ALTER TABLE dbo.Resource ADD TransactionId bigint NULL
 GO
-CREATE PROCEDURE dbo.MergeResources
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('Resource') AND name = 'IX_ResourceTypeId_TransactionId')
+  CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.Resource (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL WITH (ONLINE = ON) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+GO
+--DROP PROCEDURE dbo.GetResourcesByTransactionId
+GO
+CREATE OR ALTER PROCEDURE dbo.GetResourcesByTransactionId @TransactionId bigint, @IncludeHistory bit = 0, @ReturnResourceKeysOnly bit = 0
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = 'T='+convert(varchar,@TransactionId)+' H='+convert(varchar,@IncludeHistory)
+       ,@st datetime = getUTCdate()
+       ,@DummyTop bigint = 9223372036854775807
+       ,@TypeId smallint
+
+BEGIN TRY
+  DECLARE @Types TABLE (TypeId smallint PRIMARY KEY, Name varchar(100))
+  INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+
+  DECLARE @Keys TABLE (TypeId smallint, SurrogateId bigint PRIMARY KEY (TypeId, SurrogateId))
+  WHILE EXISTS (SELECT * FROM @Types)
+  BEGIN
+    SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
+
+    INSERT INTO @Keys SELECT @TypeId, ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND TransactionId = @TransactionId
+
+    DELETE FROM @Types WHERE TypeId = @TypeId
+  END
+
+  IF @ReturnResourceKeysOnly = 0
+    SELECT ResourceTypeId
+          ,ResourceId
+          ,ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+          ,IsHistory
+          ,RawResource
+          ,IsRawResourceMetaSet
+          ,SearchParamHash
+          ,RequestMethod
+      FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
+           JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
+      WHERE IsHistory = 0 OR @IncludeHistory = 1
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    SELECT ResourceTypeId
+          ,ResourceId
+          ,ResourceSurrogateId
+          ,Version
+          ,IsDeleted
+      FROM (SELECT TOP (@DummyTop) * FROM @Keys) A
+           JOIN dbo.Resource B ON ResourceTypeId = TypeId AND ResourceSurrogateId = SurrogateId
+      WHERE IsHistory = 0 OR @IncludeHistory = 1
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DECLARE @Tran bigint = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM Transactions WHERE IsVisible = 1 ORDER BY 1 DESC)
+--EXECUTE GetResourcesByTransactionId @Tran
+
+--DROP PROCEDURE MergeResourcesGetTimeoutTransactions
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesGetTimeoutTransactions @TimeoutSec int
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = 'T='+convert(varchar,@TimeoutSec)
+       ,@st datetime = getUTCdate()
+       ,@MinTransactionId bigint
+
+BEGIN TRY
+  EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUT
+
+  SELECT SurrogateIdRangeFirstValue
+    FROM dbo.Transactions 
+    WHERE SurrogateIdRangeFirstValue > @MinTransactionId
+      AND IsCompleted = 0
+      AND datediff(second, HeartbeatDate, getUTCdate()) > @TimeoutSec
+    ORDER BY SurrogateIdRangeFirstValue
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)
+       ,@st datetime = getUTCdate()
+       ,@FirstValueVar sql_variant
+       ,@LastValueVar sql_variant
+
+BEGIN TRY
+  SET @TransactionId = NULL
+
+  IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
+ 
+  SET @FirstValueVar = NULL
+  WHILE @FirstValueVar IS NULL
+  BEGIN
+    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = @LastValueVar OUT
+    SET @SequenceRangeFirstValue = convert(int,@FirstValueVar)
+    IF @SequenceRangeFirstValue > convert(int,@LastValueVar)
+      SET @FirstValueVar = NULL
+  END
+
+  SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
+
+  INSERT INTO dbo.Transactions
+         (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue,                      HeartbeatDate )
+    SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
+
+  SET @TransactionId = @SurrogateIdRangeFirstValue
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DECLARE @SurrogateIdRangeFirstValue bigint
+--EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = 0, @SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue OUT
+--SELECT @SurrogateIdRangeFirstValue
+--SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
+--SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC
+--DROP PROCEDURE MergeResourcesAdvanceTransactionVisibility
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesAdvanceTransactionVisibility @AffectedRows int = 0 OUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = ''
+       ,@st datetime = getUTCdate()
+       ,@msg varchar(1000)
+       ,@MaxTransactionId bigint
+       ,@MinTransactionId bigint
+       ,@MinNotCompletedTransactionId bigint
+       ,@CurrentTransactionId bigint
+
+SET @AffectedRows = 0
+
+BEGIN TRY
+  EXECUTE dbo.MergeResourcesGetTransactionVisibility @MinTransactionId OUT
+  SET @MinTransactionId += 1
+
+  SET @CurrentTransactionId = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions ORDER BY SurrogateIdRangeFirstValue DESC)
+
+  SET @MinNotCompletedTransactionId = isnull((SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsCompleted = 0 AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId ORDER BY SurrogateIdRangeFirstValue),@CurrentTransactionId + 1)
+
+  SET @MaxTransactionId = (SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsCompleted = 1 AND SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId AND SurrogateIdRangeFirstValue < @MinNotCompletedTransactionId ORDER BY SurrogateIdRangeFirstValue DESC)
+
+  IF @MaxTransactionId >= @MinTransactionId
+  BEGIN
+    UPDATE A
+      SET IsVisible = 1
+         ,VisibleDate = getUTCdate()
+      FROM dbo.Transactions A WITH (INDEX = 1)
+      WHERE SurrogateIdRangeFirstValue BETWEEN @MinTransactionId AND @CurrentTransactionId 
+        AND SurrogateIdRangeFirstValue <= @MaxTransactionId
+    SET @AffectedRows += @@rowcount
+  END
+
+  SET @msg = 'Min='+convert(varchar,@MinTransactionId)+' C='+convert(varchar,@CurrentTransactionId)+' MinNC='+convert(varchar,@MinNotCompletedTransactionId)+' Max='+convert(varchar,@MaxTransactionId)
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows,@Text=@msg
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DROP PROCEDURE dbo.MergeResourcesGetTransactionVisibility
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesGetTransactionVisibility @TransactionId bigint OUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = ''
+       ,@st datetime = getUTCdate()
+
+SET @TransactionId = isnull((SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsVisible = 1 ORDER BY SurrogateIdRangeFirstValue DESC),-1)
+
+EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@TransactionId
+GO
+--DECLARE @TransactionId bigint
+--EXECUTE MergeResourcesGetTransactionVisibility @TransactionId OUT
+--SELECT @TransactionId
+--DROP PROCEDURE dbo.MergeResourcesCommitTransaction
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint = NULL, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0, @SurrogateIdRangeFirstValue bigint = NULL -- TODO: Remove after deployment
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
+       ,@st datetime = getUTCdate()
+       ,@InitialTranCount int = @@trancount
+       ,@IsCompletedBefore bit
+       ,@Rows int
+       ,@msg varchar(1000)
+
+SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
+
+DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)+' OC='+isnull(convert(varchar,@OverrideIsControlledByClientCheck),'NULL')
+
+BEGIN TRY
+  IF @InitialTranCount = 0 BEGIN TRANSACTION
+
+  UPDATE dbo.Transactions
+    SET IsCompleted = 1
+       ,@IsCompletedBefore = IsCompleted
+       ,EndDate = getUTCdate()
+       ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
+       ,FailureReason = @FailureReason
+    WHERE SurrogateIdRangeFirstValue = @TransactionId
+      AND (IsControlledByClient = 1 OR @OverrideIsControlledByClientCheck = 1)
+  SET @Rows = @@rowcount
+
+  IF @Rows = 0
+  BEGIN
+    SET @msg = 'Transaction ['+convert(varchar(20),@TransactionId)+'] is not controlled by client or does not exist.'
+    RAISERROR(@msg, 18, 127)
+  END
+
+  IF @IsCompletedBefore = 1
+  BEGIN
+    -- To make this call idempotent
+    IF @InitialTranCount = 0 ROLLBACK TRANSACTION
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Target='@IsCompletedBefore',@Text='=1'
+    RETURN
+  END
+
+  IF @InitialTranCount = 0 COMMIT TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+--DROP PROCEDURE dbo.MergeResources
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
