@@ -69664,11 +69664,11 @@
                     }
                 ],
                 "url": "http://hl7.org/fhir/SearchParameter/ResearchStudy-actual",
-                "version": "5.0.0",
+                "version": "5.0.0-snapshot1",
                 "name": "actual",
                 "status": "draft",
-                "experimental": true,
-                "date": "2023-03-26T15:21:02+11:00",
+                "experimental": false,
+                "date": "2021-12-19T08:15:41+11:00",
                 "publisher": "Health Level Seven International (Biomedical Research and Regulation)",
                 "contact": [
                     {
@@ -69688,23 +69688,97 @@
                         ]
                     }
                 ],
-                "description": "Actual for the study",
-                "jurisdiction": [
+                "description": "Indicates whether this is an actual research study or anticipated",
+                "code": "actual",
+                "base": [ "ResearchStudy" ],
+                "type": "boolean",
+                "expression": "ResearchStudy.progressStatus.actual"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/ResearchStudy-state",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ResearchStudy-state",
+                "extension": [
                     {
-                        "coding": [
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                        "valueCode": "trial-use"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/SearchParameter/ResearchStudy-state",
+                "version": "5.0.0-snapshot1",
+                "name": "state",
+                "status": "draft",
+                "experimental": false,
+                "date": "2021-12-19T08:15:41+11:00",
+                "publisher": "Health Level Seven International (Biomedical Research and Regulation)",
+                "contact": [
+                    {
+                        "telecom": [
                             {
-                                "system": "http://unstats.un.org/unsd/methods/m49/m49.htm",
-                                "code": "001",
-                                "display": "World"
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/rcrim/index.cfm"
                             }
                         ]
                     }
                 ],
-                "code": "classifier",
+                "description": "State of the Research Study",
+                "code": "state",
                 "base": [ "ResearchStudy" ],
                 "type": "token",
-                "expression": "ResearchStudy.classifier",
-                "processingMode": "normal"
+                "expression": "ResearchStudy.progressStatus.state"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/ResearchStudy-period",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "ResearchStudy-period",
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                        "valueCode": "trial-use"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/SearchParameter/ResearchStudy-period",
+                "version": "5.0.0-snapshot1",
+                "name": "period",
+                "status": "draft",
+                "experimental": false,
+                "date": "2021-12-19T08:15:41+11:00",
+                "publisher": "Health Level Seven International (Biomedical Research and Regulation)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/rcrim/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "description": "Period of the Research Study",
+                "code": "period",
+                "base": [ "ResearchStudy" ],
+                "type": "date",
+                "expression": "ResearchStudy.progressStatus.period"
             }
         },
         {
