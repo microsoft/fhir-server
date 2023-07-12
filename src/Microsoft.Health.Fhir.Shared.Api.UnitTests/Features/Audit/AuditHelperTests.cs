@@ -112,7 +112,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 correlationId: CorrelationId,
                 callerIpAddress: CallerIpAddressInString,
                 callerClaims: Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
         }
 
         [Fact]
@@ -173,7 +175,67 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 CorrelationId,
                 CallerIpAddressInString,
                 Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
+        }
+
+        [Fact]
+        public void GivenAuditHelper_WhenLogExecutingIsCalled_ThenCallerAgentShouldAlwaysBeDefaultCallerAgent()
+        {
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.Received().LogAudit(
+                auditAction: Arg.Any<AuditAction>(),
+                operation: Arg.Any<string>(),
+                resourceType: Arg.Any<string>(),
+                requestUri: Arg.Any<Uri>(),
+                statusCode: Arg.Any<HttpStatusCode?>(),
+                correlationId: Arg.Any<string>(),
+                callerIpAddress: Arg.Any<string>(),
+                callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
+                operationType: Arg.Any<string>(),
+                callerAgent: AuditHelper.DefaultCallerAgent);
+        }
+
+        [Theory]
+        [InlineData("DELETE", "DELETE")]
+        [InlineData("GET", "GET")]
+        [InlineData("PATCH", "PATCH")]
+        [InlineData("POST", "POST")]
+        [InlineData("PUT", "PUT")]
+        [InlineData(" DELETE   ", "DELETE")]
+        [InlineData("INVALID", AuditHelper.UnknownOperationType)]
+        [InlineData("1234", AuditHelper.UnknownOperationType)]
+        [InlineData("\nPOSTT\n", AuditHelper.UnknownOperationType)]
+        [InlineData("\r\n  PUT   \r\n", "PUT")]
+        [InlineData("   ", AuditHelper.UnknownOperationType)]
+        [InlineData("PAT\r\nCH", AuditHelper.UnknownOperationType)]
+        [InlineData(null, AuditHelper.UnknownOperationType)]
+        public void GivenOperationType_WhenLogAuditIsCalled_ThenRightOperationTypeShouldBeLogged(
+            string actualOperationType,
+            string expectedOperationType)
+        {
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _httpContext.Request.Method = actualOperationType;
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.Received().LogAudit(
+                auditAction: Arg.Any<AuditAction>(),
+                operation: Arg.Any<string>(),
+                resourceType: Arg.Any<string>(),
+                requestUri: Arg.Any<Uri>(),
+                statusCode: Arg.Any<HttpStatusCode?>(),
+                correlationId: Arg.Any<string>(),
+                callerIpAddress: Arg.Any<string>(),
+                callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
+                operationType: expectedOperationType,
+                callerAgent: AuditHelper.DefaultCallerAgent);
         }
     }
 }

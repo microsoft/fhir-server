@@ -33,7 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
             "Claims: {Claims}" + Environment.NewLine +
-            "CustomHeaders: {CustomHeaders}";
+            "CustomHeaders: {CustomHeaders}" + Environment.NewLine +
+            "OperationType: {OperationType}" + Environment.NewLine +
+            "CallerAgent: {CallerAgent}" + Environment.NewLine;
 
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
@@ -59,7 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyDictionary<string, string> customHeaders = null)
+            IReadOnlyDictionary<string, string> customHeaders = null,
+            string operationType = null,
+            string callerAgent = null)
         {
             string claimsInString = null;
             string customerHeadersInString = null;
@@ -88,7 +92,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 statusCode,
                 correlationId,
                 claimsInString,
-                customerHeadersInString);
+                customerHeadersInString,
+                operationType,
+                callerAgent);
         }
     }
 }
