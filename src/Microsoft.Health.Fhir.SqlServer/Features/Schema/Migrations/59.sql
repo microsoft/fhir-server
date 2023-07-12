@@ -1287,20 +1287,21 @@ CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.Transactions (
-    SurrogateIdRangeFirstValue BIGINT         NOT NULL,
-    SurrogateIdRangeLastValue  BIGINT         NOT NULL,
-    Definition                 VARCHAR (2000) NULL,
-    IsCompleted                BIT            CONSTRAINT DF_Transactions_IsCompleted DEFAULT 0 NOT NULL,
-    IsSuccess                  BIT            CONSTRAINT DF_Transactions_IsSuccess DEFAULT 0 NOT NULL,
-    IsVisible                  BIT            CONSTRAINT DF_Transactions_IsVisible DEFAULT 0 NOT NULL,
-    IsHistoryMoved             BIT            CONSTRAINT DF_Transactions_IsHistoryMoved DEFAULT 0 NOT NULL,
-    CreateDate                 DATETIME       CONSTRAINT DF_Transactions_CreateDate DEFAULT getUTCdate() NOT NULL,
-    EndDate                    DATETIME       NULL,
-    VisibleDate                DATETIME       NULL,
-    HistoryMovedDate           DATETIME       NULL,
-    HeartbeatDate              DATETIME       CONSTRAINT DF_Transactions_HeartbeatDate DEFAULT getUTCdate() NOT NULL,
-    FailureReason              VARCHAR (MAX)  NULL,
-    IsControlledByClient       BIT            CONSTRAINT DF_Transactions_IsControlledByClient DEFAULT 1 NOT NULL CONSTRAINT PKC_Transactions_SurrogateIdRangeFirstValue PRIMARY KEY CLUSTERED (SurrogateIdRangeFirstValue)
+    SurrogateIdRangeFirstValue  BIGINT         NOT NULL,
+    SurrogateIdRangeLastValue   BIGINT         NOT NULL,
+    Definition                  VARCHAR (2000) NULL,
+    IsCompleted                 BIT            CONSTRAINT DF_Transactions_IsCompleted DEFAULT 0 NOT NULL,
+    IsSuccess                   BIT            CONSTRAINT DF_Transactions_IsSuccess DEFAULT 0 NOT NULL,
+    IsVisible                   BIT            CONSTRAINT DF_Transactions_IsVisible DEFAULT 0 NOT NULL,
+    IsHistoryMoved              BIT            CONSTRAINT DF_Transactions_IsHistoryMoved DEFAULT 0 NOT NULL,
+    CreateDate                  DATETIME       CONSTRAINT DF_Transactions_CreateDate DEFAULT getUTCdate() NOT NULL,
+    EndDate                     DATETIME       NULL,
+    VisibleDate                 DATETIME       NULL,
+    HistoryMovedDate            DATETIME       NULL,
+    HeartbeatDate               DATETIME       CONSTRAINT DF_Transactions_HeartbeatDate DEFAULT getUTCdate() NOT NULL,
+    FailureReason               VARCHAR (MAX)  NULL,
+    IsControlledByClient        BIT            CONSTRAINT DF_Transactions_IsControlledByClient DEFAULT 1 NOT NULL,
+    InvisibleHistoryRemovedDate DATETIME       NULL CONSTRAINT PKC_Transactions_SurrogateIdRangeFirstValue PRIMARY KEY CLUSTERED (SurrogateIdRangeFirstValue)
 );
 
 CREATE INDEX IX_IsVisible
@@ -3926,6 +3927,24 @@ FROM   [dbo].[TaskInfo]
 WHERE  TaskId = @taskId;
 
 GO
+CREATE PROCEDURE dbo.GetTransactions
+@StartNotInclusiveTranId BIGINT, @EndInclusiveTranId BIGINT, @EndDate DATETIME=NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'ST=' + CONVERT (VARCHAR, @StartNotInclusiveTranId) + ' ET=' + CONVERT (VARCHAR, @EndInclusiveTranId) + ' ED=' + isnull(CONVERT (VARCHAR, @EndDate, 121), 'NULL'), @st AS DATETIME = getUTCdate();
+IF @EndDate IS NULL
+    SET @EndDate = getUTCdate();
+SELECT   SurrogateIdRangeFirstValue,
+         VisibleDate,
+         InvisibleHistoryRemovedDate
+FROM     dbo.Transactions
+WHERE    SurrogateIdRangeFirstValue > @StartNotInclusiveTranId
+         AND SurrogateIdRangeFirstValue <= @EndInclusiveTranId
+         AND EndDate <= @EndDate
+ORDER BY SurrogateIdRangeFirstValue;
+EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
+
+GO
 CREATE PROCEDURE dbo.GetUsedResourceTypes
 AS
 SET NOCOUNT ON;
@@ -3960,7 +3979,9 @@ OUTPUT deleted.ResourceSurrogateId INTO @resourceSurrogateIds
 WHERE  ResourceTypeId = @resourceTypeId
        AND ResourceId = @resourceId
        AND NOT (@keepCurrentVersion = 1
-                AND IsHistory = 0);
+                AND IsHistory = 0)
+       AND NOT (IsHistory = 1
+                AND RawResource = 0xF);
 DELETE dbo.ResourceWriteClaim
 WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                FROM   @resourceSurrogateIds);
@@ -5025,6 +5046,43 @@ BEGIN CATCH
 END CATCH
 
 GO
+CREATE PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory
+@TransactionId BIGINT, @AffectedRows INT=NULL OUTPUT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'T=' + CONVERT (VARCHAR, @TransactionId), @st AS DATETIME = getUTCdate(), @TypeId AS SMALLINT;
+SET @AffectedRows = 0;
+BEGIN TRY
+    DECLARE @Types TABLE (
+        TypeId SMALLINT      PRIMARY KEY,
+        Name   VARCHAR (100));
+    INSERT INTO @Types
+    EXECUTE dbo.GetUsedResourceTypes ;
+    WHILE EXISTS (SELECT *
+                  FROM   @Types)
+        BEGIN
+            SET @TypeId = (SELECT   TOP 1 TypeId
+                           FROM     @Types
+                           ORDER BY TypeId);
+            DELETE dbo.Resource
+            WHERE  ResourceTypeId = @TypeId
+                   AND TransactionId = @TransactionId
+                   AND IsHistory = 1
+                   AND RawResource = 0xF;
+            SET @AffectedRows += @@rowcount;
+            DELETE @Types
+            WHERE  TypeId = @TypeId;
+        END
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @AffectedRows;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
 CREATE PROCEDURE dbo.MergeResourcesGetTimeoutTransactions
 @TimeoutSec INT
 AS
@@ -5068,6 +5126,26 @@ BEGIN TRY
     SET    HeartbeatDate = getUTCdate()
     WHERE  SurrogateIdRangeFirstValue = @TransactionId
            AND IsControlledByClient = 1;
+END TRY
+BEGIN CATCH
+    IF error_number() = 1750
+        THROW;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
+    THROW;
+END CATCH
+
+GO
+CREATE PROCEDURE dbo.MergeResourcesPutTransactionInvisibleHistory
+@TransactionId BIGINT
+AS
+SET NOCOUNT ON;
+DECLARE @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (100) = 'TR=' + CONVERT (VARCHAR, @TransactionId), @st AS DATETIME = getUTCdate();
+BEGIN TRY
+    UPDATE dbo.Transactions
+    SET    InvisibleHistoryRemovedDate = getUTCdate()
+    WHERE  SurrogateIdRangeFirstValue = @TransactionId
+           AND InvisibleHistoryRemovedDate IS NULL;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750

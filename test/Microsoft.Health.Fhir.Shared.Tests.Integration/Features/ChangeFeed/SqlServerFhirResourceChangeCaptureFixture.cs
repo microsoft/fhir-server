@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -36,6 +37,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         }
 
         public Mediator Mediator => _storageFixture.Mediator;
+
+        public IFhirDataStore DataStore => _storageFixture.DataStore;
 
         public SqlConnectionWrapperFactory SqlConnectionWrapperFactory => _sqlFixture.SqlConnectionWrapperFactory;
 

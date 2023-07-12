@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -90,6 +91,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturned()
         {
             EnableDatabaseLogging();
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+
+            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            var startTranId = await store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
 
             var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
             Assert.Equal("1", create.VersionId);
@@ -103,6 +108,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var bundle = history.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Single(bundle.Entry);
 
+            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            var endTranId = await store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+
+            // old style TODO: Remove once events switch to new style
             var changeStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
             var changes = await changeStore.GetRecordsAsync(1, 200, CancellationToken.None);
             Assert.NotNull(changes);
@@ -112,6 +121,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             change = changes.Where(x => x.ResourceVersion.ToString() == update.RawResourceElement.VersionId && x.ResourceId == create.Id).FirstOrDefault();
             Assert.NotNull(change);
             Assert.Equal(ResourceChangeTypeUpdated, change.ResourceChangeTypeId);
+
+            // new style
+            var trans = await store.GetTransactionsAsync(startTranId, endTranId, CancellationToken.None);
+            Assert.Equal(2, trans.Count);
+            var resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[0].TransactionId, CancellationToken.None);
+            Assert.Equal(1, resourceKeys.Count);
+            Assert.Equal(create.Id, resourceKeys[0].Id);
+            Assert.Equal("1", resourceKeys[0].VersionId);
+            Assert.False(resourceKeys[0].IsDeleted);
+            resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[1].TransactionId, CancellationToken.None);
+            Assert.Equal(1, resourceKeys.Count);
+            Assert.Equal("2", resourceKeys[0].VersionId);
+            Assert.False(resourceKeys[0].IsDeleted);
         }
 
         private void EnableDatabaseLogging()

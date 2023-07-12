@@ -443,7 +443,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, false); }, _logger, null, cancellationToken);
+                    return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, false); }, _logger, null, cancellationToken);
                 }
                 catch (Exception e)
                 {
@@ -458,18 +458,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private ResourceWrapper ReadWrapper(SqlDataReader reader, VLatest.ResourceTable table, bool readRequestMethod)
+        private ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod)
         {
-            var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
-            var resourceId = reader.Read(table.ResourceId, 1);
-            var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
-            var version = reader.Read(table.Version, 3);
-            var isDeleted = reader.Read(table.IsDeleted, 4);
-            var isHistory = reader.Read(table.IsHistory, 5);
+            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
+            var version = reader.Read(VLatest.Resource.Version, 3);
+            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
+            var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var rawResourceBytes = reader.GetSqlBytes(6).Value;
-            var isRawResourceMetaSet = reader.Read(table.IsRawResourceMetaSet, 7);
-            var searchParamHash = reader.Read(table.SearchParamHash, 8);
-            var requestMethod = readRequestMethod ? reader.Read(table.RequestMethod, 9) : null;
+            var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
+            var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
+            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
 
             using var rawResourceStream = new MemoryStream(rawResourceBytes);
             var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
@@ -490,6 +490,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 IsHistory = isHistory,
             };
+        }
+
+        private ResourceDateKey ReadResourceDateKeyWrapper(SqlDataReader reader)
+        {
+            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
+            var version = reader.Read(VLatest.Resource.Version, 3);
+            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
+
+            return new ResourceDateKey(
+                _model.GetResourceTypeName(resourceTypeId),
+                resourceId,
+                resourceSurrogateId,
+                version.ToString(CultureInfo.InvariantCulture),
+                isDeleted);
         }
 
         public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVervionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
@@ -712,6 +728,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
+        internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            var affectedRowsParam = new SqlParameter("@affectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(affectedRowsParam);
+            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
+            return (int)affectedRowsParam.Value;
+        }
+
         internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesCommitTransaction", CommandType = CommandType.StoredProcedure };
@@ -721,6 +747,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@FailureReason", failureReason);
             }
 
+            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
+        }
+
+        internal async Task MergeResourcesPutTransactionInvisibleHistoryAsync(long transactionId, CancellationToken cancellationToken)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionInvisibleHistory", CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
             await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
         }
 
@@ -741,11 +774,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return reader.GetInt64(0); }, _logger, null, cancellationToken);
         }
 
+        internal async Task<IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)>> GetTransactionsAsync(long startNotInclusiveTranId, long endInclusiveTranId, CancellationToken cancellationToken, DateTime? endDate = null)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetTransactions", CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@StartNotInclusiveTranId", startNotInclusiveTranId);
+            cmd.Parameters.AddWithValue("@EndInclusiveTranId", endInclusiveTranId);
+            if (endDate.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@EndDate", endDate.Value);
+            }
+
+            return await _sqlRetryService.ExecuteSqlDataReader(
+                cmd,
+                (reader) =>
+                {
+                    return (reader.Read(VLatest.Transactions.SurrogateIdRangeFirstValue, 0),
+                            reader.Read(VLatest.Transactions.VisibleDate, 1),
+                            reader.Read(VLatest.Transactions.InvisibleHistoryRemovedDate, 2));
+                },
+                _logger,
+                null,
+                cancellationToken);
+        }
+
         internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadWrapper(reader, VLatest.Resource, true); }, _logger, null, cancellationToken);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, true); }, _logger, null, cancellationToken);
+        }
+
+        internal async Task<IReadOnlyList<ResourceDateKey>> GetResourceDateKeysByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            cmd.Parameters.AddWithValue("@IncludeHistory", true);
+            cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, ReadResourceDateKeyWrapper, _logger, null, cancellationToken);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
