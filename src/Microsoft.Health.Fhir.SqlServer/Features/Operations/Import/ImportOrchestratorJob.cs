@@ -405,7 +405,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             try
             {
-                var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions)).Select(_ => _.Id).OrderBy(_ => _).ToList();
+                var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList();
                 return jobIds;
             }
             catch (Exception ex)

@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
-                            await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions);
+                            await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                             atLeastOneWorkerJobRegistered = true;
                         }
                     }

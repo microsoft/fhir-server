@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -15,7 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations;
 public static class QueueClientExtensions
 {
     public static Task<IReadOnlyList<JobInfo>> EnqueueAsync<T>(this IQueueClient queueClient, QueueType queueType, CancellationToken cancellationToken, long? groupId = null, bool forceOneActiveJobGroup = false, bool isCompleted = false, params T[] definitions)
+     where T : IJobData
     {
+        EnsureArg.HasItems(definitions, nameof(definitions));
         return queueClient.EnqueueAsync((byte)queueType, definitions.Select(x => JsonConvert.SerializeObject(x)).ToArray(), groupId, forceOneActiveJobGroup, isCompleted, cancellationToken);
     }
 
