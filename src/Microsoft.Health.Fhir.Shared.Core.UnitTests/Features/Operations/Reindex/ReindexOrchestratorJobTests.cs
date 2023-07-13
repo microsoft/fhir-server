@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using MediatR;
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     SearchParameterStatus = SearchParameterStatus.Enabled,
                 },
             };
-            List<ResourceSearchParameterStatus> status = new List<ResourceSearchParameterStatus>()
+            ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
             {
                 new ResourceSearchParameterStatus()
                 {
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     Uri = new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
                     Status = SearchParameterStatus.Enabled,
                 },
-            };
+            });
 
             _searchParameterStatusmanager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>()).Returns(status);
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
