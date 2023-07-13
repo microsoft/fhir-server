@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 },
             });
 
-            _searchParameterStatusmanager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>()).Returns(status);
+            _searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns(status);
             _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
             _reindexJobTaskFactory = () =>
                  new ReindexOrchestratorJob(

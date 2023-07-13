@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.ReturnsForAnyArgs(_fhirRequestContext);
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
