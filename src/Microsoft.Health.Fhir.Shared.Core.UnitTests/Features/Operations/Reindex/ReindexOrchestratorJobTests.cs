@@ -117,6 +117,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = JobStatus.Running,
             };
 
+            var mockSearchResult = new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>());
+
             // setup search result
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
@@ -125,8 +127,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(
-                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
+                    mockSearchResult);
 
+            var defaultSearchResult = new SearchResult(0, new List<Tuple<string, string>>());
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 != expectedResourceType)),
                 Arg.Any<string>(),
@@ -134,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>(),
                 true).
                 Returns(
-                    new SearchResult(0, new List<Tuple<string, string>>()));
+                    defaultSearchResult);
 
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
