@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureConnectionStringClientInitializerV2 : IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient>
+    public class AzureConnectionStringClientInitializerV2 : IIntegrationDataStoreClientInitializer
     {
         // Well-known storage emulator account info, not to be used in production (see https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string?toc=%2Fazure%2Fstorage%2Fblobs%2Ftoc.json&bc=%2Fazure%2Fstorage%2Fblobs%2Fbreadcrumb%2Ftoc.json#configure-a-connection-string-for-azurite)
         private const string StorageEmulatorConnectionStringPrefix = "UseDevelopmentStorage";

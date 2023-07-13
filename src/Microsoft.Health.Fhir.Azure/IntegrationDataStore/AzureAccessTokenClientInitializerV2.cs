@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient>
+    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitializer
     {
         private readonly IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private readonly ILogger<AzureAccessTokenClientInitializerV2> _logger;

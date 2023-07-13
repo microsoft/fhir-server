@@ -24,13 +24,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
-        private IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient> _integrationDataStoreClientInitializer;
+        private IIntegrationDataStoreClientInitializer _integrationDataStoreClientInitializer;
         private IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
         public AzureBlobIntegrationDataStoreClient(
-            IIntegrationDataStoreClientInitilizer<BlobServiceClient, BlockBlobClient, BlobClient> integrationDataStoreClientInitializer,
+            IIntegrationDataStoreClientInitializer integrationDataStoreClientInitializer,
             IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<AzureBlobIntegrationDataStoreClient> logger)
         {
