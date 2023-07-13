@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                IEnumerable<string> itemsDeleted;
+                IReadOnlySet<string> itemsDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
 
@@ -81,24 +81,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                             deleteAll: true),
                         cancellationToken);
                 }
-                catch (PartialSuccessException<IEnumerable<string>> ex)
+                catch (PartialSuccessException<IReadOnlySet<string>> ex)
                 {
                     itemsDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count());
+                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count);
                 if (definition.ReportIds)
                 {
-                    result.ResourcesDeletedIds.Add(definition.Type, itemsDeleted.ToList());
+                    result.ResourcesDeletedIds.Add(definition.Type, itemsDeleted.ToHashSet());
                 }
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count()), cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count), cancellationToken);
 
                 if (exception != null)
                 {
-                    var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues[0]}", result, exception);
+                    var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
                     jobException.RequestCancellationOnFailure = true;
                     throw jobException;
                 }

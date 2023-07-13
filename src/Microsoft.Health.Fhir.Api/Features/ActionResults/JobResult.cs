@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
-        public static JobResult FromResults(IDictionary<string, IEnumerable<Tuple<string, Base>>> results, IList<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
+        public static JobResult FromResults(IDictionary<string, ICollection<Tuple<string, Base>>> results, ICollection<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
         {
             var resource = new Parameters();
 

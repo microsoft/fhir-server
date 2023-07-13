@@ -55,7 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
-            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>()).Returns(args => new List<string>() { "1", "2", "3"});
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
+                .Returns(args => new HashSet<string> { "1", "2", "3"});
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);

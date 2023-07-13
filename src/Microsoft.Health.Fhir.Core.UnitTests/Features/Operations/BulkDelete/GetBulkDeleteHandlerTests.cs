@@ -53,13 +53,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var observationResult = new BulkDeleteResult();
             observationResult.ResourcesDeleted.Add(KnownResourceTypes.Observation, 5);
 
-            var resourcesDeleted = new List<Tuple<string, Base>>()
+            var resourcesDeleted = new List<Tuple<string, Base>>
             {
-                new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(22)),
-                new Tuple<string, Base>(KnownResourceTypes.Observation, new FhirDecimal(5)),
+                new(KnownResourceTypes.Patient, new FhirDecimal(22)),
+                new(KnownResourceTypes.Observation, new FhirDecimal(5)),
             };
 
-            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
             {
                 { _countLabel, resourcesDeleted },
             };
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 new Tuple<string, Base>(KnownResourceTypes.Observation, new FhirDecimal(5)),
             };
 
-            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
             {
                 { _countLabel, resourcesDeleted },
             };
@@ -142,40 +142,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
-                new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
             };
 
-            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
             {
                 { _countLabel, resourcesDeleted },
             };
 
             var issues = new List<OperationOutcomeIssue>()
             {
-                new OperationOutcomeIssue(
+                new(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,
                     detailsText: "Encountered an unhandled exception. The job will be marked as failed."),
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>()
+                new List<JobInfo>
                 {
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(patientResult1),
                     },
-                    new JobInfo()
+                    new()
                     {
-                        Status = JobStatus.Cancelled,
+                        Status = JobStatus.Running,
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Failed,
                         Result = JsonConvert.SerializeObject(new { message = "Job failed" }),
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Running,
                     },
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
             };
 
-            var resultsDictionary = new Dictionary<string, IEnumerable<Tuple<string, Base>>>()
+            var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
             {
                 { _countLabel, resourcesDeleted },
             };
@@ -282,10 +282,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             {
                 Assert.Equal(expectedResponse.Results.Count(), response.Results.Count());
 
-                foreach (var result in expectedResponse.Results)
-                {
-                    Assert.Contains(result, response.Results);
-                }
+                Assert.Equal(expectedResponse.Results, response.Results);
             }
             else
             {

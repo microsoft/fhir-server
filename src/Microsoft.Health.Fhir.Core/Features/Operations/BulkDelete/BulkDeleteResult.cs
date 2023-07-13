@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
@@ -15,17 +14,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         public BulkDeleteResult()
         {
             ResourcesDeleted = new Dictionary<string, long>();
-            ResourcesDeletedIds = new Dictionary<string, List<string>>();
-            Issues = new Collection<string>();
+            ResourcesDeletedIds = new Dictionary<string, ISet<string>>();
+            Issues = new List<string>();
         }
 
         [JsonProperty(JobRecordProperties.ResourcesDeleted)]
-        public Dictionary<string, long> ResourcesDeleted { get; private set; }
+        public IDictionary<string, long> ResourcesDeleted { get; }
 
         [JsonProperty(JobRecordProperties.ResourcesDeletedIds)]
-        public Dictionary<string, List<string>> ResourcesDeletedIds { get; private set; }
+        public IDictionary<string, ISet<string>> ResourcesDeletedIds { get; }
 
         [JsonProperty(JobRecordProperties.Issues)]
-        public Collection<string> Issues { get; private set; }
+        public ICollection<string> Issues { get; }
     }
 }

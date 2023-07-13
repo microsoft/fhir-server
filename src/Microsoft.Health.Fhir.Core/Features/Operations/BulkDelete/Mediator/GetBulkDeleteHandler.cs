@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             var cancelled = false;
             var succeeded = true;
             var resourcesDeleted = new Dictionary<string, long>();
-            var resourcesDeletedIds = new Dictionary<string, List<string>>();
+            var resourcesDeletedIds = new Dictionary<string, ISet<string>>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -120,24 +120,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
                     {
                         if (!resourcesDeletedIds.TryAdd(key, result.ResourcesDeletedIds[key]))
                         {
-                            resourcesDeletedIds[key] = resourcesDeletedIds[key].Concat(result.ResourcesDeletedIds[key]).ToList();
+                            resourcesDeletedIds[key] =
+                                resourcesDeletedIds[key].Concat(result.ResourcesDeletedIds[key]).ToHashSet();
                         }
                     }
                 }
             }
 
             // This is the part that needs finishing...
-            var fhirResults = new Dictionary<string, IEnumerable<Tuple<string, Base>>>();
+            var fhirResults = new Dictionary<string, ICollection<Tuple<string, Base>>>();
 
             if (resourcesDeleted.Count > 0)
             {
-                fhirResults.Add("ResourceDeletedCount", resourcesDeleted.Where(x => x.Value > 0).Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value))));
+                fhirResults.Add("ResourceDeletedCount", resourcesDeleted
+                    .Where(x => x.Value > 0)
+                    .Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)))
+                    .ToArray());
             }
 
             if (resourcesDeletedIds.Count > 0)
             {
                 // Aggregates the ids into a comma seperated string as FHIR doesn't have an Array type.
-                fhirResults.Add("ResourcesDeleted", resourcesDeletedIds.Where(x => x.Value.Count > 0).Select(x => new Tuple<string, Base>(x.Key, new FhirString(x.Value.Aggregate((workingList, next) => next + ", " + workingList)))));
+                fhirResults.Add("ResourcesDeleted", resourcesDeletedIds
+                    .Where(x => x.Value.Count > 0)
+                    .Select(x => new Tuple<string, Base>(x.Key, new FhirString(x.Value.Aggregate((workingList, next) => next + ", " + workingList))))
+                    .ToArray());
             }
 
             if (failed && issues.Count > 0)

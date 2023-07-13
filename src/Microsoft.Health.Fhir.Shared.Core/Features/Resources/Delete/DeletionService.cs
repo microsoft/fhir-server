@@ -77,18 +77,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<IEnumerable<string>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<IReadOnlySet<string>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.MaxDeleteCount);
 
-            var itemsDeleted = new List<string>();
+            var itemsDeleted = new HashSet<string>();
 
             // Delete the matched results...
             try
             {
                 while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
-                    var resultsToDelete = request.DeleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount.Value - itemsDeleted.Count);
+                    IReadOnlyCollection<SearchResultEntry> resultsToDelete =
+                        request.DeleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount.Value - itemsDeleted.Count)
+                            .ToArray();
+
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
                         bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
@@ -100,24 +103,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 {
                                     var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
                                     emptyInstance.Id = item.Resource.ResourceId;
-
                                     ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
-
                                     return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
-                                }).ToList(),
+                                }).ToArray(),
                                 cancellationToken);
                         }
                         catch (PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
                         {
-                            itemsDeleted = itemsDeleted.Concat(ex.PartialResults.Select(item => item.Key.Id)).ToList();
+                            foreach (string id in ex.PartialResults.Select(item => item.Key.Id))
+                            {
+                                itemsDeleted.Add(id);
+                            }
+
                             throw;
                         }
 
-                        itemsDeleted = itemsDeleted.Concat(resultsToDelete.Select(item => item.Resource.ResourceId)).ToList();
+                        foreach (string id in itemsDeleted.Concat(resultsToDelete.Select(item => item.Resource.ResourceId)))
+                        {
+                            itemsDeleted.Add(id);
+                        }
                     }
                     else
                     {
-                        var options = new ParallelOptions()
+                        var options = new ParallelOptions
                         {
                             MaxDegreeOfParallelism = 4,
                             CancellationToken = cancellationToken,
@@ -133,7 +141,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                         finally
                         {
-                            itemsDeleted = itemsDeleted.Concat(parallelBag).ToList();
+                            foreach (string item in parallelBag)
+                            {
+                                itemsDeleted.Add(item);
+                            }
                         }
                     }
 
@@ -154,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             catch (Exception ex)
             {
-                throw new PartialSuccessException<IEnumerable<string>>(ex, itemsDeleted);
+                throw new PartialSuccessException<IReadOnlySet<string>>(ex, itemsDeleted);
             }
 
             return itemsDeleted;

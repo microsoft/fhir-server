@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             var itemsDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
 
-            return new DeleteResourceResponse(itemsDeleted.Count());
+            return new DeleteResourceResponse(itemsDeleted.Count);
         }
     }
 }

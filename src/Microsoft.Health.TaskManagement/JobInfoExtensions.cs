@@ -34,12 +34,22 @@ public static class JobInfoExtensions
     {
         EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
+        if (jobInfo.Definition == null)
+        {
+            return default;
+        }
+
         return JsonConvert.DeserializeObject<T>(jobInfo.Definition);
     }
 
     public static T DeserializeResult<T>(this JobInfo jobInfo)
     {
         EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+        if (jobInfo.Result == null)
+        {
+            return default;
+        }
 
         return JsonConvert.DeserializeObject<T>(jobInfo.Result);
     }
