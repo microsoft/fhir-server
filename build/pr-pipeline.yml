@@ -118,12 +118,14 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          Write-Host "Creating Gesource Group '$(ResourceGroupName)"
+          Get-AzContext
           try
           {
             Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
           }
           catch
-          {}
+          {}         
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: setupEnvironment
