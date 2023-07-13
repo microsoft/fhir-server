@@ -23,15 +23,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         /// </summary>
         [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
         [Trait(Traits.Category, Categories.Operations)]
-        public partial class OperationsCapabilityProviderTests
+        public class OperationsCapabilityProviderTests
         {
-            private IUrlResolver _urlResolver;
-            private IOptions<OperationsConfiguration> _operationsOptions = Substitute.For<IOptions<OperationsConfiguration>>();
-            private IOptions<FeatureConfiguration> _featureOptions = Substitute.For<IOptions<FeatureConfiguration>>();
-            private IOptions<CoreFeatureConfiguration> _coreFeatureOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            private OperationsConfiguration _operationsConfiguration = new OperationsConfiguration();
-            private CoreFeatureConfiguration _coreFeatureConfiguration = new CoreFeatureConfiguration();
-            private FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
+            private readonly IUrlResolver _urlResolver;
+            private readonly IOptions<OperationsConfiguration> _operationsOptions = Substitute.For<IOptions<OperationsConfiguration>>();
+            private readonly IOptions<FeatureConfiguration> _featureOptions = Substitute.For<IOptions<FeatureConfiguration>>();
+            private readonly IOptions<CoreFeatureConfiguration> _coreFeatureOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            private readonly OperationsConfiguration _operationsConfiguration = new();
+            private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new();
+            private readonly FeatureConfiguration _featureConfiguration = new();
 
             public OperationsCapabilityProviderTests()
             {
@@ -42,28 +42,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
                 _coreFeatureOptions.Value.Returns(_coreFeatureConfiguration);
             }
 
-            [Fact]
-            public void GivenAConformanceBuilder_WhenSupportsSelectableSearchParametersIsEnabled_ThenStatusOperationIsNotAdded()
+            [Theory]
+            [InlineData(true)]
+            [InlineData(false)]
+            public void GivenAConformanceBuilder_WhenCallingOperationsCapabilityForSelectableSearchParameters_ThenStatusOperationIsAddedWhenEnabled(bool added)
             {
-                _coreFeatureConfiguration.SupportsSelectableSearchParameters = true;
-                ListedCapabilityStatement listedCapabilityStatement = new ListedCapabilityStatement();
-                OperationsCapabilityProvider provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver);
+                _coreFeatureConfiguration.SupportsSelectableSearchParameters = added;
+
+                var provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver);
                 ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
                 provider.Build(builder);
 
-                builder.Received(3).Apply(Arg.Any<Action<ListedCapabilityStatement>>());
+                builder.Received(added ? 1 : 0)
+                    .Apply(Arg.Is<Action<ListedCapabilityStatement>>(x => x.Method.Name == nameof(OperationsCapabilityProvider.AddSelectableSearchParameterDetails)));
             }
-
-            [Fact]
-            public void GivenAConformanceBuilder_WhenSupportsSelectableSearchParametersIsDisabled_ThenStatusOperationIsNotAdded()
-            {
-                _coreFeatureConfiguration.SupportsSelectableSearchParameters = false;
-                ListedCapabilityStatement listedCapabilityStatement = new ListedCapabilityStatement();
-                OperationsCapabilityProvider provider = new OperationsCapabilityProvider(_operationsOptions, _featureOptions, _coreFeatureOptions, _urlResolver);
-                ICapabilityStatementBuilder builder = Substitute.For<ICapabilityStatementBuilder>();
-                provider.Build(builder);
-
-                builder.Received(2).Apply(Arg.Any<Action<ListedCapabilityStatement>>());
-            }
-    }
+        }
 }
