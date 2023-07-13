@@ -90,6 +90,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string IgnoreSearchParamHash = "_ignoreSearchParamHash";
 
+        public const string FeedRange = "_feedRange";
+
         /// <summary>
         /// Frequently used SearchParameters
         /// </summary>

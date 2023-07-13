@@ -225,23 +225,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public virtual Task<IReadOnlyList<(DateTimeOffset StartTime, DateTimeOffset EndTime)>> GetResourceTimeRanges(
-            string resourceType,
-            DateTimeOffset startTime,
-            DateTimeOffset endTime,
-            int rangeSize,
-            int numberOfRanges,
-            CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
         public virtual Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
 
         public virtual Task<IReadOnlyList<(string ResourceType, uint Count)>> GetUsedResourceTypesWithCount(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

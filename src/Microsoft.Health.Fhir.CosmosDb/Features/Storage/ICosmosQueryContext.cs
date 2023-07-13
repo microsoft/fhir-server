@@ -26,5 +26,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Gets the continuation token.
         /// </summary>
         string ContinuationToken { get; }
+
+        /// <summary>
+        /// Gets the feed range.
+        /// </summary>
+        public FeedRange FeedRange { get; }
     }
 }

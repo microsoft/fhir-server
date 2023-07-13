@@ -56,6 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public string ContinuationToken { get; internal set; }
 
         /// <summary>
+        /// Gets the optional feed range.
+        /// </summary>
+        public string FeedRange { get; internal set; }
+
+        /// <summary>
         /// Gets a value indicating whether to only return the record count
         /// </summary>
         public bool CountOnly { get; internal set; }

@@ -100,6 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             searchOptions.IgnoreSearchParamHash = queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IgnoreSearchParamHash && _.Item2 != null);
 
             string continuationToken = null;
+            string feedRange = null;
 
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
@@ -120,6 +121,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     continuationToken = ContinuationTokenConverter.Decode(query.Item2);
                     setDefaultBundleTotal = false;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.FeedRange, StringComparison.OrdinalIgnoreCase))
+                {
+                    feedRange = query.Item2;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format || query.Item1 == KnownQueryParameterNames.Pretty)
                 {
@@ -200,6 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.ContinuationToken = continuationToken;
+            searchOptions.FeedRange = feedRange;
 
             if (setDefaultBundleTotal)
             {

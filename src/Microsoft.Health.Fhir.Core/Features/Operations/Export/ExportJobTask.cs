@@ -188,6 +188,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
+                if (_exportJobRecord.FeedRange is not null)
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.FeedRange, _exportJobRecord.FeedRange));
+                }
+
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
                 await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);

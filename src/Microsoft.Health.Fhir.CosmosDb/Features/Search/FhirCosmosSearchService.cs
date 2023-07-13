@@ -205,93 +205,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return searchResult;
         }
 
-        public override async Task<IReadOnlyList<(DateTimeOffset StartTime, DateTimeOffset EndTime)>> GetResourceTimeRanges(
-            string resourceType,
-            DateTimeOffset startTime,
-            DateTimeOffset endTime,
-            int rangeSize,
-            int numberOfRanges,
-            CancellationToken cancellationToken)
+
+        public override async Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
         {
-            List<(DateTimeOffset, DateTimeOffset)> results = new();
-
-            // Fetch the first and last time in the range.
-            var minResourceTime = await FetchResults(startTime, endTime, 0, 1, true);
-
-            if (!minResourceTime.Any())
-            {
-                return results;
-            }
-
-            startTime = minResourceTime[0];
-
-            // Find the remaining time ranges.
-            for (int i = 0; i < numberOfRanges; i++)
-            {
-                var searchResult = await FetchResults(startTime, endTime, rangeSize, 1, true);
-
-                if (!searchResult.Any())
-                {
-                    break;
-                }
-
-                var newStartTime = searchResult[0];
-                var currentEndTime = newStartTime.AddTicks(-1);
-
-                results.Add((startTime, currentEndTime));
-
-                // Set the start of the next range.
-                startTime = newStartTime;
-            }
-
-            // For non-full results, add the last range with the last resource.
-            if (results.Count < numberOfRanges)
-            {
-                var maxResourceTime = await FetchResults(startTime, endTime, 0, 1, false);
-
-                // Check not needed but doesn't hurt.
-                if (maxResourceTime.Any())
-                {
-                    results.Add((startTime, maxResourceTime[0]));
-                }
-            }
-
-            return results;
-
-            async Task<IReadOnlyList<DateTimeOffset>> FetchResults(DateTimeOffset startTime, DateTimeOffset endTime, int offset, int limit, bool asc)
-            {
-                // Using PartialDateTime in parameters ensures dates are formatted correctly when converted to string.
-                string queryText = @"SELECT VALUE r.lastModified
-                    FROM root r
-                    WHERE r.isSystem = false
-                    AND r.isHistory = false
-                    AND r.isDeleted = false
-                    AND r.resourceTypeName = @resourceTypeName
-                    AND r.lastModified >= @startTime
-                    AND r.lastModified <= @endTime
-                    ORDER BY r.lastModified asc
-                    OFFSET @offset LIMIT @limit";
-
-                if (asc == false)
-                {
-                    queryText = queryText.Replace("asc", "desc", StringComparison.Ordinal);
-                }
-
-                QueryDefinition sqlQuerySpec = new QueryDefinition(queryText)
-                    .WithParameter("@resourceTypeName", resourceType)
-                    .WithParameter("@startTime", new PartialDateTime(startTime).ToString())
-                    .WithParameter("@endTime", new PartialDateTime(endTime).ToString())
-                    .WithParameter("@offset", offset)
-                    .WithParameter("@limit", limit);
-
-                var response = await _fhirDataStore.ExecuteDocumentQueryAsync<DateTimeOffset>(
-                    sqlQuerySpec,
-                    new QueryRequestOptions(),
-                    mustNotExceedMaxItemCount: false,
-                    cancellationToken: cancellationToken);
-
-                return response.results;
-            }
+            var ranges = await _fhirDataStore.GetFeedRanges(cancellationToken);
+            return ranges.Select(x => x.ToJsonString());
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
@@ -496,6 +414,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                   MaxItemCount = searchOptions.MaxItemCount,
                               };
 
+            FeedRange queryRange = null;
+            if (searchOptions.FeedRange is not null)
+            {
+                queryRange = FeedRange.FromJsonString(searchOptions.FeedRange);
+            }
+
             // If the database has many physical physical partitions, and this query is selective, we will want to instruct
             // the Cosmos DB SDK to query the partitions in parallel. If the query is not selective, we want to stick to
             // sequential querying, so that we do not waste RUs and time on results that will be discarded.
@@ -559,13 +483,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
 
                     // Executing query sequentially until the timeout
-                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, searchEnumerationTimeoutOverrideIfSequential, cancellationToken);
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                        sqlQuerySpec: sqlQuerySpec,
+                        feedOptions: feedOptions,
+                        feedRange: queryRange,
+                        mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
+                        searchEnumerationTimeoutOverride: searchEnumerationTimeoutOverrideIfSequential,
+                        cancellationToken: cancellationToken);
 
                     // check if we need to restart the query in parallel
                     if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
-                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, null, cancellationToken);
+                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                                                                                    sqlQuerySpec: sqlQuerySpec,
+                                                                                    feedOptions: feedOptions,
+                                                                                    feedRange: queryRange,
+                                                                                    mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
+                                                                                    cancellationToken: cancellationToken);
                     }
                 }
                 else
@@ -579,7 +514,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         feedOptions.MaxItemCount = (int)(feedOptions.MaxItemCount / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
                     }
 
-                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, mustNotExceedMaxItemCount, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                                                                                sqlQuerySpec: sqlQuerySpec,
+                                                                                feedOptions: feedOptions,
+                                                                                feedRange: queryRange,
+                                                                                continuationToken: continuationToken,
+                                                                                mustNotExceedMaxItemCount: mustNotExceedMaxItemCount,
+                                                                                searchEnumerationTimeoutOverride: feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null,
+                                                                                cancellationToken: cancellationToken);
                 }
 
                 if (queryPartitionStatistics != null && messagesList != null)

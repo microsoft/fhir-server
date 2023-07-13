@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private const int DefaultNumberOfTimeRangesPerJob = 100;
-        private const int DefaultParallelizationFactor = 8;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -38,8 +37,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
         internal int NumberOfTimeRangesPerJob { get; set; } = DefaultNumberOfTimeRangesPerJob;
 
-        internal int ParallelizationFactor { get; set; } = DefaultParallelizationFactor;
-
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
@@ -53,8 +50,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             // for parallel case we enqueue in batches, so we should handle not completed registration
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
-                var atLeastOneWorkerJobRegistered = false;
-
                 IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                  ? (await _searchService.GetUsedResourceTypesWithCount(cancellationToken))
                                     .OrderByDescending(x => x.Count)
@@ -62,66 +57,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                     .ToList()
                                  : record.ResourceType.Split(',');
 
-                var since = record.Since == null ? new PartialDateTime(DateTime.UnixEpoch).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
-                var till = record.Till.ToDateTimeOffset().AddTicks(-1); // -1 is so _till value can be used as _since in the next time based export
+                var ranges = await _searchService.GetFeedRanges(cancellationToken);
 
-                // Find group jobs in flight in case orchestrator was restarted
-                var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude main orchestrator
-                                        .Where(x => x.GetJobTypeId() != (int)JobType.ExportOrchestrator)
-                                        .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
-                                        .GroupBy(x => x.ResourceType).ToDictionary(x => x.Key, x => x.Max(r => r.EndTime));
-
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = ParallelizationFactor, CancellationToken = cancellationToken }, async (type, cancel) =>
+                foreach (var resourceType in resourceTypes)
                 {
-                    var startTime = since;
+                    var definitions = new List<string>();
 
-                    // Reset the start time in case this jobs is resuming.
-                    if (enqueued.TryGetValue(type, out var max) && max.HasValue)
+                    foreach (var feedRange in ranges)
                     {
-                        startTime = max.Value.AddTicks(1);
-                    }
-
-                    var rows = 0;
-
-                    do
-                    {
-                        var definitions = new List<string>();
-
-                        // Find all the resource ranges to split export processing jobs into the specified rangeSize for performance.
-                        var ranges = await _searchService.GetResourceTimeRanges(type, startTime, till, timeRangeSize, NumberOfTimeRangesPerJob, cancel);
-
-                        foreach (var range in ranges)
-                        {
-                            var processingRecord = CreateExportRecord(
+                        var processingRecord = CreateExportRecord(
                                 record,
                                 jobInfo.GroupId,
-                                resourceType: type,
-                                since: new PartialDateTime(range.StartTime),
-                                till: new PartialDateTime(range.EndTime));
+                                resourceType: resourceType,
+                                feedRange: feedRange);
 
-                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
-                        }
+                        definitions.Add(JsonConvert.SerializeObject(processingRecord));
 
-                        if (ranges.Any())
+                        if (definitions.Count >= DefaultNumberOfTimeRangesPerJob)
                         {
-                            startTime = ranges.Max(x => x.EndTime).AddTicks(1);
-                        }
-
-                        rows = definitions.Count;
-
-                        if (rows > 0)
-                        {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
-                            atLeastOneWorkerJobRegistered = true;
+                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                            definitions.Clear();
                         }
                     }
-                    while (rows > 0);
-                });
 
-                if (!atLeastOneWorkerJobRegistered)
-                {
-                    var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                    if (definitions.Count > 0)
+                    {
+                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                    }
                 }
             }
             else if (groupJobs.Count == 1)
@@ -134,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string feedRange = null)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -160,6 +122,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         requestorClaims: record.RequestorClaims,
                         since: since ?? record.Since,
                         till: till ?? record.Till,
+                        startSurrogateId: startSurrogateId,
+                        endSurrogateId: endSurrogateId,
+                        feedRange: feedRange,
                         groupId: record.GroupId,
                         storageAccountConnectionHash: record.StorageAccountConnectionHash,
                         storageAccountUri: record.StorageAccountUri,

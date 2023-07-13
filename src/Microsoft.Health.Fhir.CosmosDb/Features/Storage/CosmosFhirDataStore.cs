@@ -509,12 +509,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="sqlQuerySpec">The query specification.</param>
         /// <param name="feedOptions">The feed options.</param>
         /// <param name="continuationToken">The continuation token from a previous query.</param>
+        /// <param name="feedRange">FeedRange</param>
         /// <param name="mustNotExceedMaxItemCount">If set to true, no more than <see cref="FeedOptions.MaxItemCount"/> entries will be returned. Otherwise, up to 2 * MaxItemCount - 1 items could be returned</param>
         /// <param name="searchEnumerationTimeoutOverride">
         ///     If specified, overrides <see cref="CosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds"/> </param> as the maximum amount of time to spend enumerating pages from the SDK to get at least <see cref="QueryRequestOptions.MaxItemCount"/> * <see cref="ExecuteDocumentQueryAsyncMinimumFillFactor"/> results.
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The results and possible continuation token</returns>
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, FeedRange feedRange = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -525,7 +526,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 totalDesiredCount = feedOptions.MaxItemCount.Value;
             }
 
-            var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
+            var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken, feedRange);
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
 
@@ -650,6 +651,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     return results;
                 }
+            });
+        }
+
+        internal async Task<IReadOnlyList<FeedRange>> GetFeedRanges(CancellationToken cancellationToken = default)
+        {
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
+
+            return await retryPolicy.ExecuteAsync(async () =>
+            {
+                return await _containerScope.Value.GetFeedRangesAsync(cancellationToken);
             });
         }
 

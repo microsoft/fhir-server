@@ -100,16 +100,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        Task<IReadOnlyList<(DateTimeOffset StartTime, DateTimeOffset EndTime)>> GetResourceTimeRanges(
-            string resourceType,
-            DateTimeOffset startTime,
-            DateTimeOffset endTime,
-            int rangeSize,
-            int numberOfRanges,
-            CancellationToken cancellationToken);
 
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         Task<IReadOnlyList<(string ResourceType, uint Count)>> GetUsedResourceTypesWithCount(CancellationToken cancellationToken);
+
+        Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
     }
 }

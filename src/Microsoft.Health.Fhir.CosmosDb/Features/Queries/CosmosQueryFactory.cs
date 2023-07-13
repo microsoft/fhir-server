@@ -37,8 +37,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             EnsureArg.IsNotNull(container, nameof(container));
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
 
-            var documentQuery = container
-                .GetItemQueryIterator<T>(
+            var documentQuery = queryContext.FeedRange is null ?
+                container.GetItemQueryIterator<T>(
+                    queryContext.SqlQuerySpec,
+                    continuationToken: queryContext.ContinuationToken,
+                    requestOptions: queryContext.FeedOptions) :
+                container.GetItemQueryIterator<T>(
+                    queryContext.FeedRange,
                     queryContext.SqlQuerySpec,
                     continuationToken: queryContext.ContinuationToken,
                     requestOptions: queryContext.FeedOptions);
