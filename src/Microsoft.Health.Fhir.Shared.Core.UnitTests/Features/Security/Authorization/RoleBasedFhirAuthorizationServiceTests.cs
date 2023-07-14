@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security.Authorization
             defaultFhirRequestContext.ResourceType = KnownResourceTypes.Patient;
             defaultFhirRequestContext.Principal = expectedPrincipal;
 
-            _fhirRequestContextAccessor.RequestContext.Returns(defaultFhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns<IFhirRequestContext>(defaultFhirRequestContext);
             _fhirRequestContextAccessor.RequestContext.AccessControlContext.AllowedResourceActions.Add(new ScopeRestriction(KnownResourceTypes.Patient, DataActions.Read, "user1"));
 
             var result = await _roleBasedFhirAuthorizationService.CheckAccess(DataActions.Read, CancellationToken.None);
