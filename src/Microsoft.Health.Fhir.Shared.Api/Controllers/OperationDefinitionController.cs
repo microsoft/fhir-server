@@ -171,11 +171,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.MemberMatch:
                 case OperationsConstants.PurgeHistory:
-                case OperationsConstants.BulkDelete:
                     operationEnabled = true;
                     break;
                 case OperationsConstants.SearchParameterStatus:
                     operationEnabled = _coreFeatureConfiguration.SupportsSelectableSearchParameters;
+                    break;
+                case OperationsConstants.BulkDelete:
+                    operationEnabled = _coreFeatureConfiguration.SupportsBulkDelete;
                     break;
                 default:
                     break;

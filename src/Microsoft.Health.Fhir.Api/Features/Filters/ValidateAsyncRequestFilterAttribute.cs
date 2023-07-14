@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -16,7 +17,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Method)]
     internal sealed class ValidateAsyncRequestFilterAttribute : ActionFilterAttribute
     {
-        private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -24,10 +24,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             EnsureArg.IsNotNull(context, nameof(context));
 
             // Checks that a Prefer header is included, and that it has a value of respond-async
-            if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
+            if (!context.HttpContext.Request.Headers.TryGetValue(KnownHeaders.Prefer, out var preferHeaderValue) ||
                 !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, KnownHeaders.Prefer));
             }
         }
     }

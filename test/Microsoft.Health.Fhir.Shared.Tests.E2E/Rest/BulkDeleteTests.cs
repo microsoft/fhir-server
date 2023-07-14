@@ -11,6 +11,8 @@ using System.Net.Http;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -24,19 +26,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BulkDeleteTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly HttpIntegrationTestFixture _fixture;
         private readonly HttpClient _httpClient;
         private readonly TestFhirClient _fhirClient;
 
         public BulkDeleteTests(HttpIntegrationTestFixture fixture)
         {
+            _fixture = fixture;
             _httpClient = fixture.HttpClient;
             _fhirClient = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [SkippableFact]
         public async System.Threading.Tasks.Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
-            var resourceTypes = new Dictionary<string, int>()
+            CheckBulkDeleteEnabled();
+
+            var resourceTypes = new Dictionary<string, int>
             {
                 { "Patient", 2 },
                 { "Location", 1 },
@@ -46,11 +52,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkDeleteRequest(resourceTypes);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("Patient")]
         [InlineData("Organization")]
         public async System.Threading.Tasks.Task GivenResourcesOfOneType_WhenBulkDeletedByType_ThenAllOfThatTypeAreDeleted(string resourceType)
         {
+            CheckBulkDeleteEnabled();
+
             var resourceTypes = new Dictionary<string, int>()
             {
                 { resourceType, 4 },
@@ -59,9 +67,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await RunBulkDeleteRequest(resourceTypes, true, $"{resourceType}/$bulk-delete");
         }
 
-        [Fact]
+        [SkippableFact]
         public async System.Threading.Tasks.Task GivenBulkDeleteRequestWithInvalidSearchParameters_WhenRequested_ThenBadRequestIsReturned()
         {
+            CheckBulkDeleteEnabled();
+
             var request = GenerateBulkDeleteRequest(
                 "tag",
                 queryParams: new Dictionary<string, string>()
@@ -73,9 +83,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         public async System.Threading.Tasks.Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {
+            CheckBulkDeleteEnabled();
+
             var resourceTypes = new Dictionary<string, int>()
             {
                 { "Patient", 1 },
@@ -96,9 +108,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(2, history.Resource.Entry.Count);
         }
 
-        [Fact]
+        [SkippableFact]
         public async System.Threading.Tasks.Task GivenHardBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExist()
         {
+            CheckBulkDeleteEnabled();
+
             var resourceTypes = new Dictionary<string, int>()
             {
                 { "Patient", 1 },
@@ -109,9 +123,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
-                queryParams: new Dictionary<string, string>()
+                queryParams: new Dictionary<string, string>
                 {
-                    { "hardDelete", "true" },
+                    { "_hardDelete", "true" },
                 });
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -123,9 +137,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirClientException>(async () => await _fhirClient.SearchAsync($"Patient/{resource.Id}/_history"));
         }
 
-        [Fact]
+        [SkippableFact]
         public async System.Threading.Tasks.Task GivenPurgeBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsDontExistAndCurrentRecordExists()
         {
+            CheckBulkDeleteEnabled();
+
             var resourceTypes = new Dictionary<string, int>()
             {
                 { "Patient", 1 },
@@ -142,8 +158,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 tag,
                 queryParams: new Dictionary<string, string>()
                 {
-                    { "hardDelete", "true" },
-                    { "purgeHistory", "true" },
+                    { "_hardDelete", "true" },
+                    { "_purgeHistory", "true" },
                 });
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -170,17 +186,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 expectedResults.Add("Device", 1); // Add one that shouldn't be deleted
             }
 
-            Type t = typeof(Device);
-            string assemblyQualifiedName = t.AssemblyQualifiedName;
-
             string tag = Guid.NewGuid().ToString();
             foreach (var key in expectedResults.Keys)
             {
-                var type = Type.GetType(assemblyQualifiedName.Replace("Device", key), true);
-                var method = typeof(FhirClientExtensions).GetMethods().Where(x => x.Name == "CreateResourcesAsync" && x.GetParameters().Length == 3).FirstOrDefault();
-                var reference = method.MakeGenericMethod(type);
-                object[] parameters = new object[] { _fhirClient, expectedResults[key], tag };
-                await (System.Threading.Tasks.Task)reference.Invoke(null, parameters);
+                await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), expectedResults[key], tag);
             }
 
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag, path, queryParams);
@@ -207,6 +216,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Method = HttpMethod.Delete,
             };
 
+            request.Headers.Add(KnownHeaders.Prefer, "respond-async");
+
             if (queryParams == null)
             {
                 queryParams = new Dictionary<string, string>();
@@ -232,24 +243,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     issuesChecked++;
                 }
-                else if (parameter.Name == "Resources Deleted")
+                else if (parameter.Name == "ResourceDeletedCount")
                 {
                     foreach (var part in parameter.Part)
                     {
                         var resourceName = part.Name;
                         var numberDeleted = (int)((FhirDecimal)part.Value).Value;
 
-                        Assert.Equal(expectedResults[resourceName.ToString()], numberDeleted);
+                        Assert.Equal(expectedResults[resourceName], numberDeleted);
                         resultsChecked++;
                     }
                 }
                 else
                 {
-                    throw new Exception($"Unexpected parameter {parameter}");
+                    throw new Exception($"Unexpected parameter {parameter.Name}");
                 }
             }
 
             Assert.Equal(expectedResults.Keys.Count, resultsChecked);
+        }
+
+        private void CheckBulkDeleteEnabled()
+        {
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='bulk-delete').exists()"), "$bulk-delete not enabled on this server");
         }
     }
 }

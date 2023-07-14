@@ -32,27 +32,39 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Create Bulk Delete request
 # @name bulkDelete
 DELETE https://{{hostname}}/$bulk-delete
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Create resource level Bulk Delete request
 # @name bulkDelete
 DELETE https://{{hostname}}/Patient/$bulk-delete
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk Delete with search parameteres
 # @name bulkDelete
 DELETE https://{{hostname}}/$bulk-delete?_tag=oldData
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk Delete with hard delete
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?hardDelete=true
+DELETE https://{{hostname}}/$bulk-delete?_hardDelete=true&_reportIds=true
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk Delete with purge history
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?hardDelete=true&purgeHistory=true
+DELETE https://{{hostname}}/$bulk-delete?_hardDelete=true&_purgeHistory=true&_tag=oldData
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete with hard delete and report ids
+# @name bulkDelete
+DELETE https://{{hostname}}/Encounter/$bulk-delete?_hardDelete=true&_reportIds=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
 
 ### Get Bulk Delete request
 GET {{bulkDeleteLocation}}
@@ -60,4 +72,5 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Cancel Bulk Delete request
 DELETE {{bulkDeleteLocation}}
+Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}

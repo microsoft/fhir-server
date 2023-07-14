@@ -70,7 +70,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
-            builder.Apply(AddBulkDeleteDetails);
+
+            if (_coreFeatureConfiguration.SupportsBulkDelete)
+            {
+                builder.Apply(AddBulkDeleteDetails);
+            }
 
             if (_coreFeatureConfiguration.SupportsSelectableSearchParameters)
             {

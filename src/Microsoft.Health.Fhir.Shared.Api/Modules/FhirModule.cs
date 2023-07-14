@@ -98,6 +98,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IPostConfigureOptions<MvcOptions>>();
 
             services.AddSingleton<IFormatParametersValidator, FormatParametersValidator>();
+            services.Add<ListFactory>().Singleton().AsService<IListFactory>();
+
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateFormatParametersAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
@@ -150,7 +152,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
-
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
 
             services.AddLazy();

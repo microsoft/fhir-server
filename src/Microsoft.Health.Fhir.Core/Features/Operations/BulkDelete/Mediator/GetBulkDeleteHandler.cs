@@ -24,13 +24,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
+        private readonly IListFactory _listFactory;
+        private const string ResourceDeletedCountName = "ResourceDeletedCount";
+        private const string ResourcesDeletedName = "ResourcesDeleted";
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
-            IQueueClient queueClient)
+            IQueueClient queueClient,
+            IListFactory listFactory)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _listFactory = EnsureArg.IsNotNull(listFactory, nameof(listFactory));
         }
 
         public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
@@ -128,23 +133,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
             }
 
             // This is the part that needs finishing...
-            var fhirResults = new Dictionary<string, ICollection<Tuple<string, Base>>>();
+            var fhirResults = new List<Parameters.ParameterComponent>();
 
             if (resourcesDeleted.Count > 0)
             {
-                fhirResults.Add("ResourceDeletedCount", resourcesDeleted
+                Tuple<string, DataType>[] tuples = resourcesDeleted
                     .Where(x => x.Value > 0)
-                    .Select(x => new Tuple<string, Base>(x.Key, new FhirDecimal(x.Value)))
-                    .ToArray());
+                    .Select(x => Tuple.Create(x.Key, (DataType)new FhirDecimal(x.Value)))
+                    .ToArray();
+
+                var parameterComponent = new Parameters.ParameterComponent
+                {
+                    Name = ResourceDeletedCountName,
+                };
+
+                foreach (var tuple in tuples)
+                {
+                    parameterComponent.Part.Add(new Parameters.ParameterComponent
+                    {
+                        Name = tuple.Item1,
+                        Value = tuple.Item2,
+                    });
+                }
+
+                fhirResults.Add(parameterComponent);
             }
 
             if (resourcesDeletedIds.Count > 0)
             {
-                // Aggregates the ids into a comma seperated string as FHIR doesn't have an Array type.
-                fhirResults.Add("ResourcesDeleted", resourcesDeletedIds
-                    .Where(x => x.Value.Count > 0)
-                    .Select(x => new Tuple<string, Base>(x.Key, new FhirString(x.Value.Aggregate((workingList, next) => next + ", " + workingList))))
-                    .ToArray());
+                var deleted = new Parameters.ParameterComponent
+                {
+                    Name = ResourcesDeletedName,
+                };
+
+                ResourceReference[] deletedByType = resourcesDeletedIds
+                    .SelectMany(group =>
+                        group.Value.Select(id => new ResourceReference($"{group.Key}/{id}")))
+                    .ToArray();
+
+                deleted.Resource = _listFactory.CreateListFromReferences(ResourcesDeletedName, deletedByType);
+
+                fhirResults.Add(deleted);
             }
 
             if (failed && issues.Count > 0)

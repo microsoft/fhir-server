@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
-        public static JobResult FromResults(IDictionary<string, ICollection<Tuple<string, Base>>> results, ICollection<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
+        public static JobResult FromResults(ICollection<Parameters.ParameterComponent> results, ICollection<OperationOutcomeIssue> issues, HttpStatusCode statusCode)
         {
             var resource = new Parameters();
 
@@ -46,10 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 try
                 {
-                    foreach (var item in results)
-                    {
-                        resource.Add(item.Key, item.Value);
-                    }
+                    resource.Parameter.AddRange(results);
                 }
                 catch (Exception ex)
                 {

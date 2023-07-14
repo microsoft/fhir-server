@@ -69,16 +69,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteSingle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
 
-            int count = matchedResults.Count;
+            int count = matchedResults.Results.Count;
             if (count == 0)
             {
                 return new DeleteResourceResponse(0);
             }
             else if (count == 1)
             {
-                var result = await _deleter.DeleteAsync(new DeleteResourceRequest(request.ResourceType, matchedResults.First().Resource.ResourceId, request.DeleteOperation), cancellationToken);
+                var result = await _deleter.DeleteAsync(new DeleteResourceRequest(request.ResourceType, matchedResults.Results.First().Resource.ResourceId, request.DeleteOperation), cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(result.VersionId))
                 {

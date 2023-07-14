@@ -134,9 +134,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         var parallelBag = new ConcurrentBag<string>();
                         try
                         {
-                            await Parallel.ForEachAsync(resultsToDelete, options, async (item, ct) =>
+                            await Parallel.ForEachAsync(resultsToDelete, options, async (item, innerCt) =>
                             {
-                                parallelBag.Add((await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), ct)).Id);
+                                ResourceKey deletedId = await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), innerCt);
+                                parallelBag.Add(deletedId.Id);
                             });
                         }
                         finally

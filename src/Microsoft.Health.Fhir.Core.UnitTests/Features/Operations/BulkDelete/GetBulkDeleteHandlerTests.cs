@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _queueClient = Substitute.For<IQueueClient>();
-            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient);
+            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient, Substitute.For<IListFactory>());
         }
 
         [Fact]
@@ -65,25 +65,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>()
+                new List<JobInfo>
                 {
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(patientResult1),
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(patientResult2),
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(observationResult),
                     },
                 },
-                new GetBulkDeleteResponse(resultsDictionary, null, System.Net.HttpStatusCode.OK));
+                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]
@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
-                new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
-                new Tuple<string, Base>(KnownResourceTypes.Observation, new FhirDecimal(5)),
+                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Observation, new FhirDecimal(5)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -107,31 +107,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var issues = new List<OperationOutcomeIssue>()
             {
-                new OperationOutcomeIssue(
+                new(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job In Progress"),
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>()
+                new List<JobInfo>
                 {
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(patientResult1),
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Running,
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(observationResult),
                     },
                 },
-                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.Accepted));
+                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
 
         [Fact]
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             var patientResult1 = new BulkDeleteResult();
             patientResult1.ResourcesDeleted.Add(KnownResourceTypes.Patient, 15);
 
-            var resourcesDeleted = new List<Tuple<string, Base>>()
+            var resourcesDeleted = new List<Tuple<string, Base>>
             {
                 new(KnownResourceTypes.Patient, new FhirDecimal(15)),
             };
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                         Status = JobStatus.Running,
                     },
                 },
-                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.InternalServerError));
+                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
 
         [Fact]
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
-                new Tuple<string, Base>(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -201,30 +201,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var issues = new List<OperationOutcomeIssue>()
             {
-                new OperationOutcomeIssue(
+                new(
                     OperationOutcomeConstants.IssueSeverity.Warning,
                     OperationOutcomeConstants.IssueType.Informational,
                     detailsText: "Job Canceled"),
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>()
+                new List<JobInfo>
                 {
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Completed,
                         Result = JsonConvert.SerializeObject(patientResult1),
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Cancelled,
                     },
-                    new JobInfo()
+                    new()
                     {
                         Status = JobStatus.Running,
                     },
                 },
-                new GetBulkDeleteResponse(resultsDictionary, issues, System.Net.HttpStatusCode.OK));
+                new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
         }
 
         [Fact]
@@ -280,14 +280,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             if (expectedResponse.Results != null)
             {
-                Assert.Equal(expectedResponse.Results.Count(), response.Results.Count());
+                Assert.Equal(expectedResponse.Results.Count, response.Results.Count);
 
-                Assert.Equal(expectedResponse.Results, response.Results);
+                foreach (var tuple in expectedResponse.Results.Zip(response.Results))
+                {
+                    Assert.True(tuple.First.Matches(tuple.Second));
+                }
             }
             else
             {
                 Assert.Null(response.Results);
             }
+        }
+
+        private static ICollection<Parameters.ParameterComponent> ToParameters(Dictionary<string, ICollection<Tuple<string, Base>>> dictionary)
+        {
+            var list = new List<Parameters.ParameterComponent>();
+
+            foreach (KeyValuePair<string, ICollection<Tuple<string, Base>>> pair in dictionary)
+            {
+                var parameterComponent = new Parameters.ParameterComponent
+                {
+                    Name = pair.Key,
+                };
+
+                foreach (var part in pair.Value)
+                {
+                    var partComponent = new Parameters.ParameterComponent
+                    {
+                        Name = part.Item1,
+                        Value = (DataType)part.Item2,
+                    };
+
+                    parameterComponent.Part.Add(partComponent);
+                }
+
+                list.Add(parameterComponent);
+            }
+
+            return list;
         }
     }
 }
