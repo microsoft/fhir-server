@@ -80,10 +80,6 @@ steps:
     inputs:
       BuildDropPath: '$(build.artifactStagingDirectory)'
       BuildComponentPath: '$(Build.SourcesDirectory)'
-  - task: artifactDropDownloadTask@1
-    displayName: 'Download Artifact Services Drop'
-    inputs:
-      destinationPath: '$(System.DefaultWorkingDirectory)/drop'
   - task: DropValidatorTask@0
     displayName: 'SBOM Validator and Publisher Task'
     inputs:
