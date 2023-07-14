@@ -21,7 +21,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyCollection<KeyValuePair<string, string>> customHeaders)
+            IReadOnlyCollection<KeyValuePair<string, string>> customHeaders,
+            string operationType,
+            string callerAgent)
         {
             AuditAction = auditAction;
             Action = action;
@@ -32,6 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             CallerIpAddress = callerIpAddress;
             CallerClaims = callerClaims;
             CustomHeaders = customHeaders;
+            OperationType = operationType;
+            CallerAgent = callerAgent;
         }
 
         public AuditAction AuditAction { get; }
@@ -51,5 +55,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public IReadOnlyCollection<KeyValuePair<string, string>> CallerClaims { get; }
 
         public IReadOnlyCollection<KeyValuePair<string, string>> CustomHeaders { get; }
+
+        public string OperationType { get; }
+
+        public string CallerAgent { get; }
     }
 }

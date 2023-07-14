@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
@@ -26,6 +27,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// </summary>
     public class AuditHelper : IAuditHelper
     {
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        internal const string UnknownOperationType = "Unknown";
+
+        private static readonly HashSet<string> ValidOperationTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            HttpMethods.Connect,
+            HttpMethods.Delete,
+            HttpMethods.Get,
+            HttpMethods.Head,
+            HttpMethods.Options,
+            HttpMethods.Patch,
+            HttpMethods.Post,
+            HttpMethods.Put,
+            HttpMethods.Trace,
+        };
+
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
@@ -92,6 +109,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !FhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
+                // Note: HttpUtility.HtmlEncode() is to suffice a code scanning alert for log injection.
+                var sanitizedOperationType = HttpUtility.HtmlEncode(httpContext.Request?.Method?.Trim());
+                if (string.IsNullOrWhiteSpace(sanitizedOperationType) || !ValidOperationTypes.Contains(sanitizedOperationType))
+                {
+                    sanitizedOperationType = UnknownOperationType;
+                }
+
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -101,7 +125,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
-                    customHeaders: _auditHeaderReader.Read(httpContext));
+                    customHeaders: _auditHeaderReader.Read(httpContext),
+                    operationType: sanitizedOperationType,
+                    callerAgent: DefaultCallerAgent);
             }
         }
 
