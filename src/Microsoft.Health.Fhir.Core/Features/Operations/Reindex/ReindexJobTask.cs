@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -222,6 +223,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // Adding these in so they get included in search param status updates.
                 foreach (var searchParam in _reindexJobRecord.TargetSearchParameterTypes)
                 {
+                    if (_reindexJobRecord.SearchParams.Contains(searchParam))
+                    {
+                        continue;
+                    }
+
                     _reindexJobRecord.SearchParams.Add(searchParam);
                 }
             }
