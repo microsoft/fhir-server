@@ -88,18 +88,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
-        public override async Task<IReadOnlyList<(string ResourceType, uint Count)>> GetUsedResourceTypesWithCount(CancellationToken cancellationToken)
-        {
-            var sqlQuerySpec = new QueryDefinition(@"SELECT r.resourceTypeName, COUNT(1) as resourceCount
-                FROM root r
-                WHERE r.isSystem = false
-                GROUP BY r.resourceTypeName");
-
-            var results = await _fhirDataStore.ExecutePagedQueryAsync<Dictionary<string, string>>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
-
-            return results.Select(x => (x["resourceTypeName"], uint.Parse(x["resourceCount"]))).ToList();
-        }
-
         public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
@@ -205,7 +193,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return searchResult;
         }
 
+        /// <inheritdoc/>
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT r.resourceTypeName FROM root r WHERE r.isSystem = false");
 
+            var results = await _fhirDataStore.ExecutePagedQueryAsync<Dictionary<string, string>>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
+
+            return results.Select(x => x["resourceTypeName"]).ToList();
+        }
+
+        /// <summary>
+        /// Returns a list of CosmosDB implementation specific feed ranges. Useful for parallelization.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>A list of JSON serialized feed range objects as strings.</returns>
         public override async Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
         {
             var ranges = await _fhirDataStore.GetFeedRanges(cancellationToken);

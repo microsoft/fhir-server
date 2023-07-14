@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -50,11 +49,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             // for parallel case we enqueue in batches, so we should handle not completed registration
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
+                /*
                 IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                  ? (await _searchService.GetUsedResourceTypesWithCount(cancellationToken))
                                     .OrderByDescending(x => x.Count)
                                     .Select(x => x.ResourceType)
                                     .ToList()
+                                 : record.ResourceType.Split(',');
+                */
+
+                IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
+                                 ? (await _searchService.GetUsedResourceTypes(cancellationToken))
                                  : record.ResourceType.Split(',');
 
                 var ranges = await _searchService.GetFeedRanges(cancellationToken);

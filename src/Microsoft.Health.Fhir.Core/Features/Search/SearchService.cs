@@ -230,11 +230,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public virtual Task<IReadOnlyList<(string ResourceType, uint Count)>> GetUsedResourceTypesWithCount(CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
         public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
         {
             throw new NotImplementedException();

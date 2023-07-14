@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         [InlineData(ExportJobType.Group)]
         public async Task GivenANonSystemLevelExportJob_WhenRun_ThenOneProcessingJobShouldBeCreated(ExportJobType exportJobType)
         {
+            // Non-system level exports use single job framework.
             int numExpectedJobs = 1;
             long orchestratorJobId = 10000;
 
@@ -51,6 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobWithIsParallelSetToFalse_WhenRun_ThenOneProcessingJobShouldBeCreated()
         {
+            // Non-parallel exports use single job framework.
             int numExpectedJobs = 1;
             long orchestratorJobId = 10000;
 
@@ -68,8 +70,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobWithNoTypeRestriction_WhenRun_ThenOneProcessingJobShouldBeCreatedd()
         {
-            // Currently we only have one job per resource type. Change this in the future once jobs are split.
-            int numExpectedJobsPerResourceType = 1;
+            // We have three feed ranges mocked to return below.
+            int numExpectedJobsPerResourceType = 3;
             long orchestratorJobId = 10000;
 
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId);
@@ -86,8 +88,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobWithTypeRestrictions_WhenRun_ThenProcessingJobShouldBeCreatedPerResourceType()
         {
-            // Currently we only have one job per resource type. Change this in the future once jobs are split.
-            int numExpectedJobs = 1;
+            // We have three feed ranges mocked to return below.
+            int numExpectedJobs = 3;
             long orchestratorJobId = 10000;
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
@@ -196,6 +198,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
                     "Patient",
                     "Observation",
                     "Encounter",
+                };
+                return list;
+            });
+
+            _mockSearchService.GetFeedRanges(Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                var list = new List<string>
+                {
+                    "Range1",
+                    "Range2",
+                    "Range3",
                 };
                 return list;
             });
