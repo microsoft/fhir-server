@@ -218,6 +218,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             else if (_reindexJobRecord.ForceReindex)
             {
                 resourceList.UnionWith(_reindexJobRecord.SearchParameterResourceTypes);
+
+                // Adding these in so they get included in search param status updates.
+                foreach (var searchParam in _reindexJobRecord.TargetSearchParameterTypes)
+                {
+                    _reindexJobRecord.SearchParams.Add(searchParam);
+                }
             }
             else
             {
@@ -232,6 +238,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
+            // save the list of search parameters to the reindexjob document
+            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.OriginalString))
+            {
+                _reindexJobRecord.SearchParams.Add(searchParams);
+            }
+
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
             if (!notYetIndexedParams.Any() && resourceList.Count == 0)
             {
@@ -241,6 +253,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     Core.Resources.NoSearchParametersNeededToBeIndexed));
                 _reindexJobRecord.CanceledTime = Clock.UtcNow;
                 await MoveToFinalStatusAsync(OperationStatus.Canceled);
+                await UpdateParametersAndCompleteJob(cancellationToken);
                 return false;
             }
 
@@ -248,12 +261,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             foreach (var resource in resourceList)
             {
                 _reindexJobRecord.Resources.Add(resource);
-            }
-
-            // save the list of search parameters to the reindexjob document
-            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.OriginalString))
-            {
-                _reindexJobRecord.SearchParams.Add(searchParams);
             }
 
             await CalculateAndSetTotalAndResourceCounts();
