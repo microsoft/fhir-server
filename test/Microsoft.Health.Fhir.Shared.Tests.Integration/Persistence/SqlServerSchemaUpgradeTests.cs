@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[GetNextTask_2]"),
                 ("Procedure", "[dbo].[ResetTask]"),
-                ("Procedure", "[dbo].[HardDeleteResource]"),
+                ("Procedure", "[dbo].[HardDeleteResource_2]"),
                 ("Procedure", "[dbo].[FetchResourceChanges]"),
                 ("Procedure", "[dbo].[FetchResourceChanges_2]"),
                 ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
