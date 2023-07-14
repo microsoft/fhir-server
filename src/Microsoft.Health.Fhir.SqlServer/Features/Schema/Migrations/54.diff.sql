@@ -1,4 +1,4 @@
-﻿/*************************************************************
+﻿/***************************************************************
 This migration script takes care of increasing precision and scale
 for Decimal value fields in below mentioned tables and table types to (36,18 ) from (18,6)
 
@@ -302,15 +302,15 @@ ALTER PROCEDURE dbo.MergeResources
     ,@TokenTexts dbo.TokenTextList READONLY
     ,@StringSearchParams dbo.StringSearchParamList READONLY
     ,@UriSearchParams dbo.UriSearchParamList READONLY
-    ,@NumberSearchParams dbo.Tmp_NumberSearchParamList READONLY
-    ,@QuantitySearchParams dbo.Tmp_QuantitySearchParamList READONLY
+    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
+    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
     ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
     ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
     ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
     ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
-    ,@TokenQuantityCompositeSearchParams dbo.Tmp_TokenQuantityCompositeSearchParamList READONLY
+    ,@TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY
     ,@TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY
-    ,@TokenNumberNumberCompositeSearchParams dbo.Tmp_TokenNumberNumberCompositeSearchParamList READONLY
+    ,@TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
@@ -881,27 +881,51 @@ END CATCH
     DECLARE @message varchar(100) = '';
     IF (@origNumberSearchParamRows != @tmpNumberSearchParamRows)
         BEGIN
-            set @message = CONCAT(@origNumberSearchParamRows, @tmpNumberSearchParamRows,'NumberSearchParam rows does not match')
-            EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
-            THROW 5000, @message, 25;
+            SELECT @origNumberSearchParamRows = count(*)
+            FROM NumberSearchParam WHERE IsHistory = 0
+
+            IF (@origNumberSearchParamRows != @tmpNumberSearchParamRows)
+                BEGIN
+                    set @message = CONCAT(@origNumberSearchParamRows,' ', @tmpNumberSearchParamRows,' NumberSearchParam rows does not match')
+                    EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                    THROW 50001, @message, 25;
+                END
         END
     IF (@origQuantitySearchParamRows != @tmpQuantitySearchParamRows)
-            BEGIN
-                set @message = CONCAT(@origQuantitySearchParamRows, @tmpQuantitySearchParamRows,'QuantitySearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
-                THROW 5000, @message, 25;
-            END
+        BEGIN
+            SELECT @origQuantitySearchParamRows = count(*)
+            FROM QuantitySearchParam WHERE IsHistory = 0
+
+            IF (@origQuantitySearchParamRows != @tmpQuantitySearchParamRows)
+                BEGIN
+                    set @message = CONCAT(@origQuantitySearchParamRows, ' ',@tmpQuantitySearchParamRows,' QuantitySearchParam rows does not match')
+                    EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                    THROW 50001, @message, 25;
+                END
+        END
     IF (@origTokenNumberNumberCompositeSearchParamRows != @tmpTokenNumberNumberCompositeSearchParamRows)
             BEGIN
-                set @message = CONCAT(@origTokenNumberNumberCompositeSearchParamRows, @tmpTokenNumberNumberCompositeSearchParamRows,'TokenNumberNumberCompositeSearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
-                THROW 5000, @message, 25;
+                SELECT @origTokenNumberNumberCompositeSearchParamRows = count(*)
+                FROM TokenNumberNumberCompositeSearchParam WHERE IsHistory = 0
+
+                IF (@origTokenNumberNumberCompositeSearchParamRows != @tmpTokenNumberNumberCompositeSearchParamRows)
+                    BEGIN
+                        set @message = CONCAT(@origTokenNumberNumberCompositeSearchParamRows, ' ',@tmpTokenNumberNumberCompositeSearchParamRows,' TokenNumberNumberCompositeSearchParam rows does not match')
+                        EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                        THROW 50001, @message, 25;
+                    END
             END
     IF (@origTokenQuantityCompositeSearchParamRows != @tmpTokenQuantityCompositeSearchParamRows)
             BEGIN
-                set @message = CONCAT(@origTokenQuantityCompositeSearchParamRows, @tmpTokenQuantityCompositeSearchParamRows,'TokenQuantityCompositeSearchParam rows does not match')
-                EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
-                THROW 5000, @message, 25;
+                SELECT @origTokenQuantityCompositeSearchParamRows = count(*)
+                FROM TokenQuantityCompositeSearchParam WHERE IsHistory = 0
+
+                IF (@origTokenQuantityCompositeSearchParamRows != @tmpTokenQuantityCompositeSearchParamRows)
+                    BEGIN
+                        set @message = CONCAT(@origTokenQuantityCompositeSearchParamRows, ' ',@tmpTokenQuantityCompositeSearchParamRows,' TokenQuantityCompositeSearchParam rows does not match')
+                        EXECUTE dbo.LogEvent @Process='Verification',@Status=@message;
+                        THROW 50001, @message, 25;
+                    END
             END
     
     EXECUTE dbo.LogEvent @Process='Verification',@Status='End'
@@ -911,6 +935,7 @@ END CATCH
         INSERT INTO dbo.Parameters (Id, Char) SELECT 'Alter Transaction', 'LogEvent'
         EXECUTE dbo.LogEvent @Process='Alter Transaction',@Status='Start'
         BEGIN TRANSACTION
+            DROP PROCEDURE dbo.MergeResources; 
             DROP TYPE dbo.NumberSearchParamList
             DROP TYPE dbo.QuantitySearchParamList
             DROP TYPE dbo.TokenNumberNumberCompositeSearchParamList
@@ -965,7 +990,7 @@ END CATCH
                 HighValue2          DECIMAL (36, 18) NULL);
 
                 EXECUTE(
-'ALTER PROCEDURE dbo.MergeResources
+'CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
