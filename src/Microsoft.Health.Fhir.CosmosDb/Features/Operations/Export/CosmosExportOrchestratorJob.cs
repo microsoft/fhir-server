@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class CosmosExportOrchestratorJob : IJob
     {
-        private const int DefaultNumberOfTimeRangesPerJob = 100;
+        private const int DefaultMaxNumberOfFeedRangesPerJob = 100;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
         }
 
-        internal int NumberOfTimeRangesPerJob { get; set; } = DefaultNumberOfTimeRangesPerJob;
+        internal int MaxNumberOfFeedRangesPerJob { get; set; } = DefaultMaxNumberOfFeedRangesPerJob;
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -43,42 +44,44 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
             var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
-            var timeRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
             var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
-            // for parallel case we enqueue in batches, so we should handle not completed registration
+            // Parallel system level export is parallelized by resource type and CosmosDB physical partitions feed range.
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
-                /*
-                IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                 ? (await _searchService.GetUsedResourceTypesWithCount(cancellationToken))
-                                    .OrderByDescending(x => x.Count)
-                                    .Select(x => x.ResourceType)
-                                    .ToList()
-                                 : record.ResourceType.Split(',');
-                */
-
-                IReadOnlyList<string> resourceTypes = string.IsNullOrEmpty(record.ResourceType)
+                var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken))
                                  : record.ResourceType.Split(',');
 
-                var ranges = await _searchService.GetFeedRanges(cancellationToken);
+                var physicalPartitionFeedRanges = await _searchService.GetFeedRanges(cancellationToken);
+
+                var enqueuedRangesByResourceType = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
+                                                    .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                                                    .Where(x => x.ResourceType is not null)
+                                                    .GroupBy(x => x.ResourceType)
+                                                    .ToDictionary(x => x.Key, x => x.Select(x => x.FeedRange).ToList());
 
                 foreach (var resourceType in resourceTypes)
                 {
                     var definitions = new List<string>();
 
-                    foreach (var feedRange in ranges)
+                    // Skip any feed range/resource type combos that have already been queued.
+                    // This scenario is when the coordinator is killed during queueing of export jobs.
+                    var notEnqueued = enqueuedRangesByResourceType.TryGetValue(resourceType, out var enqueuedRangesThisResourceType) ?
+                                            physicalPartitionFeedRanges.Where(x => !enqueuedRangesThisResourceType.Contains(x)) :
+                                            physicalPartitionFeedRanges;
+
+                    foreach (var partitionRange in notEnqueued)
                     {
                         var processingRecord = CreateExportRecord(
                                 record,
                                 jobInfo.GroupId,
                                 resourceType: resourceType,
-                                feedRange: feedRange);
+                                feedRange: partitionRange);
 
                         definitions.Add(JsonConvert.SerializeObject(processingRecord));
 
-                        if (definitions.Count >= DefaultNumberOfTimeRangesPerJob)
+                        if (definitions.Count >= MaxNumberOfFeedRangesPerJob)
                         {
                             await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
                             definitions.Clear();

@@ -58,14 +58,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
 
-                // #TODO - add failure mode
-                // await RunExport(null, coordJob, 37, 6); // 37=coord+3*1111/SurrogateIdRangeSize 6=coord+100*5/SurrogateIdRangeSize
+                await RunExportWithCancel("Patient", coordJob, 2, null); // 2=coord+1 resource type
 
-                await RunExportWithCancel("Patient", coordJob, 13, null); // 2=coord+1 resource type
+                await RunExport("Patient,Observation", coordJob, 3, null); // 3=coord+2 resource type
 
-                await RunExport("Patient,Observation", coordJob, 25, null); // 3=coord+2 resource type
-
-                await RunExport(null, coordJob, 37, null); // 31=coord+3*1000/SurrogateIdRangeSize
+                await RunExport(null, coordJob, 4, null); // 3=coord+3 resource type
             }
             finally
             {
