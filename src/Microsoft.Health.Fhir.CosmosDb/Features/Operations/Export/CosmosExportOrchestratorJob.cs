@@ -55,8 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                 var physicalPartitionFeedRanges = await _searchService.GetFeedRanges(cancellationToken);
 
-                var enqueuedRangesByResourceType = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
-                                                    .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
+                var enqueuedRangesByResourceType = groupJobs.Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
                                                     .Where(x => x.ResourceType is not null)
                                                     .GroupBy(x => x.ResourceType)
                                                     .ToDictionary(x => x.Key, x => x.Select(x => x.FeedRange).ToList());
@@ -104,7 +103,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             return JsonConvert.SerializeObject(record);
         }
 
-        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, PartialDateTime since = null, PartialDateTime till = null, string startSurrogateId = null, string endSurrogateId = null, string feedRange = null)
+        private static ExportJobRecord CreateExportRecord(ExportJobRecord record, long groupId, string resourceType = null, string feedRange = null)
         {
             var format = $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Id}";
             var container = record.StorageAccountContainerName;
@@ -128,10 +127,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         hash: record.Hash,
                         rollingFileSizeInMB: record.RollingFileSizeInMB,
                         requestorClaims: record.RequestorClaims,
-                        since: since ?? record.Since,
-                        till: till ?? record.Till,
-                        startSurrogateId: startSurrogateId,
-                        endSurrogateId: endSurrogateId,
+                        since: record.Since,
+                        till: record.Till,
                         feedRange: feedRange,
                         groupId: record.GroupId,
                         storageAccountConnectionHash: record.StorageAccountConnectionHash,
