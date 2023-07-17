@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.HardDeleteResource
+CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
   ,@ResourceId varchar(64)
   ,@KeepCurrentVersion bit
@@ -16,7 +16,7 @@ BEGIN TRY
   IF @KeepCurrentVersion = 0
     BEGIN TRANSACTION
 
-  DECLARE @SurrogateIds TABLE (ResourceSurrogateId BIGINT NOT NULL)
+  DECLARE @SurrogateIds TABLE (ResourceSurrogateId bigint NOT NULL)
 
   IF @IsResourceChangeCaptureEnabled = 0
     DELETE dbo.Resource
