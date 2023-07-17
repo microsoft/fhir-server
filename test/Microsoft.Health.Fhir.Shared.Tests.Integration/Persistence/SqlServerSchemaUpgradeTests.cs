@@ -355,6 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace(" as ", string.Empty)
                        .Replace(" ", string.Empty)
                        .Replace("(index(", "(index=")
+                       .Replace("),", ",")
                        .Replace("))on", ")on");
         }
 
