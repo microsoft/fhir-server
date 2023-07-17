@@ -80,13 +80,6 @@ steps:
     inputs:
       BuildDropPath: '$(build.artifactStagingDirectory)'
       BuildComponentPath: '$(Build.SourcesDirectory)'
-  - task: DropValidatorTask@0
-    displayName: 'SBOM Validator and Publisher Task'
-    inputs:
-      BuildDropPath: '$(build.artifactStagingDirectory)'
-      OutputPath: 'output.json'
-      ValidateSignature: true
-      Verbosity: 'Verbose'
   - task: PublishBuildArtifacts@1
     displayName: 'publish SBOM artifacts'
     inputs:
