@@ -248,6 +248,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 {
                     var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
 
+                    _logger.LogInformation("There are {CustomSearchParameters} custom Search Parameters", result.Results.Count().ToString());
+
                     foreach (var searchParam in searchParams)
                     {
                         try
