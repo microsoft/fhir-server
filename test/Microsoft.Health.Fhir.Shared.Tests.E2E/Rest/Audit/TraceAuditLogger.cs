@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
             IReadOnlyDictionary<string, string> customHeaders,
             string operationType,
-            string callerAgent)
+            string callerAgent,
+            IReadOnlyDictionary<string, string> additionalProperties)
         {
             _auditEntries.Add(new AuditEntry(
                 auditAction,
