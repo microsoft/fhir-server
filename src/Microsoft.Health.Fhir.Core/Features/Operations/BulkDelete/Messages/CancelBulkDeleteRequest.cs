@@ -5,11 +5,11 @@
 
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
 {
-    public class GetBulkDeleteRequest : IRequest<GetBulkDeleteResponse>
+    public class CancelBulkDeleteRequest : IRequest<CancelBulkDeleteResponse>
     {
-        public GetBulkDeleteRequest(long jobId)
+        public CancelBulkDeleteRequest(long jobId)
         {
             JobId = jobId;
         }

@@ -8,12 +8,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
-namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
     [JobTypeId((int)JobType.BulkDeleteOrchestrator)]
     public class BulkDeleteOrchestratorJob : IJob

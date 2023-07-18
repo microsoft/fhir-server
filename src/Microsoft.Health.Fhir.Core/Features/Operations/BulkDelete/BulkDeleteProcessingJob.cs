@@ -15,15 +15,13 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
     [JobTypeId((int)JobType.BulkDeleteProcessing)]
     public class BulkDeleteProcessingJob : IJob

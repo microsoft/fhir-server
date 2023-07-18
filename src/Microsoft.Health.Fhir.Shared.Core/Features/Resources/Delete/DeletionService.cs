@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
-                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(count ^ 2));
+                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(Math.Pow(2, count) + RandomNumberGenerator.GetInt32(0, 5)));
         }
 
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)

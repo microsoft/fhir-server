@@ -3,17 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
+using System.Net;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
 {
-    public class CancelBulkDeleteRequest : IRequest<CancelBulkDeleteResponse>
+    public class CancelBulkDeleteResponse
     {
-        public CancelBulkDeleteRequest(long jobId)
+        public CancelBulkDeleteResponse(HttpStatusCode statusCode)
         {
-            JobId = jobId;
+            StatusCode = statusCode;
         }
 
-        public long JobId { get; }
+        public HttpStatusCode StatusCode { get; private set; }
     }
 }

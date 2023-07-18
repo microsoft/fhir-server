@@ -6,7 +6,7 @@
 using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.ValueSets;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
 {
     public class BulkDeleteMetricsNotification : IMetricsNotification
     {

@@ -14,11 +14,12 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 {
     public class GetBulkDeleteHandler : IRequestHandler<GetBulkDeleteRequest, GetBulkDeleteResponse>
     {

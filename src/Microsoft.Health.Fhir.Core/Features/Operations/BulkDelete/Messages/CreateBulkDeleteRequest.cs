@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Mediator
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages
 {
     public class CreateBulkDeleteRequest : IRequest<CreateBulkDeleteResponse>
     {

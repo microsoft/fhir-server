@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     {
         private readonly ISearchService _searchService;
         private readonly IDeletionService _deleter;
-        private readonly FhirRequestContextAccessor _fhirContext;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirContext;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
             IDeletionService deleter,
-            FhirRequestContextAccessor fhirContext)
+            RequestContextAccessor<IFhirRequestContext> fhirContext)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
