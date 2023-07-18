@@ -15,6 +15,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -25,8 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     public class ConditionalDeleteResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalDeleteResourceRequest, DeleteResourceResponse>
     {
         private readonly ISearchService _searchService;
-        private readonly IMediator _mediator;
         private readonly IDeletionService _deleter;
+        private readonly FhirRequestContextAccessor _fhirContext;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -36,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            IDeletionService deleter)
+            IDeletionService deleter,
+            FhirRequestContextAccessor fhirContext)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -44,8 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             EnsureArg.IsNotNull(deleter, nameof(deleter));
 
             _searchService = searchService;
-            _mediator = mediator;
             _deleter = deleter;
+            _fhirContext = fhirContext;
         }
 
         public async Task<DeleteResourceResponse> Handle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
@@ -59,12 +61,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (request.MaxDeleteCount > 1)
+            try
             {
-                return await DeleteMultiple(request, cancellationToken);
-            }
+                if (request.MaxDeleteCount > 1)
+                {
+                    return await DeleteMultiple(request, cancellationToken);
+                }
 
-            return await DeleteSingle(request, cancellationToken);
+                return await DeleteSingle(request, cancellationToken);
+            }
+            catch (IncompleteOperationException<IReadOnlySet<string>> exception)
+            {
+                _fhirContext.RequestContext.ResponseHeaders[KnownHeaders.ItemsDeleted] = exception.PartialResults.Count.ToString();
+                throw;
+            }
         }
 
         private async Task<DeleteResourceResponse> DeleteSingle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
@@ -96,8 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteMultiple(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            var itemsDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
-
+            IReadOnlySet<string> itemsDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
             return new DeleteResourceResponse(itemsDeleted.Count);
         }
     }

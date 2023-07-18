@@ -4,15 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Abstractions.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class PartialSuccessException<T> : Exception
+    /// <summary>
+    /// An exception that is thrown when an operation has not run to completion.
+    /// </summary>
+    /// <typeparam name="T">The type of the partial results, if any</typeparam>
+    public class IncompleteOperationException<T> : MicrosoftHealthException
     {
-        public PartialSuccessException(Exception innerException, T paritalResults)
+        public IncompleteOperationException(Exception innerException, T partialResults)
             : base(innerException.Message, innerException)
         {
-            PartialResults = paritalResults;
+            PartialResults = partialResults;
         }
 
         public T PartialResults { get; private set; }

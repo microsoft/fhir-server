@@ -11,11 +11,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Polly;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -26,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
+        private readonly AsyncRetryPolicy _retryPolicy;
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -39,6 +43,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _fhirDataStore = EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
+
+            _retryPolicy = Policy
+                .Handle<RequestRateExceededException>()
+                .WaitAndRetryAsync(3, count => TimeSpan.FromSeconds(count ^ 2));
         }
 
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)
@@ -62,13 +70,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null), cancellationToken);
+                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null), cancellationToken));
 
                     version = result?.Wrapper.Version;
                     break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
-                    await _fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken);
+                    await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
@@ -108,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 }).ToArray(),
                                 cancellationToken);
                         }
-                        catch (PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
+                        catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
                         {
                             foreach (string id in ex.PartialResults.Select(item => item.Key.Id))
                             {
@@ -136,8 +144,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             await Parallel.ForEachAsync(resultsToDelete, options, async (item, innerCt) =>
                             {
-                                ResourceKey deletedId = await DeleteAsync(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), innerCt);
-                                parallelBag.Add(deletedId.Id);
+                                await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
+                                parallelBag.Add(item.Resource.ResourceId);
                             });
                         }
                         finally
@@ -166,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             catch (Exception ex)
             {
-                throw new PartialSuccessException<IReadOnlySet<string>>(ex, itemsDeleted);
+                throw new IncompleteOperationException<IReadOnlySet<string>>(ex, itemsDeleted);
             }
 
             return itemsDeleted;

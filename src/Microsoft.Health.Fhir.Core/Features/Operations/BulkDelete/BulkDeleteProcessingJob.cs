@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkDelete
                             deleteAll: true),
                         cancellationToken);
                 }
-                catch (PartialSuccessException<IReadOnlySet<string>> ex)
+                catch (IncompleteOperationException<IReadOnlySet<string>> ex)
                 {
                     itemsDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);

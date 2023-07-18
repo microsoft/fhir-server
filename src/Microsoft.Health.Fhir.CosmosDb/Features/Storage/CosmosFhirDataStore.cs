@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
         internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
 
-        private static readonly HardDelete _hardDelete = new HardDelete();
-        private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
+        private static readonly HardDelete _hardDelete = new();
+        private static readonly ReplaceSingleResource _replaceSingleResource = new();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
         private readonly IScoped<Container> _containerScope;
@@ -136,8 +136,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
-            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
-            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
+
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 2 };
+            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, innerCt) =>
             {
                 DataStoreOperationIdentifier identifier = resource.GetIdentifier();
 
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         resource.WeakETag,
                         resource.AllowCreate,
                         resource.KeepHistory,
-                        cancellationToken,
+                        innerCt,
                         resource.RequireETagOnUpdate);
 
                     results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    throw new PartialSuccessException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(ex, results);
+                    throw new IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(ex, results);
                 }
             });
 
