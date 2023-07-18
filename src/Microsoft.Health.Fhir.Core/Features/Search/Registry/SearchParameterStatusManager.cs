@@ -58,6 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
             _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
 
+            _logger.LogInformation("There are '{SearchParameterCount}' SearchParameters", searchParamResourceStatus.Count.ToString());
+
             EnsureArg.IsNotNull(_searchParameterDefinitionManager.AllSearchParameters);
             EnsureArg.IsTrue(_searchParameterDefinitionManager.AllSearchParameters.Any());
             EnsureArg.IsTrue(parameters.Any());
