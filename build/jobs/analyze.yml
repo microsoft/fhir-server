@@ -141,12 +141,6 @@ steps:
     GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
     GdnPublishTsaExportedResultsPublishable: true
 
-- task: CmdLine@2
-  displayName: 'Before SBOM'     
-  inputs:      
-    script: |
-      dir /s
-
 - task: DropValidatorTask@0
   displayName: 'SBOM Validator and Publisher Task'
   inputs:
