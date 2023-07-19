@@ -90,3 +90,9 @@ steps:
       pathtoPublish: '$(build.artifactStagingDirectory)/symbols'
       artifactName: 'symbols'
       publishLocation: 'container'
+
+  - task: CmdLine@2
+    displayName: 'After Publish'     
+    inputs:      
+      script: |
+        dir /s
