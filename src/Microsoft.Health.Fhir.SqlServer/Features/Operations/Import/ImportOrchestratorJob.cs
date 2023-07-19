@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 operationType: string.Empty,
                 callerAgent: DefaultCallerAgent,
                 additionalProperties: incrementalImportProperties);
-                _logger.LogInformation("After logging Audit logs for incremental import");
+                _logger.LogInformation("Audit logs for incremental import are added");
             }
 
             var importJobMetricsNotification = new ImportJobMetricsNotification(
