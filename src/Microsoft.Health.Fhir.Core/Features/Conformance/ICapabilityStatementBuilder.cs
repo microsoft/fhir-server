@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 
@@ -45,7 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// <summary>
         /// Updates capability statement to latest supported search paramaters by checkin in memory storage for search parameters.
         /// </summary>
-        ICapabilityStatementBuilder SyncSearchParameters();
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<ICapabilityStatementBuilder> SyncSearchParametersAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Updates capability statement to lastest supported profiles by pulling them from database.

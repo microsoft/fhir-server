@@ -50,11 +50,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         protected internal async Task StartAsync(bool allowRebalance, double periodSec, double leasePeriodSec, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Watchdog.StartAsync: starting...");
+            _logger.LogInformation($"{Name}.StartAsync: starting...");
             await InitParamsAsync(periodSec, leasePeriodSec);
             await StartAsync(_periodSec, cancellationToken);
             await _watchdogLease.StartAsync(allowRebalance, _leasePeriodSec, cancellationToken);
-            _logger.LogInformation("Watchdog.StartAsync: completed.");
+            _logger.LogInformation($"{Name}.StartAsync: completed.");
         }
 
         protected abstract Task ExecuteAsync();
@@ -63,18 +63,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             if (!_watchdogLease.IsLeaseHolder)
             {
-                _logger.LogInformation($"Watchdog.RunAsync: Skipping because watchdog is not a lease holder.");
+                _logger.LogInformation($"{Name}.RunAsync: Skipping because watchdog is not a lease holder.");
                 return;
             }
 
-            _logger.LogInformation($"Watchdog.RunAsync: Starting...");
+            _logger.LogInformation($"{Name}.RunAsync: Starting...");
             await ExecuteAsync();
-            _logger.LogInformation($"Watchdog.RunAsync: Completed.");
+            _logger.LogInformation($"{Name}.RunAsync: Completed.");
         }
 
         private async Task InitParamsAsync(double periodSec, double leasePeriodSec) // No CancellationToken is passed since we shouldn't cancel initialization.
         {
-            _logger.LogInformation("Watchdog.InitParamsAsync: starting...");
+            _logger.LogInformation($"{Name}.InitParamsAsync: starting...");
 
             // Offset for other instances running init
             await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
@@ -95,7 +95,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             _periodSec = await GetPeriodAsync(CancellationToken.None);
             _leasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
 
-            _logger.LogInformation("Watchdog.InitParamsAsync: completed.");
+            _logger.LogInformation($"{Name}.InitParamsAsync: completed.");
         }
 
         private async Task<double> GetPeriodAsync(CancellationToken cancellationToken)
@@ -128,6 +128,26 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             }
 
             return (double)value;
+        }
+
+        protected async Task<long> GetLongParameterByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+
+            cmd.CommandText = "SELECT Bigint FROM dbo.Parameters WHERE Id = @Id";
+            cmd.Parameters.AddWithValue("@Id", id);
+            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{id} is not set correctly in the Parameters table.");
+            }
+
+            return (long)value;
         }
 
         public new void Dispose()

@@ -741,6 +741,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     controllerName?.ToString(),
                     actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
+                AccessControlContext = _originalFhirRequestContext.AccessControlContext.Clone() as AccessControlContext,
             };
             foreach (var scopeRestriction in _originalFhirRequestContext.AccessControlContext.AllowedResourceActions)
             {

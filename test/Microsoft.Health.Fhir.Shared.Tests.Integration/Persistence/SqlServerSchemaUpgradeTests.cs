@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[GetNextTask_2]"),
                 ("Procedure", "[dbo].[ResetTask]"),
-                ("Procedure", "[dbo].[HardDeleteResource]"),
+                ("Procedure", "[dbo].[HardDeleteResource_2]"),
                 ("Procedure", "[dbo].[FetchResourceChanges]"),
                 ("Procedure", "[dbo].[FetchResourceChanges_2]"),
                 ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" };
+                    var objectsToSkip = new[] { "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" };
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;
@@ -355,6 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                        .Replace(" as ", string.Empty)
                        .Replace(" ", string.Empty)
                        .Replace("(index(", "(index=")
+                       .Replace("),", ",")
                        .Replace("))on", ")on");
         }
 

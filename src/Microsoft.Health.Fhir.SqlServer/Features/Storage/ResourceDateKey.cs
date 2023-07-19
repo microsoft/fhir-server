@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDateKey : IEquatable<ResourceDateKey>
     {
-        public ResourceDateKey(string resourceType, string id, long resourceSurrogateId, string versionId)
+        public ResourceDateKey(string resourceType, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Id = id;
             ResourceSurrogateId = resourceSurrogateId;
             VersionId = versionId;
+            IsDeleted = isDeleted;
         }
 
         public string ResourceType { get; }
@@ -30,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public long ResourceSurrogateId { get; }
 
         public string VersionId { get; }
+
+        public bool IsDeleted { get; }
 
         public bool Equals(ResourceDateKey other)
         {
@@ -46,7 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return ResourceType == other.ResourceType &&
                    Id == other.Id &&
                    ResourceSurrogateId == other.ResourceSurrogateId &&
-                   VersionId == other.VersionId;
+                   VersionId == other.VersionId &&
+                   IsDeleted == other.IsDeleted;
         }
 
         public override bool Equals(object obj)
@@ -71,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(ResourceType, Id, ResourceSurrogateId, VersionId);
+            return HashCode.Combine(ResourceType, Id, ResourceSurrogateId, VersionId, IsDeleted);
         }
     }
 }

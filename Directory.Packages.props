@@ -29,6 +29,7 @@
     <PackageVersion Include="AngleSharp" Version="1.0.3" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
     <PackageVersion Include="Azure.Identity" Version="1.9.0" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.0.0-beta.4" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
@@ -55,7 +56,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.2" />
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.34.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.35.1" />
     <PackageVersion Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
     <PackageVersion Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
@@ -67,7 +68,7 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="7.0.7" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="7.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.20.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
@@ -98,7 +99,7 @@
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.0.0" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.0" />
     <PackageVersion Include="prometheus-net.SystemMetrics" Version="2.0.0" />
-    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.435" />
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.507" />
     <PackageVersion Include="System.Collections.Immutable" Version="7.0.0" />
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
@@ -110,6 +111,7 @@
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
     <PackageVersion Include="System.Private.ServiceModel" Version="4.10.2" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="7.0.1" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="7.0.2" />
     <PackageVersion Include="System.Text.Encodings.Web" Version="7.0.0" />
     <PackageVersion Include="xunit.extensibility.core" Version="2.4.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.4.5" />
@@ -117,5 +119,6 @@
     <PackageVersion Include="xunit" Version="2.4.2" />
     <PackageVersion Include="xunit.assert" Version="2.4.2" />
     <PackageVersion Include="System.Drawing.Common" Version="7.0.0" />
+    <PackageVersion Include="Moq" Version="4.18.1" />
   </ItemGroup>
 </Project>

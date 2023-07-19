@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return false;
         }
 
-        private bool RetryTest(Exception ex)
+        private bool IsRetriable(Exception ex)
         {
             if (ex is SqlException sqlEx && _transientErrors.Contains(sqlEx.Number))
             {
@@ -188,7 +189,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    if (++retry >= _maxRetries || !RetryTest(ex))
+                    if (++retry >= _maxRetries || !IsRetriable(ex))
                     {
                         throw;
                     }
@@ -221,8 +222,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
+            if (logMessage == null)
+            {
+                logMessage = $"{sqlCommand.CommandText} failed.";
+            }
 
+            var start = DateTime.UtcNow;
+            Exception lastException = null;
             int retry = 0;
             while (true)
             {
@@ -241,11 +247,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);
+                    if (retry > 0)
+                    {
+                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                    }
+
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (!RetryTest(ex))
+                    lastException = ex;
+                    if (!IsRetriable(ex))
                     {
                         throw;
                     }
@@ -253,6 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
+                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
@@ -268,7 +281,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(logMessage, nameof(logMessage));
 
             List<TResult> results = null;
             await ExecuteSql(
@@ -333,6 +345,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             List<TResult> result = await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, false, cancellationToken);
             return result.Count > 0 ? result[0] : null;
+        }
+
+        private async Task TryLogToDatabase(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var cmd = new SqlCommand() { CommandType = CommandType.StoredProcedure, CommandText = "dbo.LogEvent" };
+                cmd.Parameters.AddWithValue("@Process", process);
+                cmd.Parameters.AddWithValue("@Status", status);
+                cmd.Parameters.AddWithValue("@Text", text);
+                if (startDate.HasValue)
+                {
+                    cmd.Parameters.AddWithValue("@Start", startDate.Value);
+                }
+
+                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                conn.RetryLogicProvider = null;
+                await conn.OpenAsync(cancellationToken);
+                cmd.Connection = conn;
+
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // do nothing;
+            }
         }
     }
 }
