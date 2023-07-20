@@ -74,14 +74,16 @@ steps:
       pathToPublish: '$(Agent.TempDirectory)/coverage/Cobertura.xml'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
+
+- ${{ if eq(parameters.packageArtifacts, 'true') }}:
   # https://eng.ms/docs/cloud-ai-platform/devdiv/one-engineering-system-1es/1es-docs/secure-supply-chain/ado-sbom-generator
   - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-    displayName: 'Generation Task'
+    displayName: 'SBOM Generation Task'
     inputs:
       BuildDropPath: '$(build.artifactStagingDirectory)'
       BuildComponentPath: '$(Build.SourcesDirectory)'
   - task: PublishBuildArtifacts@1
-    displayName: 'publish SBOM artifacts'
+    displayName: 'Publish SBOM Artifacts'
     inputs:
       pathToPublish: '$(build.artifactStagingDirectory)'
       artifactName: 'deploy'
