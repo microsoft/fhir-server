@@ -144,7 +144,7 @@ steps:
 - task: DropValidatorTask@0
   displayName: 'SBOM Validator and Publisher Task'
   inputs:
-    BuildDropPath: '$(System.ArtifactsDirectory)/deploy'
+    BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
     OutputPath: 'output.json'
     ValidateSignature: true
     Verbosity: 'Verbose'
