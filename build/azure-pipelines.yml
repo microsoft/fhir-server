@@ -8,8 +8,30 @@ variables:
 - template: build-variables.yml
 
 stages:
+stages:
+- stage: UpdateVersion
+  displayName: 'Determine Semver'
+  dependsOn: []
+  jobs:
+  - job: Semver
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-semver.yml  
+    - powershell: |
+
+        $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
+        $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
+
+        Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
+        Write-Host "Updated  build number to '$buildNumber"
+      name: SetBuildVersion
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
+  dependsOn: 
+  - UpdateVersion
   variables:
     assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
     assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
