@@ -298,20 +298,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 }
             }
         }
-
-        private sealed class BundleResourceContextComparer : IComparer<BundleResourceContext>
-        {
-            public int Compare(BundleResourceContext x, BundleResourceContext y)
-            {
-                if (x == null && y == null)
-                {
-                    return 0;
-                }
-                else if (x == null && y != null)
-                {
-                    return 
-                }
-            }
-        }
     }
 }
