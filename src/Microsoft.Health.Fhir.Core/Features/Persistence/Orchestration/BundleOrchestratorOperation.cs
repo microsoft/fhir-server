@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
     {
         private const int DelayTimeInMilliseconds = 10;
 
+        private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
+
         /// <summary>
         /// List of resource to be sent to the data layer.
         /// </summary>
@@ -227,15 +229,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    // Defines the correct execution sequence based on the HTTP Verb assigned to each resource.
                     IReadOnlyList<ResourceWrapperOperation> resources = null;
                     if (_knownHttpVerbsInOperation.Count == 1)
                     {
+                        // If a single HTTP Verb is used, then there is no need to spend cycles sorting resources.
                         resources = _resources.Values.ToList();
                     }
                     else if (_knownHttpVerbsInOperation.Count > 1)
                     {
-                        // TODO: Sort resources by HTTP Verb priority.
-                        resources = _resources.Values.ToList();
+                        resources = _resources.Values.OrderBy(x => x.BundleResourceContext, _contextComparer).ToList();
                     }
                     else
                     {
@@ -292,6 +295,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 else
                 {
                     throw new BundleOrchestratorException($"Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
+                }
+            }
+        }
+
+        private sealed class BundleResourceContextComparer : IComparer<BundleResourceContext>
+        {
+            public int Compare(BundleResourceContext x, BundleResourceContext y)
+            {
+                if (x == null && y == null)
+                {
+                    return 0;
+                }
+                else if (x == null && y != null)
+                {
+                    return 
                 }
             }
         }
