@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public int Compare(BundleResourceContext x, BundleResourceContext y)
         {
-            if (x == null || y == null)
+            if (x == null && y == null)
             {
                 return 0;
             }
