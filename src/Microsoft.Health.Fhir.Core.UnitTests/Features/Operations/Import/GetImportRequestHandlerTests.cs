@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             GetImportResponse result = await SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>() { processingJob });
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            Assert.Equal(1, result.JobResult.Output.Count);
-            Assert.Equal(1, result.JobResult.Error.Count);
+            Assert.Single(result.JobResult.Output);
+            Assert.Single(result.JobResult.Error);
         }
 
         [Fact]
