@@ -1,0 +1,49 @@
+# DESCRIPTION: 	
+# Builds, tests, and packages the solution for all PR requests.	
+
+trigger: none
+
+variables:
+- template: pr-variables.yml
+- template: build-variables.yml
+
+stages:
+- stage: BuildUnitTests
+  displayName: 'Build and run unit tests'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
+  - job: Windows_dotnet7
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: $(defaultBuildFramework)
+        unitTest: false
+        codeCoverage: true
+  - job: Linux_BuildAndPackage
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        codeCoverage: false
+        unitTest: false
+        componentGovernance: true
+        packageArtifacts: true
+        packageIntegrationTests: true
+    - task: DropValidatorTask@0
+      displayName: 'SBOM Validator and Publisher Task'
+      inputs:
+        BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
+        OutputPath: 'output.json'
+        ValidateSignature: true
+        Verbosity: 'Verbose'
