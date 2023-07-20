@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         protected override async Task ExecuteAsync()
         {
             _logger.LogInformation("TransactionWatchdog starting...");
-            var affectedRows = await _store.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
+            var affectedRows = await _store.SqlService.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
             _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
 
             if (affectedRows > 0)
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            var timeoutTransactions = await _store.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, _cancellationToken);
+            var timeoutTransactions = await _store.SqlService.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, _cancellationToken);
             _logger.LogWarning("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
             if (timeoutTransactions.Count > 0)
             {
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 var resources = await _store.GetResourcesByTransactionIdAsync(tranId, _cancellationToken);
                 if (resources.Count == 0)
                 {
-                    await _store.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", _cancellationToken);
+                    await _store.SqlService.MergeResourcesCommitTransactionAsync(tranId, "WD: 0 resources", _cancellationToken);
                     _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources=0", tranId);
                     await _store.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources=0", st, _cancellationToken);
                     continue;
@@ -77,11 +77,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 }
 
                 await _store.MergeResourcesWrapperAsync(tranId, false, resources.Select(_ => new MergeResourceWrapper(_, true, true)).ToList(), false, 0, _cancellationToken);
-                await _store.MergeResourcesCommitTransactionAsync(tranId, null, _cancellationToken);
+                await _store.SqlService.MergeResourcesCommitTransactionAsync(tranId, null, _cancellationToken);
                 _logger.LogWarning("TransactionWatchdog committed transaction={Transaction}, resources={Resources}", tranId, resources.Count);
                 await _store.TryLogEvent("TransactionWatchdog", "Warn", $"committed transaction={tranId}, resources={resources.Count}", st, _cancellationToken);
 
-                affectedRows = await _store.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
+                affectedRows = await _store.SqlService.MergeResourcesAdvanceTransactionVisibilityAsync(_cancellationToken);
                 _logger.LogInformation("TransactionWatchdog advanced visibility on {Transactions} transactions.", affectedRows);
             }
         }

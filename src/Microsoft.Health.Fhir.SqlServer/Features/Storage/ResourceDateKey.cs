@@ -24,6 +24,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IsDeleted = isDeleted;
         }
 
+        public ResourceDateKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
+        {
+            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+
+            ResourceTypeId = resourceTypeId;
+            Id = id;
+            ResourceSurrogateId = resourceSurrogateId;
+            VersionId = versionId;
+            IsDeleted = isDeleted;
+        }
+
+        public short ResourceTypeId { get; }
+
         public string ResourceType { get; }
 
         public string Id { get; }

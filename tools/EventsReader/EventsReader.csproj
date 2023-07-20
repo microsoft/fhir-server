@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <AssemblyName>Fhir.EventsReader</AssemblyName>
+    <RootNamespace>Microsoft.Health.Fhir.EventsReader</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Health.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
+  </ItemGroup>
+
+</Project>

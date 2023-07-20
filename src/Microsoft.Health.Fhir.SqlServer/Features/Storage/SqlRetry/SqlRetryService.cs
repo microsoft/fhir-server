@@ -67,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IsExceptionRetriable _customIsExceptionRetriable;
         private readonly int _maxRetries;
         private readonly int _retryMillisecondsDelay;
+        private readonly int _commandTimeout;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -87,6 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _commandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
@@ -105,6 +107,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _defaultIsExceptionRetriableOff = sqlRetryServiceDelegateOptions.DefaultIsExceptionRetriableOff;
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
+        }
+
+        /// <summary>
+        /// Simplified class constructor.
+        /// </summary>
+        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="commandTimeout">command timeout.</param>
+        /// <param name="maxRetries">max retries.</param>
+        /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
+        public SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        {
+            _sqlConnectionBuilder = EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
+            _commandTimeout = commandTimeout;
+            _maxRetries = maxRetries;
+            _retryMillisecondsDelay = retryMillisecondsDelay;
         }
 
         /// <summary>
@@ -243,7 +260,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await sqlConnection.OpenAsync(cancellationToken);
 
                     // only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
-                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds : sqlCommand.CommandTimeout;
+                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);

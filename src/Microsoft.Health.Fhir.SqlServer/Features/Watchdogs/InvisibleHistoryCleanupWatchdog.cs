@@ -48,10 +48,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"{Name}: starting...");
             var lastTranId = await GetLastCleanedUpTransactionId();
-            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
+            var visibility = await _store.SqlService.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
             _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");
 
-            var transToClean = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * _retentionPeriodDays));
+            var transToClean = await _store.SqlService.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * _retentionPeriodDays));
             _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
 
             if (transToClean.Count == 0)
@@ -63,11 +63,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var totalRows = 0;
             foreach (var tran in transToClean.Where(_ => !_.InvisibleHistoryRemovedDate.HasValue).OrderBy(_ => _.TransactionId))
             {
-                var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, _cancellationToken);
+                var rows = await _store.SqlService.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, _cancellationToken);
                 _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");
                 totalRows += rows;
 
-                await _store.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, _cancellationToken);
+                await _store.SqlService.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, _cancellationToken);
             }
 
             await UpdateLastCleanedUpTransactionId(transToClean.Max(_ => _.TransactionId));

@@ -1,0 +1,51 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System.Configuration;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
+
+namespace Microsoft.Health.Fhir.EventsReader
+{
+    public static class Program
+    {
+        private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
+        private static SqlRetryService _sqlRetryService;
+        private static SqlService _sqlService;
+
+        public static void Main()
+        {
+            ISqlConnectionBuilder iSqlConnectionBuilder = new SqlConnectionBuilder(_connectionString);
+            _sqlRetryService = new SqlRetryService(iSqlConnectionBuilder);
+            _sqlService = new SqlService(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+
+            var totalsKeys = 0L;
+            var totalTrans = 0;
+            var sw = Stopwatch.StartNew();
+            var visibility = 0L;
+            while (true)
+            {
+                Thread.Sleep(3000);
+                var currentVisibility = _sqlService.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None).Result;
+                if (currentVisibility > visibility)
+                {
+                    var transactions = _sqlService.GetTransactionsAsync(visibility, currentVisibility, CancellationToken.None).Result;
+                    Interlocked.Add(ref totalTrans, transactions.Count);
+                    Parallel.ForEach(transactions, new ParallelOptions { MaxDegreeOfParallelism = 16 }, transaction =>
+                    {
+                        var keys = _sqlService.GetResourceDateKeysByTransactionIdAsync(transaction.TransactionId, CancellationToken.None).Result;
+                        Interlocked.Add(ref totalsKeys, keys.Count);
+                    });
+
+                    Console.WriteLine($"secs={(int)sw.Elapsed.TotalSeconds} trans={totalTrans} total={totalsKeys} speed={totalsKeys / 1000.0 / sw.Elapsed.TotalSeconds} K KPS.");
+
+                    visibility = currentVisibility;
+                }
+            }
+        }
+    }
+}
