@@ -15,13 +15,13 @@ namespace Microsoft.Health.Fhir.EventsReader
     {
         private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
         private static SqlRetryService _sqlRetryService;
-        private static SqlStoreClient _sqlService;
+        private static SqlStoreClient _store;
 
         public static void Main()
         {
             ISqlConnectionBuilder iSqlConnectionBuilder = new SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            _sqlService = new SqlStoreClient(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+            _store = new SqlStoreClient(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
             var totalsKeys = 0L;
             var totalTrans = 0;
@@ -30,14 +30,14 @@ namespace Microsoft.Health.Fhir.EventsReader
             while (true)
             {
                 Thread.Sleep(3000);
-                var currentVisibility = _sqlService.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None).Result;
+                var currentVisibility = _store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None).Result;
                 if (currentVisibility > visibility)
                 {
-                    var transactions = _sqlService.GetTransactionsAsync(visibility, currentVisibility, CancellationToken.None).Result;
+                    var transactions = _store.GetTransactionsAsync(visibility, currentVisibility, CancellationToken.None).Result;
                     Interlocked.Add(ref totalTrans, transactions.Count);
                     Parallel.ForEach(transactions, new ParallelOptions { MaxDegreeOfParallelism = 16 }, transaction =>
                     {
-                        var keys = _sqlService.GetResourceDateKeysByTransactionIdAsync(transaction.TransactionId, CancellationToken.None).Result;
+                        var keys = _store.GetResourceDateKeysByTransactionIdAsync(transaction.TransactionId, CancellationToken.None).Result;
                         Interlocked.Add(ref totalsKeys, keys.Count);
                     });
 
