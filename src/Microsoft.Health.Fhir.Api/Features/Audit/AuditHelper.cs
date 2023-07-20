@@ -127,7 +127,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext),
                     operationType: sanitizedOperationType,
-                    callerAgent: DefaultCallerAgent);
+                    callerAgent: DefaultCallerAgent,
+                    additionalProperties: null);
             }
         }
 
