@@ -20,22 +20,20 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
-    /// A SQL Server-backed <see cref="IFhirDataStore"/>.
+    /// Lightweight SQL store client mostly called in the scope of <see cref="SqlServerFhirDataStore"/>.
     /// </summary>
-    internal class SqlService
+    internal class SqlStoreClient
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
-        public SqlService(
-            ISqlRetryService sqlRetryService,
-            ILogger<SqlServerFhirDataStore> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        private async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
+        internal async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
         {
             try
             {

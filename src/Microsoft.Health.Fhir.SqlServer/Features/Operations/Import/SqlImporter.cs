@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
-                var versionSlots = (await _store.GetResourceVervionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_.ResourceType, _.Id, null), _ => _);
+                var versionSlots = (await _store.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_.ResourceType, _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
                     var resourceKey = resource.ResourceWrapper.ToResourceKey(true);

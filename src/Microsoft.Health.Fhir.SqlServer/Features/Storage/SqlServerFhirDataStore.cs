@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly SqlService _sqlService;
+        private readonly SqlStoreClient _sqlStoreClient;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            _sqlService = new SqlService(_sqlRetryService, logger);
+            _sqlStoreClient = new SqlStoreClient(_sqlRetryService, logger);
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal SqlService SqlService => _sqlService;
+        internal SqlStoreClient SqlStoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // assume that most likely case is that all resources should be updated
-            (var transactionId, var minSequenceId) = await SqlService.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            (var transactionId, var minSequenceId) = await SqlStoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (mergeWrappers.Count > 0) // do not call db with empty input
             {
-                await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
+                await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
                     var retries = 0;
                     var timeoutRetries = 0;
@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 continue;
                             }
 
-                            await SqlService.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            await SqlStoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                             throw;
                         }
                     }
@@ -338,7 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                await SqlService.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
+                await SqlStoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
             }
 
             return results;
@@ -373,20 +373,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        private async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
-                cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-                await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeResourcesPutTransactionHeartbeatAsync)}");
-            }
         }
 
         internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
@@ -493,7 +479,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             };
         }
 
-        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVervionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
         {
             var resources = new List<ResourceDateKey>();
             if (keys == null || keys.Count == 0)
