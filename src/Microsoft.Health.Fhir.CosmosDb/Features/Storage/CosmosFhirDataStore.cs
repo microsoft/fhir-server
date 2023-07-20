@@ -137,22 +137,54 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
 
-            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 2 };
+            await MergeInternalAsync(resources, results, null, cancellationToken);
+
+            KeyValuePair<DataStoreOperationIdentifier, DataStoreOperationOutcome>[] retrySequentially =
+                results.Where(x => x.Value.Exception is RequestRateExceededException).ToArray();
+
+            if (retrySequentially.Any())
+            {
+                ResourceWrapperOperation[] filtered = resources
+                    .Where(x => retrySequentially.Any(y => x.GetIdentifier().Equals(y.Key)))
+                    .ToArray();
+
+                if (filtered.Any())
+                {
+                    await MergeInternalAsync(filtered, results, 1, cancellationToken);
+                }
+            }
+
+            return results;
+        }
+
+        private async Task MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> results, int? maxParallelism, CancellationToken cancellationToken)
+        {
+            var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken };
+
+            if (maxParallelism.HasValue)
+            {
+                parallelOptions.MaxDegreeOfParallelism = maxParallelism.Value;
+            }
+
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, innerCt) =>
             {
                 DataStoreOperationIdentifier identifier = resource.GetIdentifier();
-
                 try
                 {
                     UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                        resource.Wrapper,
-                        resource.WeakETag,
-                        resource.AllowCreate,
-                        resource.KeepHistory,
-                        innerCt,
-                        resource.RequireETagOnUpdate);
+                            resource.Wrapper,
+                            resource.WeakETag,
+                            resource.AllowCreate,
+                            resource.KeepHistory,
+                            innerCt,
+                            resource.RequireETagOnUpdate);
 
-                    results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
+                    var result = new DataStoreOperationOutcome(upsertOutcome);
+                    results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (RequestRateExceededException rateExceededException)
+                {
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(rateExceededException));
                 }
                 catch (FhirException fhirException)
                 {
@@ -166,8 +198,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     throw new IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(ex, results);
                 }
             });
-
-            return results;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)

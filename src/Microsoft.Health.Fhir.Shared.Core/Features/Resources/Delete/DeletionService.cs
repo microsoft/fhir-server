@@ -104,18 +104,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
                         bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
+                        var softDeletes = resultsToDelete.Select(item =>
+                        {
+                            var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
+                            emptyInstance.Id = item.Resource.ResourceId;
+                            ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
+                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
+                        }).ToArray();
 
                         try
                         {
-                            await _fhirDataStore.MergeAsync(
-                                resultsToDelete.Select(item =>
-                                {
-                                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
-                                    emptyInstance.Id = item.Resource.ResourceId;
-                                    ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
-                                    return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
-                                }).ToArray(),
-                                cancellationToken);
+                            await _fhirDataStore.MergeAsync(softDeletes, cancellationToken);
                         }
                         catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
                         {
@@ -134,16 +133,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     }
                     else
                     {
-                        var options = new ParallelOptions
-                        {
-                            MaxDegreeOfParallelism = 4,
-                            CancellationToken = cancellationToken,
-                        };
-
                         var parallelBag = new ConcurrentBag<string>();
                         try
                         {
-                            await Parallel.ForEachAsync(resultsToDelete, options, async (item, innerCt) =>
+                            await Parallel.ForEachAsync(resultsToDelete, cancellationToken, async (item, innerCt) =>
                             {
                                 await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
                                 parallelBag.Add(item.Resource.ResourceId);
