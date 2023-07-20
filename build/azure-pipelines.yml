@@ -8,7 +8,6 @@ variables:
 - template: build-variables.yml
 
 stages:
-stages:
 - stage: UpdateVersion
   displayName: 'Determine Semver'
   dependsOn: []
