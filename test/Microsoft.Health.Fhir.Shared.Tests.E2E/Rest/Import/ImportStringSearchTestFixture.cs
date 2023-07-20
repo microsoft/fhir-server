@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             Patients = await ImportTestHelper.ImportToServerAsync<Patient>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 p => SetPatientInfo(p, "Seattle", "Smith", given: "Bea"),
                 p => SetPatientInfo(p, "Portland", "Williams"),
                 p => SetPatientInfo(p, "Vancouver", "Anderson"),
