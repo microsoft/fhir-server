@@ -7,12 +7,15 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
@@ -31,6 +34,111 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
+
+        internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        {
+            await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
+        }
+
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
+        {
+            if (keys == null || keys.Count == 0)
+            {
+                return new List<ResourceWrapper>();
+            }
+
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
+            var tvpRows = keys.Select(_ => new ResourceKeyListRow(getResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
+            new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
+            var start = DateTime.UtcNow;
+            var timeoutRetries = 0;
+            while (true)
+            {
+                try
+                {
+                    return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, null, cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(GetAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(GetAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVersionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
+        {
+            var resources = new List<ResourceDateKey>();
+            if (keys == null || keys.Count == 0)
+            {
+                return resources;
+            }
+
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
+            var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_.ResourceTypeId, _.Id, _.ResourceSurrogateId));
+            new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
+            var table = VLatest.Resource;
+            resources = await _sqlRetryService.ExecuteSqlDataReader(
+                cmd,
+                (reader) =>
+                {
+                    var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
+                    var resourceId = reader.Read(table.ResourceId, 1);
+                    var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
+                    var version = reader.Read(table.Version, 3);
+                    return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
+                },
+                _logger,
+                null,
+                cancellationToken);
+            return resources;
+        }
+
+        internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
+            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
+            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, null, cancellationToken);
+        }
+
+        private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
+        {
+            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
+            var version = reader.Read(VLatest.Resource.Version, 3);
+            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
+            var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
+            var rawResourceBytes = reader.GetSqlBytes(6).Value;
+            var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
+            var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
+            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
+
+            using var rawResourceStream = new MemoryStream(rawResourceBytes);
+            var rawResource = decompress(rawResourceStream);
+
+            return new ResourceWrapper(
+                resourceId,
+                version.ToString(CultureInfo.InvariantCulture),
+                getResourceTypeName(resourceTypeId),
+                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                readRequestMethod ? new ResourceRequest(requestMethod) : null,
+                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                isDeleted,
+                searchIndices: null,
+                compartmentIndices: null,
+                lastModifiedClaims: null,
+                searchParameterHash: searchParamHash,
+                resourceSurrogateId: resourceSurrogateId)
+            {
+                IsHistory = isHistory,
+            };
         }
 
         internal async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)

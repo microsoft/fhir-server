@@ -60,14 +60,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlErrorCodes.QueryProcessorNoQueryPlan,   // The query processor ran out of internal resources and could not produce a query plan.
             };
 
-        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
-        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
         private readonly IsExceptionRetriable _customIsExceptionRetriable;
-        private readonly int _maxRetries;
-        private readonly int _retryMillisecondsDelay;
-        private readonly int _commandTimeout;
+        private int _maxRetries;
+        private int _retryMillisecondsDelay;
+        private int _commandTimeout;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -87,8 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
-            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
-            _commandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
+            _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
@@ -109,19 +107,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
-        /// <summary>
-        /// Simplified class constructor.
-        /// </summary>
-        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
-        /// <param name="commandTimeout">command timeout.</param>
-        /// <param name="maxRetries">max retries.</param>
-        /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
-        public SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
         {
-            _sqlConnectionBuilder = EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
-            _commandTimeout = commandTimeout;
-            _maxRetries = maxRetries;
-            _retryMillisecondsDelay = retryMillisecondsDelay;
+            _sqlConnectionBuilder = sqlConnectionBuilder;
         }
 
         /// <summary>
@@ -132,6 +120,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>Returns true if the exception <paramref name="ex"/> represent an retriable error.</returns>
         /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
+
+        /// <summary>
+        /// Simplified class generator.
+        /// </summary>
+        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="commandTimeout">command timeout.</param>
+        /// <param name="maxRetries">max retries.</param>
+        /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
+        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        {
+            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
+            var service = new SqlRetryService(sqlConnectionBuilder);
+            service._commandTimeout = commandTimeout;
+            service._maxRetries = maxRetries;
+            service._retryMillisecondsDelay = retryMillisecondsDelay;
+            return service;
+        }
 
         /// <summary>
         /// This method examines exception <paramref name="ex"/> and determines if the exception represent an retriable error.
@@ -266,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
                     }
 
                     return;
@@ -282,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
@@ -364,7 +369,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return result.Count > 0 ? result[0] : null;
         }
 
-        private async Task TryLogToDatabase(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        /// <summary>
+        /// Tries logging an event to the EventLog table.
+        /// </summary>
+        /// <param name="process">Name of the process.</param>
+        /// <param name="status">Status. By default Warn and Error are logged automatically. Other stuses can be enabled in the Parameters table.</param>
+        /// <param name="text">Message text.</param>
+        /// <param name="startDate">Optional start date of the process.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             try
             {

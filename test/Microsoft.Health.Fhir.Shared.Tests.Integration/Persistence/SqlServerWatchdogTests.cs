@@ -158,7 +158,7 @@ END
             cts.CancelAfter(TimeSpan.FromSeconds(60));
             var factory = CreateResourceWrapperFactory();
 
-            var tran = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
+            var tran = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(-1)); // register timed out
 
             var patient = (Hl7.Fhir.Model.Patient)Samples.GetJsonSample("Patient").ToPoco();
             patient.Id = Guid.NewGuid().ToString();
@@ -234,19 +234,19 @@ END
             _testOutputHelper.WriteLine($"Acquired lease in {(DateTime.UtcNow - startTime).TotalSeconds} seconds.");
 
             // create 3 trans
-            var tran1 = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
-            var tran2 = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
-            var tran3 = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
-            var visibility = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token);
+            var tran1 = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
+            var tran2 = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
+            var tran3 = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesBeginTransactionAsync(1, cts.Token, DateTime.UtcNow.AddHours(1));
+            var visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token);
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(-1, visibility);
 
             // commit 1
-            await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesCommitTransactionAsync(tran1.TransactionId, null, cts.Token);
+            await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesCommitTransactionAsync(tran1.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran1={tran1.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran1.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -255,11 +255,11 @@ END
             Assert.Equal(tran1.TransactionId, visibility);
 
             // commit 3
-            await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesCommitTransactionAsync(tran3.TransactionId, null, cts.Token);
+            await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesCommitTransactionAsync(tran3.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran3={tran3.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran2.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }
@@ -268,11 +268,11 @@ END
             Assert.Equal(tran1.TransactionId, visibility); // remains t1 though t3 is committed.
 
             // commit 2
-            await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesCommitTransactionAsync(tran2.TransactionId, null, cts.Token);
+            await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesCommitTransactionAsync(tran2.TransactionId, null, cts.Token);
             _testOutputHelper.WriteLine($"Tran2={tran2.TransactionId} committed.");
 
             startTime = DateTime.UtcNow;
-            while ((visibility = await _fixture.SqlServerFhirDataStore.SqlStoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while ((visibility = await _fixture.SqlServerFhirDataStore.StoreClient.MergeResourcesGetTransactionVisibilityAsync(cts.Token)) != tran3.TransactionId && (DateTime.UtcNow - startTime).TotalSeconds < 10)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.1));
             }

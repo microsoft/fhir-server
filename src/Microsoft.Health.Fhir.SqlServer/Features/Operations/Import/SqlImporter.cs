@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     _logger.LogError(e, $"Error on {nameof(ImportResourcesInBufferInternal)} retries={{Retries}}", retries);
-                    _store.TryLogEvent(nameof(ImportResourcesInBufferInternal), "Error", $"retries={retries} error={e}", null, cancellationToken).Wait();
+                    _store.StoreClient.TryLogEvent(nameof(ImportResourcesInBufferInternal), "Error", $"retries={retries} error={e}", null, cancellationToken).Wait();
 
                     throw;
                 }
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             else
             {
                 // dedup by last updated
-                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(true)).Select(_ => _.First()).ToList();
+                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).Select(_ => _.First()).ToList();
 
                 // 2 paths:
                 // 1 - if versions were specified on input then dups need to be checked within input and database
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
                 var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
                 //// check whether record can fit
-                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey());
+                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
-                var versionSlots = (await _store.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey()).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_.ResourceType, _.Id, null), _ => _);
+                var versionSlots = (await _store.StoreClient.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_model.GetResourceTypeName(_.ResourceTypeId), _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
                     var resourceKey = resource.ResourceWrapper.ToResourceKey(true);
