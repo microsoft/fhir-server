@@ -304,50 +304,61 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     EntryComponent throttledEntryComponent = null;
                     foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
-                        IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                            type: BundleOrchestratorOperationType.Batch,
-                            label: verb.ToString(),
-                            expectedNumberOfResources: _requests[verb].Count);
+                        if (_requests[verb].Any())
+                        {
+                            IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                                type: BundleOrchestratorOperationType.Batch,
+                                label: verb.ToString(),
+                                expectedNumberOfResources: _requests[verb].Count);
 
-                        _logger.LogTrace(
-                            "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
-                            bundleOperation.OriginalExpectedNumberOfResources,
-                            verb);
+                            _logger.LogTrace(
+                                "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
+                                bundleOperation.OriginalExpectedNumberOfResources,
+                                verb);
 
-                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(
-                            responseBundle: responseBundle,
-                            resources: _requests[verb],
-                            bundleOperation: bundleOperation,
-                            throttledEntryComponent: throttledEntryComponent,
-                            statistics: statistics,
-                            cancellationToken: cancellationToken);
+                            throttledEntryComponent = await ExecuteRequestsInParallelAsync(
+                                responseBundle: responseBundle,
+                                resources: _requests[verb],
+                                bundleOperation: bundleOperation,
+                                throttledEntryComponent: throttledEntryComponent,
+                                statistics: statistics,
+                                cancellationToken: cancellationToken);
+                        }
                     }
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Transaction)
                 {
                     List<ResourceExecutionContext> resources = _requests.Select(r => r.Value).SelectMany(r => r).ToList();
 
-                    IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                        type: BundleOrchestratorOperationType.Transaction,
-                        label: "Transaction",
-                        expectedNumberOfResources: resources.Count);
+                    if (resources.Any())
+                    {
+                        IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                            type: BundleOrchestratorOperationType.Transaction,
+                            label: "Transaction",
+                            expectedNumberOfResources: resources.Count);
 
-                    _logger.LogTrace(
-                        "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
-                        bundleOperation.OriginalExpectedNumberOfResources);
+                        _logger.LogTrace(
+                            "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
+                            bundleOperation.OriginalExpectedNumberOfResources);
 
-                    EntryComponent throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInParallelAsync(
-                        responseBundle: responseBundle,
-                        resources: resources,
-                        bundleOperation: bundleOperation,
-                        throttledEntryComponent: null,
-                        statistics: statistics,
-                        cancellationToken: cancellationToken);
+                        EntryComponent throttledEntryComponent = await ExecuteRequestsInParallelAsync(
+                            responseBundle: responseBundle,
+                            resources: resources,
+                            bundleOperation: bundleOperation,
+                            throttledEntryComponent: null,
+                            statistics: statistics,
+                            cancellationToken: cancellationToken);
+                    }
                 }
                 else
                 {
                     throw new InvalidOperationException(string.Format(Api.Resources.BundleInvalidCombination, _bundleType, processingLogic));
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
+                throw;
             }
             finally
             {

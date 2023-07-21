@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 #endif
         };
 
-        private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInParallelAsync(
+        private async Task<EntryComponent> ExecuteRequestsInParallelAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
             List<ResourceExecutionContext> resources,
             IBundleOrchestratorOperation bundleOperation,
