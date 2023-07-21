@@ -298,7 +298,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
@@ -342,31 +342,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>A task representing the asynchronous operation that returns all the rows that result from <paramref name="sqlCommand"/> execution. The rows are translated by <paramref name="readerToResult"/> delegate
         /// into <typeparamref name="TResult"/> data type.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             return await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, true, cancellationToken);
-        }
-
-        /// <summary>
-        /// Executes <paramref name="sqlCommand"/> and reads the first row only. Translates the read row by using <paramref name="readerToResult"/>
-        /// into the returned <typeparamref name="TResult"/> data type. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
-        /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
-        /// </summary>
-        /// <typeparam name="TResult">Defines data type for the returned SQL row.</typeparam>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
-        /// <param name="sqlCommand">SQL command to be executed.</param>
-        /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
-        /// <param name="logger">Logger used on first try error or retry error.</param>
-        /// <param name="logMessage">Message to be logged on error.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A task representing the asynchronous operation that returns the first row that results from <paramref name="sqlCommand"/> execution. The row is translated by <paramref name="readerToResult"/> delegate
-        /// into <typeparamref name="TResult"/> data type.</returns>
-        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task<TResult> ExecuteSqlDataReaderFirstRow<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
-            where TResult : class
-        {
-            List<TResult> result = await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, false, cancellationToken);
-            return result.Count > 0 ? result[0] : null;
         }
 
         /// <summary>

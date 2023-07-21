@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // TODO: this code will not set capacity for the result list!
 
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            List<(long StartId, long EndId)> searchList = null;
+            IReadOnlyList<(long StartId, long EndId)> searchList = null;
             await _sqlRetryService.ExecuteSql(
                 async (cancellationToken, sqlException) =>
                 {
@@ -682,7 +682,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
                     LogSqlCommand(sqlCommand);
 
-                    searchList = await _sqlRetryService.ExecuteSqlDataReader(
+                    searchList = await _sqlRetryService.ExecuteReaderAsync(
                        sqlCommand,
                        ReaderToSurrogateIdRange,
                        _logger,
@@ -701,7 +701,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            var resourceTypes = new List<(short ResourceTypeId, string Name)>();
+            IReadOnlyList<(short ResourceTypeId, string Name)> resourceTypes = null;
 
             await _sqlRetryService.ExecuteSql(
                 async (cancellationToken, sqlException) =>
@@ -710,17 +710,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     using SqlCommand sqlCommand = connection.CreateCommand();
                     connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
                     await connection.OpenAsync(cancellationToken);
-
                     sqlCommand.CommandTimeout = GetReindexCommandTimeout();
                     sqlCommand.CommandText = "dbo.GetUsedResourceTypes";
                     LogSqlCommand(sqlCommand);
-
-                    resourceTypes = await _sqlRetryService.ExecuteSqlDataReader(
-                       sqlCommand,
-                       ReaderGetUsedResourceTypes,
-                       _logger,
-                       $"{nameof(GetUsedResourceTypes)} failed.",
-                       cancellationToken);
+                    resourceTypes = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken, $"{nameof(GetUsedResourceTypes)} failed.");
                     return;
                 },
                 cancellationToken);
