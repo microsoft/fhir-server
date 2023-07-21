@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
-            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+            Assert.Single(options.UnsupportedSearchParams);
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
         }
 
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.NotNull(options.UnsupportedSearchParams);
-            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+            Assert.Single(options.UnsupportedSearchParams);
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
         }
 
@@ -484,7 +484,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
-            Assert.Equal(1, options.UnsupportedSearchParams.Count);
+            Assert.Single(options.UnsupportedSearchParams);
         }
 
         private SearchOptions CreateSearchOptions(
