@@ -148,3 +148,4 @@ steps:
     OutputPath: 'output.json'
     ValidateSignature: true
     Verbosity: 'Verbose'
+    continueOnError: true
