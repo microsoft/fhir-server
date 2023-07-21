@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             Observations = await ImportTestHelper.ImportToServerAsync<Observation>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 o => SetObservation(o, 0.002m, "unit1", "system1"),
                 o => SetObservation(o, 1.0m, "unit1", "system1"),
                 o => SetObservation(o, 3.12m, "unit1", "system2"),

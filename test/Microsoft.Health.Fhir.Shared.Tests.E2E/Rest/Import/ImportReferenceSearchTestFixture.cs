@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             Patients = await ImportTestHelper.ImportToServerAsync<Patient>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 p => p.AddTestTag(FixtureTag).ManagingOrganization = new ResourceReference("Organization/123"),
                 p => p.AddTestTag(FixtureTag).ManagingOrganization = new ResourceReference("Organization/abc"),
                 p => p.AddTestTag(FixtureTag).ManagingOrganization = new ResourceReference("ijk"), // type not specified, but known constrained to be Organization

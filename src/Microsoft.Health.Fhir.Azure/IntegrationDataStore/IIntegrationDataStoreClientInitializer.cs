@@ -5,53 +5,55 @@
 
 using System;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public interface IIntegrationDataStoreClientInitilizer<TBlobServiceClient, TBlockBlobClient, TBlobClient>
+    public interface IIntegrationDataStoreClientInitializer
     {
         /// <summary>
         /// Used to get a client that is authorized to talk to the integration data store.
         /// </summary>
-        /// <returns>A client of type T</returns>
-        Task<TBlobServiceClient> GetAuthorizedClientAsync();
+        /// <returns>A BlobServiceClient object.</returns>
+        Task<BlobServiceClient> GetAuthorizedClientAsync();
 
         /// <summary>
         /// Used to get a client that is authorized to talk to the integration data store.
         /// </summary>
         /// <param name="integrationDataStoreConfiguration">Integration dataStore configuration</param>
-        /// <returns>A client of type T</returns>
-        Task<TBlobServiceClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
+        /// <returns>A BlobServiceClient object.</returns>
+        Task<BlobServiceClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
 
         /// <summary>
         /// Used to get a block blob client that is authorized to talk to the integration data store.
         /// </summary>
         /// <param name="blobUri">A blob uri.</param>
-        /// <returns>A block blob client of type TBlobClient</returns>
-        Task<TBlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri);
+        /// <returns>A BlockBlobClient object.</returns>
+        Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri);
 
         /// <summary>
         /// Used to get a block blob client that is authorized to talk to the integration data store.
         /// </summary>
         /// <param name="blobUri">A blob uri.</param>
         /// <param name="integrationDataStoreConfiguration">Integration dataStore configuration</param>
-        /// <returns>A block blob client of type TBlobClient</returns>
-        Task<TBlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
+        /// <returns>A BlockBlobClient object.</returns>
+        Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
 
         /// <summary>
         /// Used to get a blob client that is authorized to talk to the integration data store.
         /// </summary>
         /// <param name="blobUri">A blob uri.</param>
-        /// <returns>A blob client of type TBlobClient</returns>
-        Task<TBlobClient> GetAuthorizedBlobClientAsync(Uri blobUri);
+        /// <returns>A BlobClient object.</returns>
+        Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri);
 
         /// <summary>
         /// Used to get a blob client that is authorized to talk to the integration data store.
         /// </summary>
         /// <param name="blobUri">A blob uri.</param>
         /// <param name="integrationDataStoreConfiguration">Integration dataStore configuration</param>
-        /// <returns>A blob client of type TBlobClient</returns>
-        Task<TBlobClient> GetAuthorizedBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
+        /// <returns>A BlobClient object.</returns>
+        Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration);
     }
 }

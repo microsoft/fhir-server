@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             await ImportTestHelper.ImportToServerAsync(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 PatientAddressCityAndFamily.AddTestTag(FixtureTag),
                 PatientWithSameCity1.AddTestTag(FixtureTag),
                 PatientWithSameCity2.AddTestTag(FixtureTag),
