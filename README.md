@@ -9,8 +9,8 @@ A .NET Core implementation of the FHIR standard.
 FHIR Server for Azure is an open-source implementation of the emerging [HL7 Fast Healthcare Interoperability Resources (FHIR) specification](https://www.hl7.org/fhir/) designed for the Microsoft cloud. The FHIR specification defines how clinical health data can be made interoperable across systems, and the FHIR Server for Azure helps facilitate that interoperability in the cloud. The goal of this Microsoft Healthcare project is to enable developers to rapidly deploy a FHIR service.
  
 With data in the FHIR format, the FHIR Server for Azure enables developers to quickly ingest and manage FHIR datasets in the cloud, track and manage data access and normalize data for machine learning workloads. FHIR Server for Azure is optimized for the Azure ecosystem: 
-* Scripts and ARM templates are available for immediate provisioning in the Microsoft Cloud 
-* Scripts are available to map to Azure AAD and enable role-based access control (RBAC) 
+* Scripts and ARM templates are available for immediate provisioning in the Microsoft Cloud.
+* Scripts are available to map to Azure AAD and enable role-based access control (RBAC).
 
 FHIR Server for Azure is built with logical separation, enabling developers with flexibility to modify how it is implemented, and extend its capabilities as needed. The logic layers of the FHIR server are:
 
@@ -59,7 +59,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 ## Blog Posts
 * Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/health/2018/11/12/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/).
 * Blog: [Azure API for FHIR moves to general availability](https://azure.microsoft.com/en-us/blog/azure-api-for-fhir-moves-to-general-availability/).
-* Twitter: [Health_IT](https://twitter.com/Health_IT)
+* Twitter: [Health_IT](https://twitter.com/Health_IT).
 
 ## Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

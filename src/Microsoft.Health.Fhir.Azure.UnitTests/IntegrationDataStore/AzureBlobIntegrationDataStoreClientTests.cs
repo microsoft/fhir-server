@@ -9,7 +9,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.IntegrationDataStore;
@@ -28,13 +29,13 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenDownloadContent_ThenContentShouldBeSame()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            var container = client.GetContainerReference(containerName);
+            var container = client.GetBlobContainerClient(containerName);
             await container.CreateAsync();
             try
             {
@@ -49,9 +50,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
                 await writer.FlushAsync();
 
-                var blob = container.GetBlockBlobReference(blobName);
+                var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.UploadFromStream(sourceStream);
+                blob.Upload(sourceStream);
 
                 sourceStream.Position = 0;
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
@@ -73,13 +74,13 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenTextFileOnBlob_WhenLoadFromMiddle_ThenContentShouldBeSame()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            var container = client.GetContainerReference(containerName);
+            var container = client.GetBlobContainerClient(containerName);
             await container.CreateAsync();
             try
             {
@@ -94,9 +95,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
                 await writer.FlushAsync();
 
-                var blob = container.GetBlockBlobReference(blobName);
+                var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.UploadFromStream(sourceStream);
+                blob.Upload(sourceStream);
 
                 long startPosition = 2021;
                 sourceStream.Position = startPosition;
@@ -119,26 +120,26 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenBlobUri_WhenCreateContainer_ThenContainerShouldBeCreated()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
             try
             {
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 Uri fileUri = await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
-                Assert.True(await client.GetContainerReference(containerName).ExistsAsync());
+                Assert.True(await client.GetBlobContainerClient(containerName).ExistsAsync());
                 Assert.Equal(blobUri, fileUri);
 
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
             }
             finally
             {
-                var container = client.GetContainerReference(containerName);
+                var container = client.GetBlobContainerClient(containerName);
                 await container.DeleteIfExistsAsync();
             }
         }
@@ -146,15 +147,15 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenABlob_WhenGetProperties_ThenProtertiesShouldBeReturned()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
-            var container = client.GetContainerReference(containerName);
+            var container = client.GetBlobContainerClient(containerName);
             await container.CreateAsync();
             try
             {
@@ -164,9 +165,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
                 await writer.FlushAsync();
 
-                var blob = container.GetBlockBlobReference(blobName);
+                var blob = container.GetBlockBlobClient(blobName);
                 sourceStream.Position = 0;
-                blob.UploadFromStream(sourceStream);
+                blob.Upload(sourceStream);
 
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 Dictionary<string, object> properties = await blobClient.GetPropertiesAsync(blobUri, CancellationToken.None);
@@ -182,17 +183,18 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenDataStream_WhenUploadToBlob_ThenAllDataShouldBeUploaded()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                var configuration = GetIntegrationDataStoreConfigurationOption();
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
@@ -207,9 +209,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
                 await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
-                ICloudBlob output = await client.GetBlobReferenceFromServerAsync(blobUri);
+                BlockBlobClient output = new BlockBlobClient(configuration.Value.StorageAccountConnection, containerName, blobName);
                 using Stream outputStream = new MemoryStream();
-                await output.DownloadToStreamAsync(outputStream);
+                await output.DownloadToAsync(outputStream);
                 outputStream.Position = 0;
                 using StreamReader reader = new StreamReader(outputStream);
 
@@ -226,7 +228,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
-                var container = client.GetContainerReference(containerName);
+                var container = client.GetBlobContainerClient(containerName);
                 await container.DeleteIfExistsAsync();
             }
         }
@@ -234,17 +236,18 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenDataStream_WhenAppendToBlob_ThenDataShouldBeAppended()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                var configuration = GetIntegrationDataStoreConfigurationOption();
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
@@ -259,9 +262,9 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
                 await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
-                ICloudBlob output = await client.GetBlobReferenceFromServerAsync(blobUri);
+                BlockBlobClient output = new BlockBlobClient(configuration.Value.StorageAccountConnection, containerName, blobName);
                 using Stream outputStream = new MemoryStream();
-                await output.DownloadToStreamAsync(outputStream);
+                await output.DownloadToAsync(outputStream);
                 outputStream.Position = 0;
                 using StreamReader reader = new StreamReader(outputStream);
 
@@ -278,7 +281,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
-                var container = client.GetContainerReference(containerName);
+                var container = client.GetBlobContainerClient(containerName);
                 await container.DeleteIfExistsAsync();
             }
         }
@@ -286,13 +289,13 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         [Fact(Skip = "Local tests need emulator.")]
         public async Task GivenStorageBlob_WhenAcquireLease_ThenLeaseIdShouldBeReturned()
         {
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
-            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
 
             string containerName = Guid.NewGuid().ToString("N");
             string blobName = Guid.NewGuid().ToString("N");
 
-            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
 
             try
             {
@@ -320,12 +323,65 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
-                var container = client.GetContainerReference(containerName);
+                var container = client.GetBlobContainerClient(containerName);
                 await container.DeleteIfExistsAsync();
             }
         }
 
-        private static IIntegrationDataStoreClientInitilizer<CloudBlobClient> GetClientInitializer()
+        [Fact(Skip = "Local tests need emulator.")]
+        public async Task GivenBlobUri_WhenCreateBlobClient_ThenBlobClientShouldBeFunctional()
+        {
+            IIntegrationDataStoreClientInitializer initializer = GetClientInitializer();
+            BlobServiceClient client = await initializer.GetAuthorizedClientAsync();
+
+            string containerName = Guid.NewGuid().ToString("N");
+            string blobName = Guid.NewGuid().ToString("N");
+
+            Uri blobUri = new Uri(Path.Combine(client.Uri.ToString(), $"{containerName}/{blobName}"));
+
+            try
+            {
+                var configuration = GetIntegrationDataStoreConfigurationOption();
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, configuration, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
+
+                long count = 30;
+                List<string> blockIds = new List<string>();
+                for (long i = 0; i < count; ++i)
+                {
+                    using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
+                    string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
+                    blockIds.Add(blockId);
+                }
+
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
+
+                BlockBlobClient output = await initializer.GetAuthorizedBlockBlobClientAsync(blobUri);
+                using Stream outputStream = new MemoryStream();
+                await output.DownloadToAsync(outputStream);
+                outputStream.Position = 0;
+                using StreamReader reader = new StreamReader(outputStream);
+
+                long currentLine = 0;
+                string content = null;
+
+                while ((content = await reader.ReadLineAsync()) != null)
+                {
+                    Assert.Equal(currentLine.ToString(), content);
+                    currentLine++;
+                }
+
+                Assert.Equal(count, currentLine);
+            }
+            finally
+            {
+                var container = client.GetBlobContainerClient(containerName);
+                await container.DeleteIfExistsAsync();
+            }
+        }
+
+        private static IIntegrationDataStoreClientInitializer GetClientInitializer()
         {
             return new AzureConnectionStringClientInitializerV2(GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureConnectionStringClientInitializerV2>());
         }

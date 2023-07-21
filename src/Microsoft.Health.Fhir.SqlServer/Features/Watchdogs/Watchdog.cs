@@ -130,6 +130,26 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             return (double)value;
         }
 
+        protected async Task<long> GetLongParameterByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+
+            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
+            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
+            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
+
+            cmd.CommandText = "SELECT Bigint FROM dbo.Parameters WHERE Id = @Id";
+            cmd.Parameters.AddWithValue("@Id", id);
+            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{id} is not set correctly in the Parameters table.");
+            }
+
+            return (long)value;
+        }
+
         public new void Dispose()
         {
             Dispose(true);

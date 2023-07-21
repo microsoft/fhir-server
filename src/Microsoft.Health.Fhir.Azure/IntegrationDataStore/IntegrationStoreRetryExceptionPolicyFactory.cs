@@ -6,8 +6,8 @@
 using System;
 using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
+using Azure;
 using EnsureThat;
-using Microsoft.Azure.Storage;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Polly;
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private static AsyncRetryPolicy CreateExtendedRetryPolicy(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
         {
-            return Policy.Handle<StorageException>()
+            return Policy.Handle<RequestFailedException>()
                 .WaitAndRetryAsync(
                     retryCount: integrationDataStoreConfiguration.MaxRetryCount,
                     sleepDurationProvider: (_) => TimeSpan.FromSeconds(integrationDataStoreConfiguration.RetryInternalInSecondes),
