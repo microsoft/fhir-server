@@ -8,10 +8,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -19,14 +18,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly ISqlRetryService _sqlRetryService;
         private CancellationToken _cancellationToken;
         private double _retentionPeriodDays = 7;
 
-        public InvisibleHistoryCleanupWatchdog(SqlServerFhirDataStore store, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<InvisibleHistoryCleanupWatchdog> logger)
-            : base(sqlConnectionWrapperFactory, logger)
+        public InvisibleHistoryCleanupWatchdog(SqlServerFhirDataStore store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
+            : base(sqlRetryService, logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -82,23 +81,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task InitLastCleanedUpTransactionId()
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"; // surrogate id for the past. does not matter.
+            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"); // surrogate id for the past. does not matter.
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
 
         private async Task UpdateLastCleanedUpTransactionId(long lastTranId)
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id";
+            using var cmd = new SqlCommand("UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
             cmd.Parameters.AddWithValue("@LastTranId", lastTranId);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
     }
 }

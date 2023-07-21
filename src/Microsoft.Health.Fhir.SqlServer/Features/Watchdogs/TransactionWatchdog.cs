@@ -9,11 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -26,8 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private const double _periodSec = 3;
         private const double _leasePeriodSec = 20;
 
-        public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<TransactionWatchdog> logger)
-            : base(sqlConnectionWrapperFactory, logger)
+        public TransactionWatchdog(SqlServerFhirDataStore store, IResourceWrapperFactory factory, ISqlRetryService sqlRetryService, ILogger<TransactionWatchdog> logger)
+            : base(sqlRetryService, logger)
         {
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _factory = EnsureArg.IsNotNull(factory, nameof(factory));
