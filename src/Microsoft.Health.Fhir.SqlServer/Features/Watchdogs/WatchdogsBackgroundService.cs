@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             Func<IScoped<TransactionWatchdog>> transactionWatchdog,
-            Func<IScoped<InvisibleHistoryCleanupWatchdog>> invisibleHistoryCleanupWatchdog)
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke().Value;
-            _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog)).Invoke().Value;
+            _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
