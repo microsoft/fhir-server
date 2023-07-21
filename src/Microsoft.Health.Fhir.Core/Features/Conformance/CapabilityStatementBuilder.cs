@@ -211,8 +211,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             continue;
                         }
 
-                        string status = string.Format("Current status of search parameter is {0}. ", searchParamStatuses.SingleOrDefault(x => x.Uri == searchParam.Definition)?.Status.ToString());
-                        searchParam.Documentation = status = status + searchParam.Documentation;
                         c.SearchParam.Add(searchParam);
                     }
                 });
