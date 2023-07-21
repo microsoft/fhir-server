@@ -6,7 +6,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features
 {
-    internal static class ExceptionExtention
+    internal static class ExceptionExtension
     {
         internal static bool IsRetriable(this Exception e)
         {
