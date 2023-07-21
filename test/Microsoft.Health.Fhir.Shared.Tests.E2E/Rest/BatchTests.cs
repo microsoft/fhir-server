@@ -320,7 +320,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
+                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
