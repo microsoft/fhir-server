@@ -8,9 +8,9 @@ using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private const double TimeoutFactor = 0.25;
         private readonly object _locker = new object();
 
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private DateTime _leaseEndTime;
         private double _leaseTimeoutSec;
@@ -28,10 +28,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly string _watchdogName;
         private bool _allowRebalance;
 
-        internal WatchdogLease(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<T> logger)
+        internal WatchdogLease(ISqlRetryService sqlRetryService, ILogger<T> logger)
             : base(logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _watchdogName = typeof(T).Name;
             _worker = $"{Environment.MachineName}.{Environment.ProcessId}";
@@ -66,11 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"WatchdogLease.RunAsync: Starting acquire: resource=[{_watchdogName}] worker=[{_worker}] period={PeriodSec} timeout={_leaseTimeoutSec}...");
 
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(_cancellationToken, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "dbo.AcquireWatchdogLease";
-            cmd.CommandType = CommandType.StoredProcedure;
+            using var cmd = new SqlCommand("dbo.AcquireWatchdogLease") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Watchdog", _watchdogName);
             cmd.Parameters.AddWithValue("@Worker", _worker);
             cmd.Parameters.AddWithValue("@AllowRebalance", _allowRebalance);
@@ -84,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var currentHolderPar = cmd.Parameters.Add("@CurrentLeaseHolder", SqlDbType.VarChar, 100);
             currentHolderPar.Direction = ParameterDirection.Output;
 
-            await cmd.ExecuteNonQueryAsync(_cancellationToken);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, _cancellationToken);
 
             var leaseEndTime = (DateTime)leaseEndTimePar.Value;
             var isAcquired = (bool)isAcquiredPar.Value;
