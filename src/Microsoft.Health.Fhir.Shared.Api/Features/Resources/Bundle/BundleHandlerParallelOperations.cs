@@ -34,6 +34,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler
     {
+        private readonly BundleOrchestratorOperationStatus[] _bundleOperationInProgressStatusCodes = new BundleOrchestratorOperationStatus[]
+        {
+            BundleOrchestratorOperationStatus.Open,
+            BundleOrchestratorOperationStatus.WaitingForResources,
+        };
+
         private readonly string[] _bundleExpectedStatusCodes = new string[]
         {
             ((int)HttpStatusCode.OK).ToString(),
@@ -168,15 +174,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         $"Resource #{resourceExecutionContext.Index} completed with HTTP Status Code {resourceFinalStatusCode}.",
                         cancellationToken);
                 }
-                else if (bundleOperation.Status == BundleOrchestratorOperationStatus.WaitingForResources)
+                else if (_bundleOperationInProgressStatusCodes.Contains(bundleOperation.Status))
                 {
                     _logger.LogTrace(
-                        "BundleHandler - Releasing resource #{RequestNumber} as it has completed while Bundle Operation is waiting for resources. HTTP Status Code {HTTPStatusCode}.",
+                        "BundleHandler - Releasing resource #{RequestNumber} as it has completed while Bundle Operation is {BundleOperationStatus}. HTTP Status Code {HTTPStatusCode}.",
                         resourceExecutionContext.Index,
+                        bundleOperation.Status,
                         resourceFinalStatusCode);
 
                     await bundleOperation.ReleaseResourceAsync(
-                        $"Resource #{resourceExecutionContext.Index} as it has completed while Bundle Operation is waiting for resources. HTTP Status Code {resourceFinalStatusCode}.",
+                        $"Resource #{resourceExecutionContext.Index} as it has completed while Bundle Operation is {bundleOperation.Status}. HTTP Status Code {resourceFinalStatusCode}.",
                         cancellationToken);
                 }
             }
