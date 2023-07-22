@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier=", CancellationToken.None));
             Assert.Equal(HttpStatusCode.PreconditionFailed, fhirException.StatusCode);
-            Assert.True(fhirException.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType)));
+            Assert.Equal(fhirException.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType));
         }
 
         [InlineData(1)]

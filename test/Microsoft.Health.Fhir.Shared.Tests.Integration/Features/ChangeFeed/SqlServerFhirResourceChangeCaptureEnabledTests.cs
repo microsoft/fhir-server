@@ -207,12 +207,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var trans = await store.GetTransactionsAsync(startTranId, endTranId, CancellationToken.None);
             Assert.Equal(2, trans.Count);
             var resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[0].TransactionId, CancellationToken.None);
-            Assert.Equal(1, resourceKeys.Count);
+            Assert.Single(resourceKeys);
             Assert.Equal(create.Id, resourceKeys[0].Id);
             Assert.Equal("1", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
             resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[1].TransactionId, CancellationToken.None);
-            Assert.Equal(1, resourceKeys.Count);
+            Assert.Single(resourceKeys);
             Assert.Equal("2", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
         }

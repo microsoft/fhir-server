@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             Observations = await ImportTestHelper.ImportToServerAsync<Observation>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 o => SetObservation(o, cc => cc.Coding.Add(new Coding("system1", "code1"))),
                 o => SetObservation(o, cc => cc.Coding.Add(new Coding("system2", "code2"))),
                 o => SetObservation(o, cc => cc.Text = "text"),
