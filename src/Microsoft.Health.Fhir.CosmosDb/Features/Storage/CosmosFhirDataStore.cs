@@ -132,6 +132,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
+        }
+
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        {
             if (resources == null || resources.Count == 0)
             {
                 return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();

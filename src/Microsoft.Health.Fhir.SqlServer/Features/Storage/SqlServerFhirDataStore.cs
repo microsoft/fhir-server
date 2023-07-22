@@ -106,6 +106,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
+        }
+
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        {
             var retries = 0;
             while (true)
             {
@@ -113,8 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    // TODO: Remove ability to enlist in transaction
-                    var results = await MergeInternalAsync(resources, false, true, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -146,10 +150,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
-            // ignore input resource version to get latest version from the store
+            // Ignore input resource version to get latest version from the store
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
-            // assume that most likely case is that all resources should be updated
+            // Assume that most likely case is that all resources should be updated
             (var transactionId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
@@ -246,7 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    // check if resources are equal if its not a Delete action
+                    // Check if resources are equal if its not a Delete action
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
@@ -288,11 +292,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
-                    singleTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
+                    singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
                 }
 
                 resource.ResourceSurrogateId = surrId;
-                if (resource.Version != InitialVersion) // do not begin transaction if all creates
+                if (resource.Version != InitialVersion) // Do not begin transaction if all creates
                 {
                     singleTransaction = true;
                 }
@@ -302,7 +306,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // do not call db with empty input
+            if (mergeWrappers.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -345,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
             using var cmd = conn.CreateNonRetrySqlCommand();
 
-            // do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
+            // Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResources";
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
@@ -587,7 +591,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var trimmedMilliseconds = milliseconds.TrimEnd('0'); // get 069
             if (milliseconds.Equals("0000000", StringComparison.Ordinal))
             {
-                // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
+                // When date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
                 return formattedDate.Replace("." + milliseconds, string.Empty, StringComparison.Ordinal);
             }
 
