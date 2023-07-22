@@ -89,9 +89,9 @@ stages:
       vmImage: 'windows-latest'
     steps:
       - task: DropValidatorTask@0
-      displayName: 'SBOM Validator and Publisher Task'
-      inputs:
-        BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
-        OutputPath: 'output.json'
-        ValidateSignature: true
-        Verbosity: 'Verbose'
+        displayName: 'SBOM Validator and Publisher Task'
+        inputs:
+          BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
+          OutputPath: 'output.json'
+          ValidateSignature: true
+          Verbosity: 'Verbose'
