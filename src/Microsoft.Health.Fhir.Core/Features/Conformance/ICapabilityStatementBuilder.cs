@@ -47,8 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         /// <summary>
         /// Updates capability statement to latest supported search paramaters by checkin in memory storage for search parameters.
         /// </summary>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        Task<ICapabilityStatementBuilder> SyncSearchParametersAsync(CancellationToken cancellationToken);
+        ICapabilityStatementBuilder SyncSearchParametersAsync();
 
         /// <summary>
         /// Updates capability statement to lastest supported profiles by pulling them from database.
