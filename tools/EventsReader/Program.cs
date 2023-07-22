@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.EventsReader
             var totalsKeys = 0L;
             var totalTrans = 0;
             var sw = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
             var visibility = 0L;
             while (true)
             {
@@ -34,11 +35,23 @@ namespace Microsoft.Health.Fhir.EventsReader
                 if (currentVisibility > visibility)
                 {
                     var transactions = _store.GetTransactionsAsync(visibility, currentVisibility, CancellationToken.None).Result;
-                    Interlocked.Add(ref totalTrans, transactions.Count);
-                    Parallel.ForEach(transactions, new ParallelOptions { MaxDegreeOfParallelism = 16 }, transaction =>
+                    Parallel.ForEach(transactions, new ParallelOptions { MaxDegreeOfParallelism = 64 }, transaction =>
                     {
                         var keys = _store.GetResourceDateKeysByTransactionIdAsync(transaction.TransactionId, CancellationToken.None).Result;
                         Interlocked.Add(ref totalsKeys, keys.Count);
+                        Interlocked.Increment(ref totalTrans);
+
+                        if (swReport.Elapsed.TotalSeconds > 60)
+                        {
+                            lock (swReport)
+                            {
+                                if (swReport.Elapsed.TotalSeconds > 60)
+                                {
+                                    Console.WriteLine($"secs={(int)sw.Elapsed.TotalSeconds} trans={totalTrans} total={totalsKeys} speed={totalsKeys / 1000.0 / sw.Elapsed.TotalSeconds} K KPS.");
+                                    swReport.Restart();
+                                }
+                            }
+                        }
                     });
 
                     Console.WriteLine($"secs={(int)sw.Elapsed.TotalSeconds} trans={totalTrans} total={totalsKeys} speed={totalsKeys / 1000.0 / sw.Elapsed.TotalSeconds} K KPS.");
