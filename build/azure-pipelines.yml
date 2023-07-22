@@ -27,9 +27,20 @@ stages:
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
 
+- stage: UpdateRandom
+  displayName: 'Determine Random String'
+  dependsOn: []
+  jobs:
+  - job: Password
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-sqlAdminPassword.yml
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
-  dependsOn: 
+  dependsOn:
   - UpdateVersion
   variables:
     assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
@@ -47,6 +58,14 @@ stages:
         targetBuildFramework: $(defaultBuildFramework)
         unitTest: false
         codeCoverage: true
+  - job: Linux_dotnet6
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        targetBuildFramework: 'net6.0'
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
@@ -59,7 +78,17 @@ stages:
         componentGovernance: true
         packageArtifacts: true
         packageIntegrationTests: true
-    - task: DropValidatorTask@0
+    
+- stage: SBOM
+  displayName: 'SBOM'
+  dependsOn:
+  - BuildUnitTests
+  jobs:
+  - job: SBOM Validate
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+      - task: DropValidatorTask@0
       displayName: 'SBOM Validator and Publisher Task'
       inputs:
         BuildDropPath: '$(Agent.TempDirectory)/artifacts/deploy'
