@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal("1", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
             resourceKeys = await store.StoreClient.GetResourceDateKeysByTransactionIdAsync(trans[1].TransactionId, CancellationToken.None);
-            Assert.Singl(resourceKeys);
+            Assert.Single(resourceKeys);
             Assert.Equal("2", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
         }
