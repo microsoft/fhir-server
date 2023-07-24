@@ -520,7 +520,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                         {
-                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
+                            _logger.LogInformation("BundleHandler received 429 message, attempting retry.  HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
                             int retryDelay = 2;
                             var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
                             if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
@@ -546,7 +546,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                         {
-                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
+                            _logger.LogInformation("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize: {RequestCount} entryIndex:{EntryIndex}", httpVerb, _requestCount, resourceContext.Index);
 
                             // this action was throttled. Capture the entry and reuse it for subsequent actions.
                             throttledEntryComponent = entryComponent;
@@ -705,18 +705,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                _logger.LogTrace("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
+                _logger.LogInformation("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
 
                 // Collecting memory up to Generation 2 using default collection mode.
                 // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
                 // SOH compacting is set to true.
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
 
-                _logger.LogTrace("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
+                _logger.LogInformation("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
+                _logger.LogInformation(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
             }
         }
 
@@ -752,7 +752,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             try
             {
                 string statisticsAsJson = statistics.GetStatisticsAsJson();
-                _logger.LogTrace(statisticsAsJson);
+                _logger.LogInformation(statisticsAsJson);
             }
             catch (Exception ex)
             {
