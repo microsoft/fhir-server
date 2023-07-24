@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 
-namespace Microsoft.Health.Fhir.EventsReader
+namespace Microsoft.Health.Internal.Fhir.EventsReader
 {
     public static class Program
     {

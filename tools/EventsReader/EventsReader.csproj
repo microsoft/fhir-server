@@ -2,8 +2,8 @@
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Fhir.EventsReader</AssemblyName>
-    <RootNamespace>Microsoft.Health.Fhir.EventsReader</RootNamespace>
+    <AssemblyName>Microsoft.Health.Internal.Fhir.EventsReader</AssemblyName>
+    <RootNamespace>Microsoft.Health.Internal.Fhir.EventsReader</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
