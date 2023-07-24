@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     RunGarbageCollection();
                 }
 
-                _logger.LogTrace("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
+                _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                 // Creating new instances per record in the bundle, and making their access thread-safe.
                 // Avoiding possible internal conflicts due the parallel access from multiple threads.
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 await SetResourceProcessingStatusAsync(resourceExecutionContext.HttpVerb, resourceExecutionContext, bundleOperation, entry, cancellationToken);
 
                 watch.Stop();
-                _logger.LogTrace("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
+                _logger.LogInformation("BundleHandler - '{HttpVerb}' Request #{RequestNumber} completed with status code '{StatusCode}' in {TotalElapsedMilliseconds}ms.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.ElapsedMilliseconds);
             };
 
             List<Task> requestsPerResource = new List<Task>();
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (_readOnlyHttpVerbs.Contains(httpVerb))
                 {
-                    _logger.LogTrace(
+                    _logger.LogInformation(
                         "BundleHandler - Releasing resource #{RequestNumber} as it's a read-only operation. HTTP Verb {HTTPVerb}. HTTP Status Code {HTTPStatusCode}.",
                         resourceExecutionContext.Index,
                         httpVerb,
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else if (!_bundleExpectedStatusCodes.Contains(resourceFinalStatusCode))
                 {
-                    _logger.LogTrace(
+                    _logger.LogInformation(
                         "BundleHandler - Releasing resource #{RequestNumber} as it has completed with HTTP Status Code {HTTPStatusCode}.",
                         resourceExecutionContext.Index,
                         resourceFinalStatusCode);
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else if (_bundleOperationInProgressStatusCodes.Contains(bundleOperation.Status))
                 {
-                    _logger.LogTrace(
+                    _logger.LogInformation(
                         "BundleHandler - Releasing resource #{RequestNumber} as it has completed while Bundle Operation is {BundleOperationStatus}. HTTP Status Code {HTTPStatusCode}.",
                         resourceExecutionContext.Index,
                         bundleOperation.Status,
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     // A previous action was throttled.
                     // Skip executing subsequent actions and include the 429 response.
-                    logger.LogTrace("BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, requestCount, entryIndex);
+                    logger.LogInformation("BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, requestCount, entryIndex);
                     entryComponent = throttledEntryComponent;
                 }
                 else
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // We will retry a 429 one time per request in the bundle
                     if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                     {
-                        logger.LogTrace("BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+                        logger.LogInformation("BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
                         int retryDelay = 2;
                         var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
                         if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
@@ -267,7 +267,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                     {
-                        logger.LogTrace("BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+                        logger.LogInformation("BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
 
                         // this action was throttled. Capture the entry and reuse it for subsequent actions.
                         throttledEntryComponent = entryComponent;

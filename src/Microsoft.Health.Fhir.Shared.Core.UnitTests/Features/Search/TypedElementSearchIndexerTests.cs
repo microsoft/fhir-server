@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             patientResource.Name = nameList;
 
             var serachIndexEntry = _searchIndexer.Extract(patientResource.ToResourceElement());
-            Assert.Equal(1, serachIndexEntry.Count);
+            Assert.Single(serachIndexEntry);
 
             var nameSearchValue = serachIndexEntry.First().Value as StringSearchValue;
             Assert.Equal(familyName, nameSearchValue.String);

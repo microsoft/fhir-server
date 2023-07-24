@@ -171,14 +171,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Extensions
         [InlineData("2022-09-21T20:34:37.0000000 00:00")]
         public async Task GivenAnUrlWithADatetime_WhenEncoded_ThenCompareTheExpectedResults(string value)
         {
-            const int expectedNumberOfParameters = 1;
-
             IReadOnlyList<Tuple<string, string>> expectedParameters = new Tuple<string, string>[]
             {
                 Tuple.Create("_datetime", value),
             };
 
-            Assert.Equal(expectedNumberOfParameters, expectedParameters.Count);
+            Assert.Single(expectedParameters);
 
             await AssertHttpRequestsWithQueryParameters($"_datetime={value}", expectedParameters);
         }
