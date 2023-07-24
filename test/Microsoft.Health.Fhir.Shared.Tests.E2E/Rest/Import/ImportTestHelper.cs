@@ -11,10 +11,10 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -30,29 +30,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
     {
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
 
-        public static async Task<(Uri location, string etag)> UploadFileAsync(string content, CloudStorageAccount cloudAccount)
+        public static async Task<(Uri location, string etag)> UploadFileAsync(string content, ImportTestStorageAccount storageAccount)
         {
             string blobName = Guid.NewGuid().ToString("N");
             string containerName = Guid.NewGuid().ToString("N");
 
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+            BlobServiceClient blobClient = GetBlobServiceClient(storageAccount);
+            BlobContainerClient container = blobClient.GetBlobContainerClient(containerName);
             await container.CreateIfNotExistsAsync();
 
-            CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
-            await blob.UploadTextAsync(content);
+            BlockBlobClient blob = container.GetBlockBlobClient(blobName);
+            var response = await blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(content)));
 
-            CloudBlob cloudBlob = container.GetBlobReference(blobName);
-            return (cloudBlob.Uri, cloudBlob.Properties.ETag);
+            return (blob.Uri, response.Value.ETag.ToString());
         }
 
-        public static async Task<string> DownloadFileAsync(string location, CloudStorageAccount cloudAccount)
+        public static async Task<string> DownloadFileAsync(string location, ImportTestStorageAccount storageAccount)
         {
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            ICloudBlob container = blobClient.GetBlobReferenceFromServer(new Uri(location));
-
+            BlobClient blob = GetBlobClient(new Uri(location), storageAccount);
             using MemoryStream stream = new MemoryStream();
-            await container.DownloadToStreamAsync(stream, CancellationToken.None);
+            await blob.DownloadToAsync(stream, CancellationToken.None);
 
             stream.Position = 0;
             using StreamReader reader = new StreamReader(stream);
@@ -75,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        public static async Task<TResource[]> ImportToServerAsync<TResource>(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Action<TResource>[] resourceCustomizer)
+        public static async Task<TResource[]> ImportToServerAsync<TResource>(TestFhirClient testFhirClient, ImportTestStorageAccount storageAccount, params Action<TResource>[] resourceCustomizer)
             where TResource : Resource, new()
         {
             TResource[] resources = new TResource[resourceCustomizer.Length];
@@ -89,12 +86,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 resources[i].Id = Guid.NewGuid().ToString("N");
             }
 
-            await ImportToServerAsync(testFhirClient, cloudStorageAccount, resources);
+            await ImportToServerAsync(testFhirClient, storageAccount, resources);
 
             return resources;
         }
 
-        public static async Task ImportToServerAsync(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Resource[] resources)
+        public static async Task ImportToServerAsync(TestFhirClient testFhirClient, ImportTestStorageAccount storageAccount, params Resource[] resources)
         {
             Dictionary<string, StringBuilder> contentBuilders = new Dictionary<string, StringBuilder>();
 
@@ -112,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var inputFiles = new List<InputResource>();
             foreach ((string key, StringBuilder builder) in contentBuilders)
             {
-                (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(builder.ToString(), cloudStorageAccount);
+                (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(builder.ToString(), storageAccount);
                 inputFiles.Add(new InputResource()
                 {
                     Etag = etag,
@@ -171,6 +168,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
+        }
+
+        private static BlobServiceClient GetBlobServiceClient(ImportTestStorageAccount storageAccount)
+        {
+            return AzureStorageBlobHelper.CreateBlobServiceClient(storageAccount.StorageUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+        }
+
+        private static BlobClient GetBlobClient(Uri blobUri, ImportTestStorageAccount storageAccount)
+        {
+            return AzureStorageBlobHelper.CreateBlobClient(blobUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
         }
     }
 }

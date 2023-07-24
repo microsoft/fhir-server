@@ -43,6 +43,38 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         }
 
         [Fact]
+        public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithInvalidIssuerAndNoParentException_ShouldThrowSecurityTokenInvalidIssuerException()
+        {
+            var ex = new SecurityTokenInvalidIssuerException("Invalid issuer");
+            var context = new DefaultHttpContext();
+            var next = Substitute.For<RequestDelegate>();
+            next.Invoke(context).Throws(ex);
+            var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
+            await Assert.ThrowsAsync<SecurityTokenInvalidIssuerException>(() => middleware.Invoke(context));
+        }
+
+        [Fact]
+        public async Task Invoke_WhenInnerExceptionThrowsExceptionWithInvalidIssuer_ShouldThrowSecurityTokenInvalidIssuerException()
+        {
+            var ex = new Exception(
+                "Parent",
+                new Exception(
+                    "Parent",
+                    new Exception(
+                        "Parent",
+                        new Exception(
+                            "Parent",
+                            new SecurityTokenInvalidIssuerException(
+                                "Invalid issuer")))));
+            var context = new DefaultHttpContext();
+            var next = Substitute.For<RequestDelegate>();
+            next.Invoke(context).Throws(ex);
+            var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
+
+            await Assert.ThrowsAsync<SecurityTokenInvalidIssuerException>(() => middleware.Invoke(context));
+        }
+
+        [Fact]
         public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithOtherInnerException_ShouldRethrowException()
         {
             var ex = new Exception("Some error", new Exception("Some error"));
@@ -50,7 +82,41 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var next = Substitute.For<RequestDelegate>();
             next.Invoke(context).Throws(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
+
             await Assert.ThrowsAsync<Exception>(() => middleware.Invoke(context));
+        }
+
+        [Fact]
+        public async Task Invoke_WhenNextMiddlewareThrowsExceptionWithoutInnerException_ShouldRethrowException()
+        {
+            var ex = new InvalidOperationException("Some error without inner exception");
+            var context = new DefaultHttpContext();
+            var next = Substitute.For<RequestDelegate>();
+            next.Invoke(context).Throws(ex);
+            var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(context));
+        }
+
+        [Fact]
+        public async Task Invoke_WhenInnerNextMiddlewareThrowsExceptionWithOtherInnerException_ShouldRethrowException()
+        {
+            var ex = new InvalidOperationException(
+                "Parent",
+                new Exception(
+                    "Parent",
+                    new Exception(
+                        "Parent",
+                        new Exception(
+                            "Parent",
+                            new Exception(
+                                "Some error...")))));
+            var context = new DefaultHttpContext();
+            var next = Substitute.For<RequestDelegate>();
+            next.Invoke(context).Throws(ex);
+            var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(context));
         }
 
         [Fact]
