@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             /// To make the tests operating as expected, I've overrided the default behavior of <see cref="Substitute"/> and set the mock
             /// version of 'MergeAsync' to return some basic values for tests.
             dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
 
             return dataStore;
         }
