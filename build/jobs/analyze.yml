@@ -141,6 +141,13 @@ steps:
     GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
     GdnPublishTsaExportedResultsPublishable: true
 
+
+- task: DeleteFiles@1
+  displayName: 'Delete files to make space'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: '**\*'
+
 - task: DropValidatorTask@0
   displayName: 'SBOM Validator and Publisher Task'
   inputs:
@@ -148,3 +155,4 @@ steps:
     OutputPath: 'output.json'
     ValidateSignature: true
     Verbosity: 'Verbose'
+    continueOnError: true
