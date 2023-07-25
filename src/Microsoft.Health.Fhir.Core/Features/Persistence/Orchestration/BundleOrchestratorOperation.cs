@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                _logger.LogError(ex, "Failed while appending a new resource in a Bundle Operation: {ErrorMessage}", ex.Message);
+                _logger.LogError(ex, "Bundle Operation {Id}. Failed while appending a new resource in a Bundle Operation: {ErrorMessage}", Id, ex.Message);
                 throw;
             }
 
@@ -144,7 +144,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 else
                 {
                     _logger.LogWarning(
-                        "There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
+                        "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
+                        Id,
                         nameof(DataStoreOperationOutcome),
                         _resources.Count,
                         ingestedResources?.Count);
@@ -176,11 +177,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                _logger.LogError(ex, "Failed while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", ex.Message);
+                _logger.LogError(ex, "Bundle Operation {Id}. Failed while releasing a resource from a Bundle Orchestrator Operation: {ErrorMessage}", Id, ex.Message);
                 throw;
             }
 
             await _mergeAsyncTask;
+        }
+
+        public void Cancel(string reason)
+        {
+            try
+            {
+                _logger.LogWarning("Bundle Operation {Id}. Bundle Orchestrator Operation was requested to cancel. Reason: {Reason}", Id, reason);
+
+                SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
+
+                Interlocked.Decrement(ref _currentExpectedNumberOfResources);
+            }
+            catch (Exception ex)
+            {
+                SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
+
+                _logger.LogError(ex, "Bundle Operation {Id}. Failed while canceling a Bundle Orchestrator Operation: {ErrorMessage}", Id, ex.Message);
+
+                throw;
+            }
         }
 
         private void InitializeMergeTaskSafe(IFhirDataStore dataStore, CancellationToken cancellationToken)
@@ -222,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     if (_dataStore == null)
                     {
-                        throw new BundleOrchestratorException($"Data Store was not initialized. Status can't be changed to processing and resources cannot be merged.");
+                        throw new BundleOrchestratorException($"Bundle Operation {Id}. Data Store was not initialized. Status can't be changed to processing and resources cannot be merged.");
                     }
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Processing);
@@ -242,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     }
                     else
                     {
-                        throw new BundleOrchestratorException($"At least one HTTP Verb should be known. No HTTP Verbs were mapped so far.");
+                        throw new BundleOrchestratorException($"Bundle Operation {Id}. At least one HTTP Verb should be known. No HTTP Verbs were mapped so far.");
                     }
 
                     // Bundle Orchestrator operations should will not enlist to transactions.
@@ -259,14 +280,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
 
-                _logger.LogError(oce, "Bundle Orchestrator Operation canceled: {ErrorMessage}", oce.Message);
+                _logger.LogError(oce, "Bundle Operation {Id}. Bundle Orchestrator Operation canceled: {ErrorMessage}", Id, oce.Message);
                 throw;
             }
             catch (Exception ex)
             {
                 SetStatusSafe(BundleOrchestratorOperationStatus.Failed);
 
-                _logger.LogError(ex, "Bundle Orchestrator Operation failed: {ErrorMessage}", ex.Message);
+                _logger.LogError(ex, "Bundle Operation {Id}. Bundle Orchestrator Operation failed: {ErrorMessage}", Id, ex.Message);
                 throw;
             }
         }
@@ -297,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 }
                 else
                 {
-                    throw new BundleOrchestratorException($"Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
+                    throw new BundleOrchestratorException($"Bundle Operation {Id}. Invalid status change. Current status '{Status}'. Suggested status '{suggestedStatus}'.");
                 }
             }
         }

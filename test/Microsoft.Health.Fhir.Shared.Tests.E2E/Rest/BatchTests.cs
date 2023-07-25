@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic: FhirBundleProcessingLogic.Sequential);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
             Bundle bundleResource = fhirResponse.Resource;
