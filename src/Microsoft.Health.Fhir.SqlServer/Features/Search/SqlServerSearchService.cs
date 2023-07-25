@@ -666,32 +666,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
-            // TODO: this code will not set capacity for the result list!
-
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            IReadOnlyList<(long StartId, long EndId)> searchList = null;
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
-                    LogSqlCommand(sqlCommand);
-
-                    searchList = await _sqlRetryService.ExecuteReaderAsync(
-                       sqlCommand,
-                       ReaderToSurrogateIdRange,
-                       _logger,
-                       $"{nameof(GetSurrogateIdRanges)} failed.",
-                       cancellationToken);
-                    return;
-                },
-                cancellationToken);
-            return searchList;
+            using var sqlCommand = new SqlCommand();
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
         }
 
         private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
@@ -703,7 +683,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
             LogSqlCommand(sqlCommand);
-            return await sqlCommand.ExecuteSqlDataReader(ReaderGetUsedResourceTypes, _logger, cancellationToken);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken);
         }
 
         /// <summary>
