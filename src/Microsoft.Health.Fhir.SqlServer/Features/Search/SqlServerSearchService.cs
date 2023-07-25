@@ -701,24 +701,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            IReadOnlyList<(short ResourceTypeId, string Name)> resourceTypes = null;
-
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    sqlCommand.CommandText = "dbo.GetUsedResourceTypes";
-                    LogSqlCommand(sqlCommand);
-                    resourceTypes = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken, $"{nameof(GetUsedResourceTypes)} failed.");
-                    return;
-                },
-                cancellationToken);
-
-            return resourceTypes;
+            using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteSqlDataReader(ReaderGetUsedResourceTypes, _logger, cancellationToken);
         }
 
         /// <summary>
