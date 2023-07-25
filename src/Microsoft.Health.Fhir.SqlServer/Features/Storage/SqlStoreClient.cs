@@ -23,14 +23,15 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     /// <summary>
-    /// Lightweight SQL store client mostly called in the scope of <see cref="SqlServerFhirDataStore"/>.
+    /// Lightweight SQL store client.
     /// </summary>
-    internal class SqlStoreClient
+    /// <typeparam name="TLogger">Iloger</typeparam>
+    internal class SqlStoreClient<TLogger>
     {
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly ILogger<TLogger> _logger;
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<TLogger> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));

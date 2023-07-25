@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly SqlStoreClient _sqlStoreClient;
+        private readonly SqlStoreClient<SqlServerFhirDataStore> _sqlStoreClient;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            _sqlStoreClient = new SqlStoreClient(_sqlRetryService, logger);
+            _sqlStoreClient = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, logger);
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal SqlStoreClient StoreClient => _sqlStoreClient;
+        internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
