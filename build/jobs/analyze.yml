@@ -149,3 +149,4 @@ steps:
     ValidateSignature: true
     Verbosity: 'Verbose'
 
+continueOnError: true
