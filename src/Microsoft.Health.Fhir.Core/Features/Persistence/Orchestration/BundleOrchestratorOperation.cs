@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                     // Bundle Orchestrator operations should will not enlist to transactions.
                     // The database will be responsible for handling it.
-                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: true);
+                    MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
                     IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
