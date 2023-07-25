@@ -141,6 +141,98 @@ steps:
     GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
     GdnPublishTsaExportedResultsPublishable: true
 
+Skip to content
+microsoft
+/
+fhir-server
+
+Type / to search
+
+Code
+Issues
+93
+Pull requests
+25
+Discussions
+Actions
+Projects
+Wiki
+Security
+1
+Insights
+SqlStoreClient class and SqlRetryService signatures plus #3408 
+ Open
+SergeyGaluzo wants to merge 24 commits into main from users/sergal/events
++559 −372 
+ Conversation 2
+ Commits 24
+ Checks 5
+ Files changed 24
+ Open
+SqlStoreClient class and SqlRetryService signatures plus
+#3408
+ 
+File filter 
+ 
+0 / 24 files viewed
+Filter changed files
+   15 changes: 11 additions & 4 deletions15  
+Microsoft.Health.Fhir.sln
+Viewed
+@@ -184,11 +184,13 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Share
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4.Web.UnitTests", "src\Microsoft.Health.Fhir.R4.Web.UnitTests\Microsoft.Health.Fhir.R4.Web.UnitTests.csproj", "{C834E05D-79CA-4983-8599-28AC098F755A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R4B.Web.UnitTests", "src\Microsoft.Health.Fhir.R4B.Web.UnitTests\Microsoft.Health.Fhir.R4B.Web.UnitTests.csproj", "{6F000A06-6307-46FF-83FA-DD9FD2FD2AA5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R4B.Web.UnitTests", "src\Microsoft.Health.Fhir.R4B.Web.UnitTests\Microsoft.Health.Fhir.R4B.Web.UnitTests.csproj", "{6F000A06-6307-46FF-83FA-DD9FD2FD2AA5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.R5.Web.UnitTests", "src\Microsoft.Health.Fhir.R5.Web.UnitTests\Microsoft.Health.Fhir.R5.Web.UnitTests.csproj", "{62E8CD81-91A9-4872-BC6E-9EBBED8D50FD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.R5.Web.UnitTests", "src\Microsoft.Health.Fhir.R5.Web.UnitTests\Microsoft.Health.Fhir.R5.Web.UnitTests.csproj", "{62E8CD81-91A9-4872-BC6E-9EBBED8D50FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Stu3.Web.UnitTests", "src\Microsoft.Health.Fhir.Stu3.Web.UnitTests\Microsoft.Health.Fhir.Stu3.Web.UnitTests.csproj", "{8F4858B3-A3CF-4130-B3B2-954CBA9FE780}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.Web.UnitTests", "src\Microsoft.Health.Fhir.Stu3.Web.UnitTests\Microsoft.Health.Fhir.Stu3.Web.UnitTests.csproj", "{8F4858B3-A3CF-4130-B3B2-954CBA9FE780}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventsReader", "tools\EventsReader\EventsReader.csproj", "{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+@@ -440,6 +442,10 @@ Global
+		{8F4858B3-A3CF-4130-B3B2-954CBA9FE780}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F4858B3-A3CF-4130-B3B2-954CBA9FE780}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F4858B3-A3CF-4130-B3B2-954CBA9FE780}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+@@ -527,10 +533,11 @@ Global
+		{6F000A06-6307-46FF-83FA-DD9FD2FD2AA5} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
+		{62E8CD81-91A9-4872-BC6E-9EBBED8D50FD} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
+		{8F4858B3-A3CF-4130-B3B2-954CBA9FE780} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
+		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
+   10 changes: 2 additions & 8 deletions10  
+build/jobs/analyze.yml
+Viewed
+@@ -141,18 +141,12 @@ steps:
+    GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
+    GdnPublishTsaExportedResultsPublishable: true
+
+- task: DeleteFiles@1
+  displayName: 'Delete files to make space'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: '**\*'
+
 - task: DropValidatorTask@0
   displayName: 'SBOM Validator and Publisher Task'
   inputs:
@@ -148,5 +240,4 @@ steps:
     OutputPath: 'output.json'
     ValidateSignature: true
     Verbosity: 'Verbose'
-
-continueOnError: true
+    continueOnError: true
