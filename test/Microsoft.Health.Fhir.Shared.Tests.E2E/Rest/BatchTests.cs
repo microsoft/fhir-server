@@ -219,9 +219,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
+        [InlineData(true, FhirBundleProcessingLogic.Parallel)]
+        [InlineData(false, FhirBundleProcessingLogic.Parallel)]
+        [InlineData(true, FhirBundleProcessingLogic.Sequential)]
+        [InlineData(false, FhirBundleProcessingLogic.Sequential)]
+        public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation, FhirBundleProcessingLogic processingLogic)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -258,7 +260,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic: FhirBundleProcessingLogic.Sequential);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic: processingLogic);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
             Bundle bundleResource = fhirResponse.Resource;
@@ -278,10 +280,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [InlineData(true, FhirBundleProcessingLogic.Parallel)]
+        [InlineData(false, FhirBundleProcessingLogic.Parallel)]
+        [InlineData(true, FhirBundleProcessingLogic.Sequential)]
+        [InlineData(false, FhirBundleProcessingLogic.Sequential)]
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation)
+        public async Task GivenATransactionBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation, FhirBundleProcessingLogic processingLogic)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -320,12 +324,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation));
+                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, false);
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, false, processingLogic);
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
