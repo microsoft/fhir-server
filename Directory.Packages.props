@@ -33,7 +33,7 @@
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.16.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Ensure.That" Version="10.1.0" />
-    <PackageVersion Include="FluentValidation" Version="11.5.2" />
+    <PackageVersion Include="FluentValidation" Version="11.6.0" />
     <PackageVersion Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R4B" Version="$(Hl7FhirVersion)" />
     <PackageVersion Include="Hl7.Fhir.R5" Version="$(Hl7FhirVersion)" />
