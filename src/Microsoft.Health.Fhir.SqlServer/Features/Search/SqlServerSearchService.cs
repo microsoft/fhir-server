@@ -580,83 +580,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
         public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
         {
-            var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            SearchResult searchResult = null;
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
+            await Task.CompletedTask;
+            if (_sqlRetryService != null)
+            {
+                throw new NotImplementedException();
+            }
 
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
-                    LogSqlCommand(sqlCommand);
-
-                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-
-                    var resources = new List<SearchResultEntry>();
-                    while (await reader.ReadAsync(cancellationToken))
-                    {
-                        ReadWrapper(
-                            reader,
-                            out short _,
-                            out string resourceId,
-                            out int version,
-                            out bool isDeleted,
-                            out long resourceSurrogateId,
-                            out string requestMethod,
-                            out bool isMatch,
-                            out bool isPartialEntry,
-                            out bool isRawResourceMetaSet,
-                            out string searchParameterHash,
-                            out byte[] rawResourceBytes,
-                            out bool isInvisible);
-
-                        if (isInvisible)
-                        {
-                            continue;
-                        }
-
-                        // original sql was: AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                        if (!(searchParameterHash == null || searchParameterHash != searchParamHashFilter))
-                        {
-                            continue;
-                        }
-
-                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-                        if (string.IsNullOrEmpty(rawResource))
-                        {
-                            rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
-                            _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
-                        }
-
-                        resources.Add(new SearchResultEntry(
-                            new ResourceWrapper(
-                                resourceId,
-                                version.ToString(CultureInfo.InvariantCulture),
-                                resourceType,
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                                new ResourceRequest(requestMethod),
-                                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                                isDeleted,
-                                null,
-                                null,
-                                null,
-                                searchParameterHash,
-                                resourceSurrogateId),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
-                    }
-
-                    searchResult = new SearchResult(resources, null, null, new List<Tuple<string, string>>());
-                    searchResult.TotalCount = resources.Count;
-                    return;
-                },
-                cancellationToken);
-            return searchResult;
+            throw new NotImplementedException();
         }
 
         private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
