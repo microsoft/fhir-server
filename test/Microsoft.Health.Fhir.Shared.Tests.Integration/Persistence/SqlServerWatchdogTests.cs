@@ -70,7 +70,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
                 _fixture.SqlRetryService,
-                () => queueClient.CreateMockScope(),
+                queueClient,
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
