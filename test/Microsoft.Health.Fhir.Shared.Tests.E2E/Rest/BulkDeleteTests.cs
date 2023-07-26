@@ -158,7 +158,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 tag,
                 queryParams: new Dictionary<string, string>()
                 {
-                    { "_hardDelete", "true" },
                     { "_purgeHistory", "true" },
                 });
 
