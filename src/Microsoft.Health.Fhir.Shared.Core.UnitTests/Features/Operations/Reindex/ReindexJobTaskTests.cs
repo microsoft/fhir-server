@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using MediatR;
@@ -100,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
-            param.IsSearchable = false;
+            await SetSearchParameterStatus(new ReadOnlyCollection<string>(new List<string>() { param.Url.OriginalString }), SearchParameterStatus.Supported);
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "identifier");
-            param.IsSearchable = false;
+            await SetSearchParameterStatus(new ReadOnlyCollection<string>(new List<string>() { param.Url.OriginalString }), SearchParameterStatus.Supported);
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -216,12 +217,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
 
-            paramWithAppointmentResponseBaseType.IsSearchable = false;
-            paramWithAppointmentBaseType.IsSearchable = false;
-
-            var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
-            resourceTypeSearchParamHashMap.Add("Appointment", "appointmentHash");
-            resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
+            await SetSearchParameterStatus(new ReadOnlyCollection<string>(new List<string>() { paramWithAppointmentResponseBaseType.Url.OriginalString, paramWithAppointmentBaseType.Url.OriginalString }), SearchParameterStatus.Supported);
+            var resourceTypeSearchParamHashMap = new Dictionary<string, string>
+            {
+                { "Appointment", "appointmentHash" },
+                { "AppointmentResponse", "appointmentResponseHash" },
+            };
 
             ReindexJobRecord job = CreateReindexJobRecord(paramHashMap: resourceTypeSearchParamHashMap);
             _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
@@ -411,12 +412,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
 
-            paramWithAppointmentResponseBaseType.IsSearchable = false;
-            paramWithAppointmentBaseType.IsSearchable = false;
-
-            var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
-            resourceTypeSearchParamHashMap.Add("Appointment", "appointmentHash");
-            resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
+            await SetSearchParameterStatus(new ReadOnlyCollection<string>(new List<string>() { paramWithAppointmentResponseBaseType.Url.OriginalString, paramWithAppointmentBaseType.Url.OriginalString }), SearchParameterStatus.Supported);
+            var resourceTypeSearchParamHashMap = new Dictionary<string, string>
+            {
+                { "Appointment", "appointmentHash" },
+                { "AppointmentResponse", "appointmentResponseHash" },
+            };
 
             ReindexJobRecord job = CreateReindexJobRecord(paramHashMap: resourceTypeSearchParamHashMap);
 
@@ -542,6 +543,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             }
 
             return new ReindexJobRecord(paramHashMap, new List<string>(), searchParameterTypes, searchParameterResourceTypes: resourceTypes, maxiumumConcurrency: 1, maxResourcePerQuery);
+        }
+
+        private async Task SetSearchParameterStatus(IReadOnlyCollection<string> searchParameter, SearchParameterStatus status)
+        {
+            await _searchParameterStatusmanager.UpdateSearchParameterStatusAsync(searchParameter, status, default);
         }
     }
 }

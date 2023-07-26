@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Find search parameters not in a final state such as supported, pendingDelete, pendingDisable.
             List<SearchParameterStatus> validStatus = new List<SearchParameterStatus>() { SearchParameterStatus.Supported, SearchParameterStatus.PendingDelete, SearchParameterStatus.PendingDisable };
             var searchParamStatusCollection = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
-            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(searchParamStatusCollection.First(p => p.Uri == sp.Url).Status) || sp.IsSearchable == false || sp.SortStatus == SortParameterStatus.Supported);
+            var possibleNotYetIndexedParams = _searchParameterDefinitionManager.AllSearchParameters.Where(sp => validStatus.Contains(searchParamStatusCollection.First(p => p.Uri == sp.Url).Status));
             var notYetIndexedParams = new List<SearchParameterInfo>();
 
             var resourceList = new HashSet<string>();
