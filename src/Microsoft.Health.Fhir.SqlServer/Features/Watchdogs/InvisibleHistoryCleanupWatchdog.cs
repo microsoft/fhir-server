@@ -16,18 +16,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class InvisibleHistoryCleanupWatchdog : Watchdog<InvisibleHistoryCleanupWatchdog>
     {
-        private readonly SqlStoreClient _store;
+        private readonly SqlStoreClient<InvisibleHistoryCleanupWatchdog> _store;
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private CancellationToken _cancellationToken;
         private double _retentionPeriodDays = 7;
 
-        public InvisibleHistoryCleanupWatchdog(SqlStoreClient store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
+        public InvisibleHistoryCleanupWatchdog(SqlStoreClient<InvisibleHistoryCleanupWatchdog> store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
+
+        internal InvisibleHistoryCleanupWatchdog()
+            : base()
+        {
+            // this is used to get param names for testing
         }
 
         internal string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";

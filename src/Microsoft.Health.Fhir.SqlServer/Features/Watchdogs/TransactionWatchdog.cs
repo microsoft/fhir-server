@@ -32,6 +32,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
+        internal TransactionWatchdog()
+            : base()
+        {
+            // this is used to get param names for testing
+        }
+
         internal async Task StartAsync(CancellationToken cancellationToken)
         {
             _cancellationToken = cancellationToken;

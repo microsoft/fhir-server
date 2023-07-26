@@ -12,9 +12,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -23,37 +23,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlQueueClient : IQueueClient
     {
-        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly SchemaInformation _schemaInformation;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
 
         public SqlQueueClient(
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             ISqlRetryService sqlRetryService,
             ILogger<SqlQueueClient> logger)
         {
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
 
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _schemaInformation = schemaInformation;
-            _sqlRetryService = sqlRetryService;
-            _logger = logger;
+        private SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        {
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
+
+        public static SqlQueueClient GetInstance(ISqlRetryService sqlRetryService)
+        {
+            return new SqlQueueClient(sqlRetryService, new NullLogger<SqlQueueClient>());
         }
 
         public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
         {
             try
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, groupId, null);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+                cmd.Parameters.AddWithValue("@QueueType", queueType);
+                cmd.Parameters.AddWithValue("@GroupId", groupId);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -71,11 +73,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-
-                VLatest.PutJobCancelation.PopulateCommand(sqlCommandWrapper, queueType, null, jobId);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                using var cmd = new SqlCommand("dbo.PutJobCancelation") { CommandType = CommandType.StoredProcedure };
+                cmd.Parameters.AddWithValue("@QueueType", queueType);
+                cmd.Parameters.AddWithValue("@JobId", jobId);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -218,15 +219,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public bool IsInitialized()
         {
+            if (_schemaInformation == null)
+            {
+                throw new InvalidOperationException("this method cannot be called with schema information = null");
+            }
+
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)
         {
-            using SqlConnectionWrapper conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            VLatest.ArchiveJobs.PopulateCommand(cmd, queueType);
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            using var cmd = new SqlCommand("dbo.ArchiveJobs") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@QueueType", queueType);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
         public async Task<bool> PutJobHeartbeatAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -234,11 +239,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var cancel = false;
             try
             {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateNonRetrySqlCommand();
-                VLatest.PutJobHeartbeat.PopulateCommand(sqlCommandWrapper, jobInfo.QueueType, jobInfo.Id, jobInfo.Version, jobInfo.Data, jobInfo.Result, false);
-                await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                cancel = VLatest.PutJobHeartbeat.GetOutputs(sqlCommandWrapper) ?? false;
+                using var cmd = new SqlCommand("dbo.PutJobHeartbeat") { CommandType = CommandType.StoredProcedure };
+                cmd.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
+                cmd.Parameters.AddWithValue("@JobId", jobInfo.Id);
+                cmd.Parameters.AddWithValue("@Version", jobInfo.Version);
+                if (jobInfo.Data.HasValue)
+                {
+                    cmd.Parameters.AddWithValue("@Data", jobInfo.Data.Value);
+                }
+                else
+                {
+                    cmd.Parameters.AddWithValue("@Data", DBNull.Value);
+                }
+
+                if (jobInfo.Result != null)
+                {
+                    cmd.Parameters.AddWithValue("@CurrentResult", jobInfo.Result);
+                }
+
+                var cancelParam = new SqlParameter("@CancelRequested", SqlDbType.Bit) { Direction = ParameterDirection.Output };
+                cmd.Parameters.Add(cancelParam);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                cancel = (bool)cancelParam.Value;
             }
             catch (Exception ex)
             {

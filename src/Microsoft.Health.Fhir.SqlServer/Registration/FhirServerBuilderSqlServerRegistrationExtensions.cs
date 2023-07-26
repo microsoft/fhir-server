@@ -128,11 +128,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<SqlQueueClient>()
-                .Scoped()
+                .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.AddFactory<IScoped<SqlQueueClient>>();
 
             services.Add<SqlImportReindexer>()
                 .Transient()
@@ -166,7 +164,7 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services.Add<SqlStoreClient>().Singleton().AsSelf();
+            services.Add<SqlStoreClient<InvisibleHistoryCleanupWatchdog>>().Singleton().AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 
