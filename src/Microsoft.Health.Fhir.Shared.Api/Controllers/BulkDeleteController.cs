@@ -18,8 +18,10 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.ValueSets;
@@ -33,6 +35,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
+
+        private readonly HashSet<string> _exlcudedParameters = new HashSet<string>(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
+        {
+            KnownQueryParameterNames.HardDelete,
+            KnownQueryParameterNames.PurgeHistory,
+            KnownQueryParameterNames.ReportIds,
+        };
 
         public BulkDeleteController(
             IMediator mediator,
@@ -86,19 +95,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory, bool reportIds)
         {
-            if (!hardDelete && purgeHistory)
-            {
-                throw new RequestNotValidException(Resources.NoSoftPurge);
-            }
-
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
-            searchParameters = searchParameters.Where(
-                param => !param.Item1.Equals(KnownQueryParameterNames.HardDelete, StringComparison.OrdinalIgnoreCase)
-                && !param.Item1.Equals(KnownQueryParameterNames.PurgeHistory, StringComparison.OrdinalIgnoreCase)
-                && !param.Item1.Equals(KnownQueryParameterNames.ReportIds, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            var deleteOperation = hardDelete ? (purgeHistory ? DeleteOperation.PurgeHistory : DeleteOperation.HardDelete) : DeleteOperation.SoftDelete;
-            var result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, reportIds, HttpContext.RequestAborted);
+            searchParameters = searchParameters.Where(param => !_exlcudedParameters.Contains(param.Item1)).ToList();
+
+            DeleteOperation deleteOperation = (hardDelete, purgeHistory) switch
+            {
+                { hardDelete: true } => DeleteOperation.HardDelete,
+                { purgeHistory: true } => DeleteOperation.PurgeHistory,
+                _ => DeleteOperation.SoftDelete,
+            };
+
+            CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, reportIds, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());

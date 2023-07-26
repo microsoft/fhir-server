@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IPostConfigureOptions<MvcOptions>>();
 
             services.AddSingleton<IFormatParametersValidator, FormatParametersValidator>();
-            services.Add<ListFactory>().Singleton().AsService<IListFactory>();
 
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateFormatParametersAttribute>();

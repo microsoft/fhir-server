@@ -15,6 +15,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
@@ -25,18 +26,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
-        private readonly IListFactory _listFactory;
+        private readonly IBundleFactory _bundleFactory;
         private const string ResourceDeletedCountName = "ResourceDeletedCount";
         private const string ResourcesDeletedName = "ResourcesDeleted";
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
             IQueueClient queueClient,
-            IListFactory listFactory)
+            IBundleFactory deletedResourcesBundleFactory)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            _listFactory = EnsureArg.IsNotNull(listFactory, nameof(listFactory));
+            _bundleFactory = EnsureArg.IsNotNull(deletedResourcesBundleFactory, nameof(deletedResourcesBundleFactory));
         }
 
         public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
@@ -143,24 +144,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     .Select(x => Tuple.Create(x.Key, (DataType)new FhirDecimal(x.Value)))
                     .ToArray();
 
-                var parameterComponent = new Parameters.ParameterComponent
+                if (tuples.Any())
                 {
-                    Name = ResourceDeletedCountName,
-                };
-
-                foreach (var tuple in tuples)
-                {
-                    parameterComponent.Part.Add(new Parameters.ParameterComponent
+                    var parameterComponent = new Parameters.ParameterComponent
                     {
-                        Name = tuple.Item1,
-                        Value = tuple.Item2,
-                    });
-                }
+                        Name = ResourceDeletedCountName,
+                    };
 
-                fhirResults.Add(parameterComponent);
+                    foreach (var tuple in tuples)
+                    {
+                        parameterComponent.Part.Add(new Parameters.ParameterComponent
+                        {
+                            Name = tuple.Item1,
+                            Value = tuple.Item2,
+                        });
+                    }
+
+                    fhirResults.Add(parameterComponent);
+                }
             }
 
-            if (resourcesDeletedIds.Count > 0)
+            if (resourcesDeletedIds.Sum(x => x.Value.Count) > 0)
             {
                 var deleted = new Parameters.ParameterComponent
                 {
@@ -172,7 +176,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                         group.Value.Select(id => new ResourceReference($"{group.Key}/{id}")))
                     .ToArray();
 
-                deleted.Resource = _listFactory.CreateListFromReferences(ResourcesDeletedName, deletedByType);
+                deleted.Resource = _bundleFactory.CreateDeletedResourcesBundle(
+                    ResourcesDeletedName,
+                    new DateTimeOffset(jobs.Where(x => x.EndDate.HasValue).Max(x => x.EndDate.Value)),
+                    deletedByType);
 
                 fhirResults.Add(deleted);
             }
