@@ -56,10 +56,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             }
 
             var timeoutTransactions = await _store.StoreClient.MergeResourcesGetTimeoutTransactionsAsync((int)SqlServerFhirDataStore.MergeResourcesTransactionHeartbeatPeriod.TotalSeconds * 6, _cancellationToken);
-            _logger.LogWarning("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
             if (timeoutTransactions.Count > 0)
             {
+                _logger.LogWarning("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
                 await _store.StoreClient.TryLogEvent("TransactionWatchdog", "Warn", $"found timed out transactions={timeoutTransactions.Count}", null, _cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation("TransactionWatchdog found {Transactions} timed out transactions", timeoutTransactions.Count);
             }
 
             foreach (var tranId in timeoutTransactions)
