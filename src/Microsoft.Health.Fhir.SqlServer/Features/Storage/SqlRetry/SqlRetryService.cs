@@ -60,13 +60,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     SqlErrorCodes.QueryProcessorNoQueryPlan,   // The query processor ran out of internal resources and could not produce a query plan.
             };
 
-        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
-        private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
+        private ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly IsExceptionRetriable _defaultIsExceptionRetriable = DefaultIsExceptionRetriable;
         private readonly bool _defaultIsExceptionRetriableOff;
         private readonly IsExceptionRetriable _customIsExceptionRetriable;
-        private readonly int _maxRetries;
-        private readonly int _retryMillisecondsDelay;
+        private int _maxRetries;
+        private int _retryMillisecondsDelay;
+        private int _commandTimeout;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryServiceOptions?.Value, nameof(sqlRetryServiceOptions));
             EnsureArg.IsNotNull(sqlRetryServiceDelegateOptions, nameof(sqlRetryServiceDelegateOptions));
-            _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            _commandTimeout = (int)EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration)).CommandTimeout.TotalSeconds;
 
             _sqlConnectionBuilder = sqlConnectionBuilder;
 
@@ -107,6 +107,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
         }
 
+        private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
+        {
+            _sqlConnectionBuilder = sqlConnectionBuilder;
+        }
+
         /// <summary>
         /// Defines a custom delegate that can be used instead of or in addition to IsExceptionRetriable method to examine if thrown
         /// exception <paramref name="ex"/> represent a retriable error.
@@ -115,6 +120,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>Returns true if the exception <paramref name="ex"/> represent an retriable error.</returns>
         /// <see cref="SqlRetryServiceDelegateOptions"/>
         public delegate bool IsExceptionRetriable(Exception ex);
+
+        /// <summary>
+        /// Simplified class generator.
+        /// </summary>
+        /// <param name="sqlConnectionBuilder">Internal FHIR server interface used to create SqlConnection.</param>
+        /// <param name="commandTimeout">command timeout.</param>
+        /// <param name="maxRetries">max retries.</param>
+        /// <param name="retryMillisecondsDelay">retry milliseconds delay.</param>
+        public static SqlRetryService GetInstance(ISqlConnectionBuilder sqlConnectionBuilder, int commandTimeout = 300, int maxRetries = 5, int retryMillisecondsDelay = 5000)
+        {
+            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
+            var service = new SqlRetryService(sqlConnectionBuilder);
+            service._commandTimeout = commandTimeout;
+            service._maxRetries = maxRetries;
+            service._retryMillisecondsDelay = retryMillisecondsDelay;
+            return service;
+        }
 
         /// <summary>
         /// This method examines exception <paramref name="ex"/> and determines if the exception represent an retriable error.
@@ -243,13 +265,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await sqlConnection.OpenAsync(cancellationToken);
 
                     // only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
-                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds : sqlCommand.CommandTimeout;
+                    sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
 
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
                     }
 
                     return;
@@ -265,7 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (++retry >= _maxRetries)
                     {
                         logger.LogError(ex, $"Final attempt ({retry}): {logMessage}");
-                        await TryLogToDatabase($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Error", $"retries={retry} error={lastException}", start, cancellationToken);
                         throw;
                     }
 
@@ -276,7 +298,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, bool allRows, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(readerToResult, nameof(readerToResult));
@@ -320,34 +342,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <returns>A task representing the asynchronous operation that returns all the rows that result from <paramref name="sqlCommand"/> execution. The rows are translated by <paramref name="readerToResult"/> delegate
         /// into <typeparamref name="TResult"/> data type.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task<List<TResult>> ExecuteSqlDataReader<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<TResult>> ExecuteReaderAsync<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
         {
             return await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, true, cancellationToken);
         }
 
         /// <summary>
-        /// Executes <paramref name="sqlCommand"/> and reads the first row only. Translates the read row by using <paramref name="readerToResult"/>
-        /// into the returned <typeparamref name="TResult"/> data type. Retries execution of <paramref name="sqlCommand"/> on SQL error or failed
-        /// SQL connection error. In the case if non-retriable exception or if the last retry failed tha same exception is thrown.
+        /// Tries logging an event to the EventLog table.
         /// </summary>
-        /// <typeparam name="TResult">Defines data type for the returned SQL row.</typeparam>
-        /// <typeparam name="TLogger">Type used for the <paramref name="logger"/>. <see cref="ILogger{TCategoryName}"/></typeparam>
-        /// <param name="sqlCommand">SQL command to be executed.</param>
-        /// <param name="readerToResult">Translation delegate that translates the row returned by <paramref name="sqlCommand"/> execution into the <typeparamref name="TResult"/> data type.</param>
-        /// <param name="logger">Logger used on first try error or retry error.</param>
-        /// <param name="logMessage">Message to be logged on error.</param>
+        /// <param name="process">Name of the process.</param>
+        /// <param name="status">Status. By default Warn and Error are logged automatically. Other stuses can be enabled in the Parameters table.</param>
+        /// <param name="text">Message text.</param>
+        /// <param name="startDate">Optional start date of the process.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A task representing the asynchronous operation that returns the first row that results from <paramref name="sqlCommand"/> execution. The row is translated by <paramref name="readerToResult"/> delegate
-        /// into <typeparamref name="TResult"/> data type.</returns>
-        /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task<TResult> ExecuteSqlDataReaderFirstRow<TResult, TLogger>(SqlCommand sqlCommand, Func<SqlDataReader, TResult> readerToResult, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken)
-            where TResult : class
-        {
-            List<TResult> result = await ExecuteSqlDataReader(sqlCommand, readerToResult, logger, logMessage, false, cancellationToken);
-            return result.Count > 0 ? result[0] : null;
-        }
-
-        private async Task TryLogToDatabase(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
+        public async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
         {
             try
             {
