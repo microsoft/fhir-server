@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
 
@@ -26,12 +25,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private CancellationToken _cancellationToken;
 
         private readonly ISqlRetryService _sqlRetryService;
-        private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
+        private readonly SqlQueueClient _sqlQueueClient;
         private readonly ILogger<DefragWatchdog> _logger;
 
         public DefragWatchdog(
             ISqlRetryService sqlRetryService,
-            Func<IScoped<SqlQueueClient>> sqlQueueClient,
+            SqlQueueClient sqlQueueClient,
             ILogger<DefragWatchdog> logger)
             : base(sqlRetryService, logger)
         {
@@ -80,9 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             await JobHosting.ExecuteJobWithHeartbeatsAsync(
-                scopedQueueClient.Value,
+                _sqlQueueClient,
                 QueueType,
                 job.jobId,
                 job.version,
@@ -148,9 +146,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     return;
                 }
 
-                using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
                 await JobHosting.ExecuteJobWithHeartbeatsAsync(
-                    scopedQueueClient.Value,
+                    _sqlQueueClient,
                     QueueType,
                     jobId,
                     job.version,
@@ -186,9 +183,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task CompleteJobAsync(long jobId, long version, bool failed, CancellationToken cancellationToken)
         {
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
-            await scopedQueueClient.Value.CompleteJobAsync(jobInfo, false, cancellationToken);
+            await _sqlQueueClient.CompleteJobAsync(jobInfo, false, cancellationToken);
 
             _logger.LogInformation("Completed JobId: {JobId}, Version: {Version}, Failed: {Failed}", jobId, version, failed);
         }
@@ -207,14 +203,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetCoordinatorJobAsync(CancellationToken cancellationToken)
         {
             var activeDefragItems = 0;
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            var queueClient = scopedQueueClient.Value;
-            await queueClient.ArchiveJobsAsync(QueueType, cancellationToken);
+            await _sqlQueueClient.ArchiveJobsAsync(QueueType, cancellationToken);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await queueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
 
                 if (jobs.Count > 0)
                 {
@@ -247,8 +241,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<(long groupId, long jobId, long version, string definition)> DequeueJobAsync(long? jobId = null, CancellationToken cancellationToken = default)
         {
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            JobInfo job = await scopedQueueClient.Value.DequeueAsync(QueueType, Environment.MachineName, _heartbeatTimeoutSec, cancellationToken, jobId);
+            JobInfo job = await _sqlQueueClient.DequeueAsync(QueueType, Environment.MachineName, _heartbeatTimeoutSec, cancellationToken, jobId);
 
             if (job != null)
             {
