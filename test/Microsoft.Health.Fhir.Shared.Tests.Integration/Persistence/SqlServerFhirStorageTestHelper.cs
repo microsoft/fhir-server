@@ -146,6 +146,28 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
             cmd2.Parameters.AddWithValue("@LeasePeriodSecId", cleanupWatchdog.LeasePeriodSecId);
             await cmd2.ExecuteNonQueryAsync(CancellationToken.None);
 
+            using var cmd3 = new SqlCommand(
+                @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 5
+                ",
+                conn);
+            var transactionWatchdog = new TransactionWatchdog();
+            cmd3.Parameters.AddWithValue("@PeriodSecId", transactionWatchdog.PeriodSecId);
+            cmd3.Parameters.AddWithValue("@LeasePeriodSecId", transactionWatchdog.LeasePeriodSecId);
+            await cmd3.ExecuteNonQueryAsync(CancellationToken.None);
+
+            using var cmd4 = new SqlCommand(
+                @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
+                ",
+                conn);
+            var invisibleHistoryCleanupWatchdog = new InvisibleHistoryCleanupWatchdog();
+            cmd4.Parameters.AddWithValue("@PeriodSecId", invisibleHistoryCleanupWatchdog.PeriodSecId);
+            cmd4.Parameters.AddWithValue("@LeasePeriodSecId", invisibleHistoryCleanupWatchdog.LeasePeriodSecId);
+            await cmd4.ExecuteNonQueryAsync(CancellationToken.None);
+
             await conn.CloseAsync();
         }
 
