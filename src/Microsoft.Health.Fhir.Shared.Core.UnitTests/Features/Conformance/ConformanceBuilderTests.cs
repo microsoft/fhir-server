@@ -184,14 +184,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
+        public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {
             string description = "Logical id of this artifact";
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                 .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
-            await _builder.SyncSearchParametersAsync(CancellationToken.None);
+            _builder.SyncSearchParametersAsync();
 
             ITypedElement statement = _builder.Build();
 
@@ -241,12 +241,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public async void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
+        public void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            await _builder.SyncSearchParametersAsync(CancellationToken.None);
+            _builder.SyncSearchParametersAsync();
 
             ITypedElement statement = _builder.Build();
 

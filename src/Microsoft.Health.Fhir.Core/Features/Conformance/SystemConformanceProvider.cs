@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (_builder != null)
                 {
                     // Update search params;
-                    await _builder.SyncSearchParametersAsync(CancellationToken.None);
+                    _builder.SyncSearchParametersAsync();
 
                     // Update supported profiles;
                     _builder.SyncProfiles();
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     case RebuildPart.SearchParameter:
                         // Update search params;
-                        await _builder.SyncSearchParametersAsync(cancellationToken);
+                        _builder.SyncSearchParametersAsync();
                         break;
 
                     case RebuildPart.Profiles:

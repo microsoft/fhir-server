@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             // check 2 records exist
             Assert.Equal(2, await GetCount());
 
-            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
             await Task.Delay(5000);
 
             // check only 1 record remains
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             // check 1 record exist
             Assert.Equal(1, await GetCount());
 
-            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
             await Task.Delay(5000);
 
             // check no records
@@ -174,8 +174,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             EnableDatabaseLogging();
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
-            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
-            var startTranId = await store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            var startTranId = await store.StoreClient.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
 
             var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
             Assert.Equal("1", create.VersionId);
@@ -189,8 +189,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var bundle = history.ToPoco<Hl7.Fhir.Model.Bundle>();
             Assert.Single(bundle.Entry);
 
-            await store.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
-            var endTranId = await store.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
+            await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
+            var endTranId = await store.StoreClient.MergeResourcesGetTransactionVisibilityAsync(CancellationToken.None);
 
             // old style TODO: Remove once events switch to new style
             var changeStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
@@ -204,15 +204,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(ResourceChangeTypeUpdated, change.ResourceChangeTypeId);
 
             // new style
-            var trans = await store.GetTransactionsAsync(startTranId, endTranId, CancellationToken.None);
+            var trans = await store.StoreClient.GetTransactionsAsync(startTranId, endTranId, CancellationToken.None);
             Assert.Equal(2, trans.Count);
-            var resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[0].TransactionId, CancellationToken.None);
-            Assert.Equal(1, resourceKeys.Count);
+            var resourceKeys = await store.StoreClient.GetResourceDateKeysByTransactionIdAsync(trans[0].TransactionId, CancellationToken.None);
+            Assert.Single(resourceKeys);
             Assert.Equal(create.Id, resourceKeys[0].Id);
             Assert.Equal("1", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
-            resourceKeys = await store.GetResourceDateKeysByTransactionIdAsync(trans[1].TransactionId, CancellationToken.None);
-            Assert.Equal(1, resourceKeys.Count);
+            resourceKeys = await store.StoreClient.GetResourceDateKeysByTransactionIdAsync(trans[1].TransactionId, CancellationToken.None);
+            Assert.Single(resourceKeys);
             Assert.Equal("2", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
         }

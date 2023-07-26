@@ -752,9 +752,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 watch = Stopwatch.StartNew();
-                var builderTask = Task.Run(() => builder.SyncSearchParametersAsync(CancellationToken.None));
-                builderTask.Wait();
-                builder = builderTask.Result;
+                builder = builder.SyncSearchParametersAsync();
                 _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)

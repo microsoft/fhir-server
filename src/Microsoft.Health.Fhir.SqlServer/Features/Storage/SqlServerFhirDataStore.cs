@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
@@ -54,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlStoreClient<SqlServerFhirDataStore> _sqlStoreClient;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -84,6 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _sqlStoreClient = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, logger);
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
@@ -101,6 +102,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
         }
+
+        internal SqlStoreClient<SqlServerFhirDataStore> StoreClient => _sqlStoreClient;
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
@@ -124,13 +127,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30) // retries on conflict should never be more than 1, so it is OK to hardcode.
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                        await TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
+                        await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    await TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", null, cancellationToken);
+                    await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", null, cancellationToken);
 
                     throw trueEx;
                 }
@@ -150,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // assume that most likely case is that all resources should be updated
-            (var transactionId, var minSequenceId) = await MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
+            (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
             var mergeWrappers = new List<MergeResourceWrapper>();
@@ -304,7 +307,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (mergeWrappers.Count > 0) // do not call db with empty input
             {
-                await using (new Timer(async _ => await MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
+                await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
                     var retries = 0;
                     var timeoutRetries = 0;
@@ -321,12 +324,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             if (!enlistInTransaction && (e.IsRetriable() || (e.IsExecutionTimeout() && timeoutRetries++ < 3)))
                             {
                                 _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
-                                await TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                                await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
                                 await Task.Delay(5000, cancellationToken);
                                 continue;
                             }
 
-                            await MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
+                            await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                             throw;
                         }
                     }
@@ -334,7 +337,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                await MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
+                await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
             }
 
             return results;
@@ -371,35 +374,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        private async Task MergeResourcesPutTransactionHeartbeatAsync(long transactionId, TimeSpan heartbeatPeriod, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
-                cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-                await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeResourcesPutTransactionHeartbeatAsync)}");
-            }
-        }
-
-        internal async Task TryLogEvent(string process, string status, string text, DateTime? startDate, CancellationToken cancellationToken)
-        {
-            try
-            {
-                using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, false);
-                using var cmd = conn.CreateNonRetrySqlCommand();
-                VLatest.LogEvent.PopulateCommand(cmd, process, status, null, null, null, null, startDate, text, null, null);
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-            catch
-            {
-                // do nothing;
-            }
-        }
-
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
             bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
@@ -426,111 +400,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            if (keys == null || keys.Count == 0)
-            {
-                return new List<ResourceWrapper>();
-            }
-
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
-            var tvpRows = keys.Select(_ => new ResourceKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
-            new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
-            var start = DateTime.UtcNow;
-            var timeoutRetries = 0;
-            while (true)
-            {
-                try
-                {
-                    return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, false); }, _logger, null, cancellationToken);
-                }
-                catch (Exception e)
-                {
-                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
-                    {
-                        _logger.LogWarning(e, $"Error on {nameof(GetAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
-                        await TryLogEvent(nameof(GetAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
-                        await Task.Delay(5000, cancellationToken);
-                        continue;
-                    }
-                }
-            }
-        }
-
-        private ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod)
-        {
-            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
-            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
-            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
-            var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
-            var rawResourceBytes = reader.GetSqlBytes(6).Value;
-            var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
-            var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
-            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
-
-            using var rawResourceStream = new MemoryStream(rawResourceBytes);
-            var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-
-            return new ResourceWrapper(
-                resourceId,
-                version.ToString(CultureInfo.InvariantCulture),
-                _model.GetResourceTypeName(resourceTypeId),
-                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                readRequestMethod ? new ResourceRequest(requestMethod) : null,
-                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                isDeleted,
-                searchIndices: null,
-                compartmentIndices: null,
-                lastModifiedClaims: null,
-                searchParameterHash: searchParamHash,
-                resourceSurrogateId: resourceSurrogateId)
-            {
-                IsHistory = isHistory,
-            };
-        }
-
-        private ResourceDateKey ReadResourceDateKeyWrapper(SqlDataReader reader)
-        {
-            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
-            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
-            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
-
-            return new ResourceDateKey(
-                _model.GetResourceTypeName(resourceTypeId),
-                resourceId,
-                resourceSurrogateId,
-                version.ToString(CultureInfo.InvariantCulture),
-                isDeleted);
-        }
-
-        public async Task<IReadOnlyList<ResourceDateKey>> GetResourceVervionsAsync(IReadOnlyList<ResourceDateKey> keys, CancellationToken cancellationToken)
-        {
-            var resources = new List<ResourceDateKey>();
-            if (keys == null || keys.Count == 0)
-            {
-                return resources;
-            }
-
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
-            var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_model.GetResourceTypeId(_.ResourceType), _.Id, _.ResourceSurrogateId));
-            new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
-            var table = VLatest.Resource;
-            resources = await _sqlRetryService.ExecuteSqlDataReader(
-                cmd,
-                (reader) =>
-                {
-                    var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
-                    var resourceId = reader.Read(table.ResourceId, 1);
-                    var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
-                    var version = reader.Read(table.Version, 3);
-                    return new ResourceDateKey(_model.GetResourceTypeName(resourceTypeId), resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
-                },
-                _logger,
-                null,
-                cancellationToken);
-            return resources;
+            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
@@ -541,10 +411,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
-            using var sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using var sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-            VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, _model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture);
-            await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
@@ -680,10 +547,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            var task = Task.Run(() => builder.PopulateDefaultResourceInteractions()
-                .SyncSearchParametersAsync(CancellationToken.None));
-            task.Wait();
-            builder.AddGlobalSearchParameters()
+            builder.PopulateDefaultResourceInteractions()
+                .SyncSearchParametersAsync()
+                .AddGlobalSearchParameters()
                 .SyncProfiles();
 
             if (_coreFeatures.SupportsBatch)
@@ -699,115 +565,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        internal async Task<long> MergeResourcesGetTransactionVisibilityAsync(CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTransactionVisibility", CommandType = CommandType.StoredProcedure };
-            var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(transactionIdParam);
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            return (long)transactionIdParam.Value;
-        }
-
-        internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
-            var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(transactionIdParam);
-            var sequenceParam = new SqlParameter("@SequenceRangeFirstValue", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(sequenceParam);
-            if (heartbeatDate.HasValue)
-            {
-                cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
-            }
-
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
-        }
-
-        internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesDeleteInvisibleHistory", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            var affectedRowsParam = new SqlParameter("@affectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(affectedRowsParam);
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            return (int)affectedRowsParam.Value;
-        }
-
-        internal async Task MergeResourcesCommitTransactionAsync(long transactionId, string failureReason, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesCommitTransaction", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            if (failureReason != null)
-            {
-                cmd.Parameters.AddWithValue("@FailureReason", failureReason);
-            }
-
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-        }
-
-        internal async Task MergeResourcesPutTransactionInvisibleHistoryAsync(long transactionId, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionInvisibleHistory", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-        }
-
-        internal async Task<int> MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesAdvanceTransactionVisibility", CommandType = CommandType.StoredProcedure };
-            var affectedRowsParam = new SqlParameter("@AffectedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
-            cmd.Parameters.Add(affectedRowsParam);
-            await _sqlRetryService.ExecuteSql(cmd, async (sql, cancellationToken) => await sql.ExecuteNonQueryAsync(cancellationToken), _logger, null, cancellationToken);
-            var affectedRows = (int)affectedRowsParam.Value;
-            return affectedRows;
-        }
-
-        internal async Task<IReadOnlyList<long>> MergeResourcesGetTimeoutTransactionsAsync(int timeoutSec, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesGetTimeoutTransactions", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@TimeoutSec", timeoutSec);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return reader.GetInt64(0); }, _logger, null, cancellationToken);
-        }
-
-        internal async Task<IReadOnlyList<(long TransactionId, DateTime? VisibleDate, DateTime? InvisibleHistoryRemovedDate)>> GetTransactionsAsync(long startNotInclusiveTranId, long endInclusiveTranId, CancellationToken cancellationToken, DateTime? endDate = null)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetTransactions", CommandType = CommandType.StoredProcedure };
-            cmd.Parameters.AddWithValue("@StartNotInclusiveTranId", startNotInclusiveTranId);
-            cmd.Parameters.AddWithValue("@EndInclusiveTranId", endInclusiveTranId);
-            if (endDate.HasValue)
-            {
-                cmd.Parameters.AddWithValue("@EndDate", endDate.Value);
-            }
-
-            return await _sqlRetryService.ExecuteSqlDataReader(
-                cmd,
-                (reader) =>
-                {
-                    return (reader.Read(VLatest.Transactions.SurrogateIdRangeFirstValue, 0),
-                            reader.Read(VLatest.Transactions.VisibleDate, 1),
-                            reader.Read(VLatest.Transactions.InvisibleHistoryRemovedDate, 2));
-                },
-                _logger,
-                null,
-                cancellationToken);
-        }
-
         internal async Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
-            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, (reader) => { return ReadResourceWrapper(reader, true); }, _logger, null, cancellationToken);
-        }
-
-        internal async Task<IReadOnlyList<ResourceDateKey>> GetResourceDateKeysByTransactionIdAsync(long transactionId, CancellationToken cancellationToken)
-        {
-            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
-            cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            cmd.Parameters.AddWithValue("@IncludeHistory", true);
-            cmd.Parameters.AddWithValue("@ReturnResourceKeysOnly", true);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, ReadResourceDateKeyWrapper, _logger, null, cancellationToken);
+            return await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)

@@ -8,11 +8,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -39,29 +36,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly CoreFeatureConfiguration _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         private CapabilityStatementBuilder(
             ListedCapabilityStatement statement,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
-            ISupportedProfilesStore supportedProfiles,
-            SearchParameterStatusManager searchParameterStatusManager)
+            ISupportedProfilesStore supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _statement = statement;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _configuration = configuration.Value;
             _supportedProfiles = supportedProfiles;
-            _searchParameterStatusManager = searchParameterStatusManager;
         }
 
         public static ICapabilityStatementBuilder Create(
@@ -100,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
             statement.Url = metadataUrl;
 
-            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles, searchParameterStatusManager);
+            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }
 
         public ICapabilityStatementBuilder Apply(Action<ListedCapabilityStatement> action)
@@ -184,13 +177,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private async Task<ICapabilityStatementBuilder> SyncSearchParamsAsync(string resourceType, CancellationToken cancellationToken)
+        private ICapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
             List<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(resourceType).ToList();
-            var searchParamStatuses = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
 
             if (searchParams.Any())
             {
@@ -211,8 +203,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             continue;
                         }
 
-                        string status = string.Format("Current status of search parameter is {0}. ", searchParamStatuses.SingleOrDefault(x => x.Uri == searchParam.Definition)?.Status.ToString());
-                        searchParam.Documentation = status = status + searchParam.Documentation;
                         c.SearchParam.Add(searchParam);
                     }
                 });
@@ -340,10 +330,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public async Task<ICapabilityStatementBuilder> SyncSearchParametersAsync(CancellationToken cancellationToken)
+        public ICapabilityStatementBuilder SyncSearchParametersAsync()
         {
-            EnsureArg.IsNotNull(_searchParameterStatusManager, nameof(_searchParameterStatusManager));
-
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 ApplyToResource(resource, c => c.SearchRevInclude.Clear());
@@ -357,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                await SyncSearchParamsAsync(resource, cancellationToken);
+                SyncSearchParamsAsync(resource);
             }
 
             return this;

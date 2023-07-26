@@ -478,7 +478,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
             else
             {
-                Assert.Equal(1, results.Keys.Count);
+                Assert.Single(results.Keys);
             }
         }
 

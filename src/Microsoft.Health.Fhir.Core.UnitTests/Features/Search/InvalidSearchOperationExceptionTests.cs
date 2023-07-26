@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var exception = new InvalidSearchOperationException(message);
 
             Assert.NotNull(exception.Issues);
-            Assert.Equal(1, exception.Issues.Count);
+            Assert.Single(exception.Issues);
 
             var issue = exception.Issues.First();
 

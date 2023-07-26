@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             await _sqlRetryService.ExecuteSql(
                 sqlCommand,
-                async (sqlCommand, cancellationToken) =>
+                async (cmd, cancel) =>
                 {
                     try
                     {
-                        await sqlCommand.ExecuteNonQueryAsync(cancellationToken);
+                        await cmd.ExecuteNonQueryAsync(cancel);
                     }
                     catch (SqlException sqlEx)
                     {
@@ -156,7 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
             }
 
-            JobInfo jobInfo = await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, null, cancellationToken);
+            var jobInfos = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+            var jobInfo = jobInfos.Count == 0 ? null : jobInfos[0];
             if (jobInfo != null)
             {
                 jobInfo.QueueType = queueType;
@@ -180,7 +181,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             try
             {
-                return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, null, cancellationToken);
+                return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
             }
             catch (SqlException sqlEx)
             {
@@ -197,21 +198,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using var sqlCommand = new SqlCommand();
             PopulateGetJobsCommand(sqlCommand, queueType, null, null, groupId, returnDefinition);
-            return await _sqlRetryService.ExecuteSqlDataReader(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "GetJobByGroupIdAsync failed.", cancellationToken);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobByGroupIdAsync failed.");
         }
 
         public async Task<JobInfo> GetJobByIdAsync(byte queueType, long jobId, bool returnDefinition, CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand();
             PopulateGetJobsCommand(sqlCommand, queueType, jobId, returnDefinition: returnDefinition);
-            return await _sqlRetryService.ExecuteSqlDataReaderFirstRow(sqlCommand, JobInfoExtensions.LoadJobInfo, _logger, "GetJobByIdAsync failed.", cancellationToken);
+            var jobs = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobByIdAsync failed.");
+            return jobs.Count == 0 ? null : jobs[0];
         }
 
         public async Task<IReadOnlyList<JobInfo>> GetJobsByIdsAsync(byte queueType, long[] jobIds, bool returnDefinition, CancellationToken cancellationToken)
         {
             using var cmd = new SqlCommand();
             PopulateGetJobsCommand(cmd, queueType, jobIds: jobIds, returnDefinition: returnDefinition);
-            return await _sqlRetryService.ExecuteSqlDataReader(cmd, JobInfoExtensions.LoadJobInfo, _logger, "GetJobsByIdsAsync failed.", cancellationToken);
+            return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
         public bool IsInitialized()

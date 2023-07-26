@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
-            Assert.Equal(1, result.Error.Count);
+            Assert.Single(result.Error);
             Assert.NotEmpty(result.Request);
 
             string errorLocation = result.Error.ToArray()[0].Url;
@@ -649,7 +649,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
-            Assert.Equal(1, result.Error.Count);
+            Assert.Single(result.Error);
             Assert.NotEmpty(result.Request);
 
             string errorLocation = result.Error.ToArray()[0].Url;
