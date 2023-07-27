@@ -5,14 +5,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net;
+using System.Web;
+using MathNet.Numerics.Statistics;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch.Operations;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -236,6 +244,69 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
                 operationType: expectedOperationType,
                 callerAgent: AuditHelper.DefaultCallerAgent);
+        }
+
+        [Fact]
+        public void GivenAuditEventWithLogInjectionAttack_WhenLogExecutedIsCalled_ThenAuditLogHasSanitzedInput()
+        {
+            const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
+            const string expectedResourceType = "Patient";
+            var headers = new Dictionary<string, string>
+            {
+                { "CustomHeader", "<div>injection attack </div>" },
+            };
+            ReadOnlyDictionary<string, string> customHeaders = new ReadOnlyDictionary<string, string>(headers);
+            var securityConfig = new SecurityConfiguration();
+            IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();
+            optionsConfig.Value.Returns(securityConfig);
+            var logger = new TestLogger();
+            var auditLogger = new AuditLogger(optionsConfig, logger);
+
+            auditLogger.LogAudit(
+                AuditAction.Executed,
+                AuditEventType,
+                expectedResourceType,
+                Uri,
+                expectedStatusCode,
+                CorrelationId,
+                CallerIpAddressInString,
+                Claims,
+                customHeaders: customHeaders);
+
+            var expectedHeaders = HttpUtility.HtmlEncode(string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}")));
+            Assert.Contains(expectedHeaders, logger.LogRecords.First().State);
+        }
+
+        private class TestLogger : ILogger<IAuditLogger>
+        {
+            internal List<LogRecord> LogRecords { get; } = new List<LogRecord>();
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return null;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
+            {
+                LogRecords.Add(new LogRecord() { LogLevel = logLevel, State = state.ToString() });
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return false;
+            }
+
+            internal class LogRecord
+            {
+                internal LogLevel LogLevel { get; init; }
+
+                internal string State { get; init; }
+            }
         }
     }
 }
