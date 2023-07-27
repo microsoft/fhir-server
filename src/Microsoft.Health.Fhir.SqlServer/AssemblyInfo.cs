@@ -16,4 +16,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4B.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Tests.E2E")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Internal.Fhir.EventsReader")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Internal.Fhir.Exporter")]
 [assembly: NeutralResourcesLanguage("en-us")]
