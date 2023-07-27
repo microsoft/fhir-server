@@ -309,7 +309,7 @@ Below are some errors you may encounter:
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.
-    2. Ensure the number of tasks each VM is allowed to run is equal to or greater than number of v-cores on VM. You can check TaskHosting__MaxRunningTaskCount setting.
+    2. Ensure the number of tasks each machine is allowed to run is equal to or greater than number of v-cores on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
     3. Save changes to the configuration and restart the app.
 1. Besides scaling out, you can also scale up each machine. For more information, see [Scale up an app](https://docs.microsoft.com/en-us/azure/app-service/manage-scale-up) to achieve this. In general, the P3V2 machine is enough for most of the scenarios.
 1. Create the configuration ```FhirServer__Operations__Import__DisableUniqueOptionalIndexesForImport```, and set it to `True` when your input size is larger than 10GB.
