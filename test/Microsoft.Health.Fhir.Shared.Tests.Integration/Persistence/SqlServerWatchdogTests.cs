@@ -67,10 +67,9 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             // Empty queue
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
-            var queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
             var wd = new DefragWatchdog(
-                () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
-                () => queueClient.CreateMockScope(),
+                _fixture.SqlRetryService,
+                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)),
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
@@ -118,9 +117,7 @@ END
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
 
-            var wd = new CleanupEventLogWatchdog(
-                () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(),
-                XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
@@ -192,7 +189,7 @@ END
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, factory, _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(true, 1, 2, cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
@@ -222,7 +219,7 @@ END
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
+            var wd = new TransactionWatchdog(_fixture.SqlServerFhirDataStore, CreateResourceWrapperFactory(), _fixture.SqlRetryService, XUnitLogger<TransactionWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(true, 1, 2, cts.Token);
             var startTime = DateTime.UtcNow;
             while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
