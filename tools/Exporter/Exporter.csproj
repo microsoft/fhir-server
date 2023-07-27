@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Fhir.Exporter</AssemblyName>
-    <RootNamespace>Microsoft.Health.Fhir.Exporter</RootNamespace>
+    <AssemblyName>Microsoft.Health.Internal.Fhir.Exporter</AssemblyName>
+    <RootNamespace>Microsoft.Health.Internal.Fhir.Exporter</RootNamespace>
     <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
@@ -11,11 +11,13 @@
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
     <PackageReference Include="System.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Health.SqlServer" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>

@@ -2,155 +2,63 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
-using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.IO;
+using System.Threading;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer;
 
-namespace Microsoft.Health.Fhir.Store.Export
+namespace Microsoft.Health.Internal.Fhir.Exporter
 {
     internal sealed class SqlService
     {
-        private string _connectionString;
+        private readonly string _connectionString;
+        private readonly SqlRetryService _sqlRetryService;
+        private readonly SqlQueueClient _queue;
         private byte _queueType = (byte)QueueType.Export;
 
         public SqlService(string connectionString)
         {
             _connectionString = connectionString;
+            ISqlConnectionBuilder iSqlConnectionBuilder = new SqlConnectionBuilder(_connectionString);
+            _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
+            _queue = new SqlQueueClient(_sqlRetryService, NullLogger<SqlQueueClient>.Instance);
         }
 
         public string ConnectionString => _connectionString;
 
-        public void LogEvent(string process, string status, string mode, string target = null, string action = null, long? rows = null, DateTime? startTime = null, string text = null)
-        {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.LogEvent", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@Process", process);
-            command.Parameters.AddWithValue("@Status", status);
-            command.Parameters.AddWithValue("@Mode", mode);
-            if (target != null)
-            {
-                command.Parameters.AddWithValue("@Target", target);
-            }
-
-            if (action != null)
-            {
-                command.Parameters.AddWithValue("@Action", action);
-            }
-
-            if (rows != null)
-            {
-                command.Parameters.AddWithValue("@Rows", rows);
-            }
-
-            if (startTime != null)
-            {
-                command.Parameters.AddWithValue("@Start", startTime);
-            }
-
-            if (text != null)
-            {
-                command.Parameters.AddWithValue("@Text", text);
-            }
-
-            command.ExecuteNonQuery();
-        }
-
-        public string ShowConnectionString()
-        {
-            var builder = new SqlConnectionStringBuilder(ConnectionString);
-            return $"server={builder.DataSource};database={builder.InitialCatalog}";
-        }
-
-        internal bool JobQueueIsNotEmpty()
-        {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("SELECT count(*) FROM dbo.JobQueue WHERE QueueType = @QueueType", conn) { CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", _queueType);
-            var cnt = (int)command.ExecuteScalar();
-            return cnt > 0;
-        }
-
-        internal void DequeueJob(out long groupId, out long jobId, out long version, out string definition)
-        {
-            definition = null;
-            groupId = -1L;
-            jobId = -1L;
-            version = 0;
-
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.DequeueJob", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", _queueType);
-            command.Parameters.AddWithValue("@Worker", $"{Environment.MachineName}.{Environment.ProcessId}");
-            command.Parameters.AddWithValue("@HeartbeatTimeoutSec", 600);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                //// put job type here
-                groupId = reader.GetInt64(0);
-                jobId = reader.GetInt64(1);
-                definition = reader.GetString(2);
-                version = reader.GetInt64(3);
-            }
-        }
+        public SqlRetryService SqlRetryService => _sqlRetryService;
 
         internal void DequeueJob(out long groupId, out long jobId, out long version, out short? resourceTypeId, out string minSurIdOrUrl, out string maxSurId)
         {
-            DequeueJob(out groupId, out jobId, out version, out var definition);
+            var jobInfo = _queue.DequeueAsync(_queueType, "A", 600, CancellationToken.None).Result;
             resourceTypeId = null;
             minSurIdOrUrl = string.Empty;
             maxSurId = string.Empty;
-            if (definition != null)
+            groupId = -1;
+            jobId = -1;
+            version = -1;
+            if (jobInfo != null)
             {
-                var split = definition.Split(";");
+                groupId = jobInfo.GroupId;
+                jobId = jobInfo.Id;
+                version = jobInfo.Version;
+                var split = jobInfo.Definition.Split(";");
                 resourceTypeId = short.Parse(split[0]);
                 minSurIdOrUrl = split[1];
                 maxSurId = split[2];
             }
         }
 
-        internal void PutJobHeartbeat(long unitId, int? resourceCount = null)
+        internal void CompleteJob(long jobId, bool failed, long version, int? resourceCount = null)
         {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.PutJobHeartbeat", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", _queueType);
-            command.Parameters.AddWithValue("@JobId", unitId);
-            if (resourceCount.HasValue)
-            {
-                command.Parameters.AddWithValue("@Data", resourceCount.Value);
-            }
-
-            command.ExecuteNonQuery();
-        }
-
-        internal void CompleteJob(long unitId, bool failed, long version, int? resourceCount = null)
-        {
-            using var conn = new SqlConnection(ConnectionString);
-            conn.Open();
-            using var command = new SqlCommand("dbo.PutJobStatus", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@QueueType", _queueType);
-            command.Parameters.AddWithValue("@JobId", unitId);
-            command.Parameters.AddWithValue("@Version", version);
-            command.Parameters.AddWithValue("@Failed", failed);
-            command.Parameters.AddWithValue("@RequestCancellationOnFailure", true);
-            if (resourceCount.HasValue)
-            {
-                command.Parameters.AddWithValue("@Data", resourceCount.Value);
-            }
-            else
-            {
-                command.Parameters.AddWithValue("@Data", DBNull.Value);
-            }
-
-            command.Parameters.AddWithValue("@FinalResult", DBNull.Value);
-
-            command.ExecuteNonQuery();
+            var jobInfo = new JobInfo() { Id = jobId, Version = version, Data = resourceCount, Status = failed ? JobStatus.Failed : JobStatus.Completed };
+            _queue.CompleteJobAsync(jobInfo, false, CancellationToken.None).Wait();
         }
 
         internal IEnumerable<byte[]> GetDataBytes(short resourceTypeId, long minId, long maxId)
@@ -206,7 +114,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             foreach (var res in GetDataBytes(resourceTypeId, minId, maxId))
             {
                 using var mem = new MemoryStream(res);
-                yield return CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem);
+                yield return Health.Fhir.Store.Export.CompressedRawResourceConverterCopy.ReadCompressedRawResource(mem);
             }
         }
     }
