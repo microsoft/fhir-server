@@ -1,5 +1,5 @@
 CREATE OR ALTER PROCEDURE dbo.UpdateResourceSearchParams
-    @FailedResourceCount int = 0 OUT
+    @FailedResources int = 0 OUT
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
@@ -20,9 +20,8 @@ AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
-       ,@FailedResourceCount int = (SELECT count(*) FROM @Resources)
-
-DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+       ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
+       ,@Rows int
 
 BEGIN TRY
   DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceSurrogateId bigint NOT NULL)
@@ -33,7 +32,7 @@ BEGIN TRY
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
     FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
     WHERE B.IsHistory = 0
-  SET @FailedResourceCount -= @@rowcount
+  SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
   DELETE FROM B FROM @Ids A JOIN dbo.ResourceWriteClaim B ON B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -130,7 +129,9 @@ BEGIN TRY
 
   COMMIT TRANSACTION
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+  SET @FailedResources = (SELECT count(*) FROM @Resources) - @Rows
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
