@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -27,25 +26,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
 
-        public SqlQueueClient(
-            SchemaInformation schemaInformation,
-            ISqlRetryService sqlRetryService,
-            ILogger<SqlQueueClient> logger)
+        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        private SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-        }
-
-        public static SqlQueueClient GetInstance(ISqlRetryService sqlRetryService)
-        {
-            return new SqlQueueClient(sqlRetryService, new NullLogger<SqlQueueClient>());
         }
 
         public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
@@ -221,7 +212,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             if (_schemaInformation == null)
             {
-                throw new InvalidOperationException("this method cannot be called with schema information = null");
+                throw new InvalidOperationException("This method cannot be called with schema information = null");
             }
 
             return _schemaInformation.Current != null && _schemaInformation.Current != 0;
