@@ -69,14 +69,14 @@ You can choose to use initial import mode or incremental import mode.
 
 ### Change initial import mode on the FHIR server
 
-The FHIR server must have the `initial import mode` set to `True` for $import to work. Setting the value to `True` also suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
+The FHIR server must have the `initial import mode` set to `True` for $import to work. Setting the Initial Import mode value to `True` also suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
 
 ```
 FhirServer__Operations__Import__InitialImportMode: True
 ```
-### Change initial import mode on the FHIR server
+### Change incremental import mode on the FHIR server
 
-The FHIR server must have the `initial import mode` set to `True` for $import to work. Setting the value to `True` also suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
+The FHIR server must have the `initial import mode` set to `True` for $import to work. 
 
 ```
 FhirServer__Operations__Import__InitialImportMode: False
