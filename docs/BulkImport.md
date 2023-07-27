@@ -15,7 +15,7 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 
 ### Current limitations
 
-* Conditional references in resources are not supported for incremental mode import.
+* Conditional references in resources are not supported for initial mode import.
 * If multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
 
 ## How to use $import
@@ -69,15 +69,14 @@ You can choose to use initial import mode or incremental import mode.
 
 ### Change initial import mode on the FHIR server
 
-The FHIR server must have the `initial import mode` set to `True` for $import to work. Setting the Initial Import mode value to `True` also suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
+Set the Initial Import mode value to `True` for initial import mode. Initial import mode suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
 
 ```
 FhirServer__Operations__Import__InitialImportMode: True
 ```
 ### Change incremental import mode on the FHIR server
 
-The FHIR server must have the `initial import mode` set to `True` for $import to work. 
-
+Set the Initial Import mode value to `False` for incremental import mode. In incremental import mode, concurrent API writes can be performed during data ingestion into the FHIR service. 
 ```
 FhirServer__Operations__Import__InitialImportMode: False
 ```
