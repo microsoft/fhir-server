@@ -120,6 +120,25 @@ CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
 )
 
 /*************************************************************
+    Number Search Param
+**************************************************************/
+
+-- We support the underlying value being a range, though we expect the vast majority of entries to be a single value.
+-- Either:
+--  (1) SingleValue is not null and LowValue and HighValue are both null, or
+--  (2) SingleValue is null and LowValue and HighValue are both not null
+-- We make use of filtered nonclustered indexes to keep queries over the ranges limited to those rows that actually have ranges
+
+CREATE TYPE dbo.BulkNumberSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SingleValue decimal(36,18) NULL,
+    LowValue decimal(36,18) NULL,
+    HighValue decimal(36,18) NULL
+)
+
+/*************************************************************
     Quantity Search Param
 **************************************************************/
 
@@ -134,6 +153,19 @@ CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
+)
+
+-- See comment above for number search params for how we store ranges
+
+CREATE TYPE dbo.BulkQuantitySearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    QuantityCodeId int NULL,
+    SingleValue decimal(36,18) NULL,
+    LowValue decimal(36,18) NULL,
+    HighValue decimal(36,18) NULL
 )
 
 /*************************************************************
@@ -294,6 +326,24 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
 )
 
 /*************************************************************
+    Token$Quantity Composite Search Param
+**************************************************************/
+
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_3 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    SystemId2 int NULL,
+    QuantityCodeId2 int NULL,
+    SingleValue2 decimal(36,18) NULL,
+    LowValue2 decimal(36,18) NULL,
+    HighValue2 decimal(36,18) NULL
+)
+
+/*************************************************************
     Token$String Composite Search Param
 **************************************************************/
 
@@ -368,6 +418,31 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
     SingleValue3 decimal(18,6) NULL,
     LowValue3 decimal(18,6) NULL,
     HighValue3 decimal(18,6) NULL,
+    HasRange bit NOT NULL
+)
+
+/*************************************************************
+    Token$Number$Number Composite Search Param
+**************************************************************/
+
+-- See number search param for how we deal with null. We apply a similar pattern here,
+-- except that we pass in a HasRange bit though the TVP. The alternative would have
+-- for a computed column, but a computed column cannot be used in as a index filter
+-- (even if it is a persisted computed column).
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_3 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
+    SingleValue2 decimal(36,18) NULL,
+    LowValue2 decimal(36,18) NULL,
+    HighValue2 decimal(36,18) NULL,
+    SingleValue3 decimal(36,18) NULL,
+    LowValue3 decimal(36,18) NULL,
+    HighValue3 decimal(36,18) NULL,
     HasRange bit NOT NULL
 )
 
