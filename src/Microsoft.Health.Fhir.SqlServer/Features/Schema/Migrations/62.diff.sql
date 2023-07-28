@@ -34,8 +34,8 @@ BEGIN TRY
     SET SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
     FROM (SELECT TOP (@DummyTop) * FROM @Resources) A 
-         JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) 
-           ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+         JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) 
+           ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
     WHERE B.IsHistory = 0
     OPTION (OPTIMIZE FOR (@DummyTop = 1))
   SET @Rows = @@rowcount
