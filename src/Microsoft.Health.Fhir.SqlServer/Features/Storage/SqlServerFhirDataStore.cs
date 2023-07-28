@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
+                var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)
@@ -405,7 +405,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
+            var results = await GetAsync(new[] { key }, cancellationToken);
             return results.Count == 0 ? null : results[0];
         }
 
@@ -419,22 +419,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int? failedResourceCount;
             try
             {
-                // This extra call unzips raw resources. I expect its CPU cost be much less than search param computation
-                var existingResources = (await GetAsync(resources.Select(r => r.ToResourceKey()).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(), r => r);
-                if (existingResources.Count != resources.Count)
-                {
-                    string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, resources.Count - existingResources.Count);
-                    string userAction = Core.Resources.ReindexingUserAction;
-                    _logger.LogError("{Error}", message);
-                    throw new PreconditionFailedException(message + " " + userAction);
-                }
-
-                var correctedResources = resources.Select(_ =>
-                {
-                    _.ResourceSurrogateId = existingResources[_.ToResourceKey()].ResourceSurrogateId;
-                    return _;
-                });
-                var mergeWrappers = correctedResources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
+                var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
