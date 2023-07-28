@@ -34,6 +34,7 @@ stages:
   - job: Windows_dotnet7
     pool:
       vmImage: $(WindowsVmImage)
+      name: '$(DefaultWindowsPool)'
     steps:
     - template: ./jobs/build.yml
       parameters:
@@ -69,6 +70,7 @@ stages:
   - job: Guardian
     pool:
       vmImage: 'windows-latest'
+      name: '$(DefaultWindowsPool)'
     steps:
     - template: ./jobs/analyze.yml
 
