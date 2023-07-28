@@ -587,8 +587,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }
 
-        // TODO: weakTag parameter is ignored, and it doesn't affect anything. Consider removing.
-        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, CancellationToken cancellationToken)
         {
             await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
             return await GetAsync(resource.ToResourceKey(), cancellationToken);

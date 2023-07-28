@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 originalResource.LastModifiedClaims,
                 hashValue);
 
-            await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, WeakETag.FromVersionId(originalResource.Version), CancellationToken.None);
+            await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, CancellationToken.None);
         }
     }
 }
