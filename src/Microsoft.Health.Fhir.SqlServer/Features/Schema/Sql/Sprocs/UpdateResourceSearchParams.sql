@@ -9,7 +9,7 @@
    ,@UriSearchParams dbo.UriSearchParamList READONLY
    ,@NumberSearchParams dbo.NumberSearchParamList READONLY
    ,@QuantitySearchParams dbo.QuantitySearchParamList READONLY
-   ,@DateTimeSearchParms dbo.DateTimeSearchParamList READONLY
+   ,@DateTimeSearchParams dbo.DateTimeSearchParamList READONLY
    ,@ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY
    ,@TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY
    ,@TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY
@@ -22,6 +22,7 @@ DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = object_name(@@procid)
        ,@Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
        ,@Rows int
+       ,@DummyTop bigint = 9223372036854775807
 
 BEGIN TRY
   DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceSurrogateId bigint NOT NULL)
@@ -32,8 +33,11 @@ BEGIN TRY
   UPDATE B
     SET SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
-    FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+    FROM (SELECT TOP (@DummyTop) * FROM @Resources) A 
+         JOIN dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) 
+           ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
     WHERE B.IsHistory = 0
+    OPTION (OPTIMIZE FOR (@DummyTop = 1))
   SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
@@ -97,7 +101,7 @@ BEGIN TRY
   INSERT INTO dbo.DateTimeSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax )
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax
-      FROM @DateTimeSearchParms
+      FROM @DateTimeSearchParams
 
   INSERT INTO dbo.ReferenceTokenCompositeSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2 )

@@ -419,19 +419,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int? failedResourceCount;
             try
             {
-                // This extra call unzips raw resources. I expect its CPU cost be much less than search param computation
-                var existingResources = (await GetAsync(resources.Select(r => r.ToResourceKey()).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(), r => r);
-                if (existingResources.Count != resources.Count)
+                var correctedResources = resources.Select((_, n) =>
                 {
-                    string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, resources.Count - existingResources.Count);
-                    string userAction = Core.Resources.ReindexingUserAction;
-                    _logger.LogError("{Error}", message);
-                    throw new PreconditionFailedException(message + " " + userAction);
-                }
-
-                var correctedResources = resources.Select(_ =>
-                {
-                    _.ResourceSurrogateId = existingResources[_.ToResourceKey()].ResourceSurrogateId;
+                    _.ResourceSurrogateId = n; // assign sequential numbers just not to break PK on TVP
                     return _;
                 });
                 var mergeWrappers = correctedResources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
@@ -446,7 +436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
-                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParms").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParams").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
                 new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
@@ -597,17 +587,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }
 
+        // TODO: weakTag parameter is ignored, and it doesn't affect anything. Consider removing.
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
         {
-            string eTag = weakETag == null
-                        ? null
-                        : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag.ToString() : "-1"); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
-
-            if (eTag != null && eTag != "-1")
-            {
-                resource.Version = eTag;
-            }
-
             await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
             return await GetAsync(resource.ToResourceKey(), cancellationToken);
         }

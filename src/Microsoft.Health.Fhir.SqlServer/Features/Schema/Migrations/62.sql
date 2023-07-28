@@ -6137,11 +6137,11 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
-@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
-                                                                                                                       FROM   @Resources), 'Input=Empty'), @Rows AS INT;
+                                                                                                                       FROM   @Resources), 'Input=Empty'), @Rows AS INT, @DummyTop AS BIGINT = 9223372036854775807;
 BEGIN TRY
     DECLARE @Ids TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
@@ -6150,12 +6150,14 @@ BEGIN TRY
     UPDATE B
     SET    SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
-    FROM   @Resources AS A
+    FROM   (SELECT TOP (@DummyTop) *
+            FROM   @Resources) AS A
            INNER JOIN
-           dbo.Resource AS B
+           dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId))
            ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    WHERE  B.IsHistory = 0;
+              AND B.ResourceId = A.ResourceId
+    WHERE  B.IsHistory = 0
+    OPTION (OPTIMIZE FOR (@DummyTop = 1));
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
@@ -6316,7 +6318,7 @@ BEGIN TRY
            IsLongerThanADay,
            IsMin,
            IsMax
-    FROM   @DateTimeSearchParms;
+    FROM   @DateTimeSearchParams;
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
