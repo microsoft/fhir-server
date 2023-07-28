@@ -6146,6 +6146,7 @@ BEGIN TRY
     DECLARE @Ids TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
         ResourceSurrogateId BIGINT   NOT NULL);
+    BEGIN TRANSACTION;
     UPDATE B
     SET    SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
@@ -6394,6 +6395,8 @@ BEGIN TRY
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
+    IF @@trancount > 0
+        ROLLBACK;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     THROW;
 END CATCH

@@ -26,6 +26,8 @@ DECLARE @st datetime = getUTCdate()
 BEGIN TRY
   DECLARE @Ids TABLE (ResourceTypeId smallint NOT NULL, ResourceSurrogateId bigint NOT NULL)
 
+  BEGIN TRANSACTION
+
   -- Update the search parameter hash value in the main resource table
   UPDATE B
     SET SearchParamHash = A.SearchParamHash
@@ -134,6 +136,7 @@ BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
   THROW
 END CATCH
