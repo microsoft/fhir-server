@@ -599,6 +599,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
         {
+            string eTag = weakETag == null
+                        ? null
+                        : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag.ToString() : "-1"); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+
+            if (eTag != null && eTag != "-1")
+            {
+                resource.Version = eTag;
+            }
+
             await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
             return await GetAsync(resource.ToResourceKey(), cancellationToken);
         }
