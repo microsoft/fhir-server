@@ -6153,9 +6153,10 @@ BEGIN TRY
     FROM   (SELECT TOP (@DummyTop) *
             FROM   @Resources) AS A
            INNER JOIN
-           dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId))
+           dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
            ON B.ResourceTypeId = A.ResourceTypeId
               AND B.ResourceId = A.ResourceId
+              AND B.Version = A.Version
     WHERE  B.IsHistory = 0
     OPTION (OPTIMIZE FOR (@DummyTop = 1));
     SET @Rows = @@rowcount;
