@@ -419,24 +419,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int? failedResourceCount;
             try
             {
-                // This extra call unzips raw resources. I expect its CPU cost be much less than search param computation
-                // In case of deleted resources surrogate id is not present on input. Not sure if this is a valid scenario,
-                // but this test GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown tries to do this
-                var existingResources = (await GetAsync(resources.Select(r => r.ToResourceKey()).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(), r => r);
-                if (existingResources.Count != resources.Count)
-                {
-                    string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, resources.Count - existingResources.Count);
-                    string userAction = Core.Resources.ReindexingUserAction;
-                    _logger.LogError("{Error}", message);
-                    throw new PreconditionFailedException(message + " " + userAction);
-                }
-
-                var correctedResources = resources.Select(_ =>
-                {
-                    _.ResourceSurrogateId = existingResources[_.ToResourceKey()].ResourceSurrogateId;
-                    return _;
-                });
-                var mergeWrappers = correctedResources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
+                // This logic relies on surrogate id in ResourceWrapper populated using database values
+                var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
                 using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
                 new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));

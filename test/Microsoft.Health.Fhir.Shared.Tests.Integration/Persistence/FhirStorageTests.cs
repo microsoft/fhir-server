@@ -1042,7 +1042,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"),
+                originalWrapper.ResourceSurrogateId);
 
             return (originalWrapper, updatedWrapper);
         }
@@ -1060,7 +1061,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.SearchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                originalWrapper.SearchParameterHash);
+                originalWrapper.SearchParameterHash,
+                originalWrapper.ResourceSurrogateId);
         }
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)
