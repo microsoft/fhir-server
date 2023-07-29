@@ -486,8 +486,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, resourceWrapper.Version));
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, resourceWrapper.Version));
+                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
 
                     case HttpStatusCode.ServiceUnavailable:
                         _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
