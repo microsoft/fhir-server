@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -288,7 +289,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping some objects
-                    var objectsToSkip = new[] { "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" };
+                    var objectsToSkip = new[] { "MergeResourcesAdvanceTransactionVisibility", "DequeueJob", "DisableIndexes", "GetResourceVersions", "CleanupEventLog", "InitDefrag", "EnqueueJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "GetCommandsForRebuildIndexes", "GetIndexCommands", "SwitchPartitionsIn", "SwitchPartitionsOut" }.ToList();
+                    objectsToSkip.Add("PartitionFunction_ResourceChangeData_Timestamp"); // definition is not predictable as it has start time component
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;
