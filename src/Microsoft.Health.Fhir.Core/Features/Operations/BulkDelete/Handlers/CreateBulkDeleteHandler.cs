@@ -49,7 +49,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete;
+            DataActions requiredDataAction = request.DeleteOperation switch
+            {
+                DeleteOperation.SoftDelete => DataActions.Delete,
+                _ => DataActions.HardDelete | DataActions.Delete,
+            };
+
             if (await _authorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
             {
                 throw new UnauthorizedFhirActionException();
@@ -66,9 +71,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
 
-            var definitions = new List<string>();
-            var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, request.DeleteOperation, request.ResourceType, searchParameters, request.ReportIds, _contextAccessor.RequestContext.Uri.ToString(), _contextAccessor.RequestContext.BaseUri.ToString());
-            var jobInfo = await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
+            var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, request.DeleteOperation, request.ResourceType, searchParameters, _contextAccessor.RequestContext.Uri.ToString(), _contextAccessor.RequestContext.BaseUri.ToString(), _contextAccessor.RequestContext.CorrelationId);
+
+            IReadOnlyList<JobInfo> jobInfo =
+                await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);
 
             if (jobInfo == null || jobInfo.Count == 0)
             {

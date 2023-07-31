@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _deleter.ClearReceivedCalls();
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), false, "https:\\\\test.com", "https:\\\\test.com");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient", new List<Tuple<string, string>>(), "https:\\\\test.com", "https:\\\\test.com", "test");
             var jobInfo = new JobInfo()
             {
                 Id = 1,

@@ -26,18 +26,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IQueueClient _queueClient;
-        private readonly IBundleFactory _bundleFactory;
         private const string ResourceDeletedCountName = "ResourceDeletedCount";
-        private const string ResourcesDeletedName = "ResourcesDeleted";
 
         public GetBulkDeleteHandler(
             IAuthorizationService<DataActions> authorizationService,
-            IQueueClient queueClient,
-            IBundleFactory deletedResourcesBundleFactory)
+            IQueueClient queueClient)
         {
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            _bundleFactory = EnsureArg.IsNotNull(deletedResourcesBundleFactory, nameof(deletedResourcesBundleFactory));
         }
 
         public async Task<GetBulkDeleteResponse> Handle(GetBulkDeleteRequest request, CancellationToken cancellationToken)
@@ -60,7 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             var cancelled = false;
             var succeeded = true;
             var resourcesDeleted = new Dictionary<string, long>();
-            var resourcesDeletedIds = new Dictionary<string, ISet<string>>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
 
@@ -122,15 +117,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                             resourcesDeleted[key] += result.ResourcesDeleted[key];
                         }
                     }
-
-                    foreach (var key in result.ResourcesDeletedIds.Keys)
-                    {
-                        if (!resourcesDeletedIds.TryAdd(key, result.ResourcesDeletedIds[key]))
-                        {
-                            resourcesDeletedIds[key] =
-                                resourcesDeletedIds[key].Concat(result.ResourcesDeletedIds[key]).ToHashSet();
-                        }
-                    }
                 }
             }
 
@@ -162,26 +148,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
                     fhirResults.Add(parameterComponent);
                 }
-            }
-
-            if (resourcesDeletedIds.Sum(x => x.Value.Count) > 0)
-            {
-                var deleted = new Parameters.ParameterComponent
-                {
-                    Name = ResourcesDeletedName,
-                };
-
-                ResourceReference[] deletedByType = resourcesDeletedIds
-                    .SelectMany(group =>
-                        group.Value.Select(id => new ResourceReference($"{group.Key}/{id}")))
-                    .ToArray();
-
-                deleted.Resource = _bundleFactory.CreateDeletedResourcesBundle(
-                    ResourcesDeletedName,
-                    new DateTimeOffset(jobs.Where(x => x.EndDate.HasValue).Max(x => x.EndDate.Value)),
-                    deletedByType);
-
-                fhirResults.Add(deleted);
             }
 
             if (failed && issues.Count > 0)

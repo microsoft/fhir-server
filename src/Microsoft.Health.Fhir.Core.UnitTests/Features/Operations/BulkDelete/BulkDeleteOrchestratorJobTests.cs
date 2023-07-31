@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 "Observation",
             });
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, false, "test", "test");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 
-            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, "Patient", null, false, "test", "test");
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, "Patient", null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
                 GroupId = 1,

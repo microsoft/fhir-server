@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -36,11 +35,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IUrlResolver _urlResolver;
 
-        private readonly HashSet<string> _exlcudedParameters = new HashSet<string>(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
+        private readonly HashSet<string> _exlcudedParameters = new(new PropertyEqualityComparer<string>(StringComparison.OrdinalIgnoreCase, s => s))
         {
             KnownQueryParameterNames.HardDelete,
             KnownQueryParameterNames.PurgeHistory,
-            KnownQueryParameterNames.ReportIds,
         };
 
         public BulkDeleteController(
@@ -55,18 +53,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkDelete)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDelete([FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ReportIds)] bool reportIds)
+        public async Task<IActionResult> BulkDelete([FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(null, hardDelete, purgeHistory, reportIds);
+            return await SendDeleteRequest(null, hardDelete, purgeHistory);
         }
 
         [HttpDelete]
         [Route(KnownRoutes.BulkDeleteResourceType)]
         [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkDelete)]
-        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory, [FromQuery(Name = KnownQueryParameterNames.ReportIds)] bool reportIds)
+        public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory, reportIds);
+            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory);
         }
 
         [HttpGet]
@@ -93,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory, bool reportIds)
+        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory)
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
@@ -106,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 _ => DeleteOperation.SoftDelete,
             };
 
-            CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, reportIds, HttpContext.RequestAborted);
+            CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());

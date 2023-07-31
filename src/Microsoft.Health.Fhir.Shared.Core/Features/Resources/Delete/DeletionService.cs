@@ -11,13 +11,16 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
 
@@ -52,7 +55,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public async Task<ResourceKey> DeleteAsync(DeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            var key = request.ResourceKey;
+            EnsureArg.IsNotNull(request, nameof(request));
+
+            ResourceKey key = request.ResourceKey;
 
             if (!string.IsNullOrEmpty(key.VersionId))
             {
@@ -64,10 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             switch (request.DeleteOperation)
             {
                 case DeleteOperation.SoftDelete:
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(key.ResourceType));
-                    emptyInstance.Id = request.ResourceKey.Id;
-
-                    ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
+                    ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(key.ResourceType, request.ResourceKey.Id);
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
@@ -88,6 +90,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public async Task<IReadOnlySet<string>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.MaxDeleteCount);
 
             var itemsDeleted = new HashSet<string>();
@@ -98,17 +102,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
                     IReadOnlyCollection<SearchResultEntry> resultsToDelete =
-                        request.DeleteAll ? matchedResults : matchedResults.Take(request.MaxDeleteCount.Value - itemsDeleted.Count)
+                        request.DeleteAll ? matchedResults : matchedResults
+                            .Take(Math.Max(request.MaxDeleteCount.GetValueOrDefault() - itemsDeleted.Count, 0))
                             .ToArray();
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
                         bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
-                        var softDeletes = resultsToDelete.Select(item =>
+                        ResourceWrapperOperation[] softDeletes = resultsToDelete.Select(item =>
                         {
-                            var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceType));
-                            emptyInstance.Id = item.Resource.ResourceId;
-                            ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptyInstance, _resourceIdProvider, deleted: true, keepMeta: false);
+                            ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(request.ResourceType, item.Resource.ResourceId);
                             return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null);
                         }).ToArray();
 
@@ -172,6 +175,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return itemsDeleted;
+        }
+
+        private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)
+        {
+            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
+            EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
+
+            ISourceNode emptySourceNode = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType,
+                        id = resourceId,
+                    }));
+
+            ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptySourceNode.ToPoco<Resource>(), _resourceIdProvider, deleted: true, keepMeta: false);
+            return deletedWrapper;
         }
     }
 }

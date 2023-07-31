@@ -1,9 +1,8 @@
 # .SUMMARY Sample requests for Bulk Delete
-#  __    __             __   _____     _   
-# |  \  /  \    |\  |  /  \    |      | \  |  |  |\  |
-# |  |  |  |    | \ |  |  |    |      |_/  |  |  | \ |
-# |__/  \__/    |  \|  \__/    |      | \  \__/  |  \|
-# On real data. These commands will remove all the data in your database, sometimes without a way to recover it. Use these only in a testing environment.
+# These commands will remove all the data in your database,
+# sometimes without a way to recover it.
+#
+# Use these only in a testing environment.
 
 @hostname = localhost:44348
 
@@ -29,18 +28,6 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Record Bulk Delete content location
 @bulkDeleteLocation = {{bulkDelete.response.headers.Content-Location}}
 
-### Create Bulk Delete request
-# @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete
-Prefer: respond-async
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-### Create resource level Bulk Delete request
-# @name bulkDelete
-DELETE https://{{hostname}}/Patient/$bulk-delete
-Prefer: respond-async
-Authorization: Bearer {{bearer.response.body.access_token}}
-
 ### Bulk Delete with search parameteres
 # @name bulkDelete
 DELETE https://{{hostname}}/$bulk-delete?_tag=oldData
@@ -49,22 +36,21 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Bulk Delete with hard delete
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?_hardDelete=true&_reportIds=true
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&_hardDelete=true
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### Bulk Delete with purge history
+### Bulk Purge History
 # @name bulkDelete
-DELETE https://{{hostname}}/$bulk-delete?_hardDelete=true&_purgeHistory=true&_tag=oldData
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&_purgeHistory=true
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### Bulk Delete with hard delete and report ids
+### Bulk Delete Encounters with hard delete
 # @name bulkDelete
-DELETE https://{{hostname}}/Encounter/$bulk-delete?_hardDelete=true&_reportIds=true
+DELETE https://{{hostname}}/Encounter/$bulk-delete?_hardDelete=true
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
-
 
 ### Get Bulk Delete request
 GET {{bulkDeleteLocation}}

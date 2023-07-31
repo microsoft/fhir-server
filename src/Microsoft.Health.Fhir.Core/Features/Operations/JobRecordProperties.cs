@@ -167,8 +167,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string BaseUrl = "baseUrl";
 
-        public const string ReportIds = "reportIds";
-
-        public const string ResourcesDeletedIds = "resourcesDeletedIds";
+        public const string ParentRequestId = "parentRequestId";
     }
 }

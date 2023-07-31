@@ -14,15 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         public BulkDeleteResult()
         {
             ResourcesDeleted = new Dictionary<string, long>();
-            ResourcesDeletedIds = new Dictionary<string, ISet<string>>();
             Issues = new List<string>();
         }
 
         [JsonProperty(JobRecordProperties.ResourcesDeleted)]
         public IDictionary<string, long> ResourcesDeleted { get; }
-
-        [JsonProperty(JobRecordProperties.ResourcesDeletedIds)]
-        public IDictionary<string, ISet<string>> ResourcesDeletedIds { get; }
 
         [JsonProperty(JobRecordProperties.Issues)]
         public ICollection<string> Issues { get; }

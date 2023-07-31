@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,11 +46,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            var existingFhirRequestContext = _contextAccessor.RequestContext;
+            IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
                 BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
+
+                Activity.Current?.SetParentId(definition.ParentRequestId);
 
                 var fhirRequestContext = new FhirRequestContext(
                     method: "BulkDelete",
@@ -87,10 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 }
 
                 result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count);
-                if (definition.ReportIds)
-                {
-                    result.ResourcesDeletedIds.Add(definition.Type, itemsDeleted.ToHashSet());
-                }
 
                 await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count), cancellationToken);
 

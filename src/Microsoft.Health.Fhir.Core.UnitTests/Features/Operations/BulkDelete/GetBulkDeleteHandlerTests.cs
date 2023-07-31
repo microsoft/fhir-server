@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _queueClient = Substitute.For<IQueueClient>();
-            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient, Substitute.For<IBundleFactory>());
+            _handler = new GetBulkDeleteHandler(_authorizationService, _queueClient);
         }
 
         [Fact]
@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
 
-            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, false, "test", "test"));
+            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, "test", "test", "test"));
             foreach (var job in jobs)
             {
                 job.Definition = definition;

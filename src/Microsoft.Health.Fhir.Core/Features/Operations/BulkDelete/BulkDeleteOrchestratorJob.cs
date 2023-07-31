@@ -16,8 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     [JobTypeId((int)JobType.BulkDeleteOrchestrator)]
     public class BulkDeleteOrchestratorJob : IJob
     {
-        private IQueueClient _queueClient;
-        private ISearchService _searchService;
+        private readonly IQueueClient _queueClient;
+        private readonly ISearchService _searchService;
+        private const string OperationCompleted = "Completed";
 
         public BulkDeleteOrchestratorJob(
             IQueueClient queueClient,
@@ -40,22 +41,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             var definitions = new List<BulkDeleteDefinition>();
             if (string.IsNullOrEmpty(definition.Type))
             {
-                var resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
+                IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.ReportIds, definition.Url, definition.BaseUrl);
+                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
                     definitions.Add(processingDefinition);
                 }
             }
             else
             {
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.ReportIds, definition.Url, definition.BaseUrl);
+                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
                 definitions.Add(processingDefinition);
             }
 
             await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: definitions.ToArray());
-            return "Completed";
+            return OperationCompleted;
         }
     }
 }
