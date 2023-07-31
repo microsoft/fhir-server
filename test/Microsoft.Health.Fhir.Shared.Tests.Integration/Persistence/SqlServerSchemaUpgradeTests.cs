@@ -12,7 +12,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
