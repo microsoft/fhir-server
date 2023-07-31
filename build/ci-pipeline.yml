@@ -33,7 +33,7 @@ stages:
   jobs:
   - job: Windows_dotnet7
     pool:
-      demands: Agent.OS -equals Windows_NT
+      demands: TaskAgentPlatform -equals win-x64
       name: '$(DefaultWindowsPool)'
     steps:
     - template: ./jobs/build.yml
@@ -70,7 +70,7 @@ stages:
   - job: Guardian
     pool:
       name: '$(DefaultWindowsPool)'
-      demands: Agent.OS -equals Windows_NT
+      demands: TaskAgentPlatform -equals win-x64
     steps:
     - template: ./jobs/analyze.yml
 
