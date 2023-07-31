@@ -34,15 +34,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             }
             catch (Exception ex)
             {
-                if (ex.InnerException is SecurityTokenException)
-                {
-                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                }
-                else
-                {
-                    ExceptionDispatchInfo.Capture(ex).Throw();
-                }
+                ThrowIfSecurityTokenException(ex);
+
+                ExceptionDispatchInfo.Capture(ex).Throw();
             }
+        }
+
+        private static bool ThrowIfSecurityTokenException(Exception ex)
+        {
+            // Before checking if the current exception inherits from SecurityTokenException,
+            // check if the inner exception is a SecurityTokenException.
+            // That way, the most nested exception is raised.
+            if (ex.InnerException != null)
+            {
+                ThrowIfSecurityTokenException(ex.InnerException);
+            }
+
+            if (ex is SecurityTokenException)
+            {
+                ExceptionDispatchInfo.Capture(ex).Throw();
+            }
+
+            return false;
         }
     }
 }

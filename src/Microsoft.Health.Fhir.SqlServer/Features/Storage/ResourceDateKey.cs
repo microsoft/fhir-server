@@ -5,31 +5,31 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDateKey : IEquatable<ResourceDateKey>
     {
-        public ResourceDateKey(string resourceType, string id, long resourceSurrogateId, string versionId)
+        public ResourceDateKey(short resourceTypeId, string id, long resourceSurrogateId, string versionId, bool isDeleted = false)
         {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
-            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
 
-            ResourceType = resourceType;
+            ResourceTypeId = resourceTypeId;
             Id = id;
             ResourceSurrogateId = resourceSurrogateId;
             VersionId = versionId;
+            IsDeleted = isDeleted;
         }
 
-        public string ResourceType { get; }
+        public short ResourceTypeId { get; }
 
         public string Id { get; }
 
         public long ResourceSurrogateId { get; }
 
         public string VersionId { get; }
+
+        public bool IsDeleted { get; }
 
         public bool Equals(ResourceDateKey other)
         {
@@ -43,10 +43,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return true;
             }
 
-            return ResourceType == other.ResourceType &&
+            return ResourceTypeId == other.ResourceTypeId &&
                    Id == other.Id &&
                    ResourceSurrogateId == other.ResourceSurrogateId &&
-                   VersionId == other.VersionId;
+                   VersionId == other.VersionId &&
+                   IsDeleted == other.IsDeleted;
         }
 
         public override bool Equals(object obj)
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(ResourceType, Id, ResourceSurrogateId, VersionId);
+            return HashCode.Combine(ResourceTypeId, Id, ResourceSurrogateId, VersionId, IsDeleted);
         }
     }
 }

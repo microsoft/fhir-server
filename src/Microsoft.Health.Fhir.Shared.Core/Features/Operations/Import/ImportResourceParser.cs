@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            CheckConditionalReferenceInResource(resource);
+            CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
             {
@@ -55,8 +55,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
         }
 
-        private static void CheckConditionalReferenceInResource(Resource resource)
+        private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)
         {
+            if (importMode == ImportMode.IncrementalLoad)
+            {
+                return;
+            }
+
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
             foreach (ResourceReference reference in references)
             {
@@ -67,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (reference.Reference.Contains('?', StringComparison.Ordinal))
                 {
-                    throw new NotSupportedException("Conditional reference is not supported for $import.");
+                    throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
             }
         }

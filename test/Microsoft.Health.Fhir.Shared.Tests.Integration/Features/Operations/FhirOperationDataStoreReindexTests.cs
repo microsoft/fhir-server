@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             IReadOnlyCollection<ReindexJobWrapper> jobWrappers = await AcquireReindexJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
             Assert.NotNull(jobWrappers);
-            Assert.Equal(1, jobWrappers.Count);
+            Assert.Single(jobWrappers);
 
             ReindexJobWrapper jobWrapper = jobWrappers.FirstOrDefault();
 

@@ -11,11 +11,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
@@ -27,17 +24,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private int _heartbeatTimeoutSec;
         private CancellationToken _cancellationToken;
 
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
-        private readonly Func<IScoped<SqlQueueClient>> _sqlQueueClient;
+        private readonly ISqlRetryService _sqlRetryService;
+        private readonly SqlQueueClient _sqlQueueClient;
         private readonly ILogger<DefragWatchdog> _logger;
 
         public DefragWatchdog(
-            Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory,
-            Func<IScoped<SqlQueueClient>> sqlQueueClient,
+            ISqlRetryService sqlRetryService,
+            SqlQueueClient sqlQueueClient,
             ILogger<DefragWatchdog> logger)
-            : base(sqlConnectionWrapperFactory, logger)
+            : base(sqlRetryService, logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _sqlQueueClient = EnsureArg.IsNotNull(sqlQueueClient, nameof(sqlQueueClient));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
@@ -82,9 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation("Group={GroupId} Job={JobId}: ActiveDefragItems={ActiveDefragItems}, executing...", job.groupId, job.jobId, job.activeDefragItems);
 
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             await JobHosting.ExecuteJobWithHeartbeatsAsync(
-                scopedQueueClient.Value,
+                _sqlQueueClient,
                 QueueType,
                 job.jobId,
                 job.version,
@@ -130,11 +126,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task ChangeDatabaseSettingsAsync(bool isOn, CancellationToken cancellationToken)
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            VLatest.DefragChangeDatabaseSettings.PopulateCommand(cmd, isOn);
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings") { CommandType = CommandType.StoredProcedure};
+            cmd.Parameters.AddWithValue("@IsOn", isOn);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("ChangeDatabaseSettings: {IsOn}.", isOn);
         }
@@ -152,9 +146,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                     return;
                 }
 
-                using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
                 await JobHosting.ExecuteJobWithHeartbeatsAsync(
-                    scopedQueueClient.Value,
+                    _sqlQueueClient,
                     QueueType,
                     jobId,
                     job.version,
@@ -178,48 +171,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
 
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            VLatest.Defrag.PopulateCommand(cmd, table, index, partitionNumber, isPartitioned);
-            cmd.CommandTimeout = 0; // this is long running
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            using var cmd = new SqlCommand("dbo.Defrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            cmd.Parameters.AddWithValue("@TableName", table);
+            cmd.Parameters.AddWithValue("@IndexName", index);
+            cmd.Parameters.AddWithValue("@PartitionNumber", partitionNumber);
+            cmd.Parameters.AddWithValue("@IsPartitioned", isPartitioned);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
             _logger.LogInformation("Finished defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
         }
 
         private async Task CompleteJobAsync(long jobId, long version, bool failed, CancellationToken cancellationToken)
         {
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
             var jobInfo = new JobInfo { QueueType = QueueType, Id = jobId, Version = version, Status = failed ? JobStatus.Failed : JobStatus.Completed };
-            await scopedQueueClient.Value.CompleteJobAsync(jobInfo, false, cancellationToken);
+            await _sqlQueueClient.CompleteJobAsync(jobInfo, false, cancellationToken);
 
             _logger.LogInformation("Completed JobId: {JobId}, Version: {Version}, Failed: {Failed}", jobId, version, failed);
         }
 
-        private async Task<int?> InitDefragAsync(long groupId, CancellationToken cancellationToken)
+        private async Task<int> InitDefragAsync(long groupId, CancellationToken cancellationToken)
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            var defragItems = 0;
-            VLatest.InitDefrag.PopulateCommand(cmd, QueueType, groupId, defragItems);
-            cmd.CommandTimeout = 0; // this is long running
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
-            return VLatest.InitDefrag.GetOutputs(cmd);
+            using var cmd = new SqlCommand("dbo.InitDefrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            cmd.Parameters.AddWithValue("@QueueType", QueueType);
+            cmd.Parameters.AddWithValue("@GroupId", groupId);
+            var defragItemsParam = new SqlParameter("@DefragItems", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            cmd.Parameters.Add(defragItemsParam);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            return (int)defragItemsParam.Value;
         }
 
         private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetCoordinatorJobAsync(CancellationToken cancellationToken)
         {
             var activeDefragItems = 0;
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            var queueClient = scopedQueueClient.Value;
-            await queueClient.ArchiveJobsAsync(QueueType, cancellationToken);
+            await _sqlQueueClient.ArchiveJobsAsync(QueueType, cancellationToken);
 
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await queueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
 
                 if (jobs.Count > 0)
                 {
@@ -252,8 +241,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<(long groupId, long jobId, long version, string definition)> DequeueJobAsync(long? jobId = null, CancellationToken cancellationToken = default)
         {
-            using IScoped<SqlQueueClient> scopedQueueClient = _sqlQueueClient.Invoke();
-            JobInfo job = await scopedQueueClient.Value.DequeueAsync(QueueType, Environment.MachineName, _heartbeatTimeoutSec, cancellationToken, jobId);
+            JobInfo job = await _sqlQueueClient.DequeueAsync(QueueType, Environment.MachineName, _heartbeatTimeoutSec, cancellationToken, jobId);
 
             if (job != null)
             {
@@ -265,29 +253,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-
-            // cannot use VLatest as it incorrectly asks for optional group id
-            cmd.CommandText = "dbo.GetActiveJobs";
-            cmd.CommandType = CommandType.StoredProcedure;
+            using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@QueueType", QueueType);
-
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             var activeDefragItems = 0;
-            await using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                if (reader.GetString(2) == "Defrag")
+            await _sqlRetryService.ExecuteSql(
+                cmd,
+                async (command, cancel) =>
                 {
-                    id = (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(3));
-                }
-                else
-                {
-                    activeDefragItems++;
-                }
-            }
+                    await using var reader = await command.ExecuteReaderAsync(cancel);
+                    while (await reader.ReadAsync(cancel))
+                    {
+                        if (reader.GetString(2) == "Defrag")
+                        {
+                            id = (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(3));
+                        }
+                        else
+                        {
+                            activeDefragItems++;
+                        }
+                    }
+                },
+                _logger,
+                null,
+                cancellationToken);
 
             return (id.groupId, id.jobId, id.version, activeDefragItems);
         }
@@ -314,19 +303,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation("InitDefragParamsAsync starting...");
 
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = @"
+            using var cmd = new SqlCommand(@"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
-            ";
+            ");
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
             _threads = await GetThreadsAsync(CancellationToken.None);
             _heartbeatPeriodSec = await GetHeartbeatPeriodAsync(CancellationToken.None);

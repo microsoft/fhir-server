@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 observationFhirPatchRequest));
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionFhir.StatusCode);
-            Assert.True(exceptionFhir.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, observation.TypeName)));
+            Assert.Equal(exceptionFhir.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, observation.TypeName));
         }
 
         [Fact]

@@ -33,7 +33,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
             "Claims: {Claims}" + Environment.NewLine +
-            "CustomHeaders: {CustomHeaders}";
+            "CustomHeaders: {CustomHeaders}" + Environment.NewLine +
+            "OperationType: {OperationType}" + Environment.NewLine +
+            "CallerAgent: {CallerAgent}" + Environment.NewLine +
+            "AdditionalProperties: {AdditionalProperties}" + Environment.NewLine;
 
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<IAuditLogger> _logger;
@@ -59,10 +62,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyDictionary<string, string> customHeaders = null)
+            IReadOnlyDictionary<string, string> customHeaders = null,
+            string operationType = null,
+            string callerAgent = null,
+            IReadOnlyDictionary<string, string> additionalProperties = null)
         {
             string claimsInString = null;
             string customerHeadersInString = null;
+            string additionalPropertiesInString = null;
 
             if (callerClaims != null)
             {
@@ -72,6 +79,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             if (customHeaders != null)
             {
                 customerHeadersInString = string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}"));
+            }
+
+            if (additionalProperties != null)
+            {
+                additionalPropertiesInString = string.Join(";", additionalProperties.Select(props => $"{props.Key}={props.Value}"));
             }
 
             _logger.LogInformation(
@@ -88,7 +100,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
                 statusCode,
                 correlationId,
                 claimsInString,
-                customerHeadersInString);
+                customerHeadersInString,
+                operationType,
+                callerAgent,
+                additionalPropertiesInString);
         }
     }
 }

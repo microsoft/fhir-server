@@ -409,7 +409,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
-                                PopulateResourceTableColumnsToRead(
+                                ReadWrapper(
                                     reader,
                                     out short resourceTypeId,
                                     out string resourceId,
@@ -421,23 +421,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out bool isPartialEntry,
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
-                                    out Stream rawResourceStream);
+                                    out byte[] rawResourceBytes,
+                                    out bool isInvisible);
+
+                                if (isInvisible)
+                                {
+                                    continue;
+                                }
+
                                 numberOfColumnsRead = reader.FieldCount;
 
-                                string rawResource;
-                                await using (rawResourceStream)
+                                // If we get to this point, we know there are more results so we need a continuation token
+                                // Additionally, this resource shouldn't be included in the results
+                                if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
                                 {
-                                    // If we get to this point, we know there are more results so we need a continuation token
-                                    // Additionally, this resource shouldn't be included in the results
-                                    if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                                    {
-                                        moreResults = true;
+                                    moreResults = true;
 
-                                        continue;
-                                    }
-
-                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                    continue;
                                 }
+
+                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
                                 _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
@@ -595,7 +599,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     var resources = new List<SearchResultEntry>();
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        PopulateResourceTableColumnsToRead(
+                        ReadWrapper(
                             reader,
                             out short _,
                             out string resourceId,
@@ -607,7 +611,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out Stream rawResourceStream);
+                            out byte[] rawResourceBytes,
+                            out bool isInvisible);
+
+                        if (isInvisible)
+                        {
+                            continue;
+                        }
 
                         // original sql was: AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
                         if (!(searchParameterHash == null || searchParameterHash != searchParamHashFilter))
@@ -615,11 +625,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        string rawResource;
-                        await using (rawResourceStream)
-                        {
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                        }
+                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
@@ -659,32 +666,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
-            // TODO: this code will not set capacity for the result list!
-
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            List<(long StartId, long EndId)> searchList = null;
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
-                    LogSqlCommand(sqlCommand);
-
-                    searchList = await _sqlRetryService.ExecuteSqlDataReader(
-                       sqlCommand,
-                       ReaderToSurrogateIdRange,
-                       _logger,
-                       $"{nameof(GetSurrogateIdRanges)} failed.",
-                       cancellationToken);
-                    return;
-                },
-                cancellationToken);
-            return searchList;
+            using var sqlCommand = new SqlCommand();
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
         }
 
         private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
@@ -694,31 +681,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
-            var resourceTypes = new List<(short ResourceTypeId, string Name)>();
-
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    sqlCommand.CommandText = "dbo.GetUsedResourceTypes";
-                    LogSqlCommand(sqlCommand);
-
-                    resourceTypes = await _sqlRetryService.ExecuteSqlDataReader(
-                       sqlCommand,
-                       ReaderGetUsedResourceTypes,
-                       _logger,
-                       $"{nameof(GetUsedResourceTypes)} failed.",
-                       cancellationToken);
-                    return;
-                },
-                cancellationToken);
-
-            return resourceTypes;
+            using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken);
         }
 
         /// <summary>
@@ -817,7 +782,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return newSearchOptions;
         }
 
-        private void PopulateResourceTableColumnsToRead(
+        private void ReadWrapper(
             SqlDataReader reader,
             out short resourceTypeId,
             out string resourceId,
@@ -829,41 +794,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out Stream rawResourceStream)
+            out byte[] rawResourceBytes,
+            out bool isInvisible)
         {
-            searchParameterHash = null;
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.SearchParamHash,
-                    VLatest.Resource.RawResource);
-            }
-            else
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.RawResource);
-            }
+            resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            version = reader.Read(VLatest.Resource.Version, 2);
+            isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
+            resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
+            requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
+            isMatch = reader.Read(_isMatch, 6);
+            isPartialEntry = reader.Read(_isPartial, 7);
+            isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
+            searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
+            rawResourceBytes = reader.GetSqlBytes(10).Value;
+            isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
         }
 
         [Conditional("DEBUG")]

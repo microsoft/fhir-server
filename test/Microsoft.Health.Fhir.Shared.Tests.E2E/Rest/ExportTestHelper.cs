@@ -9,11 +9,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Azure.Storage;
+using Azure.Storage.Blobs.Specialized;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json;
@@ -107,53 +106,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return resourceIdToResourceMapping;
         }
 
-        internal static CloudStorageAccount GetCloudStorageAccountHelper(string storageAccountName)
+        internal static (StorageSharedKeyCredential credential, string connectionString) GetStorageCredentialOrConnectionString(Uri storageServiceUri)
         {
-            if (string.IsNullOrWhiteSpace(storageAccountName))
+            if (storageServiceUri == null)
             {
                 throw new Exception("StorageAccountName cannot be empty");
             }
 
-            CloudStorageAccount cloudAccount = null;
+            string storageAccountName = storageServiceUri.Host.Split('.')[0];
 
             // If we are running locally, then we need to connect to the Azure Storage Emulator.
             // Else we need to connect to a proper Azure Storage Account.
             if (storageAccountName.Equals("127", StringComparison.OrdinalIgnoreCase))
             {
                 string emulatorConnectionString = "UseDevelopmentStorage=true";
-                CloudStorageAccount.TryParse(emulatorConnectionString, out cloudAccount);
+                return (null, emulatorConnectionString);
             }
-            else
+
+            StorageSharedKeyCredential storageCredential = null;
+            string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
+            string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
+
+            if (!string.IsNullOrWhiteSpace(storageSecret))
             {
-                string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-                string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
-
-                if (!string.IsNullOrWhiteSpace(storageSecret))
-                {
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-                }
-                else if (!string.IsNullOrWhiteSpace(allAccounts))
-                {
-                    var splitAccounts = allAccounts.Split('|').ToList();
-                    var nameIndex = splitAccounts.IndexOf(storageAccountName + "_secret");
-
-                    if (nameIndex < 0)
-                    {
-                        throw new Exception("Unable to create a cloud storage account, key not provided.");
-                    }
-
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, splitAccounts[nameIndex + 1].Trim());
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-                }
+                storageCredential = new StorageSharedKeyCredential(storageAccountName, storageSecret);
             }
-
-            if (cloudAccount == null)
+            else if (!string.IsNullOrWhiteSpace(allAccounts))
             {
-                throw new Exception("Unable to create a cloud storage account");
+                var splitAccounts = allAccounts.Split('|').ToList();
+                var nameIndex = splitAccounts.IndexOf(storageAccountName + "_secret");
+
+                if (nameIndex < 0)
+                {
+                    throw new Exception("Unable to create a cloud storage account, key not provided.");
+                }
+
+                storageCredential = new StorageSharedKeyCredential(storageAccountName, splitAccounts[nameIndex + 1].Trim());
             }
 
-            return cloudAccount;
+            if (storageCredential == null)
+            {
+                throw new Exception("Unable to create a shared key credential");
+            }
+
+            return (storageCredential, null);
         }
 
         internal static async Task<Dictionary<(string resourceType, string resourceId), Resource>> DownloadBlobAndParse(
@@ -168,17 +164,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Extract storage account name from blob uri in order to get corresponding access token.
             Uri sampleUri = blobUri[0];
-            string storageAccountName = sampleUri.Host.Split('.')[0];
+            Uri storageServiceUri = new UriBuilder(sampleUri.Scheme, sampleUri.Host).Uri;
 
-            CloudStorageAccount cloudAccount = ExportTestHelper.GetCloudStorageAccountHelper(storageAccountName);
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            (StorageSharedKeyCredential credential, string connectionString) = GetStorageCredentialOrConnectionString(storageServiceUri);
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
+            var localRun = credential == null;
 
             foreach (Uri uri in blobUri)
             {
-                var blob = new CloudBlockBlob(uri, blobClient);
-                string allData = await blob.DownloadTextAsync();
-
+                BlockBlobClient blob = AzureStorageBlobHelper.CreateBlockBlobClient(uri, credential, connectionString);
+                var response = await blob.DownloadContentAsync();
+                var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");
 
                 foreach (string entry in splitData)

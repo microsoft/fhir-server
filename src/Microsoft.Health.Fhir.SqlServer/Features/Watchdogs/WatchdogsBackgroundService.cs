@@ -20,12 +20,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly DefragWatchdog _defragWatchdog;
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly TransactionWatchdog _transactionWatchdog;
+        private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
 
-        public WatchdogsBackgroundService(DefragWatchdog defragWatchdog, CleanupEventLogWatchdog cleanupEventLogWatchdog, Func<IScoped<TransactionWatchdog>> transactionWatchdog)
+        public WatchdogsBackgroundService(
+            DefragWatchdog defragWatchdog,
+            CleanupEventLogWatchdog cleanupEventLogWatchdog,
+            Func<IScoped<TransactionWatchdog>> transactionWatchdog,
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke().Value;
+            _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -39,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await _defragWatchdog.StartAsync(stoppingToken);
             await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
             await _transactionWatchdog.StartAsync(stoppingToken);
+            await _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken);
 
             while (true)
             {
@@ -58,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _defragWatchdog.Dispose();
             _cleanupEventLogWatchdog.Dispose();
             _transactionWatchdog.Dispose();
+            _invisibleHistoryCleanupWatchdog.Dispose();
             base.Dispose();
         }
     }

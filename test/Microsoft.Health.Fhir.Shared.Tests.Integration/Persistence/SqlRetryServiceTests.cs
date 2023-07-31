@@ -377,7 +377,7 @@ END
 
                 using var sqlCommand = new SqlCommand();
                 sqlCommand.CommandText = $"dbo.{storedProcedureName}";
-                List<long> result = await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                var result = await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
                     sqlCommand,
                     testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                     logger,
@@ -415,7 +415,7 @@ END
                 try
                 {
                     _output.WriteLine($"{DateTime.Now:O}: Start executing ExecuteSqlDataReader.");
-                    await sqlRetryService.ExecuteSqlDataReader<long, SqlRetryService>(
+                    await sqlRetryService.ExecuteReaderAsync<long, SqlRetryService>(
                         sqlCommand,
                         testConnectionInitializationFailure ? ReaderToResult : ReaderToResultAndKillConnection,
                         logger,
@@ -463,12 +463,12 @@ END
 
                 if (func)
                 {
-                    List<long> result = await sqlRetryService.ExecuteSqlDataReader(
-                        sqlCommand,
+                    var result = await sqlCommand.ExecuteReaderAsync(
+                        sqlRetryService,
                         ReaderToResult,
                         logger,
-                        "log message",
-                        CancellationToken.None);
+                        CancellationToken.None,
+                        "log message");
 
                     Assert.Equal(resultCount, result.Count);
                     for (int i = 0; i < resultCount; i++)
@@ -512,7 +512,7 @@ END
                 SqlException ex;
                 if (func)
                 {
-                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteSqlDataReader(
+                    ex = await Assert.ThrowsAsync<SqlException>(() => sqlRetryService.ExecuteReaderAsync(
                         sqlCommand,
                         ReaderToResult,
                         logger,

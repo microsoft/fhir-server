@@ -5,11 +5,12 @@
 
 using System;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,32 +18,52 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitilizer<CloudBlobClient>
+    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitializer
     {
-        private readonly IAccessTokenProvider _accessTokenProvider;
         private readonly IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private readonly ILogger<AzureAccessTokenClientInitializerV2> _logger;
 
         public AzureAccessTokenClientInitializerV2(
-            IAccessTokenProvider accessTokenProvider,
             IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<AzureAccessTokenClientInitializerV2> logger)
         {
-            EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
             EnsureArg.IsNotNull(integrationDataStoreConfiguration?.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _accessTokenProvider = accessTokenProvider;
             _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _logger = logger;
         }
 
-        public async Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri)
         {
-            return await GetAuthorizedClientAsync(_integrationDataStoreConfiguration, cancellationToken);
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
         }
 
-        public async Task<CloudBlobClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration, CancellationToken cancellationToken)
+        public Task<BlobClient> GetAuthorizedBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public Task<BlockBlobClient> GetAuthorizedBlockBlobClientAsync(Uri blobUri, IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
+        {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            return Task.FromResult(new BlockBlobClient(blobUri, CreateDefaultTokenCredential()));
+        }
+
+        public async Task<BlobServiceClient> GetAuthorizedClientAsync()
+        {
+            return await GetAuthorizedClientAsync(_integrationDataStoreConfiguration);
+        }
+
+        public Task<BlobServiceClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration)
         {
             if (string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountUri))
             {
@@ -54,10 +75,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 throw new IntegrationDataStoreClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            string accessToken;
             try
             {
-                accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
+                return Task.FromResult(new BlobServiceClient(storageAccountUri, CreateDefaultTokenCredential()));
             }
             catch (AccessTokenProviderException atp)
             {
@@ -65,11 +85,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
                 throw new IntegrationDataStoreClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
+        }
 
-#pragma warning disable CA2000 // Dispose objects before losing scope
-            StorageCredentials storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
-#pragma warning restore CA2000 // Dispose objects before losing scope
-            return new CloudBlobClient(storageAccountUri, storageCredentials);
+        private static TokenCredential CreateDefaultTokenCredential()
+        {
+            return new DefaultAzureCredential();
         }
     }
 }

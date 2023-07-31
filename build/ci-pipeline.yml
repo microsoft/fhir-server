@@ -63,7 +63,7 @@ stages:
         packageIntegrationTests: true
 
 - stage: AnalyzeSecurity
-  displayName: 'Run Security Analysis'
+  displayName: 'Run Security Analysis and Validate'
   dependsOn:
   - BuildUnitTests
   jobs:

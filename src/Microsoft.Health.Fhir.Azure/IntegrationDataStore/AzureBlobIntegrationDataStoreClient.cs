@@ -10,12 +10,13 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -23,12 +24,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
-        private IIntegrationDataStoreClientInitilizer<CloudBlobClient> _integrationDataStoreClientInitializer;
+        private IIntegrationDataStoreClientInitializer _integrationDataStoreClientInitializer;
+        private IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
         private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
         public AzureBlobIntegrationDataStoreClient(
-            IIntegrationDataStoreClientInitilizer<CloudBlobClient> integrationDataStoreClientInitializer,
+            IIntegrationDataStoreClientInitializer integrationDataStoreClientInitializer,
             IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<AzureBlobIntegrationDataStoreClient> logger)
         {
@@ -37,6 +39,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
+            _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _integrationStoreRetryExceptionPolicyFactory = new IntegrationStoreRetryExceptionPolicyFactory(integrationDataStoreConfiguration);
             _logger = logger;
         }
@@ -45,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            return new AzureBlobSourceStream(async () => await GetCloudBlobClientFromServerAsync(resourceUri, cancellationToken), startOffset, _logger);
+            return new AzureBlobSourceStream(async () => await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri), startOffset, _logger);
         }
 
         public async Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken)
@@ -59,22 +62,29 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                                 {
-                                    CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                                    CloudBlobContainer container = cloudBlobClient.GetContainerReference(containerId);
+                                    BlobServiceClient blobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync();
 
-                                    await container.CreateIfNotExistsAsync(cancellationToken);
+                                    try
+                                    {
+                                        BlobContainerClient blobContainer = blobClient.GetBlobContainerClient(containerId);
+                                        await blobContainer.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-                                    CloudBlob blob = container.GetBlobReference(fileName);
+                                        BlobClient blob = blobContainer.GetBlobClient(fileName);
+                                        return blob.Uri;
+                                    }
+                                    catch (RequestFailedException se)
+                                    {
+                                        _logger.LogWarning(se, "{Error}", se.Message);
 
-                                    return blob.Uri;
+                                        throw;
+                                    }
                                 });
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to create container for {Container}:{File}", containerId, fileName);
+                _logger.LogInformation(se, "Failed to create container for {Container}:{File}", containerId, fileName);
 
-                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
-                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+                throw new IntegrationDataStoreException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -90,16 +100,15 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await UploadBlockInternalAsync(blob, stream, blockId, cancellationToken);
                             });
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to upload data for {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to upload data for {Url}", resourceUri);
 
-                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
-                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+                throw new IntegrationDataStoreException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -114,16 +123,15 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await CommitInternalAsync(blob, blockIds, cancellationToken);
                             });
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to commit for {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to commit for {Url}", resourceUri);
 
-                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
-                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+                throw new IntegrationDataStoreException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -138,16 +146,15 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
                                 await AppendCommitInternalAsync(blob, blockIds, cancellationToken);
                             });
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to append commit for {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to append commit for {Url}", resourceUri);
 
-                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
-                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+                throw new IntegrationDataStoreException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -161,22 +168,20 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             .RetryPolicy
                             .ExecuteAsync(async () =>
                             {
-                                CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                                ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(resourceUri);
-
+                                BlobClient blobClient = await _integrationDataStoreClientInitializer.GetAuthorizedBlobClientAsync(resourceUri);
+                                Response<BlobProperties> response = await blobClient.GetPropertiesAsync(null, cancellationToken);
                                 Dictionary<string, object> result = new Dictionary<string, object>();
-                                result[IntegrationDataStoreClientConstants.BlobPropertyETag] = blob.Properties.ETag;
-                                result[IntegrationDataStoreClientConstants.BlobPropertyLength] = blob.Properties.Length;
+                                result[IntegrationDataStoreClientConstants.BlobPropertyETag] = response.Value.ETag.ToString();
+                                result[IntegrationDataStoreClientConstants.BlobPropertyLength] = response.Value.ContentLength;
 
                                 return result;
                             });
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to get properties of blob {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to get properties of blob {Url}", resourceUri);
 
-                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
-                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+                throw new IntegrationDataStoreException(se.Message, (HttpStatusCode)se.Status);
             }
         }
 
@@ -186,12 +191,14 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                return await blob.AcquireLeaseAsync(null, proposedLeaseId, cancellationToken);
+                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
+                BlobLeaseClient lease = blob.GetBlobLeaseClient(proposedLeaseId);
+                Response<BlobLease> response = await lease.AcquireAsync(BlobLeaseClient.InfiniteLeaseDuration, null, cancellationToken);
+                return response?.Value?.LeaseId;
             }
-            catch (StorageException storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to acquire lease on the blob {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to acquire lease on the blob {Url}", resourceUri);
                 return null;
             }
         }
@@ -202,50 +209,38 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                await blob.ReleaseLeaseAsync(AccessCondition.GenerateLeaseCondition(leaseId), cancellationToken);
+                BlockBlobClient blob = await _integrationDataStoreClientInitializer.GetAuthorizedBlockBlobClientAsync(resourceUri);
+                BlobLeaseClient lease = blob.GetBlobLeaseClient(leaseId);
+                await lease.ReleaseAsync(null, cancellationToken);
             }
-            catch (Exception storageEx)
+            catch (RequestFailedException se)
             {
-                _logger.LogInformation(storageEx, "Failed to release lease on the blob {Url}", resourceUri);
+                _logger.LogInformation(se, "Failed to release lease on the blob {Url}", resourceUri);
             }
         }
 
-        private static async Task AppendCommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
+        private static async Task AppendCommitInternalAsync(BlockBlobClient blob, string[] blockIds, CancellationToken cancellationToken)
         {
-            IEnumerable<ListBlockItem> blockList = await blob.DownloadBlockListAsync(
-                                                            BlockListingFilter.Committed,
-                                                            accessCondition: null,
-                                                            options: null,
-                                                            operationContext: null,
+            Response<BlockList> blockList = await blob.GetBlockListAsync(
+                                                            BlockListTypes.Committed,
+                                                            snapshot: null,
+                                                            conditions: null,
                                                             cancellationToken);
 
-            List<string> newBlockLists = blockList.Select(b => b.Name).ToList();
+            List<string> newBlockLists = blockList.Value.CommittedBlocks.Select(b => b.Name).ToList();
             newBlockLists.AddRange(blockIds);
 
             await CommitInternalAsync(blob, newBlockLists.ToArray(), cancellationToken);
         }
 
-        private static async Task UploadBlockInternalAsync(CloudBlockBlob blob, Stream stream, string blockId, CancellationToken cancellationToken)
+        private static async Task UploadBlockInternalAsync(BlockBlobClient blob, Stream stream, string blockId, CancellationToken cancellationToken)
         {
-            await blob.PutBlockAsync(blockId, stream, contentMD5: null, cancellationToken);
+            await blob.StageBlockAsync(blockId, stream, null, cancellationToken);
         }
 
-        private static async Task CommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
+        private static async Task CommitInternalAsync(BlockBlobClient blob, string[] blockIds, CancellationToken cancellationToken)
         {
-            await blob.PutBlockListAsync(blockIds, cancellationToken);
-        }
-
-        private async Task<CloudBlockBlob> GetCloudBlobClientAsync(Uri blobUri, CancellationToken cancellationToken)
-        {
-            CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-            return new CloudBlockBlob(blobUri, cloudBlobClient);
-        }
-
-        private async Task<ICloudBlob> GetCloudBlobClientFromServerAsync(Uri blobUri, CancellationToken cancellationToken)
-        {
-            CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-            return await cloudBlobClient.GetBlobReferenceFromServerAsync(blobUri, cancellationToken);
+            await blob.CommitBlockListAsync(blockIds, null, cancellationToken);
         }
     }
 }

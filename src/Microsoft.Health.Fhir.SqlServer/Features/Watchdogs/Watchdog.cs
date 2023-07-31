@@ -8,27 +8,27 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public abstract class Watchdog<T> : FhirTimer<T>
     {
-        private Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private bool _disposed = false;
         private double _periodSec;
         private double _leasePeriodSec;
 
-        protected Watchdog(Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<T> logger)
+        protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
             : base(logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _watchdogLease = new WatchdogLease<T>(_sqlConnectionWrapperFactory, _logger);
+            _watchdogLease = new WatchdogLease<T>(_sqlRetryService, _logger);
         }
 
         protected Watchdog()
@@ -79,18 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             // Offset for other instances running init
             await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(10) / 10.0), CancellationToken.None);
 
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = @"
+            using var cmd = new SqlCommand(@"
 INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, @PeriodSec
 INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
-            ";
+            ");
             cmd.Parameters.AddWithValue("@PeriodSecId", PeriodSecId);
             cmd.Parameters.AddWithValue("@PeriodSec", periodSec);
             cmd.Parameters.AddWithValue("@LeasePeriodSecId", LeasePeriodSecId);
             cmd.Parameters.AddWithValue("@LeasePeriodSec", leasePeriodSec);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
             _periodSec = await GetPeriodAsync(CancellationToken.None);
             _leasePeriodSec = await GetLeasePeriodAsync(CancellationToken.None);
@@ -114,13 +111,9 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
         {
             EnsureArg.IsNotNullOrEmpty(id, nameof(id));
 
-            using IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction: false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-
-            cmd.CommandText = "SELECT Number FROM dbo.Parameters WHERE Id = @Id";
+            using var cmd = new SqlCommand("SELECT Number FROM dbo.Parameters WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", id);
-            var value = await cmd.ExecuteScalarAsync(cancellationToken);
+            var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
 
             if (value == null)
             {
@@ -128,6 +121,22 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, @LeasePeriodSec
             }
 
             return (double)value;
+        }
+
+        protected async Task<long> GetLongParameterByIdAsync(string id, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrEmpty(id, nameof(id));
+
+            using var cmd = new SqlCommand("SELECT Bigint FROM dbo.Parameters WHERE Id = @Id");
+            cmd.Parameters.AddWithValue("@Id", id);
+            var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancellationToken);
+
+            if (value == null)
+            {
+                throw new InvalidOperationException($"{id} is not set correctly in the Parameters table.");
+            }
+
+            return (long)value;
         }
 
         public new void Dispose()

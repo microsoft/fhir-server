@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Bundle bundle = Samples.GetJsonSample("Bundle-MissingIdentifier").ToPoco<Bundle>();
             FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(bundle, string.Empty));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-            Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName)));
+            Assert.Equal(exception.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName));
         }
 
         [Fact]
@@ -229,6 +229,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}"));
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenUpsertingConditionallyANewDuplicatedSearchParameterResource_TheServerShouldFail()
+        {
+            var id = Guid.NewGuid();
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
+            resourceToCreate.Id = id.ToString();
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                resourceToCreate,
+                $"SearchParameter/id={id}"));
+
+            var operationOutcome = ex.OperationOutcome;
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(operationOutcome.Id);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Contains("A search parameter with the same code value 'code' already exists for base type 'Observation'", operationOutcome.Issue[1].Diagnostics);
         }
     }
 }

@@ -7,9 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.IO;
 using Polly;
@@ -22,16 +23,16 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private const int DefaultConcurrentCount = 3;
         public const int DefaultBlockBufferSize = 8 * 1024 * 1024;
 
-        private Func<Task<ICloudBlob>> _blobClientFactory;
+        private Func<Task<BlobClient>> _blobClientFactory;
         private long _startOffset;
         private long _position;
         private ILogger _logger;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
-        private ICloudBlob _blobClient;
+        private BlobClient _blobClient;
         private readonly Queue<Task<Stream>> _downloadTasks = new Queue<Task<Stream>>();
 
-        public AzureBlobSourceStream(Func<Task<ICloudBlob>> blobClientFactory, long? startOffset, ILogger logger)
+        public AzureBlobSourceStream(Func<Task<BlobClient>> blobClientFactory, long? startOffset, ILogger logger)
         {
             EnsureArg.IsNotNull(blobClientFactory, nameof(blobClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -131,7 +132,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private async Task<Stream> DownloadBlobAsync(long offset, long length)
         {
-            return await Policy.Handle<StorageException>()
+            return await Policy.Handle<RequestFailedException>()
                     .WaitAndRetryAsync(
                         retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)),
@@ -146,7 +147,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private (long offset, long? length) NextRange()
         {
-            long totalLength = _blobClient.Properties.Length;
+            long totalLength = _blobClient.GetProperties().Value.ContentLength;
             long? length = null;
             long nextPosition = _startOffset;
             if (totalLength > _startOffset)
@@ -175,7 +176,12 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             // Stream is returned to the method caller, unable to dispose it under the current scope.
             var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(AzureBlobSourceStream));
-            await _blobClient.DownloadRangeToStreamAsync(stream, offset, length);
+            var options = new BlobDownloadOptions { Range = new HttpRange(offset, length) };
+
+            var response = await _blobClient.DownloadStreamingAsync(options);
+            await response.Value.Content.CopyToAsync(stream);
+            response.Value.Dispose();
+
             stream.Position = 0;
 
             if (stream.Length >= BlobSizeThresholdWarningInBytes)
