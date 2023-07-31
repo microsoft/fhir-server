@@ -70,7 +70,7 @@ stages:
   - job: Guardian
     pool:
       name: '$(DefaultWindowsPool)'
-      demands: TaskAgentPlatform -equals win-x64
+      demands: TaskAgentPlatform -equals win-x86
     steps:
     - template: ./jobs/analyze.yml
 
