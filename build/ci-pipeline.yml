@@ -34,7 +34,6 @@ stages:
   - job: Windows_dotnet7
     pool:
       demands: Agent.OS -equals Windows_NT
-      vmImage: $(WindowsVmImage)
       name: '$(DefaultWindowsPool)'
     steps:
     - template: ./jobs/build.yml
@@ -70,7 +69,6 @@ stages:
   jobs:
   - job: Guardian
     pool:
-      vmImage: 'windows-latest'
       name: '$(DefaultWindowsPool)'
       demands: Agent.OS -equals Windows_NT
     steps:
