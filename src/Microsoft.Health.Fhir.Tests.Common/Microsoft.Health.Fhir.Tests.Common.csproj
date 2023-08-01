@@ -85,7 +85,6 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterUnsupportedType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterBadSyntax.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SearchParameterDuplicated.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
