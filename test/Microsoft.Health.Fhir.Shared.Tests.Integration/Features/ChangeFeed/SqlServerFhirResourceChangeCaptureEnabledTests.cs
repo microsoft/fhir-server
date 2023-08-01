@@ -156,7 +156,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             // create 1 resource and hard delete it
             var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
             Assert.Equal("1", create.VersionId);
+
+            var resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
+            Assert.NotNull(resource);
+
             await store.HardDeleteAsync(new ResourceKey("Organization", create.Id), false, cts.Token);
+
+            resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
+            Assert.Null(resource);
 
             // check 1 record exist
             Assert.Equal(1, await GetCount());
