@@ -33,8 +33,7 @@ stages:
   jobs:
   - job: Windows_dotnet7
     pool:
-      demands:
-        - TaskAgentPlatform -equals win-x64
+      vmImage: 'windows-latest'
       name: '$(DefaultWindowsPool)'
     steps:
     - template: ./jobs/build.yml
@@ -71,8 +70,7 @@ stages:
   - job: Guardian
     pool:
       name: '$(DefaultWindowsPool)'
-      demands:
-        - TaskAgentPlatform -equals win-x64
+      vmImage: 'windows-latest'
     steps:
     - template: ./jobs/analyze.yml
 
