@@ -68,7 +68,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken);
+                    //// ignore nulls returned for invisible resources
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
                 }
                 catch (Exception e)
                 {
@@ -113,7 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            return await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken);
+            //// ignore nulls returned for invisible resources
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
         }
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
@@ -128,6 +130,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
+
+            if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
+            {
+                return null;
+            }
 
             using var rawResourceStream = new MemoryStream(rawResourceBytes);
             var rawResource = decompress(rawResourceStream);
