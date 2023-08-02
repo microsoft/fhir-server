@@ -6,8 +6,8 @@
     @AffectedRows int = 0 OUT
    ,@RaiseExceptionOnConflict bit = 1
    ,@IsResourceChangeCaptureEnabled bit = 0
-   ,@TransactionId bigint = NULL
-   ,@SingleTransaction bit = 1
+   --,@TransactionId bigint = NULL
+   --,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@CompartmentAssignments dbo.CompartmentAssignmentList READONLY -- TODO: Remove after version 57 got deployed
@@ -32,6 +32,8 @@ DECLARE @st datetime = getUTCdate()
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
+       ,@TransactionId bigint = NULL
+       ,@SingleTransaction bit = 1
 
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
