@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
-        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
@@ -80,7 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
-            ISqlConnectionBuilder sqlConnectionBuilder,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
@@ -92,7 +90,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
-            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
@@ -109,7 +106,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compartmentSearchRewriter = compartmentSearchRewriter;
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
-            _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _logger = logger;
@@ -310,16 +306,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
+                async (connection, exception, cancellationToken) =>
                 {
-                    using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
-                    using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
+                    using (var sqlCommand = new SqlCommand())
                     {
-                        // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
-                        // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
-                        // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
-                        connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                        await connection.OpenAsync(cancellationToken);
+                        sqlCommand.Connection = connection;
 
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
@@ -342,7 +333,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 searchType,
                                 _schemaInformation,
                                 currentSearchParameterHash,
-                                sqlException);
+                                exception);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 

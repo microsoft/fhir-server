@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql(Func<CancellationToken, SqlException, Task> action, CancellationToken cancellationToken)
+        public async Task ExecuteSql(Func<SqlConnection, SqlException, CancellationToken, Task> action, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -206,7 +206,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    await action(cancellationToken, sqlException);
+                    using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                    await sqlConnection.OpenAsync(cancellationToken);
+                    await action(sqlConnection, sqlException, cancellationToken);
                     return;
                 }
                 catch (Exception ex)
