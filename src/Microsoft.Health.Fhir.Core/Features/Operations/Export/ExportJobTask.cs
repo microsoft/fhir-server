@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.JobManagement;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -202,15 +203,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _logger.LogTrace("Successfully completed a segment of the job.");
             }
-            catch (JobConflictException)
+            catch (JobConflictException ex)
             {
                 // The export job was updated externally. There might be some additional resources that were exported
                 // but we will not be updating the job record.
-                _logger.LogTrace("The job was updated by another process.");
+                throw new RetriableJobException("The job was updated by another process.", ex);
             }
-            catch (RequestRateExceededException)
+            catch (RequestRateExceededException ex)
             {
-                _logger.LogTrace("Job failed due to RequestRateExceeded.");
+                throw new RetriableJobException("Job failed due to RequestRateExceeded.", ex);
             }
             catch (DestinationConnectionException dce)
             {
@@ -321,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            ExportJobOutcome updatedExportJobOutcome = await UpdateExportJob(_exportJobRecord, _weakETag, cancellationToken);
+            ExportJobOutcome updatedExportJobOutcome = await UpdateExportJob.Invoke(_exportJobRecord, _weakETag, cancellationToken);
             _exportJobRecord = updatedExportJobOutcome.JobRecord;
             _weakETag = updatedExportJobOutcome.ETag;
 
