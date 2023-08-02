@@ -1,0 +1,18 @@
+steps:
+
+- task: UseDotNet@2
+  inputs:
+    useGlobalJson: true
+
+# Restore packages using an authenticated feed to ensure required versions are added.
+- task: NuGetToolInstaller@1
+  inputs:
+    versionSpec: '>=6.2.0' # 6.2 is required for CPM
+    checkLatest: true
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: '**/*.sln'
+    feedsToUse: 'select'
+    vstsFeed: '7621b231-1a7d-4364-935b-2f72b911c43d/a60b7c8b-c6ae-4a8e-bd15-a526b603a1f2'
+    includeNuGetOrg: false

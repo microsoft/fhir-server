@@ -18,7 +18,8 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./jobs/update-semver.yml  
+    - template: ./jobs/update-semver.yml
+    - template: ./jobs/restore-packages.yml  
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'

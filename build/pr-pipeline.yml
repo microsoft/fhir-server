@@ -26,6 +26,7 @@ stages:
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
+    - template: ./jobs/restore-packages.yml  
 
 - stage: UpdateRandom
   displayName: 'Determine Random String'
