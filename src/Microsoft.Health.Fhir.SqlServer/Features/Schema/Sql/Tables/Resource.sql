@@ -135,45 +135,6 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
-AS
-set nocount on
-DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
-       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)
-       ,@st datetime = getUTCdate()
-       ,@FirstValueVar sql_variant
-       ,@LastValueVar sql_variant
-
-BEGIN TRY
-  SET @TransactionId = NULL
-
-  IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
- 
-  SET @FirstValueVar = NULL
-  WHILE @FirstValueVar IS NULL
-  BEGIN
-    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = @LastValueVar OUT
-    SET @SequenceRangeFirstValue = convert(int,@FirstValueVar)
-    IF @SequenceRangeFirstValue > convert(int,@LastValueVar)
-      SET @FirstValueVar = NULL
-  END
-
-  SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
-
-  INSERT INTO dbo.Transactions
-         (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue,                      HeartbeatDate )
-    SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
-
-  SET @TransactionId = @SurrogateIdRangeFirstValue
-END TRY
-BEGIN CATCH
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  IF @@trancount > 0 ROLLBACK TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
-  THROW
-END CATCH
-GO
-GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesAdvanceTransactionVisibility @AffectedRows int = 0 OUT
 AS
 set nocount on
@@ -228,57 +189,6 @@ DECLARE @SP varchar(100) = object_name(@@procid)
 SET @TransactionId = isnull((SELECT TOP 1 SurrogateIdRangeFirstValue FROM dbo.Transactions WHERE IsVisible = 1 ORDER BY SurrogateIdRangeFirstValue DESC),-1)
 
 EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount,@Text=@TransactionId
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint = NULL, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0, @SurrogateIdRangeFirstValue bigint = NULL -- TODO: Remove after deployment
-AS
-set nocount on
-DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
-       ,@st datetime = getUTCdate()
-       ,@InitialTranCount int = @@trancount
-       ,@IsCompletedBefore bit
-       ,@Rows int
-       ,@msg varchar(1000)
-
-SET @TransactionId = isnull(@TransactionId,@SurrogateIdRangeFirstValue)
-
-DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)+' OC='+isnull(convert(varchar,@OverrideIsControlledByClientCheck),'NULL')
-
-BEGIN TRY
-  IF @InitialTranCount = 0 BEGIN TRANSACTION
-
-  UPDATE dbo.Transactions
-    SET IsCompleted = 1
-       ,@IsCompletedBefore = IsCompleted
-       ,EndDate = getUTCdate()
-       ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
-       ,FailureReason = @FailureReason
-    WHERE SurrogateIdRangeFirstValue = @TransactionId
-      AND (IsControlledByClient = 1 OR @OverrideIsControlledByClientCheck = 1)
-  SET @Rows = @@rowcount
-
-  IF @Rows = 0
-  BEGIN
-    SET @msg = 'Transaction ['+convert(varchar(20),@TransactionId)+'] is not controlled by client or does not exist.'
-    RAISERROR(@msg, 18, 127)
-  END
-
-  IF @IsCompletedBefore = 1
-  BEGIN
-    -- To make this call idempotent
-    IF @InitialTranCount = 0 ROLLBACK TRANSACTION
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Target='@IsCompletedBefore',@Text='=1'
-    RETURN
-  END
-
-  IF @InitialTranCount = 0 COMMIT TRANSACTION
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
-END TRY
-BEGIN CATCH
-  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
-  THROW
-END CATCH
 GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
 AS
@@ -354,7 +264,6 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-
 CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
   ,@ResourceId varchar(64)
@@ -426,4 +335,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-

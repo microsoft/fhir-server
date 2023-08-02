@@ -987,41 +987,6 @@ END CATCH
 
 
 GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT=0 OUTPUT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT, @HeartbeatDate DATETIME=NULL
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT;
-BEGIN TRY
-    SET @TransactionId = NULL;
-    IF @@trancount > 0
-        RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    SET @FirstValueVar = NULL;
-    WHILE @FirstValueVar IS NULL
-        BEGIN
-            EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = @LastValueVar OUTPUT;
-            SET @SequenceRangeFirstValue = CONVERT (INT, @FirstValueVar);
-            IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
-                SET @FirstValueVar = NULL;
-        END
-    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
-    INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue, HeartbeatDate)
-    SELECT @SurrogateIdRangeFirstValue,
-           @SurrogateIdRangeFirstValue + @Count - 1,
-           isnull(@HeartbeatDate, getUTCdate());
-    SET @TransactionId = @SurrogateIdRangeFirstValue;
-END TRY
-BEGIN CATCH
-    IF error_number() = 1750
-        THROW;
-    IF @@trancount > 0
-        ROLLBACK;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
-    THROW;
-END CATCH
-
-
-GO
 CREATE OR ALTER PROCEDURE dbo.MergeResourcesAdvanceTransactionVisibility
 @AffectedRows INT=0 OUTPUT
 AS
@@ -1077,54 +1042,6 @@ SET @TransactionId = isnull((SELECT   TOP 1 SurrogateIdRangeFirstValue
                              WHERE    IsVisible = 1
                              ORDER BY SurrogateIdRangeFirstValue DESC), -1);
 EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount, @Text = @TransactionId;
-
-
-GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction
-@TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
-AS
-SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate(), @InitialTranCount AS INT = @@trancount, @IsCompletedBefore AS BIT, @Rows AS INT, @msg AS VARCHAR (1000);
-SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
-DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId) + ' OC=' + isnull(CONVERT (VARCHAR, @OverrideIsControlledByClientCheck), 'NULL');
-BEGIN TRY
-    IF @InitialTranCount = 0
-        BEGIN TRANSACTION;
-    UPDATE dbo.Transactions
-    SET    IsCompleted        = 1,
-           @IsCompletedBefore = IsCompleted,
-           EndDate            = getUTCdate(),
-           IsSuccess          = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
-           FailureReason      = @FailureReason
-    WHERE  SurrogateIdRangeFirstValue = @TransactionId
-           AND (IsControlledByClient = 1
-                OR @OverrideIsControlledByClientCheck = 1);
-    SET @Rows = @@rowcount;
-    IF @Rows = 0
-        BEGIN
-            SET @msg = 'Transaction [' + CONVERT (VARCHAR (20), @TransactionId) + '] is not controlled by client or does not exist.';
-            RAISERROR (@msg, 18, 127);
-        END
-    IF @IsCompletedBefore = 1
-        BEGIN
-            IF @InitialTranCount = 0
-                ROLLBACK;
-            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Target = '@IsCompletedBefore', @Text = '=1';
-            RETURN;
-        END
-    IF @InitialTranCount = 0
-        COMMIT TRANSACTION;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
-END TRY
-BEGIN CATCH
-    IF @InitialTranCount = 0
-       AND @@trancount > 0
-        ROLLBACK;
-    IF error_number() = 1750
-        THROW;
-    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
-    THROW;
-END CATCH
 
 
 GO
@@ -4591,15 +4508,18 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @CompartmentAssignments dbo.CompartmentAssignmentList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
-DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = 'MergeResources', @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount;
-DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] MinSur=' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ' Rows=' + CONVERT (VARCHAR, count(*))
+DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
+DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
-SET @Mode += ' ITC=' + CONVERT (VARCHAR, @InitialTranCount) + ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled);
+SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
 SET @AffectedRows = 0;
 BEGIN TRY
+    DECLARE @Existing AS TABLE (
+        ResourceTypeId SMALLINT NOT NULL,
+        SurrogateId    BIGINT   NOT NULL PRIMARY KEY (ResourceTypeId, SurrogateId));
     DECLARE @ResourceInfos AS TABLE (
         ResourceTypeId      SMALLINT NOT NULL,
         SurrogateId         BIGINT   NOT NULL,
@@ -4611,330 +4531,681 @@ BEGIN TRY
         TypeId      SMALLINT NOT NULL,
         SurrogateId BIGINT   NOT NULL PRIMARY KEY (TypeId, SurrogateId),
         KeepHistory BIT     );
+    IF @SingleTransaction = 0
+       AND isnull((SELECT Number
+                   FROM   dbo.Parameters
+                   WHERE  Id = 'MergeResources.NoTransaction.IsEnabled'), 0) = 0
+        SET @SingleTransaction = 1;
+    SET @Mode += ' ST=' + CONVERT (VARCHAR, @SingleTransaction);
     IF @InitialTranCount = 0
-        BEGIN TRANSACTION;
-    INSERT INTO @ResourceInfos (ResourceTypeId, SurrogateId, Version, KeepHistory, PreviousVersion, PreviousSurrogateId)
-    SELECT A.ResourceTypeId,
-           A.ResourceSurrogateId,
-           A.Version,
-           A.KeepHistory,
-           B.Version,
-           B.ResourceSurrogateId
-    FROM   (SELECT TOP (@DummyTop) *
-            FROM   @Resources
-            WHERE  HasVersionToCompare = 1) AS A
-           LEFT OUTER JOIN
-           dbo.Resource AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceId = A.ResourceId
-              AND B.IsHistory = 0
-    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-    IF @RaiseExceptionOnConflict = 1
-       AND EXISTS (SELECT *
-                   FROM   @ResourceInfos
-                   WHERE  PreviousVersion IS NOT NULL
-                          AND Version <> PreviousVersion + 1)
-        THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
-    INSERT INTO @PreviousSurrogateIds
-    SELECT ResourceTypeId,
-           PreviousSurrogateId,
-           KeepHistory
-    FROM   @ResourceInfos
-    WHERE  PreviousSurrogateId IS NOT NULL;
-    IF @@rowcount > 0
         BEGIN
-            UPDATE dbo.Resource
-            SET    IsHistory = 1
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId
-                                  AND KeepHistory = 1);
+            IF EXISTS (SELECT *
+                       FROM   @Resources AS A
+                              INNER JOIN
+                              dbo.Resource AS B
+                              ON B.ResourceTypeId = A.ResourceTypeId
+                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                       WHERE  B.IsHistory = 0)
+                BEGIN
+                    BEGIN TRANSACTION;
+                    INSERT INTO @Existing (ResourceTypeId, SurrogateId)
+                    SELECT B.ResourceTypeId,
+                           B.ResourceSurrogateId
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @Resources) AS A
+                           INNER JOIN
+                           dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                    WHERE  B.IsHistory = 0
+                    OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+                    IF @@rowcount > 0
+                        SET @IsRetry = 1;
+                    IF @IsRetry = 0
+                        COMMIT TRANSACTION;
+                END
+        END
+    SET @Mode += ' R=' + CONVERT (VARCHAR, @IsRetry);
+    IF @SingleTransaction = 1
+       AND @@trancount = 0
+        BEGIN TRANSACTION;
+    IF @IsRetry = 0
+        BEGIN
+            INSERT INTO @ResourceInfos (ResourceTypeId, SurrogateId, Version, KeepHistory, PreviousVersion, PreviousSurrogateId)
+            SELECT A.ResourceTypeId,
+                   A.ResourceSurrogateId,
+                   A.Version,
+                   A.KeepHistory,
+                   B.Version,
+                   B.ResourceSurrogateId
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @Resources
+                    WHERE  HasVersionToCompare = 1) AS A
+                   LEFT OUTER JOIN
+                   dbo.Resource AS B
+                   ON B.ResourceTypeId = A.ResourceTypeId
+                      AND B.ResourceId = A.ResourceId
+                      AND B.IsHistory = 0
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            IF @RaiseExceptionOnConflict = 1
+               AND EXISTS (SELECT *
+                           FROM   @ResourceInfos
+                           WHERE  PreviousVersion IS NOT NULL
+                                  AND Version <> PreviousVersion + 1)
+                THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
+            INSERT INTO @PreviousSurrogateIds
+            SELECT ResourceTypeId,
+                   PreviousSurrogateId,
+                   KeepHistory
+            FROM   @ResourceInfos
+            WHERE  PreviousSurrogateId IS NOT NULL;
+            IF @@rowcount > 0
+                BEGIN
+                    UPDATE dbo.Resource
+                    SET    IsHistory = 1
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId
+                                          AND KeepHistory = 1);
+                    SET @AffectedRows += @@rowcount;
+                    IF @IsResourceChangeCaptureEnabled = 1
+                        UPDATE dbo.Resource
+                        SET    IsHistory            = 1,
+                               RawResource          = 0xF,
+                               SearchParamHash      = NULL,
+                               HistoryTransactionId = @TransactionId
+                        WHERE  EXISTS (SELECT *
+                                       FROM   @PreviousSurrogateIds
+                                       WHERE  TypeId = ResourceTypeId
+                                              AND SurrogateId = ResourceSurrogateId
+                                              AND KeepHistory = 0);
+                    ELSE
+                        DELETE dbo.Resource
+                        WHERE  EXISTS (SELECT *
+                                       FROM   @PreviousSurrogateIds
+                                       WHERE  TypeId = ResourceTypeId
+                                              AND SurrogateId = ResourceSurrogateId
+                                              AND KeepHistory = 0);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.ResourceWriteClaim
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.ReferenceSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenText
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.StringSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.UriSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.NumberSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.QuantitySearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.DateTimeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.ReferenceTokenCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenTokenCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenDateTimeCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenQuantityCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenStringCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                    DELETE dbo.TokenNumberNumberCompositeSearchParam
+                    WHERE  EXISTS (SELECT *
+                                   FROM   @PreviousSurrogateIds
+                                   WHERE  TypeId = ResourceTypeId
+                                          AND SurrogateId = ResourceSurrogateId);
+                    SET @AffectedRows += @@rowcount;
+                END
+            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
+            SELECT ResourceTypeId,
+                   ResourceId,
+                   Version,
+                   IsHistory,
+                   ResourceSurrogateId,
+                   IsDeleted,
+                   RequestMethod,
+                   RawResource,
+                   IsRawResourceMetaSet,
+                   SearchParamHash,
+                   @TransactionId
+            FROM   @Resources;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.Resource
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId
-                                  AND KeepHistory = 0);
+            INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+            SELECT ResourceSurrogateId,
+                   ClaimTypeId,
+                   ClaimValue
+            FROM   @ResourceWriteClaims;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.ResourceWriteClaim
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   BaseUri,
+                   ReferenceResourceTypeId,
+                   ReferenceResourceId,
+                   ReferenceResourceVersion
+            FROM   @ReferenceSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.CompartmentAssignment
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId,
+                   Code,
+                   CodeOverflow
+            FROM   @TokenSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.ReferenceSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Text
+            FROM   @TokenTexts;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Text,
+                   TextOverflow,
+                   IsMin,
+                   IsMax
+            FROM   @StringSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenText
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Uri
+            FROM   @UriSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.StringSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SingleValue,
+                   LowValue,
+                   HighValue
+            FROM   @NumberSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.UriSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId,
+                   QuantityCodeId,
+                   SingleValue,
+                   LowValue,
+                   HighValue
+            FROM   @QuantitySearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.NumberSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   StartDateTime,
+                   EndDateTime,
+                   IsLongerThanADay,
+                   IsMin,
+                   IsMax
+            FROM   @DateTimeSearchParms;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.QuantitySearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   BaseUri1,
+                   ReferenceResourceTypeId1,
+                   ReferenceResourceId1,
+                   ReferenceResourceVersion1,
+                   SystemId2,
+                   Code2,
+                   CodeOverflow2
+            FROM   @ReferenceTokenCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.DateTimeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SystemId2,
+                   Code2,
+                   CodeOverflow2
+            FROM   @TokenTokenCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.ReferenceTokenCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   StartDateTime2,
+                   EndDateTime2,
+                   IsLongerThanADay2
+            FROM   @TokenDateTimeCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenTokenCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SingleValue2,
+                   SystemId2,
+                   QuantityCodeId2,
+                   LowValue2,
+                   HighValue2
+            FROM   @TokenQuantityCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenDateTimeCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   Text2,
+                   TextOverflow2
+            FROM   @TokenStringCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenQuantityCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
-            SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenStringCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
-            SET @AffectedRows += @@rowcount;
-            DELETE dbo.TokenNumberNumberCompositeSearchParam
-            WHERE  EXISTS (SELECT *
-                           FROM   @PreviousSurrogateIds
-                           WHERE  TypeId = ResourceTypeId
-                                  AND SurrogateId = ResourceSurrogateId);
+            INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SingleValue2,
+                   LowValue2,
+                   HighValue2,
+                   SingleValue3,
+                   LowValue3,
+                   HighValue3,
+                   HasRange
+            FROM   @TokenNumberNumberCompositeSearchParams;
             SET @AffectedRows += @@rowcount;
         END
-    INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
-    SELECT ResourceTypeId,
-           ResourceId,
-           Version,
-           IsHistory,
-           ResourceSurrogateId,
-           IsDeleted,
-           RequestMethod,
-           RawResource,
-           IsRawResourceMetaSet,
-           SearchParamHash
-    FROM   @Resources;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
-    SELECT ResourceSurrogateId,
-           ClaimTypeId,
-           ClaimValue
-    FROM   @ResourceWriteClaims;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.CompartmentAssignment (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           CompartmentTypeId,
-           ReferenceResourceId
-    FROM   @CompartmentAssignments;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           BaseUri,
-           ReferenceResourceTypeId,
-           ReferenceResourceId,
-           ReferenceResourceVersion
-    FROM   @ReferenceSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId,
-           Code,
-           CodeOverflow
-    FROM   @TokenSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           Text
-    FROM   @TokenTexts;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           Text,
-           TextOverflow,
-           IsMin,
-           IsMax
-    FROM   @StringSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           Uri
-    FROM   @UriSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SingleValue,
-           LowValue,
-           HighValue
-    FROM   @NumberSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId,
-           QuantityCodeId,
-           SingleValue,
-           LowValue,
-           HighValue
-    FROM   @QuantitySearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           StartDateTime,
-           EndDateTime,
-           IsLongerThanADay,
-           IsMin,
-           IsMax
-    FROM   @DateTimeSearchParms;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           BaseUri1,
-           ReferenceResourceTypeId1,
-           ReferenceResourceId1,
-           ReferenceResourceVersion1,
-           SystemId2,
-           Code2,
-           CodeOverflow2
-    FROM   @ReferenceTokenCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId1,
-           Code1,
-           CodeOverflow1,
-           SystemId2,
-           Code2,
-           CodeOverflow2
-    FROM   @TokenTokenCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId1,
-           Code1,
-           CodeOverflow1,
-           StartDateTime2,
-           EndDateTime2,
-           IsLongerThanADay2
-    FROM   @TokenDateTimeCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId1,
-           Code1,
-           CodeOverflow1,
-           SingleValue2,
-           SystemId2,
-           QuantityCodeId2,
-           LowValue2,
-           HighValue2
-    FROM   @TokenQuantityCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId1,
-           Code1,
-           CodeOverflow1,
-           Text2,
-           TextOverflow2
-    FROM   @TokenStringCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
-    INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId1,
-           Code1,
-           CodeOverflow1,
-           SingleValue2,
-           LowValue2,
-           HighValue2,
-           SingleValue3,
-           LowValue3,
-           HighValue3,
-           HasRange
-    FROM   @TokenNumberNumberCompositeSearchParams;
-    SET @AffectedRows += @@rowcount;
+    ELSE
+        BEGIN
+            INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+            SELECT ResourceSurrogateId,
+                   ClaimTypeId,
+                   ClaimValue
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ResourceWriteClaims) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.ResourceWriteClaim AS C
+                                   WHERE  C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.ReferenceSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   BaseUri,
+                   ReferenceResourceTypeId,
+                   ReferenceResourceId,
+                   ReferenceResourceVersion
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ReferenceSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.ReferenceSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId,
+                   Code,
+                   CodeOverflow
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Text
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenTexts) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Text,
+                   TextOverflow,
+                   IsMin,
+                   IsMax
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @StringSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenText AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   Uri
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @UriSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.UriSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.NumberSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SingleValue,
+                   LowValue,
+                   HighValue
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @NumberSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.NumberSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.QuantitySearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId,
+                   QuantityCodeId,
+                   SingleValue,
+                   LowValue,
+                   HighValue
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @QuantitySearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.QuantitySearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.DateTimeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsMin, IsMax)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   StartDateTime,
+                   EndDateTime,
+                   IsLongerThanADay,
+                   IsMin,
+                   IsMax
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @DateTimeSearchParms) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.ReferenceTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, CodeOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   BaseUri1,
+                   ReferenceResourceTypeId1,
+                   ReferenceResourceId1,
+                   ReferenceResourceVersion1,
+                   SystemId2,
+                   Code2,
+                   CodeOverflow2
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ReferenceTokenCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.DateTimeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenTokenCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SystemId2, Code2, CodeOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SystemId2,
+                   Code2,
+                   CodeOverflow2
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenTokenCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenTokenCompositeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenDateTimeCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, StartDateTime2, EndDateTime2, IsLongerThanADay2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   StartDateTime2,
+                   EndDateTime2,
+                   IsLongerThanADay2
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenDateTimeCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenDateTimeCompositeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenQuantityCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SingleValue2,
+                   SystemId2,
+                   QuantityCodeId2,
+                   LowValue2,
+                   HighValue2
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenQuantityCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenQuantityCompositeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, Text2, TextOverflow2)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   Text2,
+                   TextOverflow2
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenStringCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenStringCompositeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, CodeOverflow1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange)
+            SELECT ResourceTypeId,
+                   ResourceSurrogateId,
+                   SearchParamId,
+                   SystemId1,
+                   Code1,
+                   CodeOverflow1,
+                   SingleValue2,
+                   LowValue2,
+                   HighValue2,
+                   SingleValue3,
+                   LowValue3,
+                   HighValue3,
+                   HasRange
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @TokenNumberNumberCompositeSearchParams) AS A
+            WHERE  EXISTS (SELECT *
+                           FROM   @Existing AS B
+                           WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                  AND B.SurrogateId = A.ResourceSurrogateId)
+                   AND NOT EXISTS (SELECT *
+                                   FROM   dbo.TokenNumberNumberCompositeSearchParam AS C
+                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            SET @AffectedRows += @@rowcount;
+        END
     IF @IsResourceChangeCaptureEnabled = 1
         EXECUTE dbo.CaptureResourceIdsForChanges @Resources;
+    IF @TransactionId IS NOT NULL
+        EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId;
     IF @InitialTranCount = 0
+       AND @@trancount > 0
         COMMIT TRANSACTION;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @AffectedRows;
 END TRY
@@ -4946,10 +5217,8 @@ BEGIN CATCH
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     IF @RaiseExceptionOnConflict = 1
-       AND (error_number() = 2601
-            AND error_message() LIKE '%''dbo.Resource''%version%'
-            OR error_number() = 2627
-               AND error_message() LIKE '%''dbo.Resource''%')
+       AND error_number() IN (2601, 2627)
+       AND error_message() LIKE '%''dbo.Resource''%'
         THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
         THROW;
@@ -4957,51 +5226,28 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT
+@Count INT, @TransactionId BIGINT=0 OUTPUT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT, @HeartbeatDate DATETIME=NULL
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT, @TransactionId AS BIGINT = NULL, @RunTransactionCheck AS BIT = (SELECT Number
-                                                                                                                                                                                                                                                                                           FROM   dbo.Parameters
-                                                                                                                                                                                                                                                                                           WHERE  Id = 'MergeResources.SurrogateIdRangeOverlapCheck.IsEnabled');
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT;
 BEGIN TRY
+    SET @TransactionId = NULL;
     IF @@trancount > 0
         RAISERROR ('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127);
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-    WHILE @TransactionId IS NULL
+    SET @FirstValueVar = NULL;
+    WHILE @FirstValueVar IS NULL
         BEGIN
-            SET @FirstValueVar = NULL;
-            WHILE @FirstValueVar IS NULL
-                BEGIN
-                    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = @LastValueVar OUTPUT;
-                    SET @SequenceRangeFirstValue = CONVERT (INT, @FirstValueVar);
-                    IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
-                        SET @FirstValueVar = NULL;
-                END
-            SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
-            IF @RunTransactionCheck = 1
-                BEGIN
-                    BEGIN TRANSACTION;
-                    INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue)
-                    SELECT @SurrogateIdRangeFirstValue,
-                           @SurrogateIdRangeFirstValue + @Count - 1;
-                    IF isnull((SELECT   TOP 1 SurrogateIdRangeLastValue
-                               FROM     dbo.Transactions
-                               WHERE    SurrogateIdRangeFirstValue < @SurrogateIdRangeFirstValue
-                               ORDER BY SurrogateIdRangeFirstValue DESC), 0) < @SurrogateIdRangeFirstValue
-                        BEGIN
-                            COMMIT TRANSACTION;
-                            SET @TransactionId = @SurrogateIdRangeFirstValue;
-                        END
-                    ELSE
-                        BEGIN
-                            ROLLBACK;
-                            SET @TransactionId = NULL;
-                            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Warn', @Start = @st, @Rows = NULL, @Text = @SurrogateIdRangeFirstValue;
-                        END
-                END
-            ELSE
-                SET @TransactionId = @SurrogateIdRangeFirstValue;
+            EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUTPUT, @range_last_value = @LastValueVar OUTPUT;
+            SET @SequenceRangeFirstValue = CONVERT (INT, @FirstValueVar);
+            IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
+                SET @FirstValueVar = NULL;
         END
+    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
+    INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue, HeartbeatDate)
+    SELECT @SurrogateIdRangeFirstValue,
+           @SurrogateIdRangeFirstValue + @Count - 1,
+           isnull(@HeartbeatDate, getUTCdate());
+    SET @TransactionId = @SurrogateIdRangeFirstValue;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750
@@ -5014,21 +5260,45 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
-@SurrogateIdRangeFirstValue BIGINT, @FailureReason VARCHAR (MAX)=NULL
+@TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @SurrogateIdRangeFirstValue), @st AS DATETIME = getUTCdate();
+DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate(), @InitialTranCount AS INT = @@trancount, @IsCompletedBefore AS BIT, @Rows AS INT, @msg AS VARCHAR (1000);
+SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
+DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId) + ' OC=' + isnull(CONVERT (VARCHAR, @OverrideIsControlledByClientCheck), 'NULL');
 BEGIN TRY
+    IF @InitialTranCount = 0
+        BEGIN TRANSACTION;
     UPDATE dbo.Transactions
-    SET    IsCompleted   = 1,
-           IsSuccess     = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
-           EndDate       = getUTCdate(),
-           IsVisible     = 1,
-           VisibleDate   = getUTCdate(),
-           FailureReason = @FailureReason
-    WHERE  SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue;
+    SET    IsCompleted        = 1,
+           @IsCompletedBefore = IsCompleted,
+           EndDate            = getUTCdate(),
+           IsSuccess          = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END,
+           FailureReason      = @FailureReason
+    WHERE  SurrogateIdRangeFirstValue = @TransactionId
+           AND (IsControlledByClient = 1
+                OR @OverrideIsControlledByClientCheck = 1);
+    SET @Rows = @@rowcount;
+    IF @Rows = 0
+        BEGIN
+            SET @msg = 'Transaction [' + CONVERT (VARCHAR (20), @TransactionId) + '] is not controlled by client or does not exist.';
+            RAISERROR (@msg, 18, 127);
+        END
+    IF @IsCompletedBefore = 1
+        BEGIN
+            IF @InitialTranCount = 0
+                ROLLBACK;
+            EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows, @Target = '@IsCompletedBefore', @Text = '=1';
+            RETURN;
+        END
+    IF @InitialTranCount = 0
+        COMMIT TRANSACTION;
+    EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @Rows;
 END TRY
 BEGIN CATCH
+    IF @InitialTranCount = 0
+       AND @@trancount > 0
+        ROLLBACK;
     IF error_number() = 1750
         THROW;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error';
