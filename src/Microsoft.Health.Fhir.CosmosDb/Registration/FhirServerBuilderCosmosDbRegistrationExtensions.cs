@@ -97,8 +97,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<IScoped<Container>>(sp => sp.GetService<CosmosContainerProvider>().CreateContainerScope())
                 .Transient()
-                .AsSelf()
-                .AsFactory();
+                .AsSelf();
+
+            // Special override so that the IScoped instance is not created/tracked by the container
+            services.Add<Func<IScoped<Container>>>(sp => () => sp.GetService<CosmosContainerProvider>().CreateContainerScope())
+                .Transient()
+                .AsSelf();
 
             services.Add<CosmosQueryFactory>()
                 .Singleton()

@@ -25,8 +25,10 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -132,7 +134,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
-            services.RemoveServiceTypeExact<SystemConformanceProvider, INotificationHandler<RebuildCapabilityStatement>>()
+            services
+                .RemoveServiceTypeExact<SystemConformanceProvider, INotificationHandler<RebuildCapabilityStatement>>()
                 .Add<SystemConformanceProvider>()
                 .Singleton()
                 .AsSelf()
@@ -163,6 +166,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddLazy();
             services.AddScoped();
+
+            services.AddTransient(typeof(IScopeProvider<>), typeof(ScopeProvider<>));
         }
     }
 }

@@ -16,12 +16,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     public abstract class Watchdog<T> : FhirTimer<T>
     {
-        private ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private readonly WatchdogLease<T> _watchdogLease;
         private bool _disposed = false;
         private double _periodSec;
         private double _leasePeriodSec;
+        private readonly ISqlRetryService _sqlRetryService;
 
         protected Watchdog(ISqlRetryService sqlRetryService, ILogger<T> logger)
             : base(logger)

@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private readonly ILegacyExportOperationDataStore _fhirOperationDataStore = Substitute.For<ILegacyExportOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
-        private readonly Func<IExportJobTask> _exportJobTaskFactory = Substitute.For<Func<IExportJobTask>>();
+        private readonly IScoped<IExportJobTask> _exportJobTaskFactory = Substitute.For<IScoped<IExportJobTask>>();
         private readonly IExportJobTask _task = Substitute.For<IExportJobTask>();
 
         private readonly LegacyExportJobWorker _legacyExportJobWorker;
@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobConfiguration.JobHeartbeatTimeoutThreshold = DefaultJobHeartbeatTimeoutThreshold;
             _exportJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
-            _exportJobTaskFactory().Returns(_task);
+            _exportJobTaskFactory.Value.Returns(_task);
 
             _legacyExportJobWorker = new LegacyExportJobWorker(
-                () => _fhirOperationDataStore.CreateMockScope(),
+                _fhirOperationDataStore.CreateMockScopeProvider(),
                 Options.Create(_exportJobConfiguration),
-                _exportJobTaskFactory,
+                _exportJobTaskFactory.CreateMockScopeProviderFromScoped(),
                 NullLogger<LegacyExportJobWorker>.Instance);
 
             _legacyExportJobWorker.Handle(new StorageInitializedNotification(), CancellationToken.None);
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
-            _exportJobTaskFactory().Received(1);
+            _exportJobTaskFactory.Value.Received(1);
         }
 
         [Fact]

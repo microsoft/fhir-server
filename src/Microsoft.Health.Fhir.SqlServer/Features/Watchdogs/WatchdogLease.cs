@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
     internal class WatchdogLease<T> : FhirTimer<T>
     {
         private const double TimeoutFactor = 0.25;
-        private readonly object _locker = new object();
+        private readonly object _locker = new();
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;

@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlRetryService, logger)
         {
+            _sqlRetryService = sqlRetryService;
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }

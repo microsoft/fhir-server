@@ -67,10 +67,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
             // Empty queue
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
 
-            var wd = new DefragWatchdog(
-                _fixture.SqlRetryService,
-                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)),
-                XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
+            var wd = new DefragWatchdog();
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));
@@ -117,7 +114,9 @@ END
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
 
-            var wd = new CleanupEventLogWatchdog(_fixture.SqlRetryService, XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
+            var wd = new CleanupEventLogWatchdog(
+                _fixture.SqlRetryService,
+                XUnitLogger<CleanupEventLogWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromMinutes(10));

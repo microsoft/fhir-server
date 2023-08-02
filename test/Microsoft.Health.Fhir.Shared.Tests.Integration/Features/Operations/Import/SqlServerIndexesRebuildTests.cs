@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
             var searchService = Substitute.For<ISearchService>();
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), searchService.CreateMockScopeProvider(), NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSchemaVersion);
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                () => defaultSqlConnectionWrapperFactory.CreateMockScope(),
+                defaultSqlConnectionWrapperFactory.CreateMockScopeProvider(),
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
