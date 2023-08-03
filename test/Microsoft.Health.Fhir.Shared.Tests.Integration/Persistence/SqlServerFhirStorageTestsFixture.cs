@@ -35,7 +35,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.SqlServer;
@@ -155,10 +154,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var mergeResourcesTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>>>();
-            var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
@@ -180,15 +175,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
+            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
-                upsertResourceTvpGeneratorVLatest,
-                mergeResourcesTvpGeneratorVLatest,
-                reindexResourceTvpGeneratorVLatest,
-                bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 bundleOrchestrator,
+                SqlRetryService,
                 SqlConnectionWrapperFactory,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,
@@ -200,8 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, queueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
-            SqlRetryService = new SqlRetryService(SqlConnectionBuilder, SqlServerDataStoreConfiguration, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
-            var sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            var sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
             _sqlServerFhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, sqlQueueClient, NullLogger<SqlServerFhirOperationDataStore>.Instance, NullLoggerFactory.Instance);
 
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
@@ -242,7 +235,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 partitionEliminationRewriter,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
-                SqlConnectionWrapperFactory,
                 SqlConnectionBuilder,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
@@ -264,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
 
-            _sqlQueueClient = new SqlQueueClient(SqlConnectionWrapperFactory, SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
+            _sqlQueueClient = new SqlQueueClient(SchemaInformation, SqlRetryService, NullLogger<SqlQueueClient>.Instance);
         }
 
         public string TestConnectionString { get; }
@@ -279,7 +271,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
 
-        internal ISqlRetryService SqlRetryService { get; }
+        internal SqlRetryService SqlRetryService { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 

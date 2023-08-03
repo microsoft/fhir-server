@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write, "user"),
                 },
             };
             yield return new object[]
@@ -328,7 +328,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
                 new List<ScopeRestriction>()
                 {
                     new ScopeRestriction("Patient", DataActions.Read, "patient"),
-                    new ScopeRestriction("Observation", DataActions.Read | DataActions.Write, "user"),
+                    new ScopeRestriction("Observation", DataActions.Write, "user"),
+                },
+            };
+
+            yield return new object[]
+            {
+                "user.VisionPrescription.write user.all.read",
+                new List<ScopeRestriction>()
+                {
+                    new ScopeRestriction("VisionPrescription", DataActions.Write, "user"),
+                    new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "user"),
                 },
             };
 
@@ -336,6 +346,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Smart
             yield return new object[] { "user/Encounter.*", new List<ScopeRestriction>() { new ScopeRestriction("Encounter", DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
             yield return new object[] { "user/all.*", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
             yield return new object[] { "user/all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "user") } };
+            yield return new object[] { "system.all.all", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read | DataActions.Write | DataActions.Export, "system") } };
             yield return new object[] { "patient.Patient.read", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read, "patient") } };
             yield return new object[] { "patient.Patient.all", new List<ScopeRestriction>() { new ScopeRestriction("Patient", DataActions.Read | DataActions.Write | DataActions.Export, "patient") } };
             yield return new object[] { "patient.*.read", new List<ScopeRestriction>() { new ScopeRestriction(KnownResourceTypes.All, DataActions.Read, "patient") } };

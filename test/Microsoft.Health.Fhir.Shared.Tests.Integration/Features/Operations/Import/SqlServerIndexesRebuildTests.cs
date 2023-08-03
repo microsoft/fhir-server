@@ -26,11 +26,9 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement;
@@ -203,11 +201,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var converter = (ICompressedRawResourceConverter)new CompressedRawResourceConverter();
             serviceCollection.AddSingleton(converter);
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
-            var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var mergeResourcesTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.MergeResourcesTvpGenerator<IReadOnlyList<MergeResourceWrapper>>>();
-            var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -215,15 +208,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 
+            var sqlRetryService = new SqlRetryService(defaultSqlConnectionBuilder, config, Options.Create(new SqlRetryServiceOptions()), new SqlRetryServiceDelegateOptions());
+
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
-                upsertResourceTvpGeneratorVLatest,
-                mergeResourcesTvpGeneratorVLatest,
-                reindexResourceTvpGeneratorVLatest,
-                bulkReindexResourceTvpGeneratorVLatest,
                 Options.Create(new CoreFeatureConfiguration()),
                 bundleOrchestrator,
+                sqlRetryService,
                 defaultSqlConnectionWrapperFactory,
                 converter,
                 NullLogger<SqlServerFhirDataStore>.Instance,

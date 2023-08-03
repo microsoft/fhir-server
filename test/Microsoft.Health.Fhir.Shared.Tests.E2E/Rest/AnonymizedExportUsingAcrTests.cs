@@ -14,13 +14,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage;
+using Azure.Storage.Blobs.Specialized;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.ContainerRegistry.Models;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
@@ -47,7 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string TestConfigName = "testconfigname.json";
         private const string TestRepositoryTag = "e2etest";
 
-        private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
+        private const string TestExportStoreUriEnvironmentVariableName = "TestExportStoreUri";
+        private const string TestExportStoreKeyEnvironmentVariableName = "TestExportStoreKey";
 
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
@@ -283,15 +283,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task<IEnumerable<string>> DownloadBlobAndParse(IList<Uri> blobUri)
         {
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            (Uri storageUri, StorageSharedKeyCredential credential, string connectionString) = AzureStorageBlobHelper.GetStorageCredentialsFromEnvironmentVariables(
+                TestExportStoreUriEnvironmentVariableName,
+                TestExportStoreKeyEnvironmentVariableName);
             var result = new List<string>();
 
             foreach (Uri uri in blobUri)
             {
-                var blob = new CloudBlockBlob(uri, blobClient);
-                string allData = await blob.DownloadTextAsync();
-
+                BlockBlobClient blob = AzureStorageBlobHelper.CreateBlockBlobClient(uri, credential, connectionString);
+                var response = await blob.DownloadContentAsync();
+                var allData = response.Value.Content.ToString();
                 var splitData = allData.Split("\n");
 
                 foreach (var entry in splitData)
@@ -306,32 +307,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return result;
-        }
-
-        private CloudStorageAccount GetCloudStorageAccountHelper()
-        {
-            CloudStorageAccount storageAccount = null;
-
-            string exportStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreUri");
-            string exportStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreKey");
-            if (!string.IsNullOrEmpty(exportStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(exportStoreKeyFromEnvironmentVariable))
-            {
-                Uri integrationStoreUri = new Uri(exportStoreFromEnvironmentVariable);
-                string storageAccountName = integrationStoreUri.Host.Split('.')[0];
-                StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, exportStoreKeyFromEnvironmentVariable);
-                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-            }
-            else
-            {
-                CloudStorageAccount.TryParse(LocalIntegrationStoreConnectionString, out storageAccount);
-            }
-
-            if (storageAccount == null)
-            {
-                throw new Exception("Unable to create a cloud storage account");
-            }
-
-            return storageAccount;
         }
 
         private ContainerRegistryInfo GetTestContainerRegistryInfo()

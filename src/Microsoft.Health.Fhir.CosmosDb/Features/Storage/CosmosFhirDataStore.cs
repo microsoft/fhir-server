@@ -455,27 +455,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             // this is a place holder update until we batch update resources
             foreach (var resource in resources)
             {
-                await UpdateSearchParameterIndicesAsync(resource, WeakETag.FromVersionId(resource.Version), cancellationToken);
+                await UpdateSearchParameterIndicesAsync(resource, cancellationToken);
             }
         }
 
-        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
-            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
             UpdateSortIndex(cosmosWrapper);
 
             try
             {
-                _logger.LogDebug("Replacing {ResourceType}/{Id}, ETag: \"{Tag}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
+                _logger.LogDebug("Replacing {ResourceType}/{Id}/{Version}", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, resourceWrapper.Version);
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
                         _containerScope.Value.Scripts,
                         cosmosWrapper,
-                        weakETag.VersionId,
+                        resourceWrapper.Version,
                         ct),
                     cancellationToken);
 
@@ -487,8 +486,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
+                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, WeakETag.FromVersionId(resourceWrapper.Version)));
 
                     case HttpStatusCode.ServiceUnavailable:
                         _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
@@ -693,7 +692,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 watch = Stopwatch.StartNew();
-                builder = builder.SyncSearchParameters();
+                builder = builder.SyncSearchParametersAsync();
                 _logger.LogInformation("CosmosFhirDataStore. 'Search Parameters' built. Elapsed: {ElapsedTime}. Memory: {MemoryInUse}.", watch.Elapsed, GC.GetTotalMemory(forceFullCollection: false));
             }
             catch (Exception e)

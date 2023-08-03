@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Version;
 using Microsoft.Health.Fhir.Core.Models;
@@ -56,7 +57,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _supportedProfiles = supportedProfiles;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, ISupportedProfilesStore supportedProfiles, IUrlResolver urlResolver)
+        public static ICapabilityStatementBuilder Create(
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IOptions<CoreFeatureConfiguration> configuration,
+            ISupportedProfilesStore supportedProfiles,
+            IUrlResolver urlResolver,
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -159,7 +166,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
 
             _statement.Rest.Server().Interaction.Add(new ResourceInteractionComponent { Code = systemInteraction });
-
             return this;
         }
 
@@ -171,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private ICapabilityStatementBuilder SyncSearchParams(string resourceType)
+        private ICapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
@@ -324,7 +330,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder SyncSearchParameters()
+        public ICapabilityStatementBuilder SyncSearchParametersAsync()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
@@ -339,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                SyncSearchParams(resource);
+                SyncSearchParamsAsync(resource);
             }
 
             return this;

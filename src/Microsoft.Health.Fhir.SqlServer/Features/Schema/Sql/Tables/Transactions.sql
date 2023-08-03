@@ -14,6 +14,7 @@
     ,HeartbeatDate                datetime NOT NULL CONSTRAINT DF_Transactions_HeartbeatDate DEFAULT getUTCdate()
     ,FailureReason                varchar(max) NULL -- is populated at the end of data load on failure
     ,IsControlledByClient         bit NOT NULL CONSTRAINT DF_Transactions_IsControlledByClient DEFAULT 1
+    ,InvisibleHistoryRemovedDate  datetime NULL
 
      CONSTRAINT PKC_Transactions_SurrogateIdRangeFirstValue PRIMARY KEY CLUSTERED (SurrogateIdRangeFirstValue)
 )

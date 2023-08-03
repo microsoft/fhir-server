@@ -308,6 +308,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.PurgeHistory:
                     routeName = RouteNames.PurgeHistoryDefinition;
                     break;
+                case OperationsConstants.SearchParameterStatus:
+                    routeName = RouteNames.SearchParameterStatusOperationDefinition;
+                    break;
 
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));

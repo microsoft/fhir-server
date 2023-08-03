@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
-        Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
+        Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, CancellationToken cancellationToken);
 
         Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken);
     }

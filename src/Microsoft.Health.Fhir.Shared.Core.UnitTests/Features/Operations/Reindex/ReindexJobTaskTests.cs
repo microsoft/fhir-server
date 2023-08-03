@@ -401,6 +401,113 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Failed, job.Status);
         }
 
+        [Fact]
+        public async Task GivenJobWithNoWork_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
+        {
+            // Get two search parameters with different base resource types and configure them such that they need to be reindexed
+            var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+
+            Assert.NotNull(paramWithAppointmentResponseBaseType);
+            Assert.NotNull(paramWithAppointmentBaseType);
+
+            paramWithAppointmentResponseBaseType.IsSearchable = false;
+            paramWithAppointmentBaseType.IsSearchable = false;
+
+            var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
+            resourceTypeSearchParamHashMap.Add("Appointment", "appointmentHash");
+            resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
+
+            ReindexJobRecord job = CreateReindexJobRecord(paramHashMap: resourceTypeSearchParamHashMap);
+
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
+
+            // setup search result
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                true,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(0, new List<Tuple<string, string>>()), // First two calls check how many resources need to be reindexed
+                    new SearchResult(0, new List<Tuple<string, string>>()));
+
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal(0, job.Count);
+            Assert.Contains("Appointment", job.ResourceList);
+            Assert.Contains("AppointmentResponse", job.ResourceList);
+            Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
+            Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
+
+            Assert.Empty(job.QueryList);
+
+            await _reindexUtilities.Received().UpdateSearchParameterStatus(
+                Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) && r.Any(s => s.Contains("AppointmentResponse"))),
+                Arg.Any<CancellationToken>());
+
+            paramWithAppointmentResponseBaseType.IsSearchable = true;
+            paramWithAppointmentBaseType.IsSearchable = true;
+        }
+
+        [Fact]
+        public async Task GivenForceReindex_WhenExecuted_ThenJobCompletedAndSPStatusUpdated()
+        {
+            // Get two search parameters with different base resource types and configure them such that they need to be reindexed
+            var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+
+            Assert.NotNull(paramWithAppointmentResponseBaseType);
+            Assert.NotNull(paramWithAppointmentBaseType);
+
+            var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
+            resourceTypeSearchParamHashMap.Add("Appointment", "appointmentHash");
+            resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
+
+            ReindexJobRecord job = CreateReindexJobRecord(
+                paramHashMap: resourceTypeSearchParamHashMap,
+                searchParameterTypes: new List<string>()
+                {
+                    "http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment",
+                    "http://hl7.org/fhir/SearchParameter/Appointment-date",
+                },
+                resourceTypes: new List<string>()
+                {
+                    "Appointment",
+                    "AppointmentResponse",
+                });
+
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
+
+            // setup search result
+            _searchService.SearchForReindexAsync(
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                Arg.Any<string>(),
+                true,
+                Arg.Any<CancellationToken>(),
+                true).
+                Returns(
+                    new SearchResult(0, new List<Tuple<string, string>>()), // First two calls check how many resources need to be reindexed
+                    new SearchResult(0, new List<Tuple<string, string>>()));
+
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            Assert.Equal(OperationStatus.Completed, job.Status);
+            Assert.Equal(0, job.Count);
+            Assert.Contains("Appointment", job.ResourceList);
+            Assert.Contains("AppointmentResponse", job.ResourceList);
+            Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
+            Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
+
+            Assert.Empty(job.QueryList);
+
+            await _reindexUtilities.Received().UpdateSearchParameterStatus(
+                Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) && r.Any(s => s.Contains("AppointmentResponse"))),
+                Arg.Any<CancellationToken>());
+        }
+
         private SearchResult CreateSearchResult(string continuationToken = null, int resourceCount = 1)
         {
             var resultList = new List<SearchResultEntry>();
@@ -417,14 +524,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             return searchResult;
         }
 
-        private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100, IReadOnlyDictionary<string, string> paramHashMap = null)
+        private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100, IReadOnlyDictionary<string, string> paramHashMap = null, List<string> searchParameterTypes = null, List<string> resourceTypes = null)
         {
             if (paramHashMap == null)
             {
                 paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
             }
 
-            return new ReindexJobRecord(paramHashMap, new List<string>(), new List<string>(), new List<string>(), maxiumumConcurrency: 1, maxResourcePerQuery);
+            if (searchParameterTypes == null)
+            {
+                searchParameterTypes = new List<string>();
+            }
+
+            if (resourceTypes == null)
+            {
+                resourceTypes = new List<string>();
+            }
+
+            return new ReindexJobRecord(paramHashMap, new List<string>(), searchParameterTypes, searchParameterResourceTypes: resourceTypes, maxiumumConcurrency: 1, maxResourcePerQuery);
         }
     }
 }

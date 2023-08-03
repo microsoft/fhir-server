@@ -12,13 +12,16 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -41,6 +44,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private ImportTaskConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
+        private readonly IAuditLogger _auditLogger;
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
         public ImportOrchestratorJob(
             IMediator mediator,
@@ -49,7 +54,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
             IOptions<ImportTaskConfiguration> importConfiguration,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            IAuditLogger auditLogger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
@@ -58,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(importConfiguration?.Value, nameof(importConfiguration));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
+            EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
 
             _mediator = mediator;
             _contextAccessor = contextAccessor;
@@ -66,6 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _queueClient = queueClient;
             _importConfiguration = importConfiguration.Value;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorJob>();
+            _auditLogger = auditLogger;
 
             PollingPeriodSec = _importConfiguration.PollingFrequencyInSeconds;
         }
@@ -142,7 +150,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -156,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -168,7 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -180,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorMessage = eTagEx.Message,
                 };
 
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -195,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Cancel other processing jobs
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (RetriableJobException ex)
             {
@@ -216,7 +224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult);
+                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
 
             // Post-process operation cannot be cancelled.
@@ -245,7 +253,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 throw new JobExecutionException(errorResult.ErrorMessage, errorResult);
             }
 
-            await SendImportMetricsNotification(JobStatus.Completed, jobInfo, currentResult);
+            await SendImportMetricsNotification(JobStatus.Completed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             return JsonConvert.SerializeObject(currentResult);
         }
 
@@ -264,8 +272,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             });
         }
 
-        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult)
+        private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
         {
+            _logger.LogInformation("SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
+
+            if (importMode == ImportMode.IncrementalLoad)
+            {
+                var incrementalImportProperties = new Dictionary<string, string>();
+                incrementalImportProperties["JobId"] = jobInfo.Id.ToString();
+                incrementalImportProperties["SucceededResources"] = currentResult.SucceededResources.ToString();
+                incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
+
+                _auditLogger.LogAudit(
+                AuditAction.Executed,
+                operation: ImportMode.IncrementalLoad.ToString(),
+                resourceType: string.Empty,
+                requestUri: fhirRequestContext.Uri,
+                statusCode: HttpStatusCode.Accepted,
+                correlationId: fhirRequestContext.CorrelationId,
+                callerIpAddress: string.Empty,
+                callerClaims: null,
+                customHeaders: null,
+                operationType: string.Empty,
+                callerAgent: DefaultCallerAgent,
+                additionalProperties: incrementalImportProperties);
+                _logger.LogInformation("Audit logs for incremental import are added");
+            }
+
             var importJobMetricsNotification = new ImportJobMetricsNotification(
                 jobInfo.Id.ToString(),
                 jobStatus.ToString(),
@@ -273,7 +306,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 Clock.UtcNow,
                 currentResult.TotalBytes,
                 currentResult.SucceededResources,
-                currentResult.FailedResources);
+                currentResult.FailedResources,
+                importMode);
 
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
@@ -356,6 +390,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         }
 
                         completedJobIds.Add(jobInfo.Id);
+                        _logger.LogInformation("Job with id: {JobId} and group id: {GroupId} completed.", jobInfo.Id, jobInfo.GroupId);
                     }
                 }
 

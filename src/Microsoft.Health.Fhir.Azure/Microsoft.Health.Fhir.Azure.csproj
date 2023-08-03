@@ -10,7 +10,6 @@
     <PackageReference Include="Ensure.That" />
     <PackageReference Include="Microsoft.Azure.KeyVault" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" />
-    <PackageReference Include="Microsoft.Azure.Storage.Blob" />
     <PackageReference Include="Polly" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>

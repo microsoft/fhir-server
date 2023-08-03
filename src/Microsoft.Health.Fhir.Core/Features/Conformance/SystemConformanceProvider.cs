@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
+        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _metadata;
@@ -57,7 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger,
-            IUrlResolver urlResolver)
+            IUrlResolver urlResolver,
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -66,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
@@ -75,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _logger = logger;
             _disposed = false;
             _urlResolver = urlResolver;
+            _searchParameterStatusManager = searchParameterStatusManager;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -94,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, _urlResolver);
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, _urlResolver, _searchParameterStatusManager);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
@@ -169,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (_builder != null)
                 {
                     // Update search params;
-                    _builder.SyncSearchParameters();
+                    _builder.SyncSearchParametersAsync();
 
                     // Update supported profiles;
                     _builder.SyncProfiles();
@@ -241,7 +246,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     case RebuildPart.SearchParameter:
                         // Update search params;
-                        _builder.SyncSearchParameters();
+                        _builder.SyncSearchParametersAsync();
                         break;
 
                     case RebuildPart.Profiles:

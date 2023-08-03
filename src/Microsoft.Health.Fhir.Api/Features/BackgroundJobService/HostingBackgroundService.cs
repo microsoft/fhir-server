@@ -8,11 +8,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
@@ -20,12 +22,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
     /// <summary>
     /// The background service used to host the <see cref="JobHosting"/>.
     /// </summary>
-    public class HostingBackgroundService : BackgroundService
+    public class HostingBackgroundService : BackgroundService, INotificationHandler<StorageInitializedNotification>
     {
         private readonly Func<IScoped<JobHosting>> _jobHostingFactory;
         private readonly OperationsConfiguration _operationsConfiguration;
         private readonly TaskHostingConfiguration _hostingConfiguration;
         private readonly ILogger<HostingBackgroundService> _logger;
+        private bool _storageReady;
 
         public HostingBackgroundService(
             Func<IScoped<JobHosting>> jobHostingFactory,
@@ -63,6 +66,11 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 var jobQueues = new List<Task>();
 
+                while (!_storageReady)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
+                }
+
                 foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
                     jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource, operation.UpdateProgressOnHeartbeat));
@@ -78,6 +86,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
             {
                 _logger.LogInformation("HostingBackgroundService end.");
             }
+        }
+
+        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _storageReady = true;
+            return Task.CompletedTask;
         }
     }
 }

@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
+                          (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
                         VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
@@ -97,6 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
+                          (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
                         VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });

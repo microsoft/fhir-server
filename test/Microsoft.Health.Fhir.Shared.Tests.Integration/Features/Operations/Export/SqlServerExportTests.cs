@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Operations.Export;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
             _searchService = _fixture.GetService<ISearchService>();
             _operationDataStore = _fixture.GetService<SqlServerFhirOperationDataStore>();
-            _queueClient = Substitute.ForPartsOf<SqlQueueClient>(_fixture.SqlConnectionWrapperFactory, _fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
+            _queueClient = new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper));
         }
 
         [Fact]
@@ -148,6 +147,7 @@ END
             var surrId = DateTime.UtcNow.DateToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
+        (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)
   SELECT ResourceTypeId
         ,newid()
         ,1
