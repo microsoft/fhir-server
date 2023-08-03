@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement
@@ -112,9 +113,9 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
 
-            IJob job = _jobFactory.Create(jobInfo);
+            using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
-            if (job == null)
+            if (job?.Value == null)
             {
                 _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
                 return;
