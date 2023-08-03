@@ -804,7 +804,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
             searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
             rawResourceBytes = reader.GetSqlBytes(10).Value;
-            isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
+            isInvisible = false; ////rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
         }
 
         [Conditional("DEBUG")]
