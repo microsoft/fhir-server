@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
         {
+            EnableInvisibleHistory();
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
@@ -137,11 +138,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
 
             Assert.Equal(1, await GetCount());
+            DisableInvisibleHistory();
         }
 
         [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_InvisibleHistoryIsRetainedAndIsRemovedByWatchdog()
         {
+            EnableInvisibleHistory();
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
@@ -187,12 +190,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
 
             Assert.Equal(0, await GetCount());
+            DisableInvisibleHistory();
         }
 
         [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_HistoryIsNotReturnedAndChangesAreReturned()
         {
             EnableDatabaseLogging();
+            EnableInvisibleHistory();
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
             await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
@@ -236,6 +241,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Single(resourceKeys);
             Assert.Equal("2", resourceKeys[0].VersionId);
             Assert.False(resourceKeys[0].IsDeleted);
+
+            DisableInvisibleHistory();
+        }
+
+        private void EnableInvisibleHistory()
+        {
+            using var conn = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Number) SELECT 'InvisibleHistory.IsEnabled', 1";
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
+        }
+
+        private void DisableInvisibleHistory()
+        {
+            using var conn = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
+            using var cmd = conn.CreateRetrySqlCommand();
+            cmd.CommandText = "DELETE FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled'";
+            cmd.ExecuteNonQueryAsync(CancellationToken.None).Wait();
         }
 
         private void EnableDatabaseLogging()

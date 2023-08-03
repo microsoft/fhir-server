@@ -4381,7 +4381,10 @@ BEGIN TRY
                                           AND KeepHistory = 1);
                     SET @AffectedRows += @@rowcount;
                     IF @IsResourceChangeCaptureEnabled = 1
-                       OR 1 = 1
+                       AND EXISTS (SELECT *
+                                   FROM   dbo.Parameters
+                                   WHERE  Id = 'InvisibleHistory.IsEnabled'
+                                          AND Number = 1)
                         UPDATE dbo.Resource
                         SET    IsHistory            = 1,
                                RawResource          = 0xF,
