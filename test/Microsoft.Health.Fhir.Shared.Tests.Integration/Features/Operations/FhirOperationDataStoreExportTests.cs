@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreExportTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
