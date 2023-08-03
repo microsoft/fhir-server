@@ -308,10 +308,12 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
             ");
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);
             cmd.Parameters.AddWithValue("@HeartbeatTimeoutSecId", HeartbeatTimeoutSecId);
+            cmd.Parameters.AddWithValue("@IsEnabledId", IsEnabledId);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
 
             _threads = await GetThreadsAsync(CancellationToken.None);
