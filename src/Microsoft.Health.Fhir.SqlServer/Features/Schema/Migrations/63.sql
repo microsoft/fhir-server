@@ -3983,8 +3983,16 @@ BEGIN TRY
         BEGIN TRANSACTION;
     DECLARE @SurrogateIds TABLE (
         ResourceSurrogateId BIGINT NOT NULL);
-    IF @IsResourceChangeCaptureEnabled = 0
-        DELETE dbo.Resource
+    IF @IsResourceChangeCaptureEnabled = 1
+       AND EXISTS (SELECT *
+                   FROM   dbo.Parameters
+                   WHERE  Id = 'InvisibleHistory.IsEnabled'
+                          AND Number = 1)
+        UPDATE dbo.Resource
+        SET    IsHistory            = 1,
+               RawResource          = 0xF,
+               SearchParamHash      = NULL,
+               HistoryTransactionId = @TransactionId
         OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceId = @ResourceId
@@ -3992,11 +4000,7 @@ BEGIN TRY
                     OR IsHistory = 1)
                AND RawResource <> 0xF;
     ELSE
-        UPDATE dbo.Resource
-        SET    IsHistory            = 1,
-               RawResource          = 0xF,
-               SearchParamHash      = NULL,
-               HistoryTransactionId = @TransactionId
+        DELETE dbo.Resource
         OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
         WHERE  ResourceTypeId = @ResourceTypeId
                AND ResourceId = @ResourceId
