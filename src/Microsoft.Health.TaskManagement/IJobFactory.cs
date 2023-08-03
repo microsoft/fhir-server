@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Extensions.DependencyInjection;
+
 namespace Microsoft.Health.JobManagement
 {
     /// <summary>
@@ -15,6 +17,6 @@ namespace Microsoft.Health.JobManagement
         /// </summary>
         /// <param name="jobInfo">Job information payload.</param>
         /// <returns>Job for execution.</returns>
-        IJob Create(JobInfo jobInfo);
+        IScoped<IJob> Create(JobInfo jobInfo);
     }
 }
