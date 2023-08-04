@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -42,6 +43,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
             return obj
                 .CreateMockScope()
                 .CreateMockScopeProviderFromScoped();
+        }
+
+        public static IScopeProvider<T> CreateMockScopeProvider<T>(this Func<T> obj)
+        {
+            if (obj.GetType().IsGenericType && obj.GetType().GetGenericTypeDefinition() == typeof(IScoped<>))
+            {
+                throw new InvalidOperationException($"Unwrap {typeof(T)} or use {nameof(CreateMockScopeProviderFromScoped)}.");
+            }
+
+            IScopeProvider<T> provider = Substitute.For<IScopeProvider<T>>();
+            provider.Invoke().Returns(_ => obj.Invoke().CreateMockScope());
+            return provider;
         }
     }
 }

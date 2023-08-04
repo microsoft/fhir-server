@@ -135,12 +135,12 @@ namespace Microsoft.Health.JobManagement
 #endif
                 }
 
-                var runningJob = ExecuteJobWithHeartbeatsAsync(
+                Task<string> runningJob = ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.ExecuteAsync(jobInfo, cancellationSource.Token),
+                                    cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 
@@ -225,6 +225,7 @@ namespace Microsoft.Health.JobManagement
 
             var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
+            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);
