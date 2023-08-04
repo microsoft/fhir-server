@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 DatabaseId = Environment.GetEnvironmentVariable("CosmosDb:DatabaseId") ?? "FhirTests",
                 AllowDatabaseCreation = true,
                 PreferredLocations = Environment.GetEnvironmentVariable("CosmosDb:PreferredLocations")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+                UseQueueClientJobs = true,
             };
 
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration
