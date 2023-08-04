@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                 cancellationTokenSource.CancelAfter(500);
                 Exception exception = await Assert.ThrowsAnyAsync<Exception>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
-                Assert.True(exception is RetriableJobException || exception is TaskCanceledException);
+                Assert.True(exception is RetriableJobException || exception is TaskCanceledException, $"error={exception}");
             }
 
             // Rebuild Indexes
