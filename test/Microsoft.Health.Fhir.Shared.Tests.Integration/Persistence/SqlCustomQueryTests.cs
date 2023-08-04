@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
             }
 
-            // assert an sproc was not used
+            // Check if stored procedure was used
             Assert.True(sprocWasUsed);
         }
 
