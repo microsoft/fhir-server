@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -41,6 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public IFhirDataStore DataStore => _storageFixture.DataStore;
 
         public SqlConnectionWrapperFactory SqlConnectionWrapperFactory => _sqlFixture.SqlConnectionWrapperFactory;
+
+        public SqlRetryService SqlRetryService => _sqlFixture.SqlRetryService;
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 

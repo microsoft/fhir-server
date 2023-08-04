@@ -581,23 +581,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            SearchResult searchResult = null;
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
+            LogSqlCommand(sqlCommand);
+            List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
+                sqlCommand,
+                async (cmd, cancel) =>
                 {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
-                    LogSqlCommand(sqlCommand);
-
-                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-
-                    var resources = new List<SearchResultEntry>();
-                    while (await reader.ReadAsync(cancellationToken))
+                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
+                    resources = new List<SearchResultEntry>();
+                    while (await reader.ReadAsync(cancel))
                     {
                         ReadWrapper(
                             reader,
@@ -651,12 +646,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
-                    searchResult = new SearchResult(resources, null, null, new List<Tuple<string, string>>());
-                    searchResult.TotalCount = resources.Count;
                     return;
                 },
+                _logger,
+                null,
                 cancellationToken);
-            return searchResult;
+            return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
         }
 
         private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)

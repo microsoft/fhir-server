@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
         {
+            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
@@ -103,10 +104,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var wd = new InvisibleHistoryCleanupWatchdog(store, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
+            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
             var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
@@ -126,15 +128,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(2, await GetCount());
 
             await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
-            await Task.Delay(5000);
 
             // check only 1 record remains
+            startTime = DateTime.UtcNow;
+            while (await GetCount() != 1 && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
             Assert.Equal(1, await GetCount());
         }
 
         [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_InvisibleHistoryIsRetainedAndIsRemovedByWatchdog()
         {
+            ExecuteSql("TRUNCATE TABLE dbo.Transactions");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
@@ -142,10 +150,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var wd = new InvisibleHistoryCleanupWatchdog(store, () => _fixture.SqlConnectionWrapperFactory.CreateMockScope(), XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
+            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
+            var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
             var startTime = DateTime.UtcNow;
-            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 10)
+            while (!wd.IsLeaseHolder && (DateTime.UtcNow - startTime).TotalSeconds < 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
@@ -156,15 +165,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             // create 1 resource and hard delete it
             var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
             Assert.Equal("1", create.VersionId);
+
+            var resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
+            Assert.NotNull(resource);
+
             await store.HardDeleteAsync(new ResourceKey("Organization", create.Id), false, cts.Token);
+
+            resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
+            Assert.Null(resource);
 
             // check 1 record exist
             Assert.Equal(1, await GetCount());
 
             await store.StoreClient.MergeResourcesAdvanceTransactionVisibilityAsync(CancellationToken.None); // this logic is invoked by WD normally
-            await Task.Delay(5000);
 
             // check no records
+            startTime = DateTime.UtcNow;
+            while (await GetCount() > 0 && (DateTime.UtcNow - startTime).TotalSeconds < 60)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+
             Assert.Equal(0, await GetCount());
         }
 

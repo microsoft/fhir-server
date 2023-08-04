@@ -96,6 +96,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return poco.ToResourceElement();
         }
 
+        public static ResourceElement TryAddSoftDeletedExtension(this ResourceElement resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            Resource poco = resource.ToPoco();
+            poco.Meta ??= new Meta();
+
+            if (!poco.Meta.Extension.Any(x => string.Equals(x.Url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                poco.Meta.Extension.Add(
+                    new Extension
+                    {
+                        Url = KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                        Value = new FhirString("soft-deleted"),
+                    });
+            }
+
+            return poco.ToResourceElement();
+        }
+
         public static SearchParameterInfo ToInfo(this SearchParameter searchParam)
         {
             EnsureArg.IsNotNull(searchParam, nameof(searchParam));
