@@ -23,14 +23,6 @@ jobs:
       run: |
         git fetch --prune --unshallow
 
-    - name: Install .NET 6.0 SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '6.x'
-
-    - name: Install .NET Latest SDK
-      uses: actions/setup-dotnet@v3
-
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
