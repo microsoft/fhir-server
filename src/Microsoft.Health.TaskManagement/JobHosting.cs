@@ -123,7 +123,7 @@ namespace Microsoft.Health.JobManagement
             }
             else
             {
-                _checkTimeoutJobsStopwatches.TryAdd(key, new Stopwatch());
+                _checkTimeoutJobsStopwatches.TryAdd(key, Stopwatch.StartNew());
             }
 
             return false;
