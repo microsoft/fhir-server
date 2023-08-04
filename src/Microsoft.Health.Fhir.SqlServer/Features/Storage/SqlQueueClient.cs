@@ -137,12 +137,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return dequeuedJobs;
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
         {
             using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             sqlCommand.Parameters.AddWithValue("@Worker", worker);
             sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
+            sqlCommand.Parameters.AddWithValue("@CheckTimeoutJobs", checkTimeoutJobsOnly);
             if (jobId.HasValue)
             {
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
