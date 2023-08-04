@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -68,15 +69,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _output.WriteLine("Adding new sproc to database.");
             AddSproc(hash);
 
-            await Task.Delay(1100);
-
             // Query after adding an sproc to the database
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
-
-            Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
+            var sw = Stopwatch.StartNew();
+            var sprocWasUsed = false;
+            while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
+            {
+                await Task.Delay(100);
+                await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
+                Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
+                if (await CheckIfSprocUsed(hash))
+                {
+                    sprocWasUsed = true;
+                    break;
+                }
+            }
 
             // assert an sproc was not used
-            Assert.True(await CheckIfSprocUsed(hash));
+            Assert.True(sprocWasUsed);
         }
 
         private async Task<bool> CheckIfSprocUsed(string hash)
@@ -86,21 +95,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _output.WriteLine("Checking database for sproc being run.");
                 conn.Open();
                 var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT SCHEMA_NAME(sysobject.schema_id), OBJECT_NAME(stats.object_id),  stats.last_execution_time\r\n" +
-                    "FROM sys.dm_exec_procedure_stats stats\r\n" +
-                    "INNER JOIN sys.objects sysobject ON sysobject.object_id = stats.object_id\r\n" +
-                    "WHERE  sysobject.type = 'P'\r\n" +
-                    "and (sysobject.object_id = object_id('dbo.CustomQuery_" + hash + "') \r\n" +
-                    "OR sysobject.name = 'CustomQuery_" + hash + "')\r\n" +
-                    "ORDER BY stats.last_execution_time DESC  ";
+                cmd.CommandText = @"
+SELECT TOP 1 O.name
+  FROM sys.dm_exec_procedure_stats S
+       JOIN sys.objects O ON O.object_id = S.object_id
+  WHERE O.type = 'p' AND O.name = 'CustomQuery_'+@hash
+  ORDER BY
+       S.last_execution_time DESC";
+                cmd.Parameters.AddWithValue("@hash", hash);
+
                 var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
-                    var text = reader.GetString(1);
-                    if (text.Contains("CustomQuery"))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
