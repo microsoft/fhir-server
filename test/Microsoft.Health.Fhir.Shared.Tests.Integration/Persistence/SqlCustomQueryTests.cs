@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sprocWasUsed = false;
             while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
             {
-                await Task.Delay(100);
+                await Task.Delay(300);
                 await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
                 Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
                 if (await CheckIfSprocUsed(hash))
