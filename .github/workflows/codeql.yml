@@ -14,9 +14,7 @@ jobs:
     strategy:
       fail-fast: false
 
-
-    # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
-    runs-on: 1ES.Pool=GithubRunPool
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
 
     steps:
     - name: Checkout repository
