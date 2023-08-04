@@ -13,6 +13,7 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
+  
   - task: DockerCompose@0
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:

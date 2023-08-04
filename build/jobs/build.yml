@@ -13,12 +13,22 @@ steps:
   inputs:
     useGlobalJson: true
 
+# Restore packages using an authenticated feed to ensure required versions are added.
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet restore'
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+    feedsToUse: 'select'
+    vstsFeed: '7621b231-1a7d-4364-935b-2f72b911c43d/a60b7c8b-c6ae-4a8e-bd15-a526b603a1f2'
+    includeNuGetOrg: false
+
 - ${{ if eq(parameters.targetBuildFramework, '') }}:
   - task: DotNetCoreCLI@2
     displayName: 'dotnet build $(buildConfiguration)'
     inputs:
       command: build
-      arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
+      arguments: '--configuration $(buildConfiguration) --no-restore -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if ne(parameters.targetBuildFramework, '') }}:
@@ -26,7 +36,7 @@ steps:
     displayName: 'dotnet build $(buildConfiguration)'
     inputs:
       command: build
-      arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
+      arguments: '--configuration $(buildConfiguration) --no-restore -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
 - ${{ if eq(parameters.componentGovernance, 'true') }}:
