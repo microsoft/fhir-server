@@ -16,7 +16,7 @@ jobs:
 
 
     # CodeQL runs on ubuntu-latest, windows-latest, and macos-latest
-    runs-on: ubuntu-latest
+    1ES.Pool: GithubRunPool
 
     steps:
     - name: Checkout repository
