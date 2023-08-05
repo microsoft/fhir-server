@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Cryptography;
@@ -21,8 +20,6 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
-        private readonly ConcurrentDictionary<string, Stopwatch> _checkTimeoutJobsStopwatches;
-        private const int _checkTimeoutJobsPeriodSec = 600;
 
         public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
         {
@@ -33,7 +30,6 @@ namespace Microsoft.Health.JobManagement
             _queueClient = queueClient;
             _jobFactory = jobFactory;
             _logger = logger;
-            _checkTimeoutJobsStopwatches = new ConcurrentDictionary<string, Stopwatch>();
         }
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
@@ -62,6 +58,8 @@ namespace Microsoft.Health.JobManagement
                     // random delay to avoid convoys
                     await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
 
+                    var checkTimeoutJobStopwatch = Stopwatch.StartNew();
+
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         JobInfo nextJob = null;
@@ -69,8 +67,9 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                if (CheckTimeoutJobs(queueType, thread))
+                                if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
+                                    checkTimeoutJobStopwatch.Restart();
                                     nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
                                 }
 
@@ -102,31 +101,6 @@ namespace Microsoft.Health.JobManagement
             {
                 _logger.LogError(ex, "Job failed to execute");
             }
-        }
-
-        private bool CheckTimeoutJobs(byte queueType, int thread)
-        {
-            var key = $"q={queueType} t={thread}";
-            if (_checkTimeoutJobsStopwatches.TryGetValue(key, out var sw))
-            {
-                if (sw.Elapsed.TotalSeconds > _checkTimeoutJobsPeriodSec)
-                {
-                    lock (_checkTimeoutJobsStopwatches)
-                    {
-                        if (sw.Elapsed.TotalSeconds > _checkTimeoutJobsPeriodSec)
-                        {
-                            sw.Restart();
-                            return true;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                _checkTimeoutJobsStopwatches.TryAdd(key, Stopwatch.StartNew());
-            }
-
-            return false;
         }
 
         private async Task ExecuteJobAsync(JobInfo jobInfo, bool useHeavyHeartbeats)
