@@ -171,8 +171,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                             ResourceType.SearchParameter.ToString(),
                             new Uri(uri),
                             System.Net.HttpStatusCode.OK,
-                            string.Empty,
-                            "127.0.0.1",
+                            null,
+                            null,
                             null,
                             additionalProperties: new Dictionary<string, string>()
                             {
