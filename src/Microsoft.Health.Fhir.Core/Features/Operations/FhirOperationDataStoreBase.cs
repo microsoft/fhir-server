@@ -40,7 +40,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         };
     }
 
-    public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+    public virtual async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
     {
         var clone = jobRecord.Clone();
         clone.QueuedTime = DateTime.Parse("1900-01-01");

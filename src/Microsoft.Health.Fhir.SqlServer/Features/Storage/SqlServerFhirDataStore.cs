@@ -47,8 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
-        private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly CoreFeatureConfiguration _coreFeatures;
@@ -65,8 +63,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirDataStore(
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
-            VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             IBundleOrchestrator bundleOrchestrator,
             ISqlRetryService sqlRetryService,
@@ -79,8 +75,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
-            _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
@@ -384,7 +378,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                var mergeOutcome = await MergeAsync(new List<ResourceWrapperOperation> { resource }, cancellationToken);
+                var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)
@@ -405,7 +399,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            var results = await GetAsync(new List<ResourceKey> { key }, cancellationToken);
+            var results = await GetAsync(new[] { key }, cancellationToken);
             return results.Count == 0 ? null : results[0];
         }
 
@@ -416,32 +410,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
+            int? failedResourceCount;
+            try
             {
-                VLatest.BulkReindexResources.PopulateCommand(
-                    sqlCommandWrapper,
-                    _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+                // This logic relies on surrogate id in ResourceWrapper populated using database values
+                var mergeWrappers = resources.Select(_ => new MergeResourceWrapper(_, false, false)).ToList();
 
-                // We will reindex the rest of the batch if one resource has a versioning conflict
-                int? failedResourceCount;
-                try
-                {
-                    failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-                }
-                catch (SqlException e)
-                {
-                    _logger.LogError(e, "Error from SQL database on reindex.");
-                    throw;
-                }
+                using var cmd = new SqlCommand("dbo.UpdateResourceSearchParams") { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 + (int)(3600.0 / 10000 * mergeWrappers.Count) };
+                new ResourceListTableValuedParameterDefinition("@Resources").AddParameter(cmd.Parameters, new ResourceListRowGenerator(_model, _compressedRawResourceConverter).GenerateRows(mergeWrappers));
+                new ResourceWriteClaimListTableValuedParameterDefinition("@ResourceWriteClaims").AddParameter(cmd.Parameters, new ResourceWriteClaimListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new ReferenceSearchParamListTableValuedParameterDefinition("@ReferenceSearchParams").AddParameter(cmd.Parameters, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenSearchParamListTableValuedParameterDefinition("@TokenSearchParams").AddParameter(cmd.Parameters, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenTextListTableValuedParameterDefinition("@TokenTexts").AddParameter(cmd.Parameters, new TokenTextListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new StringSearchParamListTableValuedParameterDefinition("@StringSearchParams").AddParameter(cmd.Parameters, new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new UriSearchParamListTableValuedParameterDefinition("@UriSearchParams").AddParameter(cmd.Parameters, new UriSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new NumberSearchParamListTableValuedParameterDefinition("@NumberSearchParams").AddParameter(cmd.Parameters, new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new QuantitySearchParamListTableValuedParameterDefinition("@QuantitySearchParams").AddParameter(cmd.Parameters, new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new DateTimeSearchParamListTableValuedParameterDefinition("@DateTimeSearchParams").AddParameter(cmd.Parameters, new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new ReferenceTokenCompositeSearchParamListTableValuedParameterDefinition("@ReferenceTokenCompositeSearchParams").AddParameter(cmd.Parameters, new ReferenceTokenCompositeSearchParamListRowGenerator(_model, new ReferenceSearchParamListRowGenerator(_model, _searchParameterTypeMap), new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenTokenCompositeSearchParamListTableValuedParameterDefinition("@TokenTokenCompositeSearchParams").AddParameter(cmd.Parameters, new TokenTokenCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenDateTimeCompositeSearchParamListTableValuedParameterDefinition("@TokenDateTimeCompositeSearchParams").AddParameter(cmd.Parameters, new TokenDateTimeCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new DateTimeSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenQuantityCompositeSearchParamListTableValuedParameterDefinition("@TokenQuantityCompositeSearchParams").AddParameter(cmd.Parameters, new TokenQuantityCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new QuantitySearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
+                var failedResourcesParam = new SqlParameter("@FailedResources", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                cmd.Parameters.Add(failedResourcesParam);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                failedResourceCount = (int)failedResourcesParam.Value;
+            }
+            catch (SqlException e)
+            {
+                _logger.LogError(e, "Error from SQL database on reindex.");
+                throw;
+            }
 
-                if (failedResourceCount != 0)
-                {
-                    string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
-                    string userAction = Core.Resources.ReindexingUserAction;
-                    _logger.LogError("{Error}", message);
-                    throw new PreconditionFailedException(message + " " + userAction);
-                }
+            if (failedResourceCount != 0)
+            {
+                string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
+                string userAction = Core.Resources.ReindexingUserAction;
+                _logger.LogError("{Error}", message);
+                throw new PreconditionFailedException(message + " " + userAction);
             }
         }
 
@@ -459,13 +467,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
-        }
-
-        private static string RemoveVersionIdAndLastUpdatedFromMeta(ResourceWrapper resourceWrapper)
-        {
-            var versionToReplace = resourceWrapper.RawResource.IsMetaSet ? resourceWrapper.Version : "1";
-            var rawResource = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{versionToReplace}\"", string.Empty, StringComparison.Ordinal);
-            return rawResource.Replace($"\"lastUpdated\":\"{RemoveTrailingZerosFromMillisecondsForAGivenDate(resourceWrapper.LastModified)}\"", string.Empty, StringComparison.Ordinal);
         }
 
         private void ReplaceVersionIdInMeta(ResourceWrapper resourceWrapper)
@@ -569,43 +570,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await _sqlStoreClient.GetResourcesByTransactionIdAsync(transactionId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
         }
 
-        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, CancellationToken cancellationToken)
         {
-            int? eTag = weakETag == null
-                ? null
-                : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
-
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand())
-            {
-                VLatest.ReindexResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag,
-                    searchParamHash: resource.SearchParameterHash,
-                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
-
-                try
-                {
-                    await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                    return resource;
-                }
-                catch (SqlException e)
-                {
-                    switch (e.Number)
-                    {
-                        case SqlErrorCodes.PreconditionFailed:
-                            _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
-
-                        default:
-                            _logger.LogError(e, "Error from SQL database on reindex.");
-                            throw;
-                    }
-                }
-            }
+            await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
+            return await GetAsync(resource.ToResourceKey(), cancellationToken);
         }
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)

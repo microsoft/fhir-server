@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Numerics;
@@ -20,14 +19,12 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -105,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                 cancellationTokenSource.CancelAfter(500);
                 Exception exception = await Assert.ThrowsAnyAsync<Exception>(() => rebuildSqlImportOperation.PostprocessAsync(cancellationTokenSource.Token));
-                Assert.True(exception is RetriableJobException || exception is TaskCanceledException);
+                Assert.True(exception is RetriableJobException || exception is TaskCanceledException, $"error={exception}");
             }
 
             // Rebuild Indexes
@@ -201,9 +198,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var converter = (ICompressedRawResourceConverter)new CompressedRawResourceConverter();
             serviceCollection.AddSingleton(converter);
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
-            var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
@@ -216,8 +210,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             var store = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
                 searchParameterToSearchValueTypeMap,
-                reindexResourceTvpGeneratorVLatest,
-                bulkReindexResourceTvpGeneratorVLatest,
                 Options.Create(new CoreFeatureConfiguration()),
                 bundleOrchestrator,
                 sqlRetryService,
@@ -290,7 +282,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
                 {
                     //// Our home grown SQL schema generator does not understand that statements can be formatted differently but contain identical SQL
                     //// Skipping queue objects
-                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "CompartmentAssignment" };
+                    var objectsToSkip = new[] { "DequeueJob", "EnqueueJobs", "GetJobs", "GetResourcesByTypeAndSurrogateIdRange", "GetResourceSurrogateIdRanges", "LogEvent", "PutJobCancelation", "PutJobHeartbeat", "PutJobStatus", "CompartmentAssignment" }.ToList();
+                    objectsToSkip.Add("PartitionFunction_ResourceChangeData_Timestamp"); // definition is not predictable as it has start time component
                     if (schemaDifference.SourceObject != null && objectsToSkip.Any(_ => schemaDifference.SourceObject.Name.ToString().Contains(_)))
                     {
                         continue;

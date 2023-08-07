@@ -15,11 +15,11 @@ grant_type=client_credentials
 &client_secret=globalAdminServicePrincipal
 &scope=fhir-api
 
-## For test server
-# @fhirurl=  https://smartonfhir-test1.fhir.azurehealthcareapis.com
-# @clientid= b9c9d8e9-8cb7-43ee-91bd-f133f99e9f2c
-# @clientsecret= XXX
-# @tenantid= 72f988bf-86f1-41af-91ab-2d7cd011db47
+### Example connecting to an online service
+# @fhirurl=https://<fhir-account>.fhir.azurehealthcareapis.com
+# @clientid=<client-id>
+# @clientsecret=<client-secret>
+# @tenantid=<client-tenant>
 #
 # ### Get access token
 # # @name getAADToken
@@ -31,10 +31,10 @@ grant_type=client_credentials
 # &client_id={{clientid}}
 # &client_secret={{clientsecret}}
 # &scope=fhir-api
-
+#
 # ### Capture access token from getToken request
-
-@token={{getAADToken.response.body.access_token}}
+#
+# @token={{getAADToken.response.body.access_token}}
 
 ### Get Metadata - Allows you to get the current capability statement
 # this will update as you add profiles to the database
