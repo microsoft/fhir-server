@@ -23,15 +23,15 @@ jobs:
       run: |
         git fetch --prune --unshallow
 
-    # Set the custom working directory (e.g., /path/to/your/storage)
+    # Set the custom working directory (e.g., /path/to/your/storage) using the environment file
     - name: Set working directory
-      run: mkdir -p E:\Github\Actions\CodeQL\storage
-      shell: bash
-
-    # Set the custom working directory for subsequent steps
-    - name: Set working directory in CodeQL
+      env:
+        RUNNER_TEMP: /tmp # This is a fallback in case the file is not found
       run: |
-        echo "::set-env name=RUNNER_WORKSPACE::E:\Github\Actions\CodeQL\storage"
+        if [ -f "env.txt" ]; then
+          source env.txt
+        fi
+        mkdir -p $RUNNER_WORKSPACE
       shell: bash
 
     # Initializes the CodeQL tools for scanning.
