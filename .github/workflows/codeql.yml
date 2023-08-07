@@ -28,7 +28,6 @@ jobs:
       env:
         RUNNER_TEMP: /tmp # This is a fallback in case the file is not found
       run: |
-        mount /dev/sda1 /mnt
         if [ -f "env.txt" ]; then
           source env.txt
         fi
