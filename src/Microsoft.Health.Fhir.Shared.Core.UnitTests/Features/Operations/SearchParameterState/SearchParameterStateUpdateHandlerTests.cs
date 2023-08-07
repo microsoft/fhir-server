@@ -12,7 +12,9 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -253,6 +255,75 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
             var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
             Assert.True(urlPart.Value.ToString() == ResourceId);
             Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
+        }
+
+        [Fact]
+        public async void GivenARequestToUpdateSearchParameterStatus_WhenRequestIsValied_ThenAuditLogContainsStateChange()
+        {
+            var loggers = CreateTestAuditLogger();
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger);
+            List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
+            {
+                new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),
+            };
+
+            SearchParameterStateUpdateResponse response = await searchParameterStateUpdateHandler.Handle(new SearchParameterStateUpdateRequest(updates), default);
+
+            Assert.NotNull(response);
+            Assert.NotNull(response.UpdateStatus);
+
+            var unwrappedResponse = response.UpdateStatus.ToPoco<Hl7.Fhir.Model.Bundle>();
+            var resourceResponse = (Parameters)unwrappedResponse.Entry[0].Resource;
+            var urlPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Url).First();
+            var statusPart = resourceResponse.Parameter[0].Part.Where(p => p.Name == SearchParameterStateProperties.Status).First();
+            Assert.True(urlPart.Value.ToString() == ResourceId);
+            Assert.True(statusPart.Value.ToString() == SearchParameterStatus.PendingDisable.ToString());
+
+            Assert.Single(loggers.logger.LogRecords);
+            Assert.Contains("Status=PendingDisable", loggers.logger.LogRecords[0].State.ToString());
+        }
+
+        private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
+        {
+            IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();
+            var securityConfig = new SecurityConfiguration();
+            optionsConfig.Value.Returns(securityConfig);
+            var logger = new TestLogger();
+            var auditLogger = new AuditLogger(optionsConfig, logger);
+
+            return (auditLogger, logger);
+        }
+
+        private class TestLogger : ILogger<IAuditLogger>
+        {
+            internal List<LogRecord> LogRecords { get; } = new List<LogRecord>();
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return null;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
+            {
+                LogRecords.Add(new LogRecord() { LogLevel = logLevel, State = state.ToString() });
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return false;
+            }
+
+            internal class LogRecord
+            {
+                internal LogLevel LogLevel { get; init; }
+
+                internal string State { get; init; }
+            }
         }
     }
 }
