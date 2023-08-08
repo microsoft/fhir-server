@@ -18,6 +18,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Testing;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -55,10 +56,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _initializationOperation = new RetryableInitializationOperation(
                 () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
 
-            _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
-                _client,
-                cosmosDataStoreConfiguration.DatabaseId,
-                collectionId));
+            _container = new Lazy<Container>(() =>
+            {
+                var container = cosmosClientInitializer.CreateFhirContainer(
+                    _client,
+                    cosmosDataStoreConfiguration.DatabaseId,
+                    collectionId);
+
+                if (cosmosDataStoreConfiguration.UseChaosTestingContainer)
+                {
+                    return new ChaosContainer(container);
+                }
+
+                return container;
+            });
         }
 
         public Container Container

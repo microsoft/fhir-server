@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
 
         public ConsistencyLevel? DefaultConsistencyLevel { get; set; }
 
+        public bool UseChaosTestingContainer { get; set; }
+
         public bool AllowDatabaseCreation { get; set; } = true;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
