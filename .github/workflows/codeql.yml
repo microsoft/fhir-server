@@ -28,7 +28,7 @@ jobs:
       env:
         RUNNER_TEMP: /tmp # This is a fallback in case the file is not found
       run: |
-        mkdir -p ${{ vars.GITHUBCODEQLDBLOCATION }}
+        mkdir -p ${{ vars.CODEQLDBLOCATION }}
       shell: bash
 
     # Initializes the CodeQL tools for scanning.
@@ -36,7 +36,7 @@ jobs:
       uses: github/codeql-action/init@v2
       with:
         languages: csharp
-        db-location: ${{ vars.GITHUBCODEQLDBLOCATION }}
+        db-location: ${{ vars.CODEQLDBLOCATION }}
         # If you wish to specify custom queries, you can do so here or in a config file.
         # By default, queries listed here will override any specified in a config file.
         # Prefix the list here with "+" to use these queries and those in the config file.
