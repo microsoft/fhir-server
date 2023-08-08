@@ -24,9 +24,7 @@ jobs:
         git fetch --prune --unshallow
 
     # Set the custom working directory (e.g., /path/to/your/storage) using the environment file
-    - name: Set working directory
-      env:
-        RUNNER_TEMP: /tmp # This is a fallback in case the file is not found
+    - name: Make working directory
       run: |
         mkdir -p ${{ vars.GITHUBCODEQLDBLOCATION }}
       shell: bash
