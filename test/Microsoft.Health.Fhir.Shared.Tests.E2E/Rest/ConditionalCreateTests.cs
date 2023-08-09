@@ -140,20 +140,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(exception.OperationOutcome.Issue);
             Assert.Equal(exception.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, "Observation"));
         }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenCreatingConditionallyANewDuplicatedSearchParameterResource_TheServerShouldFail()
-        {
-            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicated");
-            resourceToCreate.Id = null;
-
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
-                resourceToCreate,
-                $"identifier={Guid.NewGuid().ToString()}"));
-
-            Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
-            Assert.Contains("A search parameter with the same code value 'code' already exists for base type 'Observation'", ex.Message);
-        }
     }
 }

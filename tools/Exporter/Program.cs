@@ -14,14 +14,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Microsoft.Health.Fhir.SqlServer.Features;
+using Microsoft.Health.Fhir.Store.Export;
 using Microsoft.Health.Fhir.Store.Utils;
 
-namespace Microsoft.Health.Fhir.Store.Export
+namespace Microsoft.Health.Internal.Fhir.Exporter
 {
     public static class Program
     {
-        private static readonly string SourceConnectionString = ConfigurationManager.ConnectionStrings["SourceDatabase"].ConnectionString;
-        private static readonly string QueueConnectionString = ConfigurationManager.ConnectionStrings["QueueDatabase"].ConnectionString;
+        private static readonly string _connectionString = ConfigurationManager.ConnectionStrings["Database"].ConnectionString;
+        private static readonly SqlService Store = new SqlService(_connectionString);
         private static readonly string BlobConnectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
         private static readonly string BlobContainerName = ConfigurationManager.AppSettings["BlobContainerName"];
         private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
@@ -35,8 +37,6 @@ namespace Microsoft.Health.Fhir.Store.Export
         private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
         private static readonly DateTime StartDate = DateTime.Parse(ConfigurationManager.AppSettings["StartDate"]);
         private static readonly DateTime EndDate = DateTime.Parse(ConfigurationManager.AppSettings["EndDate"]);
-        private static readonly SqlService Source = new SqlService(SourceConnectionString);
-        private static readonly SqlService Queue = new SqlService(QueueConnectionString);
         private static bool stop = false;
         private static long _resourcesTotal = 0L;
         private static Stopwatch _swReport = Stopwatch.StartNew();
@@ -48,14 +48,13 @@ namespace Microsoft.Health.Fhir.Store.Export
 
         public static void Main(string[] args)
         {
-            Console.WriteLine($"Source=[{Source.ShowConnectionString()}]");
+            Console.WriteLine($"Source=[{_connectionString}]");
             if (args.Length > 0 && args[0] == "noqueue")
             {
                 ExportNoQueue();
             }
             else
             {
-                Console.WriteLine($"Queue=[{Queue.ShowConnectionString()}]");
                 if (RebuildWorkQueue)
                 {
                     PopulateJobQueue(ResourceType, UnitSize);
@@ -69,8 +68,8 @@ namespace Microsoft.Health.Fhir.Store.Export
         {
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
-            var resourceTypeId = Source.GetResourceTypeId(ResourceType);
-            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
+            var resourceTypeId = Store.GetResourceTypeId(ResourceType);
+            var ranges = Store.GetSurrogateIdRanges(resourceTypeId, startId, endId, UnitSize).ToList();
             Console.WriteLine($"ExportNoQueue.{ResourceType}: ranges={ranges.Count}.");
             var container = GetContainer(BlobConnectionString, BlobContainerName);
             foreach (var range in ranges)
@@ -123,12 +122,12 @@ namespace Microsoft.Health.Fhir.Store.Export
             retry:
                 try
                 {
-                    Queue.DequeueJob(out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
+                    Store.DequeueJob(out var _, out unitId, out version, out resourceTypeId, out minId, out maxId);
                     if (resourceTypeId.HasValue)
                     {
                         var container = GetContainer(BlobConnectionString, BlobContainerName);
                         var resources = Export(resourceTypeId.Value, container, long.Parse(minId), long.Parse(maxId));
-                        Queue.CompleteJob(unitId, false, version, resources);
+                        Store.CompleteJob(unitId, false, version, resources);
                     }
 
                     if (_swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
@@ -146,9 +145,9 @@ namespace Microsoft.Health.Fhir.Store.Export
                 catch (Exception e)
                 {
                     Console.WriteLine($"Export.{ResourceType}.{thread}.{minId}.{maxId}: error={e}");
-                    Queue.LogEvent($"Export", "Error", $"{ResourceType}.{thread}.{minId}.{maxId}", text: e.ToString());
+                    Store.SqlRetryService.TryLogEvent($"Export:{ResourceType}.{thread}.{minId}.{maxId}", "Error", e.ToString(), null, CancellationToken.None).Wait();
                     retries++;
-                    var isRetryable = e.IsRetryable();
+                    var isRetryable = e.IsRetriable();
                     if (isRetryable)
                     {
                         maxRetries++;
@@ -163,7 +162,7 @@ namespace Microsoft.Health.Fhir.Store.Export
                     stop = true;
                     if (resourceTypeId.HasValue)
                     {
-                        Queue.CompleteJob(unitId, true, version);
+                        Store.CompleteJob(unitId, true, version);
                     }
 
                     throw;
@@ -181,7 +180,7 @@ namespace Microsoft.Health.Fhir.Store.Export
             }
 
             _database.Start();
-            var resources = Source.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
+            var resources = Store.GetDataBytes(resourceTypeId, minId, maxId).ToList(); // ToList will fource reading from SQL even when writes are disabled
             _database.Stop();
 
             var strings = new List<string>();
@@ -268,11 +267,11 @@ namespace Microsoft.Health.Fhir.Store.Export
         {
             var startId = LastUpdatedToResourceSurrogateId(StartDate);
             var endId = LastUpdatedToResourceSurrogateId(EndDate);
-            var resourceTypeId = Source.GetResourceTypeId(resourceType);
-            var ranges = Source.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize);
+            var resourceTypeId = Store.GetResourceTypeId(resourceType);
+            var ranges = Store.GetSurrogateIdRanges(resourceTypeId, startId, endId, unitSize);
             var strings = ranges.Select(_ => $"{_.UnitId};{resourceTypeId};{_.StartId};{_.EndId};{_.ResourceCount}").ToList();
 
-            var queueConn = new SqlConnection(Queue.ConnectionString);
+            var queueConn = new SqlConnection(Store.ConnectionString);
             queueConn.Open();
             using var drop = new SqlCommand("IF object_id('##StoreCopyWorkQueue') IS NOT NULL DROP TABLE ##StoreCopyWorkQueue", queueConn) { CommandTimeout = 60 };
             drop.ExecuteNonQuery();

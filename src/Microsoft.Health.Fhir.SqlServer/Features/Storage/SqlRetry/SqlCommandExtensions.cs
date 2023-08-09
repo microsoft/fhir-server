@@ -23,5 +23,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             return await retryService.ExecuteReaderAsync(cmd, readerToResult, logger, logMessage, cancellationToken);
         }
+
+        public static async Task<object> ExecuteScalarAsync<TLogger>(this SqlCommand cmd, ISqlRetryService retryService, ILogger<TLogger> logger, CancellationToken cancellationToken, string logMessage = null)
+        {
+            object scalar = null;
+            await retryService.ExecuteSql(cmd, async (sql, cancel) => { scalar = await sql.ExecuteScalarAsync(cancel); }, logger, logMessage, cancellationToken);
+            return scalar;
+        }
     }
 }

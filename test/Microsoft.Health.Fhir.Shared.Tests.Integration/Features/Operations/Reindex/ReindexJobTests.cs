@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCompleted()
         {
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter("http://hl7.org/fhir/SearchParameter/Measure-name");
-            searchParam.IsSearchable = false;
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string>() { searchParam.Url.ToString() }, SearchParameterStatus.Supported, default);
 
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
             CreateReindexResponse response = await SetUpForReindexing(request);
@@ -368,12 +368,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 await PerformReindexingOperation(response, OperationStatus.Completed, cancellationTokenSource);
 
-                Assert.True(searchParam.IsSearchable);
+                var updateSearchParamList = await _searchParameterStatusManager.GetAllSearchParameterStatus(default);
+                Assert.Equal(SearchParameterStatus.Enabled, updateSearchParamList.Where(sp => sp.Uri.OriginalString == searchParam.Url.OriginalString).First().Status);
             }
             finally
             {
                 cancellationTokenSource.Cancel();
-                searchParam.IsSearchable = true;
             }
         }
 

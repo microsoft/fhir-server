@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Web;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -73,12 +74,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
 
             if (callerClaims != null)
             {
-                claimsInString = string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}"));
+                claimsInString = HttpUtility.HtmlEncode(string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}")));
             }
 
             if (customHeaders != null)
             {
-                customerHeadersInString = string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}"));
+                customerHeadersInString = HttpUtility.HtmlEncode(string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}")));
             }
 
             if (additionalProperties != null)

@@ -8,27 +8,32 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class InvisibleHistoryCleanupWatchdog : Watchdog<InvisibleHistoryCleanupWatchdog>
     {
-        private readonly SqlServerFhirDataStore _store;
+        private readonly SqlStoreClient<InvisibleHistoryCleanupWatchdog> _store;
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
-        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _sqlConnectionWrapperFactory;
+        private readonly ISqlRetryService _sqlRetryService;
         private CancellationToken _cancellationToken;
         private double _retentionPeriodDays = 7;
 
-        public InvisibleHistoryCleanupWatchdog(SqlServerFhirDataStore store, Func<IScoped<SqlConnectionWrapperFactory>> sqlConnectionWrapperFactory, ILogger<InvisibleHistoryCleanupWatchdog> logger)
-            : base(sqlConnectionWrapperFactory, logger)
+        public InvisibleHistoryCleanupWatchdog(SqlStoreClient<InvisibleHistoryCleanupWatchdog> store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
+            : base(sqlRetryService, logger)
         {
-            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _store = EnsureArg.IsNotNull(store, nameof(store));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
+
+        internal InvisibleHistoryCleanupWatchdog()
+            : base()
+        {
+            // this is used to get param names for testing
         }
 
         internal string LastCleanedUpTransactionId => $"{Name}.LastCleanedUpTransactionId";
@@ -48,10 +53,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"{Name}: starting...");
             var lastTranId = await GetLastCleanedUpTransactionId();
-            var visibility = await _store.StoreClient.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
+            var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
             _logger.LogInformation($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");
 
-            var transToClean = await _store.StoreClient.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * _retentionPeriodDays));
+            var transToClean = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * _retentionPeriodDays));
             _logger.LogInformation($"{Name}: found transactions={transToClean.Count}.");
 
             if (transToClean.Count == 0)
@@ -63,11 +68,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var totalRows = 0;
             foreach (var tran in transToClean.Where(_ => !_.InvisibleHistoryRemovedDate.HasValue).OrderBy(_ => _.TransactionId))
             {
-                var rows = await _store.StoreClient.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, _cancellationToken);
+                var rows = await _store.MergeResourcesDeleteInvisibleHistory(tran.TransactionId, _cancellationToken);
                 _logger.LogInformation($"{Name}: transaction={tran.TransactionId} removed rows={rows}.");
                 totalRows += rows;
 
-                await _store.StoreClient.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, _cancellationToken);
+                await _store.MergeResourcesPutTransactionInvisibleHistoryAsync(tran.TransactionId, _cancellationToken);
             }
 
             await UpdateLastCleanedUpTransactionId(transToClean.Max(_ => _.TransactionId));
@@ -82,23 +87,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task InitLastCleanedUpTransactionId()
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"; // surrogate id for the past. does not matter.
+            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"); // surrogate id for the past. does not matter.
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
 
         private async Task UpdateLastCleanedUpTransactionId(long lastTranId)
         {
-            using IScoped<SqlConnectionWrapperFactory> scopedConn = _sqlConnectionWrapperFactory.Invoke();
-            using SqlConnectionWrapper conn = await scopedConn.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false);
-            using SqlCommandWrapper cmd = conn.CreateRetrySqlCommand();
-            cmd.CommandText = "UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id";
+            using var cmd = new SqlCommand("UPDATE dbo.Parameters SET Bigint = @LastTranId WHERE Id = @Id");
             cmd.Parameters.AddWithValue("@Id", LastCleanedUpTransactionId);
             cmd.Parameters.AddWithValue("@LastTranId", lastTranId);
-            await cmd.ExecuteNonQueryAsync(CancellationToken.None);
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
     }
 }
