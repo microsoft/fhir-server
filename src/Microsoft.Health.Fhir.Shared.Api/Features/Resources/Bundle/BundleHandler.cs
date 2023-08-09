@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 label: verb.ToString(),
                                 expectedNumberOfResources: _requests[verb].Count);
 
-                            _logger.LogTrace(
+                            _logger.LogInformation(
                                 "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
                                 bundleOperation.OriginalExpectedNumberOfResources,
                                 verb);
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             label: "Transaction",
                             expectedNumberOfResources: resources.Count);
 
-                        _logger.LogTrace(
+                        _logger.LogInformation(
                             "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
                             bundleOperation.OriginalExpectedNumberOfResources);
 
