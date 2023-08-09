@@ -24,17 +24,18 @@ jobs:
         git fetch --prune --unshallow
 
     # Set the custom working directory (e.g., /path/to/your/storage) using the environment file
-    - name: Make working directory
-      run: |
-        mkdir -p ${{ vars.CODEQLDBLOCATION }}
-      shell: bash
+    #- name: Make working directory
+    #  run: |
+      
+      #  mkdir -p ${{ vars.CODEQLDBLOCATION }}
+     # shell: bash
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
       with:
         languages: csharp
-        db-location: ${{ vars.CODEQLDBLOCATION }}
+        # db-location: ${{ vars.CODEQLDBLOCATION }}
         # If you wish to specify custom queries, you can do so here or in a config file.
         # By default, queries listed here will override any specified in a config file.
         # Prefix the list here with "+" to use these queries and those in the config file.
