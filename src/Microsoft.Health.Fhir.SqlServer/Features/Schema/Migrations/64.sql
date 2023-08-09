@@ -4559,11 +4559,10 @@ BEGIN TRY
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
                 END
-            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
+            INSERT INTO dbo.ResourceCurrent (ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
             SELECT ResourceTypeId,
                    ResourceId,
                    Version,
-                   IsHistory,
                    ResourceSurrogateId,
                    IsDeleted,
                    RequestMethod,
@@ -4571,7 +4570,22 @@ BEGIN TRY
                    IsRawResourceMetaSet,
                    SearchParamHash,
                    @TransactionId
-            FROM   @Resources;
+            FROM   @Resources
+            WHERE  IsHistory = 0;
+            SET @AffectedRows += @@rowcount;
+            INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
+            SELECT ResourceTypeId,
+                   ResourceId,
+                   Version,
+                   ResourceSurrogateId,
+                   IsDeleted,
+                   RequestMethod,
+                   RawResource,
+                   IsRawResourceMetaSet,
+                   SearchParamHash,
+                   @TransactionId
+            FROM   @Resources
+            WHERE  IsHistory = 1;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
             SELECT ResourceSurrogateId,
@@ -5059,7 +5073,8 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     IF @RaiseExceptionOnConflict = 1
        AND error_number() IN (2601, 2627)
-       AND error_message() LIKE '%''dbo.Resource''%'
+       AND (error_message() LIKE '%''dbo.ResourceCurrent''%'
+            OR error_message() LIKE '%''dbo.ResourceHistory''%')
         THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
         THROW;

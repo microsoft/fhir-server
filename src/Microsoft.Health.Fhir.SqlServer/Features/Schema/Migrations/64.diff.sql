@@ -491,10 +491,18 @@ BEGIN TRY
       --EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Start=@st,@Rows=@AffectedRows,@Text='Old rows'
     END
 
-    INSERT INTO dbo.Resource 
-           ( ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
-      SELECT ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
+    INSERT INTO dbo.ResourceCurrent 
+           ( ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+      SELECT ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
         FROM @Resources
+        WHERE IsHistory = 0
+    SET @AffectedRows += @@rowcount
+
+    INSERT INTO dbo.ResourceHistory 
+           ( ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash,  TransactionId )
+      SELECT ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, @TransactionId
+        FROM @Resources
+        WHERE IsHistory = 1
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.ResourceWriteClaim 
@@ -741,10 +749,9 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource''%'
+  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.ResourceCurrent''%' OR error_message() LIKE '%''dbo.ResourceHistory''%')
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
   ELSE
     THROW
 END CATCH
 GO
-
