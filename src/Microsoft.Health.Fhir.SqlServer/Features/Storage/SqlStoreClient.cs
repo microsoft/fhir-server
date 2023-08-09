@@ -94,15 +94,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceVersions", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(1200.0 / 10000 * keys.Count) };
             var tvpRows = keys.Select(_ => new ResourceDateKeyListRow(_.ResourceTypeId, _.Id, _.ResourceSurrogateId));
             new ResourceDateKeyListTableValuedParameterDefinition("@ResourceDateKeys").AddParameter(cmd.Parameters, tvpRows);
-            var table = VLatest.Resource;
             var resources = await cmd.ExecuteReaderAsync(
                 _sqlRetryService,
                 (reader) =>
                 {
-                    var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
-                    var resourceId = reader.Read(table.ResourceId, 1);
-                    var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
-                    var version = reader.Read(table.Version, 3);
+                    var resourceTypeId = reader.Read(VLatest.ResourceCurrent.ResourceTypeId, 0);
+                    var resourceId = reader.Read(VLatest.ResourceCurrent.ResourceId, 1);
+                    var resourceSurrogateId = reader.Read(VLatest.ResourceCurrent.ResourceSurrogateId, 2);
+                    var version = reader.Read(VLatest.ResourceCurrent.Version, 3);
                     return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
                 },
                 _logger,
@@ -120,16 +119,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
         {
-            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
-            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
-            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
-            var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
+            var resourceTypeId = reader.Read(VLatest.ResourceCurrent.ResourceTypeId, 0);
+            var resourceId = reader.Read(VLatest.ResourceCurrent.ResourceId, 1);
+            var resourceSurrogateId = reader.Read(VLatest.ResourceCurrent.ResourceSurrogateId, 2);
+            var version = reader.Read(VLatest.ResourceCurrent.Version, 3);
+            var isDeleted = reader.Read(VLatest.ResourceCurrent.IsDeleted, 4);
+            var isHistory = reader.Read(VLatest.ResourceCurrent.IsHistory, 5);
             var rawResourceBytes = reader.GetSqlBytes(6).Value;
-            var isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 7);
-            var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
-            var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
+            var isRawResourceMetaSet = reader.Read(VLatest.ResourceCurrent.IsRawResourceMetaSet, 7);
+            var searchParamHash = reader.Read(VLatest.ResourceCurrent.SearchParamHash, 8);
+            var requestMethod = readRequestMethod ? reader.Read(VLatest.ResourceCurrent.RequestMethod, 9) : null;
 
             if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
@@ -173,11 +172,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private ResourceDateKey ReadResourceDateKeyWrapper(SqlDataReader reader)
         {
-            var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
-            var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
-            var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
+            var resourceTypeId = reader.Read(VLatest.ResourceCurrent.ResourceTypeId, 0);
+            var resourceId = reader.Read(VLatest.ResourceCurrent.ResourceId, 1);
+            var resourceSurrogateId = reader.Read(VLatest.ResourceCurrent.ResourceSurrogateId, 2);
+            var version = reader.Read(VLatest.ResourceCurrent.Version, 3);
+            var isDeleted = reader.Read(VLatest.ResourceCurrent.IsDeleted, 4);
 
             return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture), isDeleted);
         }

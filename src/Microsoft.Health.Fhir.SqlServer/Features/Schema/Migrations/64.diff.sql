@@ -1,6 +1,293 @@
-﻿--DROP PROCEDURE dbo.MergeResources
+IF object_id('dbo.ResourceCurrent') IS NULL
+BEGIN
+CREATE TABLE dbo.ResourceCurrent
+(
+    ResourceTypeId              smallint                NOT NULL
+   ,ResourceSurrogateId         bigint                  NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version                     int                     NOT NULL
+   ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceCurrent_IsHistory DEFAULT 0, CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0)
+   ,IsDeleted                   bit                     NOT NULL
+   ,RequestMethod               varchar(10)             NULL
+   ,RawResource                 varbinary(max)          NOT NULL
+   ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
+   ,SearchParamHash             varchar(64)             NULL
+   ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
+   ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
+
+    CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0)
+)
+
+ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
+
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+
+CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.ResourceCurrent (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+
+CREATE TABLE dbo.ResourceHistory
+(
+    ResourceTypeId              smallint                NOT NULL
+   ,ResourceSurrogateId         bigint                  NOT NULL
+   ,ResourceId                  varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL
+   ,Version                     int                     NOT NULL
+   ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceHistory_IsHistory DEFAULT 1, CONSTRAINT CH_ResourceHistory_IsHistory CHECK (IsHistory = 1)
+   ,IsDeleted                   bit                     NOT NULL
+   ,RequestMethod               varchar(10)             NULL
+   ,RawResource                 varbinary(max)          NOT NULL
+   ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
+   ,SearchParamHash             varchar(64)             NULL
+   ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
+   ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
+
+    CONSTRAINT PKC_ResourceHistory_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+   ,CONSTRAINT U_ResourceHistory_ResourceTypeId_ResourceId_Version UNIQUE (ResourceTypeId, ResourceId, Version) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+)
+
+ALTER TABLE dbo.ResourceHistory SET ( LOCK_ESCALATION = AUTO )
+
+CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceHistory (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.ResourceHistory (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+
+END
 GO
-CREATE PROCEDURE dbo.MergeResources
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = object_id('dbo.Resource') AND type = 'u')
+  DROP TABLE dbo.Resource
+GO
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = object_id('dbo.Resource') AND type = 'v')
+  DROP VIEW dbo.Resource
+GO
+CREATE VIEW dbo.Resource
+AS
+SELECT ResourceTypeId
+      ,ResourceSurrogateId
+      ,ResourceId
+      ,Version
+      ,IsHistory
+      ,IsDeleted
+      ,RequestMethod
+      ,RawResource
+      ,IsRawResourceMetaSet
+      ,SearchParamHash
+      ,TransactionId
+      ,HistoryTransactionId
+  FROM dbo.ResourceCurrent
+UNION ALL
+SELECT ResourceTypeId
+      ,ResourceSurrogateId
+      ,ResourceId
+      ,Version
+      ,IsHistory
+      ,IsDeleted
+      ,RequestMethod
+      ,RawResource
+      ,IsRawResourceMetaSet
+      ,SearchParamHash
+      ,TransactionId
+      ,HistoryTransactionId
+  FROM dbo.ResourceHistory
+GO
+GO
+CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
+   @ResourceTypeId smallint
+  ,@ResourceId varchar(64)
+  ,@KeepCurrentVersion bit
+  ,@IsResourceChangeCaptureEnabled bit
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = 'RT='+convert(varchar,@ResourceTypeId)+' R='+@ResourceId+' V='+convert(varchar,@KeepCurrentVersion)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
+       ,@st datetime = getUTCdate()
+       ,@TransactionId bigint
+
+BEGIN TRY
+  IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUT
+
+  IF @KeepCurrentVersion = 0
+    BEGIN TRANSACTION
+
+  DECLARE @SurrogateIds TABLE (ResourceSurrogateId BIGINT NOT NULL)
+
+  IF @IsResourceChangeCaptureEnabled = 1 AND EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 1)
+  BEGIN
+    IF @KeepCurrentVersion = 0
+    BEGIN
+      INSERT INTO dbo.ResourceHistory
+          (
+               ResourceTypeId
+              ,ResourceSurrogateId
+              ,ResourceId
+              ,Version
+              ,IsDeleted
+              ,RequestMethod
+              ,RawResource
+              ,IsRawResourceMetaSet
+              ,SearchParamHash
+              ,TransactionId
+              ,HistoryTransactionId
+          )
+        OUTPUT inserted.ResourceSurrogateId INTO @SurrogateIds
+        SELECT ResourceTypeId
+              ,ResourceSurrogateId
+              ,ResourceId
+              ,Version
+              ,IsDeleted
+              ,RequestMethod
+              ,RawResource = 0xF
+              ,IsRawResourceMetaSet
+              ,SearchParamHash
+              ,TransactionId
+              ,HistoryTransactionId = @TransactionId
+          FROM dbo.ResourceCurrent
+          WHERE ResourceTypeId = @ResourceTypeId
+          AND ResourceId = @ResourceId
+      
+      DELETE FROM dbo.ResourceCurrent WHERE ResourceTypeId = @ResourceTypeId AND ResourceId = @ResourceId
+    END
+    ELSE
+      UPDATE dbo.ResourceHistory
+        SET RawResource = 0xF -- invisible value
+           ,SearchParamHash = NULL
+           ,HistoryTransactionId = @TransactionId
+        WHERE ResourceTypeId = @ResourceTypeId
+          AND ResourceId = @ResourceId
+          AND RawResource <> 0xF
+  END
+  ELSE
+  BEGIN
+    IF @KeepCurrentVersion = 0
+      DELETE dbo.ResourceCurrent
+        OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+        WHERE ResourceTypeId = @ResourceTypeId
+          AND ResourceId = @ResourceId
+
+    DELETE dbo.ResourceHistory WHERE ResourceTypeId = @ResourceTypeId AND ResourceId = @ResourceId AND RawResource <> 0xF
+  END
+
+  IF @KeepCurrentVersion = 0
+  BEGIN
+    -- PAGLOCK allows deallocation of empty page without waiting for ghost cleanup 
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ResourceWriteClaim B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ReferenceSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenText B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.StringSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.UriSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.NumberSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.QuantitySearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.DateTimeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ReferenceTokenCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenTokenCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenDateTimeCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenQuantityCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenStringCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenNumberNumberCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+  END
+  
+  IF @@trancount > 0 COMMIT TRANSACTION
+
+  IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+--DROP PROCEDURE dbo.GetResources
+GO
+CREATE OR ALTER PROCEDURE dbo.GetResources @ResourceKeys dbo.ResourceKeyList READONLY
+AS
+set nocount on
+DECLARE @st datetime = getUTCdate()
+       ,@SP varchar(100) = 'GetResources'
+       ,@InputRows int
+       ,@DummyTop bigint = 9223372036854775807
+       ,@NotNullVersionExists bit 
+       ,@NullVersionExists bit
+       ,@MinRT smallint
+       ,@MaxRT smallint
+
+SELECT @MinRT = min(ResourceTypeId), @MaxRT = max(ResourceTypeId), @InputRows = count(*), @NotNullVersionExists = max(CASE WHEN Version IS NOT NULL THEN 1 ELSE 0 END), @NullVersionExists = max(CASE WHEN Version IS NULL THEN 1 ELSE 0 END) FROM @ResourceKeys
+
+DECLARE @Mode varchar(100) = 'RT=['+convert(varchar,@MinRT)+','+convert(varchar,@MaxRT)+'] Cnt='+convert(varchar,@InputRows)+' NNVE='+convert(varchar,@NotNullVersionExists)+' NVE='+convert(varchar,@NullVersionExists)
+
+BEGIN TRY
+  IF @NotNullVersionExists = 1
+    IF @NullVersionExists = 0
+      SELECT B.ResourceTypeId
+            ,B.ResourceId
+            ,ResourceSurrogateId
+            ,B.Version
+            ,IsDeleted
+            ,IsHistory
+            ,RawResource
+            ,IsRawResourceMetaSet
+            ,SearchParamHash
+        FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
+             JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    ELSE
+      SELECT *
+        FROM (SELECT B.ResourceTypeId
+                    ,B.ResourceId
+                    ,ResourceSurrogateId
+                    ,B.Version
+                    ,IsDeleted
+                    ,IsHistory
+                    ,RawResource
+                    ,IsRawResourceMetaSet
+                    ,SearchParamHash
+                FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NOT NULL) A
+                     JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version = A.Version
+              UNION ALL
+              SELECT B.ResourceTypeId
+                    ,B.ResourceId
+                    ,ResourceSurrogateId
+                    ,B.Version
+                    ,IsDeleted
+                    ,IsHistory
+                    ,RawResource
+                    ,IsRawResourceMetaSet
+                    ,SearchParamHash
+                FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys WHERE Version IS NULL) A
+                     JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+                WHERE IsHistory = 0
+             ) A
+        OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+  ELSE
+    SELECT B.ResourceTypeId
+          ,B.ResourceId
+          ,ResourceSurrogateId
+          ,B.Version
+          ,IsDeleted
+          ,IsHistory
+          ,RawResource
+          ,IsRawResourceMetaSet
+          ,SearchParamHash
+      FROM (SELECT TOP (@DummyTop) * FROM @ResourceKeys) A
+           JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId
+      WHERE IsHistory = 0
+      OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+--DECLARE @ResourceKeys dbo.ResourceKeyList
+--INSERT INTO @ResourceKeys SELECT TOP 1 ResourceTypeId, ResourceId, NULL FROM Resource
+--EXECUTE dbo.GetResources @ResourceKeys
+--DROP PROCEDURE dbo.MergeResources
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
@@ -460,3 +747,4 @@ BEGIN CATCH
     THROW
 END CATCH
 GO
+

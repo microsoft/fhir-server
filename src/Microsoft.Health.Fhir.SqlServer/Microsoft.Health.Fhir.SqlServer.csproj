@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>63</LatestSchemaVersion>
+    <LatestSchemaVersion>64</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -43,6 +43,7 @@
   <!-- If this sql needs to be in a transaction, tag it TSqlScript otherwise use SqlScript -->
   <ItemGroup>
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
+    <SqlScript Include="Features\Schema\Sql\Views\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
