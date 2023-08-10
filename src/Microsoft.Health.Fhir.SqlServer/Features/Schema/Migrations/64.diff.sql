@@ -13,7 +13,6 @@ CREATE TABLE dbo.ResourceCurrent
    ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
-   ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
 
     CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -25,7 +24,6 @@ ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.ResourceCurrent (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE TABLE dbo.ResourceHistory
 (
@@ -73,7 +71,7 @@ SELECT ResourceTypeId
       ,SearchParamHash
       ,TransactionId
       ,HistoryTransactionId
-  FROM dbo.ResourceCurrent
+  FROM dbo.ResourceHistory
 UNION ALL
 SELECT ResourceTypeId
       ,ResourceSurrogateId
@@ -86,8 +84,42 @@ SELECT ResourceTypeId
       ,IsRawResourceMetaSet
       ,SearchParamHash
       ,TransactionId
-      ,HistoryTransactionId
-  FROM dbo.ResourceHistory
+      ,NULL
+  FROM dbo.ResourceCurrent
+GO
+--DROP PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesDeleteInvisibleHistory @TransactionId bigint, @AffectedRows int = NULL OUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(100) = 'T='+convert(varchar,@TransactionId)
+       ,@st datetime = getUTCdate()
+       ,@TypeId smallint
+
+SET @AffectedRows = 0
+
+BEGIN TRY  
+  DECLARE @Types TABLE (TypeId smallint PRIMARY KEY, Name varchar(100))
+  INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+
+  WHILE EXISTS (SELECT * FROM @Types)
+  BEGIN
+    SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
+
+    DELETE FROM dbo.ResourceHistory WHERE ResourceTypeId = @TypeId AND HistoryTransactionId = @TransactionId AND RawResource = 0xF
+    SET @AffectedRows += @@rowcount
+
+    DELETE FROM @Types WHERE TypeId = @TypeId
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@AffectedRows
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
 GO
 CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint

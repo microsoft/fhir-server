@@ -11,7 +11,6 @@
    ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
    ,SearchParamHash             varchar(64)             NULL
    ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
-   ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
 
     CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
    ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -23,7 +22,6 @@ ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.ResourceCurrent (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
 
 CREATE TABLE dbo.ResourceHistory

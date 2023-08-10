@@ -12,7 +12,7 @@ SELECT ResourceTypeId
       ,SearchParamHash
       ,TransactionId
       ,HistoryTransactionId
-  FROM dbo.ResourceCurrent
+  FROM dbo.ResourceHistory
 UNION ALL
 SELECT ResourceTypeId
       ,ResourceSurrogateId
@@ -25,7 +25,7 @@ SELECT ResourceTypeId
       ,IsRawResourceMetaSet
       ,SearchParamHash
       ,TransactionId
-      ,HistoryTransactionId
-  FROM dbo.ResourceHistory
+      ,NULL
+  FROM dbo.ResourceCurrent
 GO
 

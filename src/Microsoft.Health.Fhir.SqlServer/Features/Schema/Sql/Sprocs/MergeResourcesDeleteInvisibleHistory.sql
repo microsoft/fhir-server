@@ -18,7 +18,7 @@ BEGIN TRY
   BEGIN
     SET @TypeId = (SELECT TOP 1 TypeId FROM @Types ORDER BY TypeId)
 
-    DELETE FROM dbo.Resource WHERE ResourceTypeId = @TypeId AND HistoryTransactionId = @TransactionId AND IsHistory = 1 AND RawResource = 0xF
+    DELETE FROM dbo.ResourceHistory WHERE ResourceTypeId = @TypeId AND HistoryTransactionId = @TransactionId AND RawResource = 0xF
     SET @AffectedRows += @@rowcount
 
     DELETE FROM @Types WHERE TypeId = @TypeId
