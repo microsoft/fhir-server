@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -171,10 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.ResourceCurrent.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
 
-                if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    StringBuilder.Append(VLatest.ResourceCurrent.SearchParamHash, resourceTableAlias).Append(", ");
-                }
+                StringBuilder.Append(VLatest.ResourceCurrent.SearchParamHash, resourceTableAlias).Append(", ");
 
                 StringBuilder.Append(VLatest.ResourceCurrent.RawResource, resourceTableAlias);
 
@@ -188,22 +184,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (selectingFromResourceTable)
             {
-                StringBuilder.Append("FROM ").Append(VLatest.ResourceCurrent).Append(" ").Append(resourceTableAlias);
-
-                if (_schemaInfo.Current < SchemaVersionConstants.PartitionedTables &&
-                    expression.SearchParamTableExpressions.Count == 0 &&
-                    !_searchType.HasFlag(SqlSearchType.History) &&
-                    expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
-                    !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
-                {
-                    // If this is a simple search over a resource type (like GET /Observation)
-                    // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
-                    StringBuilder.Append(" WITH(INDEX(").Append(VLatest.ResourceCurrent.IXU_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
-                }
-                else
-                {
-                    StringBuilder.AppendLine();
-                }
+                StringBuilder.Append("FROM ").Append(VLatest.ResourceCurrent).Append(" ").AppendLine(resourceTableAlias);
 
                 if (expression.SearchParamTableExpressions.Count > 0)
                 {
@@ -1334,11 +1315,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendMinOrMax(in IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
         {
-            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
-            {
-                return;
-            }
-
             delimited.BeginDelimitedElement();
             if (context.Sort[0].sortOrder == SortOrder.Ascending)
             {

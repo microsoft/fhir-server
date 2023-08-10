@@ -855,8 +855,7 @@ CREATE TABLE dbo.ResourceCurrent (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL,
-    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    TransactionId        BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
     CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0)
@@ -870,10 +869,6 @@ CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId
 
 CREATE INDEX IX_ResourceTypeId_TransactionId
     ON dbo.ResourceCurrent(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_ResourceTypeId_HistoryTransactionId
-    ON dbo.ResourceCurrent(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 
@@ -5224,10 +5219,9 @@ BEGIN TRY
             SET @TypeId = (SELECT   TOP 1 TypeId
                            FROM     @Types
                            ORDER BY TypeId);
-            DELETE dbo.Resource
+            DELETE dbo.ResourceHistory
             WHERE  ResourceTypeId = @TypeId
                    AND HistoryTransactionId = @TransactionId
-                   AND IsHistory = 1
                    AND RawResource = 0xF;
             SET @AffectedRows += @@rowcount;
             DELETE @Types
@@ -6834,7 +6828,7 @@ SELECT ResourceTypeId,
        SearchParamHash,
        TransactionId,
        HistoryTransactionId
-FROM   dbo.ResourceCurrent
+FROM   dbo.ResourceHistory
 UNION ALL
 SELECT ResourceTypeId,
        ResourceSurrogateId,
@@ -6847,7 +6841,7 @@ SELECT ResourceTypeId,
        IsRawResourceMetaSet,
        SearchParamHash,
        TransactionId,
-       HistoryTransactionId
-FROM   dbo.ResourceHistory;
+       NULL
+FROM   dbo.ResourceCurrent;
 
 GO
