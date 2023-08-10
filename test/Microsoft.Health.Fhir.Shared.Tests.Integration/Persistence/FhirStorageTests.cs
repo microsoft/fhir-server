@@ -160,7 +160,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             newId = Guid.NewGuid().ToString();
             patient.Id = newId;
             await Mediator.UpsertResourceAsync(patient.ToResourceElement()); // there is no control to keep history, so insert as new and update to old
-            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.Resource SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
+            //// noramlly we do not allow update in place
+            await _fixture.SqlHelper.ExecuteSqlCmd($"UPDATE dbo.ResourceCurrent SET ResourceId = '{oldId}', Version = 3 WHERE ResourceId = '{newId}' AND Version = 1");
         }
 
         [Fact]
