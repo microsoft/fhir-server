@@ -440,7 +440,6 @@ BEGIN TRY
               ,IsRawResourceMetaSet
               ,SearchParamHash
               ,TransactionId
-              ,HistoryTransactionId
           )
         SELECT ResourceTypeId
               ,ResourceSurrogateId
@@ -452,7 +451,6 @@ BEGIN TRY
               ,IsRawResourceMetaSet
               ,SearchParamHash
               ,TransactionId
-              ,HistoryTransactionId
           FROM dbo.ResourceCurrent
           WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
 
@@ -477,11 +475,11 @@ BEGIN TRY
                 ,Version
                 ,IsDeleted
                 ,RequestMethod
-                ,RawResource = 0xF
+                ,0xF
                 ,IsRawResourceMetaSet
-                ,SearchParamHash = NULL
+                ,NULL
                 ,TransactionId
-                ,HistoryTransactionId = @TransactionId
+                ,@TransactionId
             FROM dbo.ResourceCurrent
             WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
 

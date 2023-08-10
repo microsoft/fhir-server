@@ -4417,7 +4417,7 @@ BEGIN TRY
             WHERE  PreviousSurrogateId IS NOT NULL;
             IF @@rowcount > 0
                 BEGIN
-                    INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
+                    INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
                     SELECT ResourceTypeId,
                            ResourceSurrogateId,
                            ResourceId,
@@ -4427,8 +4427,7 @@ BEGIN TRY
                            RawResource,
                            IsRawResourceMetaSet,
                            SearchParamHash,
-                           TransactionId,
-                           HistoryTransactionId
+                           TransactionId
                     FROM   dbo.ResourceCurrent
                     WHERE  EXISTS (SELECT *
                                    FROM   @PreviousSurrogateIds
@@ -4447,11 +4446,11 @@ BEGIN TRY
                                Version,
                                IsDeleted,
                                RequestMethod,
-                               0xF AS RawResource,
+                               0xF,
                                IsRawResourceMetaSet,
-                               NULL AS SearchParamHash,
+                               NULL,
                                TransactionId,
-                               @TransactionId AS HistoryTransactionId
+                               @TransactionId
                         FROM   dbo.ResourceCurrent
                         WHERE  EXISTS (SELECT *
                                        FROM   @PreviousSurrogateIds
