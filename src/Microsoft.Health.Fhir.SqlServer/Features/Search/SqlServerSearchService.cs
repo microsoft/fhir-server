@@ -360,6 +360,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 sqlCommand.CommandType = CommandType.StoredProcedure;
                             }
 
+                            // Put "union" view
+                            queryText = queryText.Replace("dbo.ResourceCurrent", "dbo.Resource", StringComparison.InvariantCulture);
+
                             // Command text contains no direct user input.
 #pragma warning disable CA2100 // Review SQL queries for security vulnerabilities
                             sqlCommand.CommandText = queryText;
