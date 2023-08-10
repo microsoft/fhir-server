@@ -67,7 +67,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
-                ExecuteSql("TRUNCATE TABLE dbo.Resource");
+                ExecuteSql("TRUNCATE TABLE dbo.ResourceCurrent");
+                ExecuteSql("TRUNCATE TABLE dbo.ResourceHistory");
                 ExecuteSql(DropTrigger);
             }
         }
@@ -143,7 +144,8 @@ END
         private void PrepareData()
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("TRUNCATE TABLE dbo.ResourceCurrent");
+            ExecuteSql("TRUNCATE TABLE dbo.ResourceHistory");
             var surrId = DateTime.UtcNow.DateToId();
             ExecuteSql(@$"
 INSERT INTO Resource 

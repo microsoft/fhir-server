@@ -148,7 +148,8 @@ END
         public async Task RollTransactionForward()
         {
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+            ExecuteSql("TRUNCATE TABLE dbo.ResourceCurrent");
+            ExecuteSql("TRUNCATE TABLE dbo.ResourceHistory");
             ExecuteSql("TRUNCATE TABLE dbo.NumberSearchParam");
 
             using var cts = new CancellationTokenSource();
