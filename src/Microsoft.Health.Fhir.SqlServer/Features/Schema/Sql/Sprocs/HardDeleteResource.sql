@@ -43,11 +43,11 @@ BEGIN TRY
               ,Version
               ,IsDeleted
               ,RequestMethod
-              ,RawResource = 0xF
+              ,0xF
               ,IsRawResourceMetaSet
               ,SearchParamHash
               ,TransactionId
-              ,HistoryTransactionId = @TransactionId
+              ,@TransactionId
           FROM dbo.ResourceCurrent
           WHERE ResourceTypeId = @ResourceTypeId
           AND ResourceId = @ResourceId

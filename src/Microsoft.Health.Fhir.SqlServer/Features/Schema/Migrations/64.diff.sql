@@ -89,7 +89,6 @@ SELECT ResourceTypeId
       ,HistoryTransactionId
   FROM dbo.ResourceHistory
 GO
-GO
 CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
    @ResourceTypeId smallint
   ,@ResourceId varchar(64)
@@ -135,11 +134,11 @@ BEGIN TRY
               ,Version
               ,IsDeleted
               ,RequestMethod
-              ,RawResource = 0xF
+              ,0xF
               ,IsRawResourceMetaSet
               ,SearchParamHash
               ,TransactionId
-              ,HistoryTransactionId = @TransactionId
+              ,@TransactionId
           FROM dbo.ResourceCurrent
           WHERE ResourceTypeId = @ResourceTypeId
           AND ResourceId = @ResourceId

@@ -4020,11 +4020,11 @@ BEGIN TRY
                            Version,
                            IsDeleted,
                            RequestMethod,
-                           0xF AS RawResource,
+                           0xF,
                            IsRawResourceMetaSet,
                            SearchParamHash,
                            TransactionId,
-                           @TransactionId AS HistoryTransactionId
+                           @TransactionId
                     FROM   dbo.ResourceCurrent
                     WHERE  ResourceTypeId = @ResourceTypeId
                            AND ResourceId = @ResourceId;
