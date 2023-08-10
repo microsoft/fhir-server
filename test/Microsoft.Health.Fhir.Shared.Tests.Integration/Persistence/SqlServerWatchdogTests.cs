@@ -185,7 +185,7 @@ END
                 Assert.Equal("Test", e.Message);
             }
 
-            Assert.Equal(1, GetCount("Resource")); // resource inserted
+            Assert.Equal(1, GetCount("ResourceCurrent")); // resource inserted
             Assert.Equal(0, GetCount("NumberSearchParam")); // number is not inserted
 
             ExecuteSql("DROP TRIGGER dbo.tmp_NumberSearchParam");
