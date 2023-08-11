@@ -23,9 +23,8 @@ BEGIN
 
     ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 
-    CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-
-    CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId_WHERE_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
     CREATE TABLE dbo.ResourceHistory
     (
@@ -48,8 +47,8 @@ BEGIN
 
     ALTER TABLE dbo.ResourceHistory SET ( LOCK_ESCALATION = AUTO )
 
-    CREATE INDEX IX_ResourceTypeId_TransactionId ON dbo.ResourceHistory (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-    CREATE INDEX IX_ResourceTypeId_HistoryTransactionId ON dbo.ResourceHistory (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL ON dbo.ResourceHistory (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CREATE INDEX IX_ResourceTypeId_HistoryTransactionId_WHERE_HistoryTransactionId_NOT_NULL ON dbo.ResourceHistory (ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
     COMMIT TRANSACTION
   END TRY
