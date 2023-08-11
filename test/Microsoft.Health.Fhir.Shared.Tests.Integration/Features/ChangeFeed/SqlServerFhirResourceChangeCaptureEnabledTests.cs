@@ -98,8 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         {
             EnableInvisibleHistory();
             ExecuteSql("TRUNCATE TABLE dbo.Transactions");
-            ExecuteSql("TRUNCATE TABLE dbo.ResourceCurrent");
-            ExecuteSql("TRUNCATE TABLE dbo.ResourceHistory");
+            ExecuteSql("DELETE FROM dbo.Resource");
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
 
