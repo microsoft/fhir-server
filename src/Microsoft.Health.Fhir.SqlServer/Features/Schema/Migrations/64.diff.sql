@@ -12,14 +12,13 @@ BEGIN
        ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceCurrent_IsHistory DEFAULT 0, CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0)
        ,IsDeleted                   bit                     NOT NULL
        ,RequestMethod               varchar(10)             NULL
-       ,RawResource                 varbinary(max)          NOT NULL
-       ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
+       ,RawResource                 varbinary(max)          NOT NULL CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0)
+       ,IsRawResourceMetaSet        bit                     NOT NULL CONSTRAINT DF_ResourceCurrent_IsRawResourceMetaSet DEFAULT 0
        ,SearchParamHash             varchar(64)             NULL
        ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
 
         CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
        ,CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-       ,CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0)
     )
 
     ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
@@ -37,8 +36,8 @@ BEGIN
        ,IsHistory                   bit                     NOT NULL CONSTRAINT DF_ResourceHistory_IsHistory DEFAULT 1, CONSTRAINT CH_ResourceHistory_IsHistory CHECK (IsHistory = 1)
        ,IsDeleted                   bit                     NOT NULL
        ,RequestMethod               varchar(10)             NULL
-       ,RawResource                 varbinary(max)          NOT NULL
-       ,IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0
+       ,RawResource                 varbinary(max)          NOT NULL CONSTRAINT CH_ResourceHistory_RawResource_Length CHECK (RawResource > 0x0)
+       ,IsRawResourceMetaSet        bit                     NOT NULL CONSTRAINT DF_ResourceHistory_IsRawResourceMetaSet DEFAULT 0
        ,SearchParamHash             varchar(64)             NULL
        ,TransactionId               bigint                  NULL      -- used for main CRUD operation 
        ,HistoryTransactionId        bigint                  NULL      -- used by CRUD operation that moved resource version in invisible state 
@@ -150,13 +149,14 @@ BEGIN
           ,HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
-
-  RETURN
 END
 GO
 CREATE OR ALTER TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
+  IF NOT UPDATE(IsHistory)
+    RAISERROR('Only history updates are supported via Resource view',18,127)
+
   DELETE FROM A
     FROM dbo.ResourceCurrent A
     WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
@@ -188,8 +188,6 @@ BEGIN
           ,HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
-
-  RETURN
 END
 GO
 CREATE OR ALTER TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
@@ -202,8 +200,6 @@ BEGIN
   DELETE FROM A
     FROM dbo.ResourceHistory A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
-
-  RETURN
 END
 GO
 CREATE OR ALTER PROCEDURE dbo.UpdateResourceSearchParams

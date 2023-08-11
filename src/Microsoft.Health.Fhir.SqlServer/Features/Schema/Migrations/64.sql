@@ -852,13 +852,12 @@ CREATE TABLE dbo.ResourceCurrent (
     IsHistory            BIT             CONSTRAINT DF_ResourceCurrent_IsHistory DEFAULT 0 NOT NULL,
     IsDeleted            BIT             NOT NULL,
     RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
-    IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
+    RawResource          VARBINARY (MAX) NOT NULL CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0),
+    IsRawResourceMetaSet BIT             CONSTRAINT DF_ResourceCurrent_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
     TransactionId        BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
     CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
-    CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0)
+    CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.ResourceCurrent SET (LOCK_ESCALATION = AUTO);
@@ -881,8 +880,8 @@ CREATE TABLE dbo.ResourceHistory (
     IsHistory            BIT             CONSTRAINT DF_ResourceHistory_IsHistory DEFAULT 1 NOT NULL,
     IsDeleted            BIT             NOT NULL,
     RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL,
-    IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
+    RawResource          VARBINARY (MAX) NOT NULL CONSTRAINT CH_ResourceHistory_RawResource_Length CHECK (RawResource > 0x0),
+    IsRawResourceMetaSet BIT             CONSTRAINT DF_ResourceHistory_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
     TransactionId        BIGINT          NULL,
     HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_ResourceHistory_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
@@ -6823,7 +6822,6 @@ CREATE TRIGGER dbo.ResourceIns
                   HistoryTransactionId
            FROM   Inserted
            WHERE  IsHistory = 1;
-           RETURN;
        END
 
 
@@ -6832,6 +6830,8 @@ CREATE TRIGGER dbo.ResourceUpd
     ON dbo.Resource
     INSTEAD OF UPDATE
     AS BEGIN
+           IF NOT UPDATE (IsHistory)
+               RAISERROR ('Only history updates are supported via Resource view', 18, 127);
            DELETE A
            FROM   dbo.ResourceCurrent AS A
            WHERE  EXISTS (SELECT *
@@ -6853,7 +6853,6 @@ CREATE TRIGGER dbo.ResourceUpd
                   HistoryTransactionId
            FROM   Inserted
            WHERE  IsHistory = 1;
-           RETURN;
        END
 
 
@@ -6876,7 +6875,6 @@ CREATE TRIGGER dbo.ResourceDel
                           WHERE  B.ResourceTypeId = A.ResourceTypeId
                                  AND B.ResourceSurrogateId = A.ResourceSurrogateId
                                  AND B.IsHistory = 1);
-           RETURN;
        END
 
 GO

@@ -84,13 +84,14 @@ BEGIN
           ,HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
-
-  RETURN
 END
 GO
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
+  IF NOT UPDATE(IsHistory)
+    RAISERROR('Only history updates are supported via Resource view',18,127)
+
   DELETE FROM A
     FROM dbo.ResourceCurrent A
     WHERE EXISTS (SELECT * FROM Inserted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
@@ -122,8 +123,6 @@ BEGIN
           ,HistoryTransactionId
       FROM Inserted
       WHERE IsHistory = 1
-
-  RETURN
 END
 GO
 CREATE TRIGGER dbo.ResourceDel ON dbo.Resource INSTEAD OF DELETE
@@ -136,7 +135,5 @@ BEGIN
   DELETE FROM A
     FROM dbo.ResourceHistory A
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
-
-  RETURN
 END
 GO
