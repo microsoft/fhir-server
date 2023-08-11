@@ -143,8 +143,7 @@ END
         private void PrepareData()
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
-            ExecuteSql("TRUNCATE TABLE dbo.ResourceCurrent");
-            ExecuteSql("TRUNCATE TABLE dbo.ResourceHistory");
+            ExecuteSql("DELETE FROM dbo.Resource");
             var surrId = DateTime.UtcNow.DateToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
