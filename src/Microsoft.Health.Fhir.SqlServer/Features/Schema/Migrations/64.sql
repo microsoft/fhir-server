@@ -6210,8 +6210,7 @@ BEGIN TRY
            INNER JOIN
            dbo.ResourceCurrent AS B
            ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    WHERE  B.IsHistory = 0;
+              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
