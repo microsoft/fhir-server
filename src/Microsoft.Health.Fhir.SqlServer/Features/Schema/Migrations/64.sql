@@ -3584,22 +3584,40 @@ DECLARE @Mode AS VARCHAR (100) = 'RT=[' + CONVERT (VARCHAR, @MinRT) + ',' + CONV
 BEGIN TRY
     IF @NotNullVersionExists = 1
         IF @NullVersionExists = 0
-            SELECT B.ResourceTypeId,
-                   B.ResourceId,
-                   ResourceSurrogateId,
-                   B.Version,
-                   IsDeleted,
-                   IsHistory,
-                   RawResource,
-                   IsRawResourceMetaSet,
-                   SearchParamHash
-            FROM   (SELECT TOP (@DummyTop) *
-                    FROM   @ResourceKeys) AS A
-                   INNER JOIN
-                   dbo.Resource AS B
-                   ON B.ResourceTypeId = A.ResourceTypeId
-                      AND B.ResourceId = A.ResourceId
-                      AND B.Version = A.Version
+            SELECT *
+            FROM   (SELECT B.ResourceTypeId,
+                           B.ResourceId,
+                           ResourceSurrogateId,
+                           B.Version,
+                           IsDeleted,
+                           IsHistory,
+                           RawResource,
+                           IsRawResourceMetaSet,
+                           SearchParamHash
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @ResourceKeys) AS A
+                           INNER JOIN
+                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceId = A.ResourceId
+                              AND B.Version = A.Version
+                    UNION ALL
+                    SELECT B.ResourceTypeId,
+                           B.ResourceId,
+                           ResourceSurrogateId,
+                           B.Version,
+                           IsDeleted,
+                           IsHistory,
+                           RawResource,
+                           IsRawResourceMetaSet,
+                           SearchParamHash
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @ResourceKeys) AS A
+                           INNER JOIN
+                           dbo.ResourceHistory AS B WITH (INDEX (U_ResourceHistory_ResourceTypeId_ResourceId_Version))
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceId = A.ResourceId
+                              AND B.Version = A.Version) AS A
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
         ELSE
             SELECT *
@@ -3613,10 +3631,26 @@ BEGIN TRY
                            IsRawResourceMetaSet,
                            SearchParamHash
                     FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @ResourceKeys
-                            WHERE  Version IS NOT NULL) AS A
+                            FROM   @ResourceKeys) AS A
                            INNER JOIN
-                           dbo.Resource AS B
+                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
+                           ON B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceId = A.ResourceId
+                              AND B.Version = A.Version
+                    UNION ALL
+                    SELECT B.ResourceTypeId,
+                           B.ResourceId,
+                           ResourceSurrogateId,
+                           B.Version,
+                           IsDeleted,
+                           IsHistory,
+                           RawResource,
+                           IsRawResourceMetaSet,
+                           SearchParamHash
+                    FROM   (SELECT TOP (@DummyTop) *
+                            FROM   @ResourceKeys) AS A
+                           INNER JOIN
+                           dbo.ResourceHistory AS B WITH (INDEX (U_ResourceHistory_ResourceTypeId_ResourceId_Version))
                            ON B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceId = A.ResourceId
                               AND B.Version = A.Version
@@ -3634,10 +3668,9 @@ BEGIN TRY
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
                            INNER JOIN
-                           dbo.Resource AS B
+                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
                            ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                    WHERE  IsHistory = 0) AS A
+                              AND B.ResourceId = A.ResourceId) AS A
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     ELSE
         SELECT B.ResourceTypeId,
@@ -3652,10 +3685,9 @@ BEGIN TRY
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @ResourceKeys) AS A
                INNER JOIN
-               dbo.Resource AS B
+               dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
                ON B.ResourceTypeId = A.ResourceTypeId
                   AND B.ResourceId = A.ResourceId
-        WHERE  IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
