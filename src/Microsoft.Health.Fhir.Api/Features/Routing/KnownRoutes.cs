@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string SearchParameters = "SearchParameter/";
         public const string Status = "$status";
         public const string SearchParametersStatusQuery = SearchParameters + Status;
+        public const string SearchParametersStatusQueryDefintion = OperationDefinition + "/" + OperationsConstants.SearchParameterStatus;
         public const string SearchParametersStatusById = SearchParameters + IdRouteSegment + "/" + Status;
         public const string SearchParametersStatusPostQuery = SearchParametersStatusQuery + "/" + Search;
 

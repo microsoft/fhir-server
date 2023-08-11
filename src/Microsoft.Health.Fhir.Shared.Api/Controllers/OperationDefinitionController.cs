@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
-        [Route(KnownRoutes.SearchParametersStatusQuery, Name = RouteNames.SearchParameterStatusOperationDefinition)]
+        [Route(KnownRoutes.SearchParametersStatusQueryDefintion, Name = RouteNames.SearchParameterStatusOperationDefinition)]
         [AllowAnonymous]
         public async Task<IActionResult> SearchParameterStatusOperationDefintion()
         {

@@ -10,28 +10,22 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlQueueClient : IQueueClient
+    public class SqlQueueClient : IQueueClient, INotificationHandler<StorageInitializedNotification>
     {
-        private readonly SchemaInformation _schemaInformation;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
-
-        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
-        {
-            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-        }
+        private bool _storageReady;
 
         public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
@@ -137,12 +131,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return dequeuedJobs;
         }
 
-        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
+        public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
         {
             using var sqlCommand = new SqlCommand() { CommandText = "dbo.DequeueJob", CommandType = CommandType.StoredProcedure };
             sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
             sqlCommand.Parameters.AddWithValue("@Worker", worker);
             sqlCommand.Parameters.AddWithValue("@HeartbeatTimeoutSec", heartbeatTimeoutSec);
+            sqlCommand.Parameters.AddWithValue("@CheckTimeoutJobs", checkTimeoutJobsOnly);
             if (jobId.HasValue)
             {
                 sqlCommand.Parameters.AddWithValue("@InputJobId", jobId.Value);
@@ -208,14 +203,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
+        // should repurpose to check storage ready
         public bool IsInitialized()
         {
-            if (_schemaInformation == null)
-            {
-                throw new InvalidOperationException("This method cannot be called with schema information = null");
-            }
+            return _storageReady;
+        }
 
-            return _schemaInformation.Current != null && _schemaInformation.Current != 0;
+        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("SqlQueueClient: Storage initialized");
+            _storageReady = true;
+            return Task.CompletedTask;
         }
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)

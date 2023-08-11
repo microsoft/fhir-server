@@ -721,7 +721,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                await _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
+                await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
 
                 // Get the reindexed resource from the database
                 var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
@@ -770,7 +770,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
 
                 // Attempt to reindex the resource
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None));
             }
             finally
             {
@@ -809,7 +809,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleOperationId: null), CancellationToken.None);
 
                 // Attempt to reindex the version of the resource that hasn't been deleted
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(updated.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None));
             }
             finally
             {
@@ -1066,7 +1066,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"),
+                originalWrapper.ResourceSurrogateId);
 
             return (originalWrapper, updatedWrapper);
         }
@@ -1084,7 +1085,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.SearchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                originalWrapper.SearchParameterHash);
+                originalWrapper.SearchParameterHash,
+                originalWrapper.ResourceSurrogateId);
         }
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)

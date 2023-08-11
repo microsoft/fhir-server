@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,6 +58,8 @@ namespace Microsoft.Health.JobManagement
                     // random delay to avoid convoys
                     await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
 
+                    var checkTimeoutJobStopwatch = Stopwatch.StartNew();
+
                     while (!cancellationTokenSource.Token.IsCancellationRequested)
                     {
                         JobInfo nextJob = null;
@@ -64,7 +67,13 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
-                                nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
+                                if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
+                                {
+                                    checkTimeoutJobStopwatch.Restart();
+                                    nextJob = await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token, null, true);
+                                }
+
+                                nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
                             }
                             catch (Exception ex)
                             {
