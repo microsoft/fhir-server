@@ -4004,50 +4004,25 @@ BEGIN TRY
                    FROM   dbo.Parameters
                    WHERE  Id = 'InvisibleHistory.IsEnabled'
                           AND Number = 1)
-        BEGIN
-            IF @KeepCurrentVersion = 0
-                BEGIN
-                    INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
-                    OUTPUT inserted.ResourceSurrogateId INTO @SurrogateIds
-                    SELECT ResourceTypeId,
-                           ResourceSurrogateId,
-                           ResourceId,
-                           Version,
-                           IsDeleted,
-                           RequestMethod,
-                           0xF,
-                           IsRawResourceMetaSet,
-                           SearchParamHash,
-                           TransactionId,
-                           @TransactionId
-                    FROM   dbo.ResourceCurrent
-                    WHERE  ResourceTypeId = @ResourceTypeId
-                           AND ResourceId = @ResourceId;
-                    DELETE dbo.ResourceCurrent
-                    WHERE  ResourceTypeId = @ResourceTypeId
-                           AND ResourceId = @ResourceId;
-                END
-            ELSE
-                UPDATE dbo.ResourceHistory
-                SET    RawResource          = 0xF,
-                       SearchParamHash      = NULL,
-                       HistoryTransactionId = @TransactionId
-                WHERE  ResourceTypeId = @ResourceTypeId
-                       AND ResourceId = @ResourceId
-                       AND RawResource <> 0xF;
-        END
+        UPDATE dbo.Resource
+        SET    IsHistory            = 1,
+               RawResource          = 0xF,
+               SearchParamHash      = NULL,
+               HistoryTransactionId = @TransactionId
+        OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceId = @ResourceId
+               AND (@KeepCurrentVersion = 0
+                    OR IsHistory = 1)
+               AND RawResource <> 0xF;
     ELSE
-        BEGIN
-            IF @KeepCurrentVersion = 0
-                DELETE dbo.ResourceCurrent
-                OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
-                WHERE  ResourceTypeId = @ResourceTypeId
-                       AND ResourceId = @ResourceId;
-            DELETE dbo.ResourceHistory
-            WHERE  ResourceTypeId = @ResourceTypeId
-                   AND ResourceId = @ResourceId
-                   AND RawResource <> 0xF;
-        END
+        DELETE dbo.Resource
+        OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceId = @ResourceId
+               AND (@KeepCurrentVersion = 0
+                    OR IsHistory = 1)
+               AND RawResource <> 0xF;
     IF @KeepCurrentVersion = 0
         BEGIN
             DELETE B
@@ -4417,51 +4392,36 @@ BEGIN TRY
             WHERE  PreviousSurrogateId IS NOT NULL;
             IF @@rowcount > 0
                 BEGIN
-                    INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
-                    SELECT ResourceTypeId,
-                           ResourceSurrogateId,
-                           ResourceId,
-                           Version,
-                           IsDeleted,
-                           RequestMethod,
-                           RawResource,
-                           IsRawResourceMetaSet,
-                           SearchParamHash,
-                           TransactionId
-                    FROM   dbo.ResourceCurrent
+                    UPDATE dbo.Resource
+                    SET    IsHistory = 1
                     WHERE  EXISTS (SELECT *
                                    FROM   @PreviousSurrogateIds
                                    WHERE  TypeId = ResourceTypeId
                                           AND SurrogateId = ResourceSurrogateId
                                           AND KeepHistory = 1);
+                    SET @AffectedRows += @@rowcount;
                     IF @IsResourceChangeCaptureEnabled = 1
                        AND EXISTS (SELECT *
                                    FROM   dbo.Parameters
                                    WHERE  Id = 'InvisibleHistory.IsEnabled'
                                           AND Number = 1)
-                        INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
-                        SELECT ResourceTypeId,
-                               ResourceSurrogateId,
-                               ResourceId,
-                               Version,
-                               IsDeleted,
-                               RequestMethod,
-                               0xF,
-                               IsRawResourceMetaSet,
-                               NULL,
-                               TransactionId,
-                               @TransactionId
-                        FROM   dbo.ResourceCurrent
+                        UPDATE dbo.Resource
+                        SET    IsHistory            = 1,
+                               RawResource          = 0xF,
+                               SearchParamHash      = NULL,
+                               HistoryTransactionId = @TransactionId
                         WHERE  EXISTS (SELECT *
                                        FROM   @PreviousSurrogateIds
                                        WHERE  TypeId = ResourceTypeId
                                               AND SurrogateId = ResourceSurrogateId
                                               AND KeepHistory = 0);
-                    DELETE dbo.ResourceCurrent
-                    WHERE  EXISTS (SELECT *
-                                   FROM   @PreviousSurrogateIds
-                                   WHERE  TypeId = ResourceTypeId
-                                          AND SurrogateId = ResourceSurrogateId);
+                    ELSE
+                        DELETE dbo.Resource
+                        WHERE  EXISTS (SELECT *
+                                       FROM   @PreviousSurrogateIds
+                                       WHERE  TypeId = ResourceTypeId
+                                              AND SurrogateId = ResourceSurrogateId
+                                              AND KeepHistory = 0);
                     SET @AffectedRows += @@rowcount;
                     DELETE dbo.ResourceWriteClaim
                     WHERE  EXISTS (SELECT *
@@ -4553,10 +4513,11 @@ BEGIN TRY
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
                 END
-            INSERT INTO dbo.ResourceCurrent (ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
+            INSERT INTO dbo.Resource (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
             SELECT ResourceTypeId,
                    ResourceId,
                    Version,
+                   IsHistory,
                    ResourceSurrogateId,
                    IsDeleted,
                    RequestMethod,
@@ -4564,22 +4525,7 @@ BEGIN TRY
                    IsRawResourceMetaSet,
                    SearchParamHash,
                    @TransactionId
-            FROM   @Resources
-            WHERE  IsHistory = 0;
-            SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceId, Version, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
-            SELECT ResourceTypeId,
-                   ResourceId,
-                   Version,
-                   ResourceSurrogateId,
-                   IsDeleted,
-                   RequestMethod,
-                   RawResource,
-                   IsRawResourceMetaSet,
-                   SearchParamHash,
-                   @TransactionId
-            FROM   @Resources
-            WHERE  IsHistory = 1;
+            FROM   @Resources;
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
             SELECT ResourceSurrogateId,
@@ -5067,8 +5013,7 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     IF @RaiseExceptionOnConflict = 1
        AND error_number() IN (2601, 2627)
-       AND (error_message() LIKE '%''dbo.ResourceCurrent''%'
-            OR error_message() LIKE '%''dbo.ResourceHistory''%')
+       AND error_message() LIKE '%''dbo.Resource''%'
         THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
         THROW;
