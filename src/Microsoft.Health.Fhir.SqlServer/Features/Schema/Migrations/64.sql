@@ -2832,7 +2832,7 @@ BEGIN TRY
                               AND IndexName = Ind);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = 'IndexProperties', @Action = 'Insert', @Rows = @@rowcount;
     DELETE @Indexes
-    WHERE  Tbl = 'Resource'
+    WHERE  Tbl IN ('ResourceCurrent', 'ResourceHistory')
            OR IndId = 1;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Delete', @Rows = @@rowcount;
     WHILE EXISTS (SELECT *
