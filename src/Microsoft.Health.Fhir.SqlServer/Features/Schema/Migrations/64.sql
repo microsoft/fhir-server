@@ -5163,9 +5163,10 @@ BEGIN TRY
             SET @TypeId = (SELECT   TOP 1 TypeId
                            FROM     @Types
                            ORDER BY TypeId);
-            DELETE dbo.ResourceHistory
+            DELETE dbo.Resource
             WHERE  ResourceTypeId = @TypeId
                    AND HistoryTransactionId = @TransactionId
+                   AND IsHistory = 1
                    AND RawResource = 0xF;
             SET @AffectedRows += @@rowcount;
             DELETE @Types
