@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 // Create the database.
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
 
                 await using SqlCommand command = connection.CreateCommand();
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand sqlCommand = connection.CreateCommand();
                 sqlCommand.CommandText = "SELECT 1";
@@ -186,7 +186,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
@@ -304,7 +304,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
+            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
