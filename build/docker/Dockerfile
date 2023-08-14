@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.306-alpine3.17 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0.400-alpine3.17 AS build
 
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
@@ -68,7 +68,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net7.0
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0.9-alpine3.17 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.10-alpine3.18 AS runtime
 
 ARG FHIR_VERSION
 

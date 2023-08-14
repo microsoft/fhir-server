@@ -12,7 +12,7 @@
     <HighEntropyVA>true</HighEntropyVA>
     <LangVersion>latest</LangVersion>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <NoWarn>$(NoWarn);NU5104</NoWarn>
+    <NoWarn>$(NoWarn);NU5104;CS1574;IDE0005</NoWarn>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Product>Microsoft FHIR Server for Azure</Product>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
