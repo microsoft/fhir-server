@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Azure.Cosmos;
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.OK, null, null);
             responseMessage.Headers.Returns(headers);
 
-            await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(responseMessage));
+            await _cosmosResponseProcessor.ProcessResponseAsync(CosmosResponseMessage.Create(responseMessage), CancellationToken.None);
             ValidateExecution("2", 37.37, false);
         }
 
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.TooManyRequests, null, null);
             responseMessage.Headers.Returns(headers);
 
-            await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(responseMessage));
+            await _cosmosResponseProcessor.ProcessResponseAsync(CosmosResponseMessage.Create(responseMessage), CancellationToken.None);
             ValidateExecution("2", 37.37, true);
         }
 
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.OK);
 
-            await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
+            await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None);
         }
 
         [Fact]
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
+            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
         }
 
         [Fact]
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("invalid continuation token", HttpStatusCode.BadRequest);
 
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
         }
 
         [Theory]
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
 
-            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response)));
+            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None));
         }
 
         [Theory]
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, subsStatusCode);
 
-            await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
+            await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), CancellationToken.None);
         }
 
         [Fact]
@@ -134,14 +135,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             var retryAfter = TimeSpan.FromMilliseconds(200);
 
-            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests"));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests", CancellationToken.None));
             Assert.Equal(retryAfter, exception.RetryAfter);
         }
 
         [Fact]
         public async Task GivenAThrottlingResponseWithoutRetryAfterHeader_WhenProcessed_ThrowsWithoutRetryAfter()
         {
-            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers(), "too many requests"));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponseAsync(HttpStatusCode.TooManyRequests, new Headers(), "too many requests", CancellationToken.None));
             Assert.Null(exception.RetryAfter);
         }
 

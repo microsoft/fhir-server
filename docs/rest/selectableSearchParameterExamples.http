@@ -1,0 +1,38 @@
+
+@baseUrl = https://localhost:44348
+@contentType = application/json
+@searchParameterUrlExample = "http://hl7.org/fhir/SearchParameter/clinical-date"
+
+###
+# @name bearer
+POST {{baseUrl}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# This should return search parameters where code equals name.
+GET {{baseUrl}}/searchparameter/$status?code=name HTTP/1.1
+
+###
+# This should return all search parameters where resource type is patient.
+GET {{baseUrl}}/searchparameter/$status?resourcetype=Patient HTTP/1.1
+
+###
+# This returns all search parameters.
+GET {{baseUrl}}/searchparameter/$status? HTTP/1.1
+
+###
+# This returns one search parameter that matches the url.
+GET {{baseUrl}}/searchparameter/$status?url=http://hl7.org/fhir/SearchParameter/Resource-profile HTTP/1.1
+
+###
+# This updates the status of a single search parameter.
+PUT {{baseUrl}}/searchparameter/$status HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+content-type: {{contentType}}
+
+< ./Data/StatusUpdateOperationData.json
