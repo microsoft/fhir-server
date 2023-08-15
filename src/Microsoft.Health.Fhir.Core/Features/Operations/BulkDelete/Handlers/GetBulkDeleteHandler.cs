@@ -120,7 +120,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 }
             }
 
-            // This is the part that needs finishing...
             var fhirResults = new List<Parameters.ParameterComponent>();
 
             if (resourcesDeleted.Count > 0)
