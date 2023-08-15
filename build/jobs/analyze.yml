@@ -65,9 +65,16 @@ steps:
 - ${{ if eq(parameters.analyzeARMTemplates, 'true') }}:
   - task: Armory@2
     inputs:
-      targetDirectory: '$(Build.SourcesDirectory)\samples\templates'
+      targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
       targetFiles: 'f|*.json'
       excludePassesFromLog: false
+  - task: TemplateAnalyzer@3  
+    displayName: 'Run Template Analyzer'  
+    inputs:   
+        ToolVersion: Latest
+        AnalyzeDirectory: '$(Build.SourcesDirectory)/samples/templates'
+        Verbose: false
+        IncludeNonSecurityRules: true
 
 - task: CredScan@3
   inputs:
@@ -81,23 +88,36 @@ steps:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
 
+- task: Trivy@1
+  displayName: 'Run Trivy'
+  inputs:
+    Target: '$(Build.SourcesDirectory)'
+    Severities: all
+    VulTypes: all
+
+- task: PSScriptAnalyzer@1
+  displayName: 'Run PSScriptAnalyzer'
+  inputs:
+    Path: '$(Build.SourcesDirectory)'
+    Settings: required
+    IgnorePattern: .gdn
+    Recurse: true
+
 - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net7.0'
+    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net7.0'
 
 - task: PoliCheck@2
   displayName: Run PoliCheck
   
-- task: BinSkim@3
+- task: BinSkim@4
   inputs:
     toolVersion:        Latest
     InputType:          Basic
     Function:           analyze
-    AnalyzeTarget:      $(Build.ArtifactStagingDirectory)\Microsoft.Health.*.dll;$(Build.ArtifactStagingDirectory)\*.exe
-    AnalyzeConfigPath:  default
-    AnalyzeRecurse:     true
+    AnalyzeTargetGlob:  'f|$(Agent.TempDirectory)/artifacts/**/*Microsoft.Health.*.dll'
 
  ## Tool is no longer supported:
  # AutoApplicability@1, CodeMetrics@1, VulnerabilityAssessment@0
