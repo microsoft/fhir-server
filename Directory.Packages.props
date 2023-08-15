@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>6.2.103</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>6.2.111</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
   <!-- SDK Packages -->
