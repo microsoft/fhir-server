@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
+    <PackageReference Include="Microsoft.Rest.ClientRuntime" />
   </ItemGroup>
 
   <ItemGroup>
@@ -87,7 +88,7 @@
     <Message Importance="High" Text="EmbeddedResource files: @(EmbeddedResource)" />
   </Target>
   -->
-  
+
   <Target Name="ComputeGeneratorInputs" BeforeTargets="GenerateFiles">
     <ItemGroup>
       <MutableSqlGeneratorInputs Include="@(EmbeddedResource)" Condition="'%(EmbeddedResource.InputToMutableSqlGenerator)' == 'true'" />
