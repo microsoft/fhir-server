@@ -68,6 +68,7 @@ steps:
       targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
       targetFiles: 'f|*.json'
       excludePassesFromLog: false
+
   - task: TemplateAnalyzer@3  
     displayName: 'Run Template Analyzer'  
     inputs:   
@@ -91,7 +92,7 @@ steps:
 - task: Trivy@1
   displayName: 'Run Trivy'
   inputs:
-    Target: '$(Build.SourcesDirectory)'
+    Target: '$(Build.SourcesDirectory)/build/docker'
     Severities: all
     VulTypes: all
 
