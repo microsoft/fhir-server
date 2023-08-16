@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid.Tags;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -36,34 +37,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="searchService">searchService</param>
         /// <param name="instanceType">The instanceType to search</param>
         /// <param name="conditionalParameters">ConditionalParameters</param>
-        /// <param name="cancellationToken">a CancellationToken</param>
-        /// <returns>Search collection</returns>
-        public static async Task<IReadOnlyCollection<SearchResultEntry>> ConditionalSearchAsync(this ISearchService searchService, string instanceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
-        {
-            // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
-            (IReadOnlyCollection<SearchResultEntry> results, _) = await ConditionalSearchAsync(searchService, instanceType, conditionalParameters, 2, cancellationToken);
-            return results;
-        }
-
-        /// <summary>
-        /// Performs a "Conditional Search", conditional searches are found in bundles and done through
-        /// "If-Exists" headers on the API. Additional logic is used to filter parameters that don't restrict
-        /// results, and also ensure that the query meets criteria requirements
-        /// </summary>
-        /// <param name="searchService">searchService</param>
-        /// <param name="instanceType">The instanceType to search</param>
-        /// <param name="conditionalParameters">ConditionalParameters</param>
-        /// <param name="count">the search Count</param>
-        /// <param name="cancellationToken">a CancellationToken</param>
-        /// <param name="continuationToken">a optional ContinuationToken</param>
+        /// <param name="cancellationToken">The CancellationToken</param>
+        /// <param name="count">The search Count.</param>
+        /// <param name="continuationToken">An optional ContinuationToken</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
-        internal static async Task<(IReadOnlyCollection<SearchResultEntry> results, string continuationToken)> ConditionalSearchAsync(
+        internal static async Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken)> ConditionalSearchAsync(
             this ISearchService searchService,
             string instanceType,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            int count,
             CancellationToken cancellationToken,
+            int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
             string continuationToken = null)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
@@ -73,25 +57,42 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             int userProvidedParameterCount = filteredParameters.Count;
 
-            filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString(CultureInfo.InvariantCulture)));
+            if (count != null)
+            {
+                filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
+            }
 
             if (!string.IsNullOrEmpty(continuationToken))
             {
                 filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
             }
 
-            SearchResult results = await searchService.SearchAsync(instanceType, filteredParameters.ToImmutableList(), cancellationToken);
+            var matchedResults = new List<SearchResultEntry>();
+            string lastContinuationToken = null;
 
-            // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
-            int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
-            if (totalUnusedParameters == userProvidedParameterCount)
+            do
             {
-                throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
+                SearchResult results = await searchService.SearchAsync(instanceType, filteredParameters.ToImmutableList(), cancellationToken);
+                lastContinuationToken = results?.ContinuationToken;
+
+                // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
+                int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
+                if (totalUnusedParameters == userProvidedParameterCount)
+                {
+                    throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
+                }
+
+                if (results?.Results.Any() == true)
+                {
+                    matchedResults.AddRange(
+                        results?.Results
+                            .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                            .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+                }
             }
+            while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));
 
-            SearchResultEntry[] matchedResults = results?.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToArray();
-
-            return (matchedResults, results?.ContinuationToken);
+            return (matchedResults, lastContinuationToken);
         }
     }
 }

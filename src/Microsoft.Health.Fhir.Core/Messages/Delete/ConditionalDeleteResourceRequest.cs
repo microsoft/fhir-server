@@ -18,19 +18,23 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             string resourceType,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             DeleteOperation deleteOperation,
-            int maxDeleteCount,
-            Guid? bundleOperationId = null)
+            int? maxDeleteCount,
+            Guid? bundleOperationId = null,
+            bool deleteAll = false)
             : base(resourceType, conditionalParameters, bundleOperationId)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             DeleteOperation = deleteOperation;
             MaxDeleteCount = maxDeleteCount;
+            DeleteAll = deleteAll;
         }
 
         public DeleteOperation DeleteOperation { get; }
 
-        public int MaxDeleteCount { get; }
+        public int? MaxDeleteCount { get; }
+
+        public bool DeleteAll { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

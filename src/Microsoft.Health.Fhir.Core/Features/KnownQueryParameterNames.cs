@@ -94,5 +94,9 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// Frequently used SearchParameters
         /// </summary>
         public const string Identifier = "identifier";
+
+        public const string HardDelete = "_hardDelete";
+
+        public const string PurgeHistory = "_purgeHistory";
     }
 }

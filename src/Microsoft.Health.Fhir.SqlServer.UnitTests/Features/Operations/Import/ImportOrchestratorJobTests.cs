@@ -1155,7 +1155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return jobInfo;
                 }
 
-                ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+                ImportProcessingJobDefinition processingInput = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;
@@ -1325,7 +1325,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     };
                 }
 
-                ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+                ImportProcessingJobDefinition processingInput = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;
@@ -1445,7 +1445,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return jobInfo;
                 }
 
-                ImportProcessingJobDefinition processingInput = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(jobInfo.Definition);
+                ImportProcessingJobDefinition processingInput = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
                 ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
                 processingResult.SucceededResources = 1;
                 processingResult.FailedResources = 1;

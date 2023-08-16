@@ -107,14 +107,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
+
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider);
+
             collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalDeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService, deleter, contextAccessor)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _dataResourceFilter, _authorizationService, contextAccessor, _searchService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, deleter)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);

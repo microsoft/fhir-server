@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public abstract Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
+        public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(

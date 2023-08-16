@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -68,6 +69,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public override int GetHashCode()
         {
             return HashCode.Combine(Id, VersionId, ResourceType);
+        }
+
+        public override string ToString()
+        {
+            var builder = new StringBuilder();
+
+            builder.AppendFormat("{0}/{1}", ResourceType, Id);
+
+            if (!string.IsNullOrEmpty(VersionId))
+            {
+                builder.AppendFormat("/_history/{0}", VersionId);
+            }
+
+            return builder.ToString();
         }
     }
 }

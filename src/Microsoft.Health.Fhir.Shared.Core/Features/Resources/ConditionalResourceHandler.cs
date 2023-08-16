@@ -50,16 +50,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
-            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
 
-            int count = matchedResults.Count;
+            int count = matchedResults.Results.Count;
             if (count == 0)
             {
                 return await HandleNoMatch(request,  cancellationToken);
             }
             else if (count == 1)
             {
-                return await HandleSingleMatch(request, matchedResults.First(), cancellationToken);
+                return await HandleSingleMatch(request, matchedResults.Results.First(), cancellationToken);
             }
             else
             {

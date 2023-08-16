@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            JobInfo jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Import, request.JobId, false, cancellationToken);
+            JobInfo jobInfo = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
 
             if (jobInfo == null)
             {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
             }
 
-            await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Import, jobInfo.GroupId, cancellationToken);
+            await _queueClient.CancelJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, cancellationToken);
             return new CancelImportResponse(HttpStatusCode.Accepted);
         }
     }

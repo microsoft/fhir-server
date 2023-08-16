@@ -125,6 +125,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
+        [Route(KnownRoutes.BulkDeleteOperationDefinition, Name = RouteNames.BulkDeleteDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> BulkDeleteOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.BulkDelete);
+        }
+
+        [HttpGet]
         [Route(KnownRoutes.SearchParametersStatusQueryDefintion, Name = RouteNames.SearchParameterStatusOperationDefinition)]
         [AllowAnonymous]
         public async Task<IActionResult> SearchParameterStatusOperationDefintion()
@@ -167,6 +175,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.SearchParameterStatus:
                     operationEnabled = _coreFeatureConfiguration.SupportsSelectableSearchParameters;
+                    break;
+                case OperationsConstants.BulkDelete:
+                    operationEnabled = _coreFeatureConfiguration.SupportsBulkDelete;
                     break;
                 default:
                     break;

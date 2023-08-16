@@ -431,6 +431,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             Guid? bundleOperationId = GetBundleOperationId();
+
             DeleteResourceResponse response = await _mediator.Send(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,

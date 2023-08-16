@@ -84,5 +84,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string SearchParametersStatusQueryDefintion = OperationDefinition + "/" + OperationsConstants.SearchParameterStatus;
         public const string SearchParametersStatusById = SearchParameters + IdRouteSegment + "/" + Status;
         public const string SearchParametersStatusPostQuery = SearchParametersStatusQuery + "/" + Search;
+
+        public const string BulkDelete = "$bulk-delete";
+        public const string BulkDeleteResourceType = ResourceType + "/" + BulkDelete;
+        public const string BulkDeleteJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkDelete + "/" + IdRouteSegment;
+        public const string BulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDelete;
+        public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
     }
 }

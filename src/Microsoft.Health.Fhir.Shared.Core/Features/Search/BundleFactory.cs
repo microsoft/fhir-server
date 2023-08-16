@@ -109,6 +109,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             });
         }
 
+        public Resource CreateDeletedResourcesBundle(string bundleId, DateTimeOffset lastUpdated, params ResourceReference[] resourceReferences)
+        {
+            EnsureArg.IsNotNull(bundleId);
+            EnsureArg.HasItems(resourceReferences, nameof(resourceReferences));
+
+            var bundle = new Bundle
+            {
+                Id = bundleId,
+                Meta = new Meta
+                {
+                    LastUpdated = lastUpdated,
+                },
+                Type = Bundle.BundleType.Transaction,
+            };
+
+            foreach (var resource in resourceReferences)
+            {
+                bundle.Entry.Add(new Bundle.EntryComponent
+                {
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = Bundle.HTTPVerb.DELETE,
+                        Url = resource.Url.ToString(),
+                    },
+                });
+            }
+
+            return bundle;
+        }
+
         private void CreateLinks(SearchResult result, Bundle bundle)
         {
             bool problemWithLinks = false;
