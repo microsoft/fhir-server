@@ -140,5 +140,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(exception.OperationOutcome.Issue);
             Assert.Equal(exception.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, "Observation"));
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenCreatingConditionallyANewDuplicatedSearchParameterResource_TheServerShouldFail()
+        {
+            /* When the server starts, search-parameters.json files are loaded and the default search parameters
+             * are created. The search parameter with the code 'code' and base 'Observation' already exists with
+             * the url http://hl7.org/fhir/SearchParameter/clinical-code */
+
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedConditionalCreate");
+            resourceToCreate.Id = null;
+
+            // This url is a new one, but the code and base are the same as the one already created when the server is started.
+            resourceToCreate.Url = "http://fhir.medlix.org/SearchParameter/observation-code-test-conditional-create";
+
+            // For calling a Conditional Create we do need to send a conditionalCreateCriteria which in this case is the identifier.
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
+                resourceToCreate,
+                $"url={resourceToCreate.Url}"));
+
+            var expectedSubstring = "A search parameter with the same code value 'code' already exists for base type 'Observation'";
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.Contains(ex.Message, expectedSubstring);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenCreatingConditionallyANewUrlDuplicatedSearchParameterResource_TheServerShouldFail()
+        {
+            /* When the server starts, search-parameters.json files are loaded and the default search parameters
+             * are created. The search parameter with the code 'code' and base 'Observation' already exists with
+             * the url http://hl7.org/fhir/SearchParameter/clinical-code */
+
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedConditionalCreate");
+            resourceToCreate.Id = null;
+
+            // This url is already used by the default Search Parameters loaded when the server is started.
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/clinical-code";
+
+            // For calling a Conditional Create we do need to send a conditionalCreateCriteria which in this case is the identifier.
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
+                resourceToCreate,
+                $"url={resourceToCreate.Url}"));
+
+            var expectedSubstring = "A search parameter with the same definition URL 'http://hl7.org/fhir/SearchParameter/clinical-code' already exists.";
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.Contains(ex.Message, expectedSubstring);
+        }
     }
 }
