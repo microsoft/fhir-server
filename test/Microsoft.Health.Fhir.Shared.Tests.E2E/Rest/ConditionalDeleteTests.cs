@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(int.MaxValue)]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
+        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRangeCount_TheServerShouldReturnError(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
             await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
