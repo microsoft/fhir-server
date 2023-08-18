@@ -17,9 +17,11 @@
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
 		"ms-azuretools.vscode-docker",
-		"ms-dotnettools.csharp",
+		"ms-dotnettools.csdevkit",
+		"ms-dotnettools.vscodeintellicode-csharp",
 		"ms-azuretools.vscode-cosmosdb",
-		"humao.rest-client"
+		"humao.rest-client",
+		"github.vscode-pull-request-github"
 	],
 
 	// Install the certificate for the emulator
