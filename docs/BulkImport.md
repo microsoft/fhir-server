@@ -1,5 +1,10 @@
 # Bulk import
 
+There are two modes of $import supported today-
+
+1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
+1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated and versionId from resource Meta (if present in resource JSON).
+
 The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
 
 ## Prerequisites
@@ -10,7 +15,7 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 
 ### Current limitations
 
-* Conditional references in resources are not supported.
+* Conditional references in resources are not supported for initial mode import.
 * If multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
 
 ## How to use $import
@@ -19,12 +24,12 @@ Below are the high-level steps to use $import. The sections that follow in this 
 
 1. [Deploy a new FHIR server](#deploy-a-fhir-server) if it's not already deployed. Ensure that **Enable Import** is set to **True** during the installation.
 1. [Check and set up the configuration](#check-and-set-up-configuration) settings of the FHIR server. If your FHIR server is newly deployed, you can skip this step.
-1. [Set initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST and PUT) on the FHIR server.
+1. [Set initial import mode or incremental import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. 
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. For more information, see [Get started Azure Storage Explorer](https://docs.microsoft.com/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [az_copy](https://docs.microsoft.com/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available in Azure SQL database is at least 3 times that of the sum of your NDJSON files.
 1. Make the [$import API](#call-import) call.
 1. Periodically [check the status](#check-import-status) of the import.
-1. [Unset initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
+1. If using initial import mode, [Unset initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
 
 ### Deploy a FHIR server
 
@@ -60,12 +65,20 @@ The other option would be to use the `FhirServer__Operations__IntegrationDataSto
 | :zap:! If you're doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like TaskHosting__Enabled needs to be configured in App Service as TaskHosting:Enabled for the key name. In other words, any __(double underscore) should be replaced by :(colon). |
 |-----------------------------------------|
 
+You can choose to use initial import mode or incremental import mode.
+
 ### Change initial import mode on the FHIR server
 
-The FHIR server must have the `initial import mode` set to `True` for $import to work. Setting the value to `True` also suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
+Set the Initial Import mode value to `True` for initial import mode. Initial import mode suspends the write operations (PUT and POST) on the FHIR server, and it must be reverted to `False` to resume the write operations.
 
 ```
 FhirServer__Operations__Import__InitialImportMode: True
+```
+### Change incremental import mode on the FHIR server
+
+Set the Initial Import mode value to `False` for incremental import mode. In incremental import mode, concurrent API writes can be performed during data ingestion into the FHIR service. 
+```
+FhirServer__Operations__Import__InitialImportMode: False
 ```
 
 After the FHIR server app is ready, browse to the Azure portal and click **Configuration**. If it's needed, create the `FhirServer:Operations:Import:InitialImportMode` setting by selecting **New application setting**. Set the value to `True` or `False` as needed.
@@ -92,7 +105,7 @@ Content-Type:application/fhir+json
 | Parameter Name      | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
-| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | ```InitialLoad``` |
+| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -214,7 +227,7 @@ Below are some errors you may encounter:
             "details": {
                 "text": "Given conditional reference '{0}' does not resolve to a resource."
             },
-            "diagnostics": "Failed to process resource at line: {1}"
+                "diagnostics": "Failed to process resource at line: {0} with stream start offset: {1}"
         }
     ]
 }
@@ -295,7 +308,7 @@ Below are some errors you may encounter:
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.
-    2. Set ```FhirServer__Operations__Import__MaxRunningProcessingTaskCount``` in the app configuration. The value should be the number of machines + 1 or more.
-    3. Save the configuration and restart the app.
+    2. Ensure the number of tasks each machine is allowed to run is equal to or greater than number of v-cores on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
+    3. Save changes to the configuration and restart the app.
 1. Besides scaling out, you can also scale up each machine. For more information, see [Scale up an app](https://docs.microsoft.com/en-us/azure/app-service/manage-scale-up) to achieve this. In general, the P3V2 machine is enough for most of the scenarios.
 1. Create the configuration ```FhirServer__Operations__Import__DisableUniqueOptionalIndexesForImport```, and set it to `True` when your input size is larger than 10GB.

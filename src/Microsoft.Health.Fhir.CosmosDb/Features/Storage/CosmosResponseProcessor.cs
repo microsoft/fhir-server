@@ -49,15 +49,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// if the status code is 429.
         /// </summary>
         /// <param name="response">The response that has errored</param>
-        public async Task ProcessErrorResponse(CosmosResponseMessage response)
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task ProcessErrorResponseAsync(CosmosResponseMessage response, CancellationToken cancellationToken)
         {
             if (!response.IsSuccessStatusCode)
             {
-                await ProcessErrorResponse(response.StatusCode, response.Headers, response.ErrorMessage);
+                await ProcessErrorResponseAsync(response.StatusCode, response.Headers, response.ErrorMessage, cancellationToken);
             }
         }
 
-        public async Task ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
+        public async Task ProcessErrorResponseAsync(HttpStatusCode statusCode, Headers headers, string errorMessage, CancellationToken cancellationToken)
         {
             Exception exception = null;
 
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (exception != null)
             {
-                await EmitExceptionNotificationAsync(statusCode, exception);
+                await EmitExceptionNotificationAsync(statusCode, exception, cancellationToken);
                 throw exception;
             }
         }
@@ -99,7 +100,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Updates the request context with Cosmos DB info and updates response headers with the session token and request change values.
         /// </summary>
         /// <param name="responseMessage">The response message</param>
-        public async Task ProcessResponse(CosmosResponseMessage responseMessage)
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task ProcessResponseAsync(CosmosResponseMessage responseMessage, CancellationToken cancellationToken)
         {
             var responseRequestCharge = responseMessage.Headers.RequestCharge;
 
@@ -131,10 +133,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ((ConcurrentBag<CosmosResponseMessage>)propertyValue).Add(responseMessage);
             }
 
-            await AddRequestChargeToFhirRequestContext(responseRequestCharge, responseMessage.StatusCode);
+            await AddRequestChargeToFhirRequestContextAsync(responseRequestCharge, responseMessage.StatusCode, cancellationToken);
         }
 
-        private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)
+        private async Task AddRequestChargeToFhirRequestContextAsync(double responseRequestCharge, HttpStatusCode? statusCode, CancellationToken cancellationToken)
         {
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.RequestContext;
 
@@ -168,7 +170,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                await _mediator.Publish(cosmosMetrics, CancellationToken.None);
+                await _mediator.Publish(cosmosMetrics, cancellationToken);
+            }
+            catch (ObjectDisposedException ode)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ode, "ObjectDisposedException. Unable to publish CosmosDB metric. Cancellation was requested.");
+                }
+                else
+                {
+                    _logger.LogCritical(ode, "ObjectDisposedException. Unable to publish CosmosDB metric.");
+                }
+            }
+            catch (OperationCanceledException oce)
+            {
+                _logger.LogWarning(oce, "OperationCanceledException. Unable to publish CosmosDB metric. Cancellation was requested.");
             }
             catch (Exception ex)
             {
@@ -214,7 +231,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return errorMessage;
         }
 
-        private async Task EmitExceptionNotificationAsync(HttpStatusCode statusCode, Exception exception)
+        private async Task EmitExceptionNotificationAsync(HttpStatusCode statusCode, Exception exception, CancellationToken cancellationToken)
         {
             var exceptionNotification = new ExceptionNotification();
 
@@ -239,12 +256,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
                 exceptionNotification.BaseException = exception;
 
-                await _mediator.Publish(exceptionNotification, CancellationToken.None);
+                await _mediator.Publish(exceptionNotification, cancellationToken);
             }
-            catch (Exception e)
+            catch (ObjectDisposedException ode)
             {
-                // Failures in publishing exception notifications should not cause the API to return an error.
-                _logger.LogWarning(e, "Failure while publishing Exception notification.");
+                _logger.LogWarning(ode, "ObjectDisposedException. Failure while publishing Exception notification.");
+            }
+            catch (OperationCanceledException oce)
+            {
+                _logger.LogWarning(oce, "OperationCanceledException. Unable to publish CosmosDB metric. Cancellation was requested.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to publish CosmosDB metric.");
             }
         }
     }

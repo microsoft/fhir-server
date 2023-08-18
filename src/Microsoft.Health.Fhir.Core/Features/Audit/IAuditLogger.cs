@@ -27,6 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
         /// <param name="callerIpAddress">The caller IP address.</param>
         /// <param name="callerClaims">The claims of the caller.</param>
         /// <param name="customHeaders">Headers added by the caller with data to be added to the audit logs.</param>
+        /// <param name="operationType">The operation type.</param>
+        /// <param name="callerAgent">The caller agent.</param>
+        /// <param name="additionalProperties">To add additional properties to logs.</param>
         void LogAudit(
             AuditAction auditAction,
             string operation,
@@ -36,6 +39,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyDictionary<string, string> customHeaders = null);
+            IReadOnlyDictionary<string, string> customHeaders = null,
+            string operationType = null,
+            string callerAgent = null,
+            IReadOnlyDictionary<string, string> additionalProperties = null);
     }
 }

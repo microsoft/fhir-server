@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public static class KnownFhirPaths
     {
+        internal const string AzureSoftDeletedExtensionUrl = "http://azurehealthcareapis.com/data-extensions/deleted-state";
+
         public const string BundleEntries = "Resource.entry.resource";
 
         public const string BundleNextLink = "Resource.link.where(relation = 'next').url";
@@ -16,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public const string BundleType = "Resource.type";
 
         public const string ResourceNarrative = "text.div";
+
+        public const string IsSoftDeletedExtension = $"Resource.meta.extension.where(url = '{AzureSoftDeletedExtensionUrl}').where(value='soft-deleted').exists()";
     }
 }

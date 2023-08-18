@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             if (_store != null)
             {
-                await _store.TryLogEvent(process, status, text, null, cancellationToken);
+                await _store.StoreClient.TryLogEvent(process, status, text, null, cancellationToken);
             }
         }
     }

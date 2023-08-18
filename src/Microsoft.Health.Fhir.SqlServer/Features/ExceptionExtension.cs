@@ -4,18 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 
-namespace Microsoft.Health.Fhir.Store.Export
+namespace Microsoft.Health.Fhir.SqlServer.Features
 {
-    internal static class ExceptionExtention
+    internal static class ExceptionExtension
     {
-        internal static bool IsRetryable(this Exception e)
+        internal static bool IsRetriable(this Exception e)
         {
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)
                    || HasInternalSqlErrorPattern(str)
                    || HasDatabaseAvailabilityPattern(str)
                    || HasDatabaseOverloadPattern(str)
-                   || HasDeadlockErrorPattern(str);
+                   || HasDeadlockErrorPattern(str)
+                   || HasIncorrectAsyncCallPattern(str);
+        }
+
+        internal static bool IsExecutionTimeout(this Exception e)
+        {
+            var str = e.ToString().ToLowerInvariant();
+            return str.Contains("execution timeout expired", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasDeadlockErrorPattern(string str)
@@ -30,10 +37,12 @@ namespace Microsoft.Health.Fhir.Store.Export
                     || str.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("transport-level error", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("connection is closed", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("severe error occurred", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("connection timeout expired", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("existing connection was forcibly closed by the remote host", StringComparison.OrdinalIgnoreCase)
-                    || str.Contains("connection was recovered and rowcount in the first query is not available", StringComparison.OrdinalIgnoreCase);
+                    || str.Contains("connection was recovered and rowcount in the first query is not available", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("connection was successfully established with the server, but then an error occurred during the login process", StringComparison.OrdinalIgnoreCase);
 
             ////A severe error occurred on the current command.  The results, if any, should be discarded.
             ////Meaning:
@@ -70,10 +79,11 @@ namespace Microsoft.Health.Fhir.Store.Export
                     || str.Contains("object accessed by the statement has been modified by a ddl statement", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("is full due to", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("has reached its size quota", StringComparison.OrdinalIgnoreCase)
-                    || (str.Contains("failed to update database", StringComparison.OrdinalIgnoreCase) && str.Contains("database is read-only", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("connections to this database are no longer allowed", StringComparison.OrdinalIgnoreCase) // happened on SLO update from HS_Gen5_16 to HS_Gen4_1
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
-                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase));
+                    || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
+                    || str.Contains("Login failed for user", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("The timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase);
 
             ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.
             ////A network-related or instance-specific error occurred while establishing a connection to SQL Server. The server was not found or was not accessible. Verify that the instance name is correct and that SQL Server is configured to allow remote connections. (provider: TCP Provider, error: 0 - A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.)
@@ -94,6 +104,12 @@ namespace Microsoft.Health.Fhir.Store.Export
             return str.Contains("request limit for the database", StringComparison.OrdinalIgnoreCase) && str.Contains("has been reached", StringComparison.OrdinalIgnoreCase);
 
             ////The request limit for the database is 200 and has been reached.
+        }
+
+        // TODO: Remove when source of this exception is identified
+        private static bool HasIncorrectAsyncCallPattern(string str)
+        {
+            return str.Contains("This method may not be called when another read operation is pending", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

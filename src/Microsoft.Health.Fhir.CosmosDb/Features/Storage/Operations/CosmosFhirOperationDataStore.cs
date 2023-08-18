@@ -14,6 +14,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -27,16 +28,23 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 using Microsoft.Health.JobManagement;
+using Newtonsoft.Json;
 using JobConflictException = Microsoft.Health.Fhir.Core.Features.Operations.JobConflictException;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
     public sealed class CosmosFhirOperationDataStore : FhirOperationDataStoreBase, ILegacyExportOperationDataStore
     {
+        private const string HashParameterName = "@hash";
+
+        private static readonly string GetJobByHashQuery =
+            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
+
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
         private readonly IScoped<Container> _containerScope;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
@@ -73,6 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerScope = containerScope;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _queryFactory = queryFactory;
             _logger = logger;
@@ -86,6 +95,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         private string DatabaseId { get; }
 
         private string CollectionId { get; }
+
+        public override async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            if (_cosmosDataStoreConfiguration.UseQueueClientJobs)
+            {
+                return await base.CreateExportJobAsync(jobRecord, cancellationToken);
+            }
+
+            // try old job records
+            var oldJobs = (ILegacyExportOperationDataStore)this;
+            return await oldJobs.CreateLegacyExportJobAsync(jobRecord, cancellationToken);
+        }
 
         public override async Task<ExportJobOutcome> GetExportJobByIdAsync(string id, CancellationToken cancellationToken)
         {
@@ -141,6 +162,44 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to acquire export jobs.");
+                throw;
+            }
+        }
+
+        async Task<ExportJobOutcome> ILegacyExportOperationDataStore.CreateLegacyExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var hashObject = new { jobRecord.RequestUri, jobRecord.RequestorClaims };
+            var hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
+
+            ExportJobOutcome resultFromHash = await GetExportJobByHashAsync(hash, cancellationToken);
+            if (resultFromHash != null)
+            {
+                return resultFromHash;
+            }
+
+            jobRecord.Hash = hash;
+
+            var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
+
+            try
+            {
+                var result = await _containerScope.Value.CreateItemAsync(
+                    cosmosExportJob,
+                    new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
+                    cancellationToken: cancellationToken);
+
+                return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.IsRequestRateExceeded())
+                {
+                    throw;
+                }
+
+                _logger.LogError(dce, "Failed to create an export job.");
                 throw;
             }
         }
@@ -382,6 +441,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to update a reindex job.");
+                throw;
+            }
+        }
+
+        private async Task<ExportJobOutcome> GetExportJobByHashAsync(string hash, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+
+            try
+            {
+                var query = _queryFactory.Create<CosmosExportJobRecordWrapper>(
+                    _containerScope.Value,
+                    new CosmosQueryContext(
+                        new QueryDefinition(GetJobByHashQuery)
+                            .WithParameter(HashParameterName, hash),
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) }));
+
+                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync(cancellationToken);
+
+                if (result.Count == 1)
+                {
+                    // We found an existing job that matches the hash.
+                    CosmosExportJobRecordWrapper wrapper = result.First();
+
+                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                }
+
+                return null;
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.IsRequestRateExceeded())
+                {
+                    throw;
+                }
+
+                _logger.LogError(dce, "Failed to get an export job by hash.");
                 throw;
             }
         }

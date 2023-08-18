@@ -1,12 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <None Remove="Data\OperationDefinition\member-match.json" />
+    <None Remove="Data\OperationDefinition\search-parameter-status.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\OperationDefinition\convert-data.json" />
     <EmbeddedResource Include="Data\OperationDefinition\member-match.json" />
     <EmbeddedResource Include="Data\OperationDefinition\purge-history.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\search-parameter-status.json" />
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />
@@ -25,6 +27,7 @@
     <EmbeddedResource Include="Data\OperationDefinition\patient-export.json" />
     <EmbeddedResource Include="Data\OperationDefinition\reindex.json" />
     <EmbeddedResource Include="Data\OperationDefinition\resource-reindex.json" />
+    <EmbeddedResource Include="Data\OperationDefinition\bulk-delete.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />

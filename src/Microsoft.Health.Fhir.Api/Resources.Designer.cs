@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to in progress.
+        /// </summary>
+        public static string InProgress {
+            get {
+                return ResourceManager.GetString("InProgress", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
         /// </summary>
         public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
@@ -489,6 +498,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hard delete must be requested in order to purge history..
+        /// </summary>
+        public static string NoSoftPurge {
+            get {
+                return ResourceManager.GetString("NoSoftPurge", resourceCulture);
             }
         }
         

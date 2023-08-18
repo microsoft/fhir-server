@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 // Create the database.
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
 
                 await using SqlCommand command = connection.CreateCommand();
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand sqlCommand = connection.CreateCommand();
                 sqlCommand.CommandText = "SELECT 1";
@@ -146,6 +146,28 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
             cmd2.Parameters.AddWithValue("@LeasePeriodSecId", cleanupWatchdog.LeasePeriodSecId);
             await cmd2.ExecuteNonQueryAsync(CancellationToken.None);
 
+            using var cmd3 = new SqlCommand(
+                @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 2
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 5
+                ",
+                conn);
+            var transactionWatchdog = new TransactionWatchdog();
+            cmd3.Parameters.AddWithValue("@PeriodSecId", transactionWatchdog.PeriodSecId);
+            cmd3.Parameters.AddWithValue("@LeasePeriodSecId", transactionWatchdog.LeasePeriodSecId);
+            await cmd3.ExecuteNonQueryAsync(CancellationToken.None);
+
+            using var cmd4 = new SqlCommand(
+                @"
+INSERT INTO dbo.Parameters (Id,Number) SELECT @PeriodSecId, 5
+INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
+                ",
+                conn);
+            var invisibleHistoryCleanupWatchdog = new InvisibleHistoryCleanupWatchdog();
+            cmd4.Parameters.AddWithValue("@PeriodSecId", invisibleHistoryCleanupWatchdog.PeriodSecId);
+            cmd4.Parameters.AddWithValue("@LeasePeriodSecId", invisibleHistoryCleanupWatchdog.LeasePeriodSecId);
+            await cmd4.ExecuteNonQueryAsync(CancellationToken.None);
+
             await conn.CloseAsync();
         }
 
@@ -164,7 +186,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
@@ -282,7 +304,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT 'CleanupEventLog.IsEnabled', 1
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
+            sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };

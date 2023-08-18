@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             RiskAssessments = await ImportTestHelper.ImportToServerAsync<RiskAssessment>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 i => SetRiskAssessment(i, 1),
                 i => SetRiskAssessment(i, 4),
                 i => SetRiskAssessment(i, 5),

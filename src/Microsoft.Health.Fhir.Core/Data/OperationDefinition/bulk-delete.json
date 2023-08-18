@@ -1,0 +1,32 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "bulk-delete",
+    "url": "[base]/OperationDefinition/bulk-delete",
+    "version": "1.0.0",
+    "name": "Bulk Delete",
+    "status": "active",
+    "kind": "operation",
+    "description": "Deletes all data from a FHIR server that matches the search parameters. Any supported search parameter can be inluded as query string parameters. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "code": "bulk-delete",
+    "system": true,
+    "type": true,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "hardDelete",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "A boolean flag to indicate whether the resources should be removed from the database. Setting this flag removes the affected resources and all their historical records, instead of marking the resources as deleted.",
+            "type": "boolean"
+        },
+        {
+            "name": "purgeHistory",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "A boolean flag to indicate whether the resources' historical versions should be removed from the database. Setting this flag removes the affected resources' historical records but leaves the current verisons. Must be used with the hardDelete parameter.",
+            "type": "boolean"
+        }
+    ]
+}

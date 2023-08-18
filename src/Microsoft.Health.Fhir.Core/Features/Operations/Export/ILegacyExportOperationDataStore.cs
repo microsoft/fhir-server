@@ -18,6 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export;
 public interface ILegacyExportOperationDataStore
 {
     /// <summary>
+    /// Creates a new export job.
+    /// </summary>
+    /// <param name="jobRecord">The job record.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An instance of the export job.</returns>
+    Task<ExportJobOutcome> CreateLegacyExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets an export job by id.
     /// </summary>
     /// <param name="id">The id of the job.</param>

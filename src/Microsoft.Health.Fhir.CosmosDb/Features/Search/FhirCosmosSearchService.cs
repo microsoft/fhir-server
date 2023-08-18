@@ -15,7 +15,9 @@ using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -86,6 +88,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     smartCompartmentSearchRewriter,
                     DateTimeEqualityRewriter.Instance,
                 });
+        }
+
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
+                FROM root r
+                WHERE r.isSystem = false");
+
+            var requestOptions = new QueryRequestOptions();
+
+            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
         }
 
         public override async Task<SearchResult> SearchAsync(

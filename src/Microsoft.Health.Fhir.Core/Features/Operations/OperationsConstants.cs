@@ -40,5 +40,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string BulkImportContentTypeHeaderValue = "application/json";
 
         public const string SearchParameterStatus = "search-parameter-status";
+
+        public const string BulkDelete = "bulk-delete";
+
+        public const string ResourceTypeBulkDelete = "resource-type-bulk-delete";
     }
 }

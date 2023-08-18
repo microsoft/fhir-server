@@ -266,7 +266,7 @@ public class CosmosQueueClient : IQueueClient
     }
 
     /// <inheritdoc />
-    public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
+    public async Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
     {
         return await _retryPolicy.ExecuteAsync(async () =>
         {

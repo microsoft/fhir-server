@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
         private readonly ILogger<SmartClinicalScopesMiddleware> _logger;
 
         // Regex based on SMART on FHIR clinical scopes v1.0, http://hl7.org/fhir/smart-app-launch/1.0.0/scopes-and-launch-context/index.html#clinical-scope-syntax
-        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
+        private static readonly Regex ClinicalScopeRegEx = new Regex(@"(^|\s+)(?<id>patient|user|system)(/|\$|\.)(?<resource>\*|([a-zA-Z]*)|all)\.(?<accessLevel>read|write|\*|all)", RegexOptions.Compiled);
 
         public SmartClinicalScopesMiddleware(RequestDelegate next, ILogger<SmartClinicalScopesMiddleware> logger)
         {
@@ -99,14 +99,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
                         switch (accessLevel)
                         {
                             case "read":
-                                permittedDataActions |= DataActions.Read;
+                                permittedDataActions = DataActions.Read;
                                 break;
                             case "write":
-                                permittedDataActions |= DataActions.Write;
+                                permittedDataActions = DataActions.Write;
                                 break;
                             case "*":
                             case AllDataActions:
-                                permittedDataActions |= DataActions.Read | DataActions.Write | DataActions.Export;
+                                permittedDataActions = DataActions.Read | DataActions.Write | DataActions.Export;
                                 break;
                         }
 

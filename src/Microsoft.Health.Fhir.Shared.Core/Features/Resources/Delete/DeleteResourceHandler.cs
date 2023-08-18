@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -20,14 +21,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
     public class DeleteResourceHandler : BaseResourceHandler, IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>
     {
+        private readonly IDeletionService _deleter;
+
         public DeleteResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            IDeletionService deleter)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
+            _deleter = EnsureArg.IsNotNull(deleter, nameof(deleter));
         }
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, CancellationToken cancellationToken)
@@ -40,43 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 throw new UnauthorizedFhirActionException();
             }
 
-            var key = request.ResourceKey;
+            var result = await _deleter.DeleteAsync(request, cancellationToken);
 
-            if (!string.IsNullOrEmpty(key.VersionId))
+            if (string.IsNullOrWhiteSpace(result.VersionId))
             {
-                throw new MethodNotAllowedException(Core.Resources.DeleteVersionNotAllowed);
+                return new DeleteResourceResponse(result);
             }
 
-            string version = null;
-
-            switch (request.DeleteOperation)
-            {
-                case DeleteOperation.SoftDelete:
-                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
-                    emptyInstance.Id = request.ResourceKey.Id;
-
-                    ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
-
-                    bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
-
-                    UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleOperationId: null), cancellationToken);
-
-                    version = result?.Wrapper.Version;
-                    break;
-                case DeleteOperation.HardDelete:
-                case DeleteOperation.PurgeHistory:
-                    await FhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(request));
-            }
-
-            if (string.IsNullOrWhiteSpace(version))
-            {
-                return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id));
-            }
-
-            return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id, version), weakETag: WeakETag.FromVersionId(version));
+            return new DeleteResourceResponse(result, weakETag: WeakETag.FromVersionId(result.VersionId));
         }
     }
 }
