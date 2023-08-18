@@ -1,21 +1,24 @@
 version: '3'
 
 services:
-  sql:
-    container_name: sql
-    image: "mcr.microsoft.com/mssql/server"
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
     restart: unless-stopped
+    mem_limit: 3g
+    cpu_count: 2
     environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: localDev1!
+        AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 2
+        AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+    volumes:
+        - /var/run/docker.sock:/var/run/docker-host.sock
     ports:
-    - "1433:1433"
+    - "8081:8081"
 
   fhir:
     depends_on:
-      - "sql"
+      - "cosmos"
     build: 
-      context: ../
+      context: ../../
       dockerfile: .devcontainer/Dockerfile
       args:
         # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.
@@ -25,12 +28,12 @@ services:
     init: true
     volumes:
       - /var/run/docker.sock:/var/run/docker-host.sock 
-      - ..:/workspace:cached
+      - ../..:/workspace:cached
 
     entrypoint: /usr/local/share/docker-init.sh
 
     # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
-    network_mode: service:sql
-    
+    network_mode: "host"
+
     # so the container won't exit
     command: sleep infinity

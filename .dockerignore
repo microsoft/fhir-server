@@ -24,3 +24,4 @@ Dockerfile*
 # Other required exceptions
 !tools/FhirAnalyzer
 !THIRDPARTYNOTICES.md
+!build/*compat

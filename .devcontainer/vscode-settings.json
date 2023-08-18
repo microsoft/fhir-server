@@ -1,0 +1,28 @@
+{
+	"terminal.integrated.shell.linux": "/bin/bash",
+	"launch": {
+		"configurations": [{
+            "name": "R4 SQL Server - DevContainer",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/netcoreapp3.1/Microsoft.Health.Fhir.R4.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+				"DataStore": "SqlServer",
+				"FhirServer:Security:Enabled": "false",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
+                "SqlServer:ConnectionString": "Server=sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=localDev1!",
+                "SqlServer:Initialize": "true",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        }],
+		"compounds": []
+	}
+}

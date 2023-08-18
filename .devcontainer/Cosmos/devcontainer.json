@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.183.0/containers/docker-from-docker-compose
 {
-	"name": "Fhir-DevContainer-SQL",
+	"name": "Fhir-DevContainer-Cosmos",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "fhir",
 	"workspaceFolder": "/workspace",
@@ -12,31 +12,7 @@
 	},
 	
 	// Set *default* container specific settings.json values on container create.
-	"settings": {
-		"launch": {
-			"configurations": [{
-				"name": "R4 SQL Server - DevContainer",
-				"type": "coreclr",
-				"request": "launch",
-				"program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R4.Web.dll",
-				"cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
-				"stopAtEntry": false,
-				"env": {
-					"ASPNETCORE_ENVIRONMENT": "Development",
-					"DataStore": "SqlServer",
-					"SqlServer:AllowDatabaseCreation": "true",
-					"SqlServer:ConnectionString": "Server=sql,1433;Initial Catalog=FHIR;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!",
-					"SqlServer:Initialize": "true",
-					"SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
-					"TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json"
-				},
-				"sourceFileMap": {
-					"/Views": "${workspaceFolder}/Views"
-				}
-			}],
-			"compounds": []
-		}
-	},
+	"settings": {},
 
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
@@ -54,6 +30,9 @@
 		"github.vscode-pull-request-github",
 		"github.github-vscode-theme"
 	],
+
+	// Install the certificate for the emulator
+	"postCreateCommand": "/setup/setup.sh",
 
 	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
 	"remoteUser": "vscode",
