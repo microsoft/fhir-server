@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
                 if (convertException is PostprocessException)
                 {
-                    _logger.LogInformation("A postprocess exception occurred", "Convert data failed.");
+                    _logger.LogInformation($"An exception of type {convertException.GetType()} occurred during postprocessing. {convertException.StackTrace}", "Convert data failed.");
                 }
                 else
                 {
