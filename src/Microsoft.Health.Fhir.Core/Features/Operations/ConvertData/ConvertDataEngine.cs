@@ -95,7 +95,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                     throw new ConvertDataTimeoutException(Core.Resources.ConvertDataOperationTimeout, convertException.InnerException);
                 }
 
-                _logger.LogInformation(convertException, "Convert data failed.");
+                if (convertException is PostprocessException)
+                {
+                    _logger.LogInformation("A postprocess exception occurred", "Convert data failed.");
+                }
+                else
+                {
+                    _logger.LogInformation(convertException, "Convert data failed.");
+                }
+
                 throw new ConvertDataFailedException(string.Format(Core.Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)
