@@ -532,7 +532,7 @@ namespace Microsoft.Health.Fhir.Client
             return (await CreateResponseAsync<Parameters>(response), response.Content.Headers.ContentLocation);
         }
 
-        public async Task<FhirResponse<Parameters>> CheckReindexAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<Parameters>> CheckJobAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -557,7 +557,7 @@ namespace Microsoft.Health.Fhir.Client
                     await Task.Delay(delay);
                 }
 
-                reindexJobResult = await CheckReindexAsync(reindexJobUri);
+                reindexJobResult = await CheckJobAsync(reindexJobUri);
                 currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == ReindexParametersStatus)?.Value.ToString();
                 checkReindexCount++;
             }
@@ -573,6 +573,39 @@ namespace Microsoft.Health.Fhir.Client
             }
 
             return reindexJobResult;
+        }
+
+        public async Task<FhirResponse<Parameters>> WaitForBulkDeleteStatus(Uri bulkDeleteJobUri)
+        {
+            int checkCount = 0;
+            int maxCount = 30;
+            var delay = TimeSpan.FromSeconds(10);
+            var sw = new Stopwatch();
+            FhirResponse<Parameters> jobResult;
+            sw.Start();
+
+            do
+            {
+                if (checkCount > 0)
+                {
+                    await Task.Delay(delay);
+                }
+
+                jobResult = await CheckJobAsync(bulkDeleteJobUri);
+                checkCount++;
+            }
+            while (jobResult.Response.StatusCode == System.Net.HttpStatusCode.Accepted && checkCount < maxCount);
+
+            sw.Stop();
+
+            if (checkCount >= maxCount)
+            {
+#pragma warning disable CA2201 // Do not raise reserved exception types. This is used in a test and has a specific message.
+                throw new Exception($"Bulk delete at ${bulkDeleteJobUri} did not complete within {checkCount} attempts and a duration of {sw.Elapsed.Duration()}");
+#pragma warning restore CA2201 // Do not raise reserved exception types
+            }
+
+            return jobResult;
         }
 
         /// <summary>

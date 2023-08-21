@@ -432,6 +432,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
+
             DeleteResourceResponse response = await _mediator.Send(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
@@ -465,6 +466,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var payload = new JsonPatchPayload(patchDocument);
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
+
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(
                 new PatchResourceRequest(
                     new ResourceKey(typeParameter, idParameter),
@@ -492,6 +494,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var payload = new JsonPatchPayload(patchDocument);
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
+
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
                 new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, bundleResourceContext, ifMatchHeader),
                 HttpContext.RequestAborted);
@@ -513,6 +516,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var payload = new FhirPathPatchPayload(paramsResource);
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
+
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(
                 new PatchResourceRequest(new ResourceKey(typeParameter, idParameter), payload, bundleResourceContext, ifMatchHeader),
                 HttpContext.RequestAborted);
@@ -535,6 +539,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var payload = new FhirPathPatchPayload(paramsResource);
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
+
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
                 new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, bundleResourceContext, ifMatchHeader),
                 HttpContext.RequestAborted);

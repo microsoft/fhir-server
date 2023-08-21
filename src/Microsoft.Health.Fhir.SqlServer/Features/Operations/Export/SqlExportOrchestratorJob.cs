@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
-            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 var atLeastOneWorkerJobRegistered = false;
 
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken)).Select(x => x.Name)
+                                  ? (await _searchService.GetUsedResourceTypes(cancellationToken))
                                   : record.ResourceType.Split(',');
-                resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)); // true first, so observation is processed as soon as
+                resourceTypes = resourceTypes.OrderByDescending(x => string.Equals(x, "Observation", StringComparison.OrdinalIgnoreCase)).ToList(); // true first, so observation is processed as soon as
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
 
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                     var rows = 1;
                     while (rows > 0)
                     {
-                        var definitions = new List<string>();
+                        var definitions = new List<ExportJobRecord>();
                         var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
                         foreach (var range in ranges)
                         {
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                             }
 
                             var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
-                            definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                            definitions.Add(processingRecord);
                         }
 
                         startId++; // make sure we do not intersect ranges
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancel);
+                            await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                             atLeastOneWorkerJobRegistered = true;
                         }
                     }
@@ -111,13 +111,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                 if (!atLeastOneWorkerJobRegistered)
                 {
                     var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                    await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
             }
             else if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 
             record.Status = OperationStatus.Completed;

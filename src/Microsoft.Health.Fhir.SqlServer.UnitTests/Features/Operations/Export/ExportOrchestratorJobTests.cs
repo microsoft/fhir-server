@@ -91,10 +91,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
-            var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
+            JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
             var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
-            var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
-            var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+            string result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>(_ => { }), CancellationToken.None);
+            ExportJobRecord jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
             CheckJobsQueued(2, numExpectedJobs * 2);
@@ -203,10 +203,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 
             _mockSearchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(x =>
             {
-                var list = new List<(short resourceTypeId, string name)>();
-                list.Add((0, "Patient"));
-                list.Add((1, "Observation"));
-                list.Add((2, "Encounter"));
+                var list = new List<string>
+                {
+                    "Patient",
+                    "Observation",
+                    "Encounter",
+                };
 
                 return list;
             });

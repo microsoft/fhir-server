@@ -80,5 +80,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string PurgeHistory = "purge-history";
 
         public const string SearchParameterStatus = "search-parameter-status";
+
+        public const string BulkDelete = "bulk-delete";
     }
 }

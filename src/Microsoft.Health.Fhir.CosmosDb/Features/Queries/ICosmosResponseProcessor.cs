@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -12,10 +13,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
     public interface ICosmosResponseProcessor
     {
-        Task ProcessErrorResponse(CosmosResponseMessage response);
+        Task ProcessErrorResponseAsync(CosmosResponseMessage response, CancellationToken cancellationToken);
 
-        Task ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage);
+        Task ProcessErrorResponseAsync(HttpStatusCode statusCode, Headers headers, string errorMessage, CancellationToken cancellationToken);
 
-        Task ProcessResponse(CosmosResponseMessage responseMessage);
+        Task ProcessResponseAsync(CosmosResponseMessage responseMessage, CancellationToken cancellationToken);
     }
 }

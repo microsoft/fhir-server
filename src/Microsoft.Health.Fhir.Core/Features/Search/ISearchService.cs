@@ -100,6 +100,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken);
+        Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
     }
 }
