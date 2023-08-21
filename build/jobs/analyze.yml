@@ -6,6 +6,11 @@ parameters:
   credScanDirectory: '$(Build.SourcesDirectory)'
 
 steps:
+- task: UseDotNet@2
+  displayName: Use .NET Core sdk
+  inputs:
+    useGlobalJson: true
+
 - ${{ if eq(parameters.analyzeBinaries, 'true') }}:
   - task: DownloadBuildArtifacts@0
     displayName: 'Download Binaries'
@@ -60,9 +65,17 @@ steps:
 - ${{ if eq(parameters.analyzeARMTemplates, 'true') }}:
   - task: Armory@2
     inputs:
-      targetDirectory: '$(Build.SourcesDirectory)\samples\templates'
+      targetDirectory: '$(Build.SourcesDirectory)/samples/templates'
       targetFiles: 'f|*.json'
       excludePassesFromLog: false
+
+  - task: TemplateAnalyzer@3  
+    displayName: 'Run Template Analyzer'  
+    inputs:   
+        ToolVersion: Latest
+        AnalyzeDirectory: '$(Build.SourcesDirectory)/samples/templates'
+        Verbose: false
+        IncludeNonSecurityRules: true
 
 - task: CredScan@3
   inputs:
@@ -76,26 +89,55 @@ steps:
       Path: '$(Build.SourcesDirectory)'
       ToolVersion: Latest
 
-- task: UseDotNet@2
-  displayName: Use .NET Core sdk
+- task: Trivy@1
+  displayName: 'Run Trivy'
   inputs:
-    useGlobalJson: true
+    Target: '$(Build.SourcesDirectory)/build/docker'
+    Severities: all
+    VulTypes: all
+
+- task: PSScriptAnalyzer@1
+  displayName: 'Run PSScriptAnalyzer'
+  inputs:
+    Path: '$(Build.SourcesDirectory)'
+    Settings: required
+    IgnorePattern: .gdn
+    Recurse: true
 
 - task: RoslynAnalyzers@3
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'C:\hostedtoolcache\windows\dotnet\dotnet.exe build $(Build.SourcesDirectory)\Microsoft.Health.Fhir.sln'
+    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net7.0'
+
+- task: PoliCheck@2
+  displayName: Run PoliCheck
+  
+- task: BinSkim@4
+  inputs:
+    toolVersion:        Latest
+    InputType:          Basic
+    Function:           analyze
+    AnalyzeTargetGlob:  'f|$(Agent.TempDirectory)/artifacts/**/*Microsoft.Health.*.dll'
+
+ ## Tool is no longer supported:
+ # AutoApplicability@1, CodeMetrics@1, VulnerabilityAssessment@0
 
 - task: SdtReport@2
+  condition: succeededOrFailed()
+  continueOnError: True
   inputs:
     GdnExportAllTools: false
     GdnExportGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnExportGdnToolCredScan: true
     GdnExportGdnToolCSRF: true
     GdnExportGdnToolRoslynAnalyzers: true
+    BinSkim: true
+    CredScan: true
 
 - task: PublishSecurityAnalysisLogs@3
+  condition: succeededOrFailed()
+  continueOnError: True
   inputs:
     ArtifactName: 'CodeAnalysisLogs'
     ArtifactType: 'Container'
@@ -114,7 +156,7 @@ steps:
     FxCop: false
     ModernCop: false
     MSRD: false
-    PoliCheck: false
+    PoliCheck: true
     RoslynAnalyzers: true
     SDLNativeRules: false
     Semmle: false
@@ -124,12 +166,15 @@ steps:
     ToolLogsNotFoundAction: 'Standard'
 
 - task: PostAnalysis@2
+  condition: succeededOrFailed()
   inputs:
     GdnBreakAllTools: false
     GdnBreakGdnToolArmory: ${{ eq(parameters.analyzeARMTemplates, 'true') }}
     GdnBreakGdnToolCredScan: true
     GdnBreakGdnToolCSRF: true
     GdnBreakGdnToolRoslynAnalyzers: true
+    BinSkim: true
+    CredScan: true
 
 - task: TSAUpload@2
   condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
@@ -140,7 +185,6 @@ steps:
     GdnPublishTsaOnboard: false
     GdnPublishTsaConfigFile: '$(Build.SourcesDirectory)\build\jobs\tsaconfig.gdntsa'
     GdnPublishTsaExportedResultsPublishable: true
-
 
 - task: DeleteFiles@1
   displayName: 'Delete files to make space'
