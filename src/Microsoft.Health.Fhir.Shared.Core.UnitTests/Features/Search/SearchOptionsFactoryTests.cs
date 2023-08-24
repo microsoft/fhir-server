@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SearchParameterNames.ResourceTypeUri.AbsoluteUri }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
@@ -108,6 +108,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.Equal(5, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", "0"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters);
+
+            Assert.NotNull(options);
         }
 
         [Fact]

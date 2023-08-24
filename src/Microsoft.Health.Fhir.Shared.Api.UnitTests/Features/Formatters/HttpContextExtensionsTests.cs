@@ -43,6 +43,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
+        public void GivenARequestWithCountType_WhenSerializingTheResponse_ThenTheCorrectSummeryTypeIsApplied()
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_count", "0");
+
+            var summary = context.GetSummaryTypeOrDefault();
+
+            Assert.Equal(SummaryType.Count, summary);
+        }
+
+        [Fact]
         public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_DefaultSummaryReturned()
         {
             var context = new DefaultHttpContext();
