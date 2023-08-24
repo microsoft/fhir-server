@@ -17,6 +17,7 @@
     <ExcludeFolder>.gitignore</ExcludeFolder>
     <ExcludeFolder>GeoPol.xml</ExcludeFolder>
     <ExcludeFolder>THIRDPARTYNOTICES.md</ExcludeFolder>
+    <!-- Exclude files provided by the FHIR Specification, these terms are used in a medical context -->
     <ExcludeFolder>src\Microsoft.Health.Fhir.Core\Data\*.json</ExcludeFolder>
     <ExcludeFolder>src\Microsoft.Health.Fhir.Tests.Common\TestFiles\*.json</ExcludeFolder>
     <ExcludeFolder>docs\rest\</ExcludeFolder>
