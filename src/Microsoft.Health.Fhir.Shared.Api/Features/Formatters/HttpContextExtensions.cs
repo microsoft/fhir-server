@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else if (string.IsNullOrWhiteSpace(query))
             {
-                var res = context.Request.Query[KnownQueryParameterNames.Count].FirstOrDefault();
+                var result = context.Request.Query[KnownQueryParameterNames.Count].FirstOrDefault();
 
-                if (!string.IsNullOrWhiteSpace(res) && Convert.ToInt32(res) == 0 &&
+                if (!string.IsNullOrWhiteSpace(result) && int.TryParse(result, out var count) && count == 0 &&
                     (context.Response.StatusCode == (int)HttpStatusCode.OK || context.Response.StatusCode == (int)HttpStatusCode.Created))
                 {
                     return Hl7.Fhir.Rest.SummaryType.Count;
