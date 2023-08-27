@@ -266,8 +266,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                         throw new BundleOrchestratorException($"Bundle Operation {Id}. At least one HTTP Verb should be known. No HTTP Verbs were mapped so far.");
                     }
 
-                    // Bundle Orchestrator operations should will not enlist to transactions.
-                    // The database will be responsible for handling it.
+                    // Bundle Orchestrator operations will not enlist to C# transactions.
+                    // The database will be responsible for handling it internally.
                     MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
                     IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
 

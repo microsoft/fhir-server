@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Hl7.Fhir.Rest;
+using Microsoft.VisualBasic;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -14,7 +16,16 @@ namespace Microsoft.Health.Fhir.Core.Models
     /// </summary>
     public sealed class BundleResourceContextComparer : IComparer<BundleResourceContext>
     {
-        private static HTTPVerb[] _verbExecutionOrder = new HTTPVerb[] { HTTPVerb.DELETE, HTTPVerb.POST, HTTPVerb.PUT, HTTPVerb.PATCH, HTTPVerb.GET, HTTPVerb.HEAD };
+        /// <summary>
+        /// Because of the rules that a transaction is atomic where all actions pass or fail together and the order of the entries doesn't matter,
+        /// there is a particular order in which to process the actions:
+        /// 1. Process any delete (DELETE) interactions
+        /// 2. Process any create(POST) interactions
+        /// 3. Process any update(PUT) or patch(PATCH) interactions
+        /// 4. Process any read, vread, search or history(GET or HEAD) interactions
+        /// Reference: https://www.hl7.org/fhir/http.html#trules
+        /// </summary>
+        private static HTTPVerb[] _verbExecutionSequence = new HTTPVerb[] { HTTPVerb.DELETE, HTTPVerb.POST, HTTPVerb.PUT, HTTPVerb.PATCH, HTTPVerb.GET, HTTPVerb.HEAD };
 
         public int Compare(BundleResourceContext x, BundleResourceContext y)
         {
@@ -36,8 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
             else
             {
-                int xMethodIndex = Array.IndexOf(_verbExecutionOrder, x.HttpVerb);
-                int yMethodIndex = Array.IndexOf(_verbExecutionOrder, y.HttpVerb);
+                int xMethodIndex = Array.IndexOf(_verbExecutionSequence, x.HttpVerb);
+                int yMethodIndex = Array.IndexOf(_verbExecutionSequence, y.HttpVerb);
 
                 return xMethodIndex.CompareTo(yMethodIndex);
             }

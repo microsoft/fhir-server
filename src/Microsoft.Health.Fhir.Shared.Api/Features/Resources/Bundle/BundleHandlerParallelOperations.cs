@@ -385,10 +385,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 ExecutingBatchOrTransaction = true,
             };
 
-            // Assign the current Bundle Orchestrator Operation ID as part of the downstream requests.
+            // Assign the current Bundle Orchestrator Operation ID as part of the downstream request.
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
 
-            // Assign the current Bundle Orchestrator Operation ID as part of the downstream requests.
+            // Assign the HTTP Verb operation associated with the request as part of the downstream request.
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
