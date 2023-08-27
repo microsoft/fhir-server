@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
 
-            await MergeInternalAsync(resources, results, null, cancellationToken);
+            await MergeInternalAsync(resources, results, maxParallelism: 1, cancellationToken);
 
             KeyValuePair<DataStoreOperationIdentifier, DataStoreOperationOutcome>[] retrySequentially =
                 results.Where(x => x.Value.Exception is RequestRateExceededException).ToArray();
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (filtered.Any())
                 {
-                    await MergeInternalAsync(filtered, results, 1, cancellationToken);
+                    await MergeInternalAsync(filtered, results, maxParallelism: 1, cancellationToken);
                 }
             }
 
