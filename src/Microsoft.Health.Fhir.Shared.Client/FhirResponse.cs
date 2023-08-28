@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Client
             }
         }
 
-        public string GetActivityId()
+        public string GetRequestId()
         {
             if (Headers != null)
             {

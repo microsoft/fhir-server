@@ -52,17 +52,10 @@ namespace Microsoft.Health.Fhir.Client
 
         private string FormatMessage()
         {
-            StringBuilder message = new StringBuilder();
-
             string diagnostic = OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics;
-            string operationId = Response.GetActivityId();
+            string requestId = Response.GetRequestId();
 
-            message.Append(StatusCode);
-            if (!string.IsNullOrWhiteSpace(diagnostic))
-            {
-                message.Append(": ").Append(diagnostic);
-            }
-
+            bool appendResponseInfo = true;
             string responseInfo = "NO_RESPONSEINFO";
             try
             {
@@ -73,9 +66,11 @@ namespace Microsoft.Health.Fhir.Client
             }
             catch (ObjectDisposedException)
             {
+                appendResponseInfo = false;
                 responseInfo = "RESPONSEINFO_ALREADY_DISPOSED";
             }
 
+            bool appendRequestInfo = true;
             string requestInfo = "NO_REQUESTINFO";
             try
             {
@@ -86,19 +81,37 @@ namespace Microsoft.Health.Fhir.Client
             }
             catch (ObjectDisposedException)
             {
+                appendRequestInfo = false;
                 requestInfo = "REQUESTINFO_ALREADY_DISPOSED";
             }
 
-            message.Append(" (").Append(operationId).AppendLine(")");
+            StringBuilder message = new StringBuilder();
+            message.Append(StatusCode);
+            if (!string.IsNullOrWhiteSpace(diagnostic))
+            {
+                message.Append(": ").Append(diagnostic);
+            }
+
+            message.Append(" (").Append(requestId).AppendLine(")");
 
             message.AppendLine("==============================================");
+            message.Append("Request ID: ").AppendLine(requestId);
             message.Append("Url: (").Append(Response.Response.RequestMessage?.Method.Method ?? "NO_HTTP_METHOD_AVAILABLE").Append(") ").AppendLine(Response.Response.RequestMessage?.RequestUri.ToString() ?? "NO_URI_AVAILABLE");
             message.Append("Response code: ").Append(Response.Response.StatusCode.ToString()).Append('(').Append((int)Response.Response.StatusCode).AppendLine(")");
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
             message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.Append("Health Check Result: ").Append(HealthCheckResult.ToString()).Append('(').Append((int)HealthCheckResult).AppendLine(")");
-            message.Append("Response Info: ").AppendLine(responseInfo);
-            message.Append("Request Info: ").AppendLine(requestInfo);
+
+            if (appendResponseInfo)
+            {
+                message.Append("Response Info: ").AppendLine(responseInfo);
+            }
+
+            if (appendRequestInfo)
+            {
+                message.Append("Request Info: ").AppendLine(requestInfo);
+            }
+
             message.AppendLine("==============================================");
 
             return message.ToString();

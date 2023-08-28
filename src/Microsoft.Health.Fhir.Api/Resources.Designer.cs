@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid combination of processing logic and bundle type: {0} and {1}..
+        /// </summary>
+        public static string BundleInvalidCombination {
+            get {
+                return ResourceManager.GetString("BundleInvalidCombination", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
         public static string BundleNotFound {

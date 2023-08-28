@@ -66,10 +66,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             {
                 if (request.MaxDeleteCount > 1)
                 {
-                    return await DeleteMultiple(request, cancellationToken);
+                    return await DeleteMultipleAsync(request, cancellationToken);
                 }
 
-                return await DeleteSingle(request, cancellationToken);
+                return await DeleteSingleAsync(request, cancellationToken);
             }
             catch (IncompleteOperationException<IReadOnlySet<string>> exception)
             {
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
         }
 
-        private async Task<DeleteResourceResponse> DeleteSingle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        private async Task<DeleteResourceResponse> DeleteSingleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
 
@@ -89,7 +89,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else if (count == 1)
             {
-                var result = await _deleter.DeleteAsync(new DeleteResourceRequest(request.ResourceType, matchedResults.Results.First().Resource.ResourceId, request.DeleteOperation), cancellationToken);
+                var result = await _deleter.DeleteAsync(
+                    new DeleteResourceRequest(
+                        request.ResourceType,
+                        matchedResults.Results.First().Resource.ResourceId,
+                        request.DeleteOperation,
+                        bundleResourceContext: request.BundleResourceContext),
+                    cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(result.VersionId))
                 {
@@ -105,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
         }
 
-        private async Task<DeleteResourceResponse> DeleteMultiple(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        private async Task<DeleteResourceResponse> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             IReadOnlySet<string> itemsDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
             return new DeleteResourceResponse(itemsDeleted.Count);

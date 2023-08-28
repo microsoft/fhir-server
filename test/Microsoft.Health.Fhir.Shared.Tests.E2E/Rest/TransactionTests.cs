@@ -301,6 +301,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
         {
+            // This test requires operations to be executed sequentially, as there is a dependecy between resources.
+            FhirBundleProcessingLogic processingLogic = FhirBundleProcessingLogic.Sequential;
+
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalCreateAndReference");
 
             var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
@@ -310,12 +313,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.Identifier.First().Value = patientIdentifier;
             bundle.Entry.First().Request.IfNoneExist = $"identifier=|{patientIdentifier}";
 
-            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
 
-            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
             ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
         }
 

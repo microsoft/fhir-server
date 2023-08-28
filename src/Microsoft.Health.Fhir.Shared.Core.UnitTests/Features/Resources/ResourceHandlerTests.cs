@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapperOperation>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapperOperation>().Wrapper, SaveOutcomeType.Created));
 
-            var rawResource = await _mediator.CreateResourceAsync(new CreateResourceRequest(resource, bundleOperationId: null));
+            var rawResource = await _mediator.CreateResourceAsync(new CreateResourceRequest(resource, bundleResourceContext: null));
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
             Assert.NotNull(deserializedResource.Id);
