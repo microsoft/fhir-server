@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         COMMIT TRANSACTION
     
                         -- result set 5
-                        SELECT Value, SystemId from dbo.System;
+                        SELECT TOP 10000 Value, SystemId from dbo.System;
 
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
