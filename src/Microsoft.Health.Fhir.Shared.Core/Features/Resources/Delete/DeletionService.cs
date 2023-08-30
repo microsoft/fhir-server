@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,9 +16,12 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
@@ -34,19 +38,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
+        private readonly FhirRequestContextAccessor _contextAccessor;
+        private readonly IAuditLogger _auditLogger;
+
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
             IFhirDataStore fhirDataStore,
             ISearchService searchService,
-            ResourceIdProvider resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            FhirRequestContextAccessor contextAccessor,
+            IAuditLogger auditLogger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
             _fhirDataStore = EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
             _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
+            _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -106,6 +118,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .Take(Math.Max(request.MaxDeleteCount.GetValueOrDefault() - itemsDeleted.Count, 0))
                             .ToArray();
 
+                    CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId));
+
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
                         bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
@@ -125,6 +139,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             {
                                 itemsDeleted.Add(id);
                             }
+
+                            CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
 
                             throw;
                         }
@@ -153,6 +169,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             }
                         }
                     }
+
+                    CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
 
                     if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted.Count > 0 || request.DeleteAll))
                     {
@@ -192,6 +210,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             ResourceWrapper deletedWrapper = _resourceWrapperFactory.CreateResourceWrapper(emptySourceNode.ToPoco<Resource>(), _resourceIdProvider, deleted: true, keepMeta: false);
             return deletedWrapper;
+        }
+
+        private void CreateAuditLog(string resourceType, DeleteOperation operation, bool complete, IEnumerable<string> items, HttpStatusCode statusCode = HttpStatusCode.OK)
+        {
+            AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
+            var context = _contextAccessor.RequestContext;
+            var deleteAdditionalProperties = new Dictionary<string, string>();
+            deleteAdditionalProperties["Affected Items"] = items.Aggregate(
+                (aggregate, item) =>
+                {
+                    aggregate += ", " + item;
+                    return aggregate;
+                });
+
+            _auditLogger.LogAudit(
+                auditAction: action,
+                operation: operation.ToString(),
+                resourceType: resourceType,
+                requestUri: context.Uri,
+                statusCode: statusCode,
+                correlationId: context.CorrelationId,
+                callerIpAddress: string.Empty,
+                callerClaims: null,
+                customHeaders: null,
+                operationType: string.Empty,
+                callerAgent: DefaultCallerAgent,
+                additionalProperties: deleteAdditionalProperties);
         }
     }
 }

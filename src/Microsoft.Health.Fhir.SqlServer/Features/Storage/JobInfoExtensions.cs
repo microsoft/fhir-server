@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             DateTime createDate = sqlDataReader.Read(jobQueueTable.CreateDate, 8);
             object startDateObj = sqlDataReader.GetValue(9);
             DateTime? startDate = startDateObj is DBNull ? null : (DateTime)startDateObj;
-            object endDateObj = sqlDataReader.GetValue(9);
+            object endDateObj = sqlDataReader.GetValue(10);
             DateTime? endDate = endDateObj is DBNull ? null : (DateTime)endDateObj;
             DateTime heartbeatDate = sqlDataReader.Read(jobQueueTable.HeartbeatDate, 11);
             bool cancelRequested = sqlDataReader.Read(jobQueueTable.CancelRequested, 12);
