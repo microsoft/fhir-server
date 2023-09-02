@@ -94,9 +94,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // For single threaded jobs this section will complete a job after every page of results is processed and make a new job for the next page.
                     // This will allow for saving intermediate states of the job.
 
-                    var definition = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+                    var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
                     definition.Progress = exportJobRecord.Progress;
-                    await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(definition) }, jobInfo.GroupId, false, false, innerCancellationToken);
+                    await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
 
                     // TODO: When legacy export support is removed from Cosmos remove this exception and refactor ExportJobTask to expect only one page of results will be processed.
                     throw new JobSegmentCompletedException();

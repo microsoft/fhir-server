@@ -10,6 +10,7 @@ using System.Threading;
 using DotLiquid;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using Polly;
 using Xunit;
 using DataType = Microsoft.Health.Fhir.Liquid.Converter.Models.DataType;
 using Task = System.Threading.Tasks.Task;
@@ -308,6 +310,39 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.True(exception.InnerException is PostprocessException);
+        }
+
+        [Fact]
+        public async Task GivenFhirTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrownButNotLoggedAsException()
+        {
+            var logger = Substitute.For<MockLogger<ConvertDataEngine>>();
+
+            var wrongTemplateCollection = new List<Dictionary<string, Template>>
+            {
+                new Dictionary<string, Template>
+                {
+                    { "Patient", Template.Parse(@"""a"":""b""") },
+                },
+            };
+            var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
+
+            IConvertDataTemplateProvider templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(wrongTemplateCollection);
+            templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            var convertEngine = new ConvertDataEngine(templateProviderFactory, Options.Create(_config), logger);
+
+            var request = GetFhirRequestWithDefaultTemplates();
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertEngine.Process(request, CancellationToken.None));
+            Assert.True(exception.InnerException is PostprocessException);
+
+            logger
+                .Received()
+                .Log(LogLevel.Information, Arg.Any<string>());
+
+            logger
+                .DidNotReceive()
+                .Log(LogLevel.Information, Arg.Any<string>(), Arg.Is<PostprocessException>(e => e != null));
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()

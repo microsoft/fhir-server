@@ -668,9 +668,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
         }
 
-        private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
+        private static string ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
         {
-            return (sqlDataReader.GetInt16(0), sqlDataReader.GetString(1));
+            return sqlDataReader.GetString(1);
         }
 
         private static (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
@@ -678,7 +678,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt32(2));
         }
 
-        public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
         {
             using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
             LogSqlCommand(sqlCommand);

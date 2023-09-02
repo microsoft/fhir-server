@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             _contextAccessor.RequestContext.AccessControlContext.CompartmentId = "smart-patient-A";
             _contextAccessor.RequestContext.AccessControlContext.CompartmentResourceType = "Patient";
 
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.Handle(new GetResourceRequest(new ResourceKey("Patient", "smart-patient-B"), bundleOperationId: null), CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _fixture.GetResourceHandler.Handle(new GetResourceRequest(new ResourceKey("Patient", "smart-patient-B"), bundleResourceContext: null), CancellationToken.None));
         }
 
         [SkippableFact]
@@ -702,7 +702,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 
-            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleOperationId: null), CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
 
         private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()

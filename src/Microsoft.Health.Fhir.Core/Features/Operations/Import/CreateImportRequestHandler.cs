@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.JobManagement;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -62,8 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 ImportMode = request.ImportMode,
             };
 
-            var definition = JsonConvert.SerializeObject(definitionObj);
-            var jobInfo = (await _queueClient.EnqueueAsync((byte)QueueType.Import, new string[] { definition }, null, false, false, cancellationToken))[0];
+            var jobInfo = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, definitions: definitionObj))[0];
             return new CreateImportResponse(jobInfo.Id.ToString());
         }
     }

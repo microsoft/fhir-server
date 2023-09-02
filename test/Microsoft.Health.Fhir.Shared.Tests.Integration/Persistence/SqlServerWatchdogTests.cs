@@ -69,7 +69,7 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
 
             var wd = new DefragWatchdog(
                 _fixture.SqlRetryService,
-                new SqlQueueClient(_fixture.SchemaInformation, _fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)),
+                new SqlQueueClient(_fixture.SqlRetryService, XUnitLogger<SqlQueueClient>.Create(_testOutputHelper)),
                 XUnitLogger<DefragWatchdog>.Create(_testOutputHelper));
 
             using var cts = new CancellationTokenSource();

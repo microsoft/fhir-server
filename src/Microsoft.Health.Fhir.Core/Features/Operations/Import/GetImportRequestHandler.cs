@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            JobInfo coordInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Import, request.JobId, false, cancellationToken);
+            JobInfo coordInfo = await _queueClient.GetJobByIdAsync(QueueType.Import, request.JobId, false, cancellationToken);
             if (coordInfo == null || coordInfo.Status == JobStatus.Archived)
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ImportJobNotFound, request.JobId));
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task<(List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome)> GetProcessingResultAsync(long groupId, CancellationToken cancellationToken)
         {
             var start = Stopwatch.StartNew();
-            var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Import, groupId, true, cancellationToken);
+            var jobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, groupId, true, cancellationToken);
             var duration = start.Elapsed.TotalSeconds;
             var completedOperationOutcome = new List<ImportOperationOutcome>();
             var failedOperationOutcome = new List<ImportFailedOperationOutcome>();

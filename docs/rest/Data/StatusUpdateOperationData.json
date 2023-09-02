@@ -1,0 +1,18 @@
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "searchParameterStatus",
+            "part": [
+                {
+                    "name": "url",
+                    "valueUrl": "http://hl7.org/fhir/SearchParameter/clinical-date"
+                },
+                {
+                    "name": "status",
+                    "valueString": "Supported"
+                }
+            ]
+        }
+    ]
+}

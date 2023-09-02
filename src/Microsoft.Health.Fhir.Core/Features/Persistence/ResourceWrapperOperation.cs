@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             WeakETag weakETag,
             bool requireETagOnUpdate,
             bool keepVersion,
-            Guid? bundleOperationId)
+            BundleResourceContext bundleResourceContext)
         {
             Wrapper = EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             AllowCreate = allowCreate;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             WeakETag = weakETag; // weakETag can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
             KeepVersion = keepVersion;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
         }
 
         public ResourceWrapper Wrapper { get; }
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public bool KeepVersion { get; }
 
-        public Guid? BundleOperationId { get; }
+        public BundleResourceContext BundleResourceContext { get; }
 
 #pragma warning disable CA1024 // Use properties where appropriate
         public DataStoreOperationIdentifier GetIdentifier()

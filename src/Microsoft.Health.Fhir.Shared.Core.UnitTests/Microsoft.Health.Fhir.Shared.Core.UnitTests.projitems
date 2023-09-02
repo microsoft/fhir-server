@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\MockLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
@@ -48,6 +49,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\USCoreTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\Authorization\RoleBasedFhirAuthorizationServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ResourceProfileValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Models\BundleResourceContextComparerTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />

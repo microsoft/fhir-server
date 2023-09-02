@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
@@ -15,18 +14,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
     public class UpsertResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public UpsertResourceRequest(ResourceElement resource, Guid? bundleOperationId = null, WeakETag weakETag = null)
+        public UpsertResourceRequest(ResourceElement resource, BundleResourceContext bundleResourceContext = null, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             Resource = resource;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
             WeakETag = weakETag;
         }
 
         public ResourceElement Resource { get; }
 
-        public Guid? BundleOperationId { get; }
+        public BundleResourceContext BundleResourceContext { get; }
 
         public WeakETag WeakETag { get; }
 
