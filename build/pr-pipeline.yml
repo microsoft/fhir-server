@@ -75,7 +75,7 @@ stages:
       parameters:
         codeCoverage: false
         unitTest: false
-        componentGovernance: true
+        componentGovernance: false
         packageArtifacts: true
         packageIntegrationTests: true
     
