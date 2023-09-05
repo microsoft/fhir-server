@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                     }
 
-                    LogTime($"Deleted ${matchedResults.Count} Resources", stopwatch);
+                    LogTime($"Deleted {matchedResults.Count} Resources", stopwatch);
 
                     CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
 
@@ -264,7 +264,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private void LogTime(string message, Stopwatch watch)
         {
-            _logger.LogInformation($"Delete timeing - ${message}: ${watch.Elapsed.TotalMilliseconds}");
+            var id = _contextAccessor.RequestContext.CorrelationId;
+            _logger.LogInformation($"Delete timeing {id} - {message}: {watch.Elapsed.TotalMilliseconds}");
             watch.Restart();
         }
     }
