@@ -5082,11 +5082,10 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
-@TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
+@TransactionId BIGINT, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate(), @InitialTranCount AS INT = @@trancount, @IsCompletedBefore AS BIT, @Rows AS INT, @msg AS VARCHAR (1000);
-SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
 DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId) + ' OC=' + isnull(CONVERT (VARCHAR, @OverrideIsControlledByClientCheck), 'NULL');
 BEGIN TRY
     IF @InitialTranCount = 0
