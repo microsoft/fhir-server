@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
@@ -15,6 +16,8 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -40,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
+        private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
@@ -50,7 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ISearchService searchService,
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
-            IAuditLogger auditLogger)
+            IAuditLogger auditLogger,
+            ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _conformanceProvider = EnsureArg.IsNotNull(conformanceProvider, nameof(conformanceProvider));
@@ -59,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             _retryPolicy = Policy
                 .Handle<RequestRateExceededException>()
@@ -104,11 +110,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             var searchCount = 1000;
 
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.DeleteAll ? searchCount : request.MaxDeleteCount);
 
             var itemsDeleted = new HashSet<string>();
+
+            var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
+            LogTime("Initial Search", stopwatch);
 
             // Delete the matched results...
             try
@@ -121,6 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .ToArray();
 
                     CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId));
+                    LogTime("Starting Audit Log", stopwatch);
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
@@ -137,6 +150,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                         catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
                         {
+                            _logger.LogError(ex.InnerException, "Error soft deleting");
+
                             foreach (string id in ex.PartialResults.Select(item => item.Key.Id))
                             {
                                 itemsDeleted.Add(id);
@@ -172,7 +187,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                     }
 
+                    LogTime($"Deleted ${matchedResults.Count} Resources", stopwatch);
+
                     CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
+
+                    LogTime("Ending Audit Log", stopwatch);
 
                     if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted.Count > 0 || request.DeleteAll))
                     {
@@ -182,6 +201,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             cancellationToken,
                             request.DeleteAll ? searchCount : request.MaxDeleteCount - itemsDeleted.Count,
                             ct);
+                        LogTime("Next Page Search", stopwatch);
                     }
                     else
                     {
@@ -191,6 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error soft deleting");
                 throw new IncompleteOperationException<IReadOnlySet<string>>(ex, itemsDeleted);
             }
 
@@ -239,6 +260,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 operationType: string.Empty,
                 callerAgent: DefaultCallerAgent,
                 additionalProperties: deleteAdditionalProperties);
+        }
+
+        private void LogTime(string message, Stopwatch watch)
+        {
+            _logger.LogInformation($"Delete timeing - ${message}: ${watch.Elapsed.TotalMilliseconds}");
+            watch.Restart();
         }
     }
 }
