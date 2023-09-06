@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint = 0 OUT, @SurrogateIdRangeFirstValue bigint = 0 OUT, @SequenceRangeFirstValue int = 0 OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
@@ -23,13 +23,11 @@ BEGIN TRY
       SET @FirstValueVar = NULL
   END
 
-  SET @SurrogateIdRangeFirstValue = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
+  SET @TransactionId = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
 
   INSERT INTO dbo.Transactions
-         (  SurrogateIdRangeFirstValue,                SurrogateIdRangeLastValue,                      HeartbeatDate )
-    SELECT @SurrogateIdRangeFirstValue, @SurrogateIdRangeFirstValue + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
-
-  SET @TransactionId = @SurrogateIdRangeFirstValue
+         (  SurrogateIdRangeFirstValue,   SurrogateIdRangeLastValue,                      HeartbeatDate )
+    SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
@@ -38,8 +36,8 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @SurrogateIdRangeFirstValue bigint
---EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = 0, @SurrogateIdRangeFirstValue = @SurrogateIdRangeFirstValue OUT
---SELECT @SurrogateIdRangeFirstValue
+--DECLARE @TransactionId bigint
+--EXECUTE dbo.MergeResourcesBeginTransaction @Count = 100, @TransactionId = @TransactionId OUT
+--SELECT @TransactionId
 --SELECT TOP 10 * FROM Transactions ORDER BY SurrogateIdRangeFirstValue DESC
 --SELECT TOP 100 * FROM EventLog WHERE EventDate > dateadd(minute,-60,getUTCdate()) AND Process = 'MergeResourcesBeginTransaction' ORDER BY EventDate DESC, EventId DESC

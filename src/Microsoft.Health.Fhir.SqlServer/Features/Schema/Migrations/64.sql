@@ -844,59 +844,44 @@ CREATE TABLE dbo.ReindexJob (
     CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
 );
 
-CREATE TABLE dbo.ResourceCurrent (
+CREATE TABLE dbo.Resource (
     ResourceTypeId       SMALLINT        NOT NULL,
-    ResourceSurrogateId  BIGINT          NOT NULL,
     ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
     Version              INT             NOT NULL,
-    IsHistory            BIT             CONSTRAINT DF_ResourceCurrent_IsHistory DEFAULT 0 NOT NULL,
-    IsDeleted            BIT             NOT NULL,
-    RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL CONSTRAINT CH_ResourceCurrent_RawResource_Length CHECK (RawResource > 0x0),
-    IsRawResourceMetaSet BIT             CONSTRAINT DF_ResourceCurrent_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
-    SearchParamHash      VARCHAR (64)    NULL,
-    TransactionId        BIGINT          NULL CONSTRAINT PKC_ResourceCurrent_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_ResourceCurrent_IsHistory CHECK (IsHistory = 0),
-    CONSTRAINT U_ResourceCurrent_ResourceTypeId_ResourceId UNIQUE (ResourceTypeId, ResourceId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-);
-
-ALTER TABLE dbo.ResourceCurrent SET (LOCK_ESCALATION = AUTO);
-
-CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId_WHERE_IsDeleted_0
-    ON dbo.ResourceCurrent(ResourceTypeId, ResourceId) WHERE IsDeleted = 0
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL
-    ON dbo.ResourceCurrent(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-
-GO
-CREATE TABLE dbo.ResourceHistory (
-    ResourceTypeId       SMALLINT        NOT NULL,
+    IsHistory            BIT             NOT NULL,
     ResourceSurrogateId  BIGINT          NOT NULL,
-    ResourceId           VARCHAR (64)    COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Version              INT             NOT NULL,
-    IsHistory            BIT             CONSTRAINT DF_ResourceHistory_IsHistory DEFAULT 1 NOT NULL,
     IsDeleted            BIT             NOT NULL,
     RequestMethod        VARCHAR (10)    NULL,
-    RawResource          VARBINARY (MAX) NOT NULL CONSTRAINT CH_ResourceHistory_RawResource_Length CHECK (RawResource > 0x0),
-    IsRawResourceMetaSet BIT             CONSTRAINT DF_ResourceHistory_IsRawResourceMetaSet DEFAULT 0 NOT NULL,
+    RawResource          VARBINARY (MAX) NOT NULL,
+    IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
     TransactionId        BIGINT          NULL,
-    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_ResourceHistory_ResourceTypeId_ResourceSurrogateId PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
-    CONSTRAINT CH_ResourceHistory_IsHistory CHECK (IsHistory = 1),
-    CONSTRAINT U_ResourceHistory_ResourceTypeId_ResourceId_Version UNIQUE (ResourceTypeId, ResourceId, Version) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    HistoryTransactionId BIGINT          NULL CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId),
+    CONSTRAINT CH_Resource_RawResource_Length CHECK (RawResource > 0x0)
 );
 
-ALTER TABLE dbo.ResourceHistory SET (LOCK_ESCALATION = AUTO);
+ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
 
-CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL
-    ON dbo.ResourceHistory(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
+CREATE INDEX IX_ResourceTypeId_TransactionId
+    ON dbo.Resource(ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE INDEX IX_ResourceTypeId_HistoryTransactionId_WHERE_HistoryTransactionId_NOT_NULL
-    ON dbo.ResourceHistory(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
+CREATE INDEX IX_ResourceTypeId_HistoryTransactionId
+    ON dbo.Resource(ResourceTypeId, HistoryTransactionId) WHERE HistoryTransactionId IS NOT NULL
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
+    ON dbo.Resource(ResourceTypeId, ResourceId, Version)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId
+    ON dbo.Resource(ResourceTypeId, ResourceId)
+    INCLUDE(Version, IsDeleted) WHERE IsHistory = 0
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
+    ON dbo.Resource(ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0
+                                                               AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ResourceChangeData (
@@ -2831,7 +2816,7 @@ BEGIN TRY
                               AND IndexName = Ind);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = 'IndexProperties', @Action = 'Insert', @Rows = @@rowcount;
     DELETE @Indexes
-    WHERE  Tbl IN ('ResourceCurrent', 'ResourceHistory')
+    WHERE  Tbl = 'Resource'
            OR IndId = 1;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Delete', @Rows = @@rowcount;
     WHILE EXISTS (SELECT *
@@ -3584,40 +3569,22 @@ DECLARE @Mode AS VARCHAR (100) = 'RT=[' + CONVERT (VARCHAR, @MinRT) + ',' + CONV
 BEGIN TRY
     IF @NotNullVersionExists = 1
         IF @NullVersionExists = 0
-            SELECT *
-            FROM   (SELECT B.ResourceTypeId,
-                           B.ResourceId,
-                           ResourceSurrogateId,
-                           B.Version,
-                           IsDeleted,
-                           IsHistory,
-                           RawResource,
-                           IsRawResourceMetaSet,
-                           SearchParamHash
-                    FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @ResourceKeys) AS A
-                           INNER JOIN
-                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
-                           ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                              AND B.Version = A.Version
-                    UNION ALL
-                    SELECT B.ResourceTypeId,
-                           B.ResourceId,
-                           ResourceSurrogateId,
-                           B.Version,
-                           IsDeleted,
-                           IsHistory,
-                           RawResource,
-                           IsRawResourceMetaSet,
-                           SearchParamHash
-                    FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @ResourceKeys) AS A
-                           INNER JOIN
-                           dbo.ResourceHistory AS B WITH (INDEX (U_ResourceHistory_ResourceTypeId_ResourceId_Version))
-                           ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                              AND B.Version = A.Version) AS A
+            SELECT B.ResourceTypeId,
+                   B.ResourceId,
+                   ResourceSurrogateId,
+                   B.Version,
+                   IsDeleted,
+                   IsHistory,
+                   RawResource,
+                   IsRawResourceMetaSet,
+                   SearchParamHash
+            FROM   (SELECT TOP (@DummyTop) *
+                    FROM   @ResourceKeys) AS A
+                   INNER JOIN
+                   dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
+                   ON B.ResourceTypeId = A.ResourceTypeId
+                      AND B.ResourceId = A.ResourceId
+                      AND B.Version = A.Version
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
         ELSE
             SELECT *
@@ -3631,26 +3598,10 @@ BEGIN TRY
                            IsRawResourceMetaSet,
                            SearchParamHash
                     FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @ResourceKeys) AS A
+                            FROM   @ResourceKeys
+                            WHERE  Version IS NOT NULL) AS A
                            INNER JOIN
-                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
-                           ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId
-                              AND B.Version = A.Version
-                    UNION ALL
-                    SELECT B.ResourceTypeId,
-                           B.ResourceId,
-                           ResourceSurrogateId,
-                           B.Version,
-                           IsDeleted,
-                           IsHistory,
-                           RawResource,
-                           IsRawResourceMetaSet,
-                           SearchParamHash
-                    FROM   (SELECT TOP (@DummyTop) *
-                            FROM   @ResourceKeys) AS A
-                           INNER JOIN
-                           dbo.ResourceHistory AS B WITH (INDEX (U_ResourceHistory_ResourceTypeId_ResourceId_Version))
+                           dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                            ON B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceId = A.ResourceId
                               AND B.Version = A.Version
@@ -3668,9 +3619,10 @@ BEGIN TRY
                             FROM   @ResourceKeys
                             WHERE  Version IS NULL) AS A
                            INNER JOIN
-                           dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
+                           dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId))
                            ON B.ResourceTypeId = A.ResourceTypeId
-                              AND B.ResourceId = A.ResourceId) AS A
+                              AND B.ResourceId = A.ResourceId
+                    WHERE  IsHistory = 0) AS A
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     ELSE
         SELECT B.ResourceTypeId,
@@ -3685,9 +3637,10 @@ BEGIN TRY
         FROM   (SELECT TOP (@DummyTop) *
                 FROM   @ResourceKeys) AS A
                INNER JOIN
-               dbo.ResourceCurrent AS B WITH (INDEX (U_ResourceCurrent_ResourceTypeId_ResourceId))
+               dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId))
                ON B.ResourceTypeId = A.ResourceTypeId
                   AND B.ResourceId = A.ResourceId
+        WHERE  IsHistory = 0
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
@@ -4031,10 +3984,10 @@ BEGIN TRY
     DECLARE @SurrogateIds TABLE (
         ResourceSurrogateId BIGINT NOT NULL);
     IF @IsResourceChangeCaptureEnabled = 1
-       AND EXISTS (SELECT *
-                   FROM   dbo.Parameters
-                   WHERE  Id = 'InvisibleHistory.IsEnabled'
-                          AND Number = 1)
+       AND NOT EXISTS (SELECT *
+                       FROM   dbo.Parameters
+                       WHERE  Id = 'InvisibleHistory.IsEnabled'
+                              AND Number = 0)
         UPDATE dbo.Resource
         SET    IsHistory            = 1,
                RawResource          = 0xF,
@@ -4432,10 +4385,10 @@ BEGIN TRY
                                           AND KeepHistory = 1);
                     SET @AffectedRows += @@rowcount;
                     IF @IsResourceChangeCaptureEnabled = 1
-                       AND EXISTS (SELECT *
-                                   FROM   dbo.Parameters
-                                   WHERE  Id = 'InvisibleHistory.IsEnabled'
-                                          AND Number = 1)
+                       AND NOT EXISTS (SELECT *
+                                       FROM   dbo.Parameters
+                                       WHERE  Id = 'InvisibleHistory.IsEnabled'
+                                              AND Number = 0)
                         UPDATE dbo.Resource
                         SET    IsHistory            = 1,
                                RawResource          = 0xF,
@@ -5044,8 +4997,7 @@ BEGIN CATCH
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Error', @Start = @st;
     IF @RaiseExceptionOnConflict = 1
        AND error_number() IN (2601, 2627)
-       AND (error_message() LIKE '%''dbo.ResourceCurrent''%'
-            OR error_message() LIKE '%''dbo.ResourceHistory''%')
+       AND error_message() LIKE '%''dbo.Resource''%'
         THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
     ELSE
         THROW;
@@ -5097,7 +5049,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT=0 OUTPUT, @SurrogateIdRangeFirstValue BIGINT=0 OUTPUT, @SequenceRangeFirstValue INT=0 OUTPUT, @HeartbeatDate DATETIME=NULL
+@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT OUTPUT, @HeartbeatDate DATETIME=NULL
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT;
@@ -5113,12 +5065,11 @@ BEGIN TRY
             IF @SequenceRangeFirstValue > CONVERT (INT, @LastValueVar)
                 SET @FirstValueVar = NULL;
         END
-    SET @SurrogateIdRangeFirstValue = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
+    SET @TransactionId = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
     INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue, HeartbeatDate)
-    SELECT @SurrogateIdRangeFirstValue,
-           @SurrogateIdRangeFirstValue + @Count - 1,
+    SELECT @TransactionId,
+           @TransactionId + @Count - 1,
            isnull(@HeartbeatDate, getUTCdate());
-    SET @TransactionId = @SurrogateIdRangeFirstValue;
 END TRY
 BEGIN CATCH
     IF error_number() = 1750
@@ -5131,11 +5082,10 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesCommitTransaction
-@TransactionId BIGINT=NULL, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0, @SurrogateIdRangeFirstValue BIGINT=NULL
+@TransactionId BIGINT, @FailureReason VARCHAR (MAX)=NULL, @OverrideIsControlledByClientCheck BIT=0
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'MergeResourcesCommitTransaction', @st AS DATETIME = getUTCdate(), @InitialTranCount AS INT = @@trancount, @IsCompletedBefore AS BIT, @Rows AS INT, @msg AS VARCHAR (1000);
-SET @TransactionId = isnull(@TransactionId, @SurrogateIdRangeFirstValue);
 DECLARE @Mode AS VARCHAR (200) = 'TR=' + CONVERT (VARCHAR, @TransactionId) + ' OC=' + isnull(CONVERT (VARCHAR, @OverrideIsControlledByClientCheck), 'NULL');
 BEGIN TRY
     IF @InitialTranCount = 0
@@ -6208,9 +6158,10 @@ BEGIN TRY
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
     FROM   @Resources AS A
            INNER JOIN
-           dbo.ResourceCurrent AS B
+           dbo.Resource AS B
            ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+              AND B.ResourceSurrogateId = A.ResourceSurrogateId
+    WHERE  B.IsHistory = 0;
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
@@ -6788,124 +6739,5 @@ FROM   dbo.SearchParam AS searchParam
        ON searchParam.Uri = upsertedSearchParam.Uri
 WHERE  upsertedSearchParam.Action = 'INSERT';
 COMMIT TRANSACTION;
-
-GO
-CREATE VIEW dbo.Resource
-AS
-SELECT ResourceTypeId,
-       ResourceSurrogateId,
-       ResourceId,
-       Version,
-       IsHistory,
-       IsDeleted,
-       RequestMethod,
-       RawResource,
-       IsRawResourceMetaSet,
-       SearchParamHash,
-       TransactionId,
-       HistoryTransactionId
-FROM   dbo.ResourceHistory
-UNION ALL
-SELECT ResourceTypeId,
-       ResourceSurrogateId,
-       ResourceId,
-       Version,
-       IsHistory,
-       IsDeleted,
-       RequestMethod,
-       RawResource,
-       IsRawResourceMetaSet,
-       SearchParamHash,
-       TransactionId,
-       NULL
-FROM   dbo.ResourceCurrent;
-
-
-GO
-CREATE TRIGGER dbo.ResourceIns
-    ON dbo.Resource
-    INSTEAD OF INSERT
-    AS BEGIN
-           INSERT INTO dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId)
-           SELECT ResourceTypeId,
-                  ResourceSurrogateId,
-                  ResourceId,
-                  Version,
-                  IsDeleted,
-                  RequestMethod,
-                  RawResource,
-                  IsRawResourceMetaSet,
-                  SearchParamHash,
-                  TransactionId
-           FROM   Inserted
-           WHERE  IsHistory = 0;
-           INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
-           SELECT ResourceTypeId,
-                  ResourceSurrogateId,
-                  ResourceId,
-                  Version,
-                  IsDeleted,
-                  RequestMethod,
-                  RawResource,
-                  IsRawResourceMetaSet,
-                  SearchParamHash,
-                  TransactionId,
-                  HistoryTransactionId
-           FROM   Inserted
-           WHERE  IsHistory = 1;
-       END
-
-
-GO
-CREATE TRIGGER dbo.ResourceUpd
-    ON dbo.Resource
-    INSTEAD OF UPDATE
-    AS BEGIN
-           IF NOT UPDATE (IsHistory)
-               RAISERROR ('Only history updates are supported via Resource view', 18, 127);
-           DELETE A
-           FROM   dbo.ResourceCurrent AS A
-           WHERE  EXISTS (SELECT *
-                          FROM   Inserted AS B
-                          WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                                 AND B.IsHistory = 1);
-           INSERT INTO dbo.ResourceHistory (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, HistoryTransactionId)
-           SELECT ResourceTypeId,
-                  ResourceSurrogateId,
-                  ResourceId,
-                  Version,
-                  IsDeleted,
-                  RequestMethod,
-                  RawResource,
-                  IsRawResourceMetaSet,
-                  SearchParamHash,
-                  TransactionId,
-                  HistoryTransactionId
-           FROM   Inserted
-           WHERE  IsHistory = 1;
-       END
-
-
-GO
-CREATE TRIGGER dbo.ResourceDel
-    ON dbo.Resource
-    INSTEAD OF DELETE
-    AS BEGIN
-           DELETE A
-           FROM   dbo.ResourceCurrent AS A
-           WHERE  EXISTS (SELECT *
-                          FROM   Deleted AS B
-                          WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                                 AND B.IsHistory = 0);
-           DELETE A
-           FROM   dbo.ResourceHistory AS A
-           WHERE  EXISTS (SELECT *
-                          FROM   Deleted AS B
-                          WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                                 AND B.IsHistory = 1);
-       END
 
 GO
