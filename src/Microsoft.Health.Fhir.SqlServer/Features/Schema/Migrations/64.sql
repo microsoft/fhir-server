@@ -5068,7 +5068,7 @@ BEGIN TRY
     SET @TransactionId = datediff_big(millisecond, '0001-01-01', sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue;
     INSERT INTO dbo.Transactions (SurrogateIdRangeFirstValue, SurrogateIdRangeLastValue, HeartbeatDate)
     SELECT @TransactionId,
-           @SurrogateIdRangeFirstValue + @Count - 1,
+           @TransactionId + @Count - 1,
            isnull(@HeartbeatDate, getUTCdate());
 END TRY
 BEGIN CATCH
