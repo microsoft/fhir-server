@@ -11,7 +11,7 @@
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="7.0.1" />
 
     <!--CVE-2023-29331-->
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="7.0.2" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
 
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="7.0.0" />
