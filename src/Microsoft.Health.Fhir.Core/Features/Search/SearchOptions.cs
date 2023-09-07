@@ -111,6 +111,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
+        public bool IncludeHistory { get; internal set; } = false;
+
+        public bool IncludeDeleted { get; internal set; } = false;
+
         /// <summary>
         /// Gets the search expression.
         /// </summary>

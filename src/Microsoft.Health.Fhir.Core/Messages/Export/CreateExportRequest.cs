@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             string containerName = null,
             string formatName = null,
             bool isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
@@ -44,6 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ContainerName = containerName;
             FormatName = formatName;
             IsParallel = isParallel;
+            IncludeHistory = includeHistory;
+            IncludeDeleted = includeDeleted;
         }
 
         public Uri RequestUri { get; }
@@ -71,5 +75,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string FormatName { get; }
 
         public bool IsParallel { get; }
+
+        public bool IncludeHistory { get; }
+
+        public bool IncludeDeleted { get; }
     }
 }

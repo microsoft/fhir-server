@@ -85,12 +85,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         record.NumberOfPagesPerCommit,
                         container,
                         record.IsParallel,
+                        record.IncludeHistory,
+                        record.IncludeDeleted,
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
-                        record.SmartRequest);
+                        record.SmartRequest)
+            {
+                Id = string.Empty,
+                QueuedTime = record.QueuedTime, // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
+            };
 
-            rec.Id = string.Empty;
-            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
             return rec;
         }
     }

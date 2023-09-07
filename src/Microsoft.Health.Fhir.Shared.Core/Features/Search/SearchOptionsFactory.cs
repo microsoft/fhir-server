@@ -286,6 +286,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
+            searchOptions.IncludeHistory = queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IncludeHistory && string.Equals(_.Item2, true.ToString(), StringComparison.OrdinalIgnoreCase));
+            searchOptions.IncludeDeleted = queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.IncludeDeleted && string.Equals(_.Item2, true.ToString(), StringComparison.OrdinalIgnoreCase));
+
             CheckFineGrainedAccessControl(searchExpressions);
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();

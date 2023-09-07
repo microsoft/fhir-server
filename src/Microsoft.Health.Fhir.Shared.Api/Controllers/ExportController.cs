@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
+            [FromQuery(Name = KnownQueryParameterNames.IncludeDeleted)] bool includeDeleted = false,
+            [FromQuery(Name = KnownQueryParameterNames.IncludeHistory)] bool includeHistory = false,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
@@ -244,6 +246,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string containerName = null,
             string formatName = null,
             bool isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
@@ -259,6 +263,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName,
                 formatName,
                 isParallel,
+                includeDeleted,
+                includeHistory,
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
