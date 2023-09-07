@@ -154,12 +154,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         {
                             _logger.LogError(ex.InnerException, "Error soft deleting");
 
-                            foreach (string id in ex.PartialResults.Select(item => item.Key.Id))
+                            var ids = ex.PartialResults.Select(item => item.Key.Id);
+                            foreach (string id in ids)
                             {
                                 itemsDeleted.Add(id);
                             }
 
-                            auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList()));
+                            auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, ids));
 
                             throw;
                         }
@@ -189,9 +190,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         }
                     }
 
-                    LogTime($"Deleted {matchedResults.Count} Resources", stopwatch);
+                    LogTime($"Deleted {resultsToDelete.Count} Resources", stopwatch);
 
-                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList()));
+                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, resultsToDelete.Select((item) => item.Resource.ResourceId)));
 
                     LogTime("Ending Audit Log", stopwatch);
 
