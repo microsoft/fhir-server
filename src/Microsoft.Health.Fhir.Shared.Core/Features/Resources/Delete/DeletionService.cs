@@ -122,6 +122,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
             LogTime("Initial Search", stopwatch);
 
+            var auditTasks = new List<System.Threading.Tasks.Task>();
+
             // Delete the matched results...
             try
             {
@@ -132,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .Take(Math.Max(request.MaxDeleteCount.GetValueOrDefault() - itemsDeleted.Count, 0))
                             .ToArray();
 
-                    CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId));
+                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId)));
                     LogTime("Starting Audit Log", stopwatch);
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
@@ -157,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 itemsDeleted.Add(id);
                             }
 
-                            CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
+                            auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList()));
 
                             throw;
                         }
@@ -189,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     LogTime($"Deleted {matchedResults.Count} Resources", stopwatch);
 
-                    CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList());
+                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, itemsDeleted.ToList()));
 
                     LogTime("Ending Audit Log", stopwatch);
 
@@ -214,6 +216,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 _logger.LogError(ex, "Error soft deleting");
                 throw new IncompleteOperationException<IReadOnlySet<string>>(ex, itemsDeleted);
             }
+            finally
+            {
+                System.Threading.Tasks.Task.WaitAll(auditTasks.ToArray(), cancellationToken);
+                LogTime("Awaited all audit logs", stopwatch);
+            }
 
             return itemsDeleted;
         }
@@ -235,37 +242,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return deletedWrapper;
         }
 
-        private void CreateAuditLog(string resourceType, DeleteOperation operation, bool complete, IEnumerable<string> items, HttpStatusCode statusCode = HttpStatusCode.OK)
+        private System.Threading.Tasks.Task CreateAuditLog(string resourceType, DeleteOperation operation, bool complete, IEnumerable<string> items, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
-            AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
-            var context = _contextAccessor.RequestContext;
-            var deleteAdditionalProperties = new Dictionary<string, string>();
-            deleteAdditionalProperties["Affected Items"] = items.Aggregate(
-                (aggregate, item) =>
-                {
-                    aggregate += ", " + item;
-                    return aggregate;
-                });
+            var auditTask = new System.Threading.Tasks.Task(() =>
+            {
+                AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
+                var context = _contextAccessor.RequestContext;
+                var deleteAdditionalProperties = new Dictionary<string, string>();
+                deleteAdditionalProperties["Affected Items"] = items.Aggregate(
+                    (aggregate, item) =>
+                    {
+                        aggregate += ", " + item;
+                        return aggregate;
+                    });
 
-            _auditLogger.LogAudit(
-                auditAction: action,
-                operation: operation.ToString(),
-                resourceType: resourceType,
-                requestUri: context.Uri,
-                statusCode: statusCode,
-                correlationId: context.CorrelationId,
-                callerIpAddress: string.Empty,
-                callerClaims: null,
-                customHeaders: null,
-                operationType: string.Empty,
-                callerAgent: DefaultCallerAgent,
-                additionalProperties: deleteAdditionalProperties);
+                _auditLogger.LogAudit(
+                    auditAction: action,
+                    operation: operation.ToString(),
+                    resourceType: resourceType,
+                    requestUri: context.Uri,
+                    statusCode: statusCode,
+                    correlationId: context.CorrelationId,
+                    callerIpAddress: string.Empty,
+                    callerClaims: null,
+                    customHeaders: null,
+                    operationType: string.Empty,
+                    callerAgent: DefaultCallerAgent,
+                    additionalProperties: deleteAdditionalProperties);
+            });
+
+            return auditTask;
         }
 
         private void LogTime(string message, Stopwatch watch)
         {
             var id = _contextAccessor.RequestContext.CorrelationId;
-            _logger.LogInformation($"Delete timeing {id} - {message}: {watch.Elapsed.TotalMilliseconds}");
+            _logger.LogInformation($"Delete timing {id} - {message}: {watch.Elapsed.TotalMilliseconds}");
             watch.Restart();
         }
     }

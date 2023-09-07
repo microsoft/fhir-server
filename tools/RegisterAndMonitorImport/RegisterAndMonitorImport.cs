@@ -172,7 +172,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
             }
 
             var sb = new StringBuilder();
-            sb.Append("{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"inputFormat\",\"valueString\": \"application/fhir+ndjson\"},{\"name\": \"mode\",\"valueString\": \"InitialLoad\"},");
+            sb.Append("{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"inputFormat\",\"valueString\": \"application/fhir+ndjson\"},{\"name\": \"mode\",\"valueString\": \"IncrementalLoad\"},");
 
             var size = 0L;
 
