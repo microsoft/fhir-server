@@ -73,6 +73,17 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
         /// </summary>
         public string TokenClientSecret { get; set; }
 
+        /// <summary>
+        /// Sets the amount of information outputted.
+        /// Possible values:
+        ///     Full: Prints a list of all finished jobs with every poll (default)
+        ///     FullOnComplete: Prints a list of all finished jobs when all the jobs complete
+        ///     Error: Prints a list of jobs that errored with every poll
+        ///     ErrorOnComplete: Prints a list of all jobs that errored when all the jobs complete
+        ///     Minimal: Only prints summary information
+        /// </summary>
+        public VerbosityLevel ReportVerbosity { get; set; } = VerbosityLevel.Full;
+
         public bool IsMonitorImportStatusEndpoint => !string.IsNullOrWhiteSpace(MonitorImportStatusEndpoint);
     }
 }

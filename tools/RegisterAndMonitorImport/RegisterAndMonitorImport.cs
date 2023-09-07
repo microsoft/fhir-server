@@ -258,7 +258,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
                 Console.WriteLine($"StatusCode = {response.StatusCode}");
 
                 ImportResponse importJson = TryParseJson(content);
-                PrintImportResponse(importJson);
+                PrintImportResponse(importJson, monitorConfiguration, response.StatusCode);
                 bool addedUrl = SaveImportedUrl(importJson);
 
                 Console.WriteLine($"{(addedUrl ? "Completed" : "Processing")} file elapsed time: {swSingleTime.Elapsed.Duration()}");
@@ -295,6 +295,8 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
             bool addedUrl = false;
             if (response != null && s_blobContainerClientSource != null)
             {
+                // This doesn't work now that single blobs are being split into multiple jobs.
+
                 // in case there are only error conditions and no success in the output
                 foreach (ImportResponse.Json r in response.Error)
                 {
@@ -316,7 +318,7 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
             return addedUrl;
         }
 
-        private static void PrintImportResponse(ImportResponse response)
+        private static void PrintImportResponse(ImportResponse response, RegisterAndMonitorConfiguration configuration, HttpStatusCode statusCode)
         {
             if (response != null)
             {
@@ -328,14 +330,26 @@ namespace Microsoft.Health.Internal.Fhir.RegisterAndMonitorImport
                     return;
                 }
 
-                PrintResponse(response.Output);
-                if (response.Error.Count > 0)
+                if (configuration.ReportVerbosity == VerbosityLevel.Full
+                    || (configuration.ReportVerbosity == VerbosityLevel.FullOnComplete && statusCode != HttpStatusCode.Accepted))
+                {
+                    PrintResponse(response.Output);
+                }
+
+                if (response.Error.Count > 0
+                    && (configuration.ReportVerbosity == VerbosityLevel.Full
+                        || configuration.ReportVerbosity == VerbosityLevel.Error
+                        || ((configuration.ReportVerbosity == VerbosityLevel.FullOnComplete || configuration.ReportVerbosity == VerbosityLevel.ErrorOnComplete)
+                            && statusCode != HttpStatusCode.Accepted)))
                 {
                     Console.BackgroundColor = ConsoleColor.Black;
                     Console.ForegroundColor = ConsoleColor.Red;
                     PrintResponse(response.Error);
                     Console.ResetColor();
                 }
+
+                Console.WriteLine($"{response.Output.Count} jobs finished successfully");
+                Console.WriteLine($"{response.Error.Count} jobs finished with errors");
             }
         }
 
