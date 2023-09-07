@@ -410,7 +410,7 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.ResourceCurrent''%' OR error_message() LIKE '%''dbo.ResourceHistory''%')
+  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND (error_message() LIKE '%''dbo.Resource''%' OR error_message() LIKE '%''dbo.ResourceCurrent''%' OR error_message() LIKE '%''dbo.ResourceHistory''%') -- handles old and separated tables
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
   ELSE
     THROW
