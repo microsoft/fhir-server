@@ -337,8 +337,11 @@ END
 CREATE TRIGGER dbo.ResourceUpd ON dbo.Resource INSTEAD OF UPDATE
 AS
 BEGIN
-  IF NOT UPDATE(IsHistory)
-    RAISERROR(''Only history updates are supported via Resource view'',18,127)
+  UPDATE B
+    SET SearchParamHash = A.SearchParamHash -- this is the only update we support
+    FROM Inserted A
+         JOIN dbo.ResourceCurrent B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+    WHERE A.IsHistory = 0
 
   DELETE FROM A
     FROM dbo.ResourceCurrent A
