@@ -115,6 +115,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: isParallel,
+                includeHistory: includeHistory,
+                includeDeleted: includeDeleted,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);

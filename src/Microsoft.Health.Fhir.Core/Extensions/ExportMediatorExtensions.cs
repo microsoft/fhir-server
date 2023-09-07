@@ -39,21 +39,21 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
             var request = new CreateExportRequest(
-                                requestUri,
-                                requestType,
-                                resourceType,
-                                since,
-                                till,
-                                filters,
-                                groupId,
-                                containerName,
-                                formatName,
-                                isParallel,
-                                includeDeleted,
-                                includeHistory,
-                                anonymizationConfigurationCollectionReference,
-                                anonymizationConfigLocation,
-                                anonymizationConfigFileETag);
+                                requestUri: requestUri,
+                                requestType: requestType,
+                                resourceType: resourceType,
+                                since: since,
+                                till: till,
+                                filters: filters,
+                                groupId: groupId,
+                                containerName: containerName,
+                                formatName: formatName,
+                                isParallel: isParallel,
+                                includeDeleted: includeDeleted,
+                                includeHistory: includeHistory,
+                                anonymizationConfigurationCollectionReference: anonymizationConfigurationCollectionReference,
+                                anonymizationConfigurationLocation: anonymizationConfigLocation,
+                                anonymizationConfigurationFileETag: anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 KnownQueryParameterNames.Format,
                 KnownQueryParameterNames.TypeFilter,
                 KnownQueryParameterNames.IsParallel,
+                KnownQueryParameterNames.IncludeHistory,
+                KnownQueryParameterNames.IncludeDeleted,
                 KnownQueryParameterNames.AnonymizationConfigurationCollectionReference,
                 KnownQueryParameterNames.AnonymizationConfigurationLocation,
                 KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
