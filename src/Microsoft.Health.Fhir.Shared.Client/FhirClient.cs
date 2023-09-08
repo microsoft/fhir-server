@@ -129,7 +129,34 @@ namespace Microsoft.Health.Fhir.Client
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResponseAsync<T>(response);
+            using var fhirResponse = await CreateResponseAsync<T>(response);
+
+            if (fhirResponse.Resource != null)
+            {
+                var tryCount = 0;
+                while (tryCount < 5)
+                {
+                    tryCount++;
+
+                    try
+                    {
+                        using var readResponse = await ReadAsync<T>($"{resource.TypeName}/{fhirResponse.Resource.Id}", cancellationToken);
+                        break;
+                    }
+                    catch
+                    {
+                        if (tryCount == 5)
+                        {
+                            throw new TimeoutException("Timed out waiting for test resource to be found in the database");
+                        }
+
+                        // try again
+                        await Task.Delay(500, cancellationToken);
+                    }
+                }
+            }
+
+            return fhirResponse;
         }
 
         public Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
@@ -192,7 +219,37 @@ namespace Microsoft.Health.Fhir.Client
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await CreateResponseAsync<T>(response);
+            using var fhirResponse = await CreateResponseAsync<T>(response);
+
+            if (fhirResponse.Resource != null)
+            {
+                var tryCount = 0;
+                while (tryCount < 5)
+                {
+                    tryCount++;
+
+                    try
+                    {
+                        using var readResponse = await ReadAsync<T>($"{resource.TypeName}/{fhirResponse.Resource.Id}", cancellationToken);
+                        if (readResponse.Resource.Meta.VersionId == fhirResponse.Resource.Meta.VersionId)
+                        {
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        if (tryCount == 5)
+                        {
+                            throw new TimeoutException("Timed out waiting for updated test resource to be found in the database");
+                        }
+
+                        // try again
+                        await Task.Delay(500, cancellationToken);
+                    }
+                }
+            }
+
+            return fhirResponse;
         }
 
         public Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
