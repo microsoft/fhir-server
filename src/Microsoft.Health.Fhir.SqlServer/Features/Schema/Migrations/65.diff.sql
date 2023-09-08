@@ -182,60 +182,183 @@ BEGIN
 END
   ')
 
-  INSERT INTO dbo.ResourceCurrent
-      (
-           ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          ,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          ,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-      FROM dbo.Resource A
-      WHERE IsHistory = 0
-        AND NOT EXISTS (SELECT * FROM dbo.ResourceCurrent B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+  DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
+  DECLARE @MaxSurrogateId bigint = 0
 
-  INSERT INTO dbo.ResourceHistory
-      (
-           ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          ,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
-      )
-    SELECT ResourceTypeId
-          ,ResourceSurrogateId
-          ,ResourceId
-          ,Version
-          ,IsDeleted
-          ,RequestMethod
-          ,RawResource
-          ,IsRawResourceMetaSet
-          ,SearchParamHash
-          ,TransactionId
-          ,HistoryTransactionId
-      FROM dbo.Resource
-      WHERE IsHistory = 1
+  IF NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'HistorySeparation.MaxSurrogateId') -- DELETE FROM dbo.Parameters WHERE Id = 'HistorySeparation.MaxSurrogateId'
+  BEGIN
+    DECLARE @TypeId smallint
+           ,@MaxSurrogateIdTmp bigint
+
+    INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+    WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
+    BEGIN
+      SET @TypeId = (SELECT TOP 1 ResourceTypeId FROM @Types ORDER BY ResourceTypeId DESC)
+      SET @MaxSurrogateIdTmp = (SELECT max(ResourceSurrogateId) FROM Resource WHERE ResourceTypeId = @TypeId)
+      IF @MaxSurrogateIdTmp > @MaxSurrogateId SET @MaxSurrogateId = @MaxSurrogateIdTmp
+      DELETE FROM @Types WHERE ResourceTypeId = @TypeId
+    END
+    INSERT INTO dbo.Parameters (Id, Bigint) SELECT 'HistorySeparation.MaxSurrogateId', @MaxSurrogateId
+  END
+  
+  SET @MaxSurrogateId = (SELECT Bigint FROM dbo.Parameters WHERE Id = 'HistorySeparation.MaxSurrogateId')
+
+  -- Copy start ----------------------------------------------------------------------------------------------------------
+  DECLARE @Process varchar(100) = 'HistorySeparation.CopyResources'
+         ,@cst datetime = getUTCdate()
+         ,@Id varchar(100) = 'HistorySeparation.CopyResources.LastProcessed.TypeId.SurrogateId' -- DELETE FROM Parameters WHERE Id = 'HistorySeparation.CopyResources.LastProcessed.TypeId.SurrogateId'
+         ,@ResourceTypeId smallint
+         ,@SurrogateId bigint
+         ,@RowsToProcess int
+         ,@ProcessedResources int = 0
+         ,@CopiedResources int = 0
+         ,@ReportDate datetime = getUTCdate()
+         ,@DummyTop bigint = 9223372036854775807
+         ,@Rows int
+         ,@CurrentMaxSurrogateId bigint
+    
+  BEGIN TRY
+    INSERT INTO dbo.Parameters (Id, Char) SELECT @Process, 'LogEvent'
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='Start'
+
+    INSERT INTO dbo.Parameters (Id, Char) SELECT @Id, '0.0' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @Id)
+
+    DECLARE @LastProcessed varchar(100) = (SELECT Char FROM dbo.Parameters WHERE Id = @Id)
+
+    INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='@Types',@Action='Insert',@Rows=@@rowcount
+
+    SET @ResourceTypeId = substring(@LastProcessed, 1, charindex('.', @LastProcessed) - 1) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 1)
+    SET @SurrogateId = substring(@LastProcessed, charindex('.', @LastProcessed) + 1, 255) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 2)
+
+    DELETE FROM @Types WHERE ResourceTypeId < @ResourceTypeId
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='@Types',@Action='Delete',@Rows=@@rowcount
+
+    WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
+    BEGIN
+      SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @Types ORDER BY ResourceTypeId)
+
+      SET @ProcessedResources = 0
+      SET @CurrentMaxSurrogateId = 0
+      WHILE @CurrentMaxSurrogateId IS NOT NULL
+      BEGIN
+        SET @CurrentMaxSurrogateId = 
+          (SELECT max(ResourceSurrogateId)
+             FROM (SELECT TOP 10000 ResourceSurrogateId FROM dbo.Resource WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId > @SurrogateId AND ResourceSurrogateId <= @MaxSurrogateId ORDER BY ResourceSurrogateId) A
+          )
+
+        IF @CurrentMaxSurrogateId IS NOT NULL
+        BEGIN
+          SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@SurrogateId)
+
+          INSERT INTO dbo.ResourceCurrent
+              (
+                   ResourceTypeId
+                  ,ResourceSurrogateId
+                  ,ResourceId
+                  ,Version
+                  ,IsDeleted
+                  ,RequestMethod
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+                  ,TransactionId
+              )
+            SELECT ResourceTypeId
+                  ,ResourceSurrogateId
+                  ,ResourceId
+                  ,Version
+                  ,IsDeleted
+                  ,RequestMethod
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+                  ,TransactionId
+              FROM (SELECT TOP (@DummyTop) * 
+                      FROM dbo.Resource A
+                      WHERE ResourceTypeId = @ResourceTypeId
+                        AND ResourceSurrogateId > @SurrogateId
+                        AND ResourceSurrogateId <= @CurrentMaxSurrogateId
+                        AND IsHistory = 0
+                        AND NOT EXISTS (SELECT * FROM dbo.ResourceCurrent B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+                   ) A
+              OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+          SET @Rows = @@rowcount
+          SET @ProcessedResources += @Rows
+          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceCurrent',@Action='Insert',@Rows=@Rows
+
+          INSERT INTO dbo.ResourceHistory
+              (
+                   ResourceTypeId
+                  ,ResourceSurrogateId
+                  ,ResourceId
+                  ,Version
+                  ,IsDeleted
+                  ,RequestMethod
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+                  ,TransactionId
+              )
+            SELECT ResourceTypeId
+                  ,ResourceSurrogateId
+                  ,ResourceId
+                  ,Version
+                  ,IsDeleted
+                  ,RequestMethod
+                  ,RawResource
+                  ,IsRawResourceMetaSet
+                  ,SearchParamHash
+                  ,TransactionId
+              FROM (SELECT TOP (@DummyTop) *
+                      FROM dbo.Resource A
+                      WHERE ResourceTypeId = @ResourceTypeId
+                        AND ResourceSurrogateId > @SurrogateId
+                        AND ResourceSurrogateId <= @CurrentMaxSurrogateId
+                        AND IsHistory = 1
+                        AND NOT EXISTS (SELECT * FROM dbo.ResourceHistory B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+                   ) A
+              OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+          SET @Rows = @@rowcount
+          SET @ProcessedResources += @Rows
+          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceHistory',@Action='Insert',@Rows=@Rows
+
+          UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
+
+          SET @SurrogateId = @CurrentMaxSurrogateId
+
+          IF datediff(second, @ReportDate, getUTCdate()) > 60
+          BEGIN
+            EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='Resource',@Action='Select',@Rows=@ProcessedResources
+            SET @ReportDate = getUTCdate()
+            SET @ProcessedResources = 0
+          END
+        END
+        ELSE
+        BEGIN
+          SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@MaxSurrogateId)
+          UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
+        END
+      END
+
+      EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='Resource',@Action='Select',@Rows=@ProcessedResources
+
+      DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+
+      SET @SurrogateId = 0
+    END
+
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='Resource',@Action='Select',@Rows=@ProcessedResources
+
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='End',@Start=@cst
+  END TRY
+  BEGIN CATCH
+    IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+    EXECUTE dbo.LogEvent @Process=@Process,@Status='Error';
+    THROW
+  END CATCH
+  -- Copy end ----------------------------------------------------------------------------------------------------------
+
 
   BEGIN TRANSACTION 
   
