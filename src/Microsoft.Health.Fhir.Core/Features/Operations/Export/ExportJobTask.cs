@@ -675,6 +675,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 ResourceWrapper resourceWrapper = result.Resource;
                 var data = result.Resource.RawResource.Data;
+                var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
 
                 if (anonymizer != null)
                 {
@@ -689,13 +690,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
 
                     // Serialize into NDJson and write to the file.
-                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
                 }
                 else if (!resourceWrapper.RawResource.IsMetaSet)
                 {
                     // For older records in Cosmos the metadata isn't included in the raw resource
                     ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
-                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
+                }
+                else if (addSoftDeletedExtension)
+                {
+                    // If the resource is deleted and we aren't anonymizing it, we need to add the soft delete extension
+                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
                 }
 
                 _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
