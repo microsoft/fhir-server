@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azure Storage Emulator is required to run these tests locally.
+            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
 
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(true);
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both sets of data are equal
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataIsExportedWithTypeParameter_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azure Storage Emulator is required to run these tests locally.
+            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
 
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(false);
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both sets of data are equal
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataWithNoMemberPatientIdIsExported_ThenNoDataIsExported()
         {
-            // NOTE: Azure Storage Emulator is required to run these tests locally.
+            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
 
             // Add data for test
             string groupId = await CreateGroupWithoutPatientIds();
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportTaskMetricsNotificationShouldBePosted()
         {
-            // NOTE: Azure Storage Emulator is required to run these tests locally.
+            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
 
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -132,12 +132,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Single(_fixture.MetricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        private async Task<(Dictionary<(string resourceType, string resourceId), Resource> serverData, string groupId)> CreateGroupWithPatient(bool includeAllResources)
+        private async Task<(Dictionary<(string resourceType, string resourceId, string versionId), Resource> serverData, string groupId)> CreateGroupWithPatient(bool includeAllResources)
         {
             // Add data for test
             var patient = new Patient();
             var patientResponse = await _testFhirClient.CreateAsync(patient);
             var patientId = patientResponse.Resource.Id;
+            var patientVersionId = patientResponse.Resource.VersionId;
 
             var relative = new RelatedPerson()
             {
@@ -146,6 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var relativeResponse = await _testFhirClient.CreateAsync(relative);
             var relativeId = relativeResponse.Resource.Id;
+            var relativeVersionId = relativeResponse.Resource.VersionId;
 
             var encounter = new Encounter()
             {
@@ -159,6 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var encounterResponse = await _testFhirClient.CreateAsync(encounter);
             var encounterId = encounterResponse.Resource.Id;
+            var encounterVersionId = encounterResponse.Resource.VersionId;
 
             var observation = new Observation()
             {
@@ -178,6 +181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var observationResponse = await _testFhirClient.CreateAsync(observation);
             var observationId = observationResponse.Resource.Id;
+            var observationVersionId = observationResponse.Resource.VersionId;
 
             var group = new FhirGroup()
             {
@@ -194,16 +198,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var groupResponse = await _testFhirClient.CreateAsync(group);
             var groupId = groupResponse.Resource.Id;
+            var groupVersionId = groupResponse.Resource.VersionId;
 
-            var resourceDictionary = new Dictionary<(string resourceType, string resourceId), Resource>();
-            resourceDictionary.Add((KnownResourceTypes.RelatedPerson, relativeId), relativeResponse.Resource);
-            resourceDictionary.Add((KnownResourceTypes.Encounter, encounterId), encounterResponse.Resource);
+            var resourceDictionary = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
+            resourceDictionary.Add((KnownResourceTypes.RelatedPerson, relativeId, relativeVersionId), relativeResponse.Resource);
+            resourceDictionary.Add((KnownResourceTypes.Encounter, encounterId, encounterVersionId), encounterResponse.Resource);
 
             if (includeAllResources)
             {
-                resourceDictionary.Add((KnownResourceTypes.Patient, patientId), patientResponse.Resource);
-                resourceDictionary.Add((KnownResourceTypes.Observation, observationId), observationResponse.Resource);
-                resourceDictionary.Add((KnownResourceTypes.Group, groupId), groupResponse.Resource);
+                resourceDictionary.Add((KnownResourceTypes.Patient, patientId, patientVersionId), patientResponse.Resource);
+                resourceDictionary.Add((KnownResourceTypes.Observation, observationId, observationVersionId), observationResponse.Resource);
+                resourceDictionary.Add((KnownResourceTypes.Group, groupId, groupVersionId), groupResponse.Resource);
             }
 
             return (resourceDictionary, groupId);
