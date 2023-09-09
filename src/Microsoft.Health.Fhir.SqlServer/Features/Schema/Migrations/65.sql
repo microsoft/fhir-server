@@ -5098,7 +5098,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.MergeResourcesBeginTransaction
-@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT OUTPUT, @HeartbeatDate DATETIME=NULL
+@Count INT, @TransactionId BIGINT OUTPUT, @SequenceRangeFirstValue INT=NULL OUTPUT, @HeartbeatDate DATETIME=NULL
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'MergeResourcesBeginTransaction', @Mode AS VARCHAR (200) = 'Cnt=' + CONVERT (VARCHAR, @Count), @st AS DATETIME = getUTCdate(), @FirstValueVar AS SQL_VARIANT, @LastValueVar AS SQL_VARIANT;

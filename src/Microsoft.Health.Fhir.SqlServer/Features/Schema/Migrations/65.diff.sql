@@ -283,9 +283,9 @@ END
                         AND NOT EXISTS (SELECT * FROM dbo.ResourceCurrent B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
                    ) A
               OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
-          SET @Rows = @@rowcount
+          SET @Rows = @@rowcount
           SET @ProcessedResources += @Rows
-          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceCurrent',@Action='Insert',@Rows=@Rows
+          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceCurrent',@Action='Insert',@Rows=@Rows
 
           INSERT INTO dbo.ResourceHistory
               (
@@ -319,9 +319,9 @@ END
                         AND NOT EXISTS (SELECT * FROM dbo.ResourceHistory B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
                    ) A
               OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
-          SET @Rows = @@rowcount
+          SET @Rows = @@rowcount
           SET @ProcessedResources += @Rows
-          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceHistory',@Action='Insert',@Rows=@Rows
+          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='ResourceHistory',@Action='Insert',@Rows=@Rows
 
           UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
 
