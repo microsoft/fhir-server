@@ -1,6 +1,6 @@
 ﻿--DROP PROCEDURE dbo.MergeResourcesBeginTransaction
 GO
-CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
+CREATE PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'

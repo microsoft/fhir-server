@@ -1,4 +1,4 @@
-CREATE OR ALTER  PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
@@ -47,7 +47,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int OUT, @HeartbeatDate datetime = NULL -- TODO: Remove @SurrogateIdRangeFirstValue
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
