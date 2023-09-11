@@ -408,4 +408,7 @@
     <value>Invalid combination of processing logic and bundle type: {0} and {1}.</value>
     <comment>Error message when there is a invalid/unknown combination of a bundle type and a processing logic.</comment>
   </data>
+  <data name="TypeFilterNotSupportedWithHistoryOrDeletedExport" xml:space="preserve">
+    <value>The request "_typeFilter" cannot be used with an export request with historical or soft deleted resources.</value>
+  </data>
 </root>

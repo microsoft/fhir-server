@@ -806,5 +806,14 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("WelcomeTitle", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The request "_typeFilter" cannot be used with an export request with historical or soft deleted resources.
+        /// </summary>
+        public static string TypeFilterNotSupportedWithHistoryOrDeletedExport {
+            get {
+                return ResourceManager.GetString("TypeFilterNotSupportedWithHistoryOrDeletedExport", resourceCulture);
+            }
+        }
     }
 }

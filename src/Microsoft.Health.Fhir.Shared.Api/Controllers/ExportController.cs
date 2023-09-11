@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
+            ValidateForHistoryOrSoftDeletedExport(includeHistory, includeDeleted, typeFilter);
 
             return await SendExportRequest(
                 exportType: ExportJobType.All,
@@ -300,7 +301,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
                     CheckConfigCollectionReferenceIsValid(anonymizationConfigCollectionReference);
-                    CheckIfConfigCollectionReferencIsConfigured(anonymizationConfigCollectionReference);
+                    CheckIfConfigCollectionReferenceIsConfigured(anonymizationConfigCollectionReference);
                 }
             }
         }
@@ -334,7 +335,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckIfConfigCollectionReferencIsConfigured(string anonymizationConfigCollectionReference)
+        private void CheckIfConfigCollectionReferenceIsConfigured(string anonymizationConfigCollectionReference)
         {
             var ociImage = ImageInfo.CreateFromImageReference(anonymizationConfigCollectionReference);
 
@@ -350,6 +351,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     ociArtifact.ContainsOciImage(ociImage.Registry, ociImage.ImageName, ociImage.Digest)))
             {
                 throw new RequestNotValidException(string.Format(Resources.AnonymizationConfigCollectionNotConfigured, anonymizationConfigCollectionReference));
+            }
+        }
+
+        private static void ValidateForHistoryOrSoftDeletedExport(bool includeHistory, bool includeDeleted, string typeFilter)
+        {
+            if (includeHistory || includeDeleted)
+            {
+                if (!string.IsNullOrWhiteSpace(typeFilter))
+                {
+                    throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
+                }
             }
         }
     }
