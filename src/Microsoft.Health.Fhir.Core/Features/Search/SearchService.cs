@@ -225,6 +225,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
+            string resourceType,
+            DateTime start,
+            DateTime end,
+            int rangeSize,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellation)
+        {
+            // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
+            
+            // Add gt and lt lastUpdated query paraemters
+            // Get count on the search
+            // If count = rangeSize+-10% add time range to list
+            // Else if count > rangeSize+10% remove half the previous add
+            // Else if count < rangeSize-10% add half the previous cut back
+            // Once till time > end time, till = end and make it the last entry in the list
+            // Return list
+        }
+
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />
