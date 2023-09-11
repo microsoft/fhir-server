@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
 using System.Threading;
@@ -20,6 +21,7 @@ using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -324,37 +326,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[2]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[3]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"ge{since}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[2]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[3]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
+                arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.Till}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
-                Tuple.Create("_type", resourceType).Equals(arg[3]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[4]);
+                arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
+                arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"ge{since}") &&
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
+                arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
         [Fact]
@@ -834,7 +836,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    // string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -889,7 +894,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
+                    // string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -1107,7 +1115,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
 
                     for (int index = 0; index < ids.Length; index++)
@@ -1175,7 +1185,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    // string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
 
                     countOfSearches++;
 
@@ -1237,7 +1250,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             int countOfSearches = 0;
-            _searchService.SearchAsync(
+            _ = _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken,
@@ -1250,7 +1263,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     if (countOfSearches == 1)
                     {
-                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                        // ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                            .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                            .Select(x => x.Item2).First().Split(',');
                         continuationTokenIndex = 0;
                     }
                     else if (countOfSearches == 2)
@@ -1261,7 +1277,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2).Substring(2));
+                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(
+                            x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                                .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.ContinuationToken)
+                                .Select(x => x.Item2).First())[2..]);
                     }
 
                     return CreateSearchResult(
@@ -1342,7 +1361,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    // string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Select(x => x.Item2).First().Split(',');
+
                     SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
 
                     for (int index = 0; index < ids.Length; index++)
@@ -1363,7 +1386,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
-                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
+                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
+                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Select(x => x.Item2).First().Split(',');
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
 
