@@ -285,12 +285,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 _auditLogger.LogAudit(
                 AuditAction.Executed,
-                operation: ImportMode.IncrementalLoad.ToString(),
+                operation: "import/" + ImportMode.IncrementalLoad.ToString(),
                 resourceType: string.Empty,
                 requestUri: fhirRequestContext.Uri,
                 statusCode: HttpStatusCode.Accepted,
                 correlationId: fhirRequestContext.CorrelationId,
-                callerIpAddress: string.Empty,
+                callerIpAddress: null,
                 callerClaims: null,
                 customHeaders: null,
                 operationType: string.Empty,
