@@ -1,0 +1,7 @@
+{
+    "csharp.debug.justMyCode": true,
+    "csharp.debug.symbolOptions": {
+        "searchMicrosoftSymbolServer": true,
+        "searchNuGetOrgSymbolServer": true,
+    }
+}

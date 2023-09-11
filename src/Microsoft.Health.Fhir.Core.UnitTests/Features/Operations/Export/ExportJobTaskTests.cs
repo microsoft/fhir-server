@@ -323,12 +323,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType)
+        [Fact]
+        public async Task GivenAnExportJobWithHistoryAndSoftDeletes_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            bool capturedSearch = false;
+
+            var exportJobRecordIncludeHistory = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                includeHistory: true,
+                includeDeleted: true,
+                maximumNumberOfResourcesPerQuery: 1);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordIncludeHistory);
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient, includeHistory: true, includeDeleted: true)),
+                _cancellationToken,
+                true)
+                .Returns(x =>
+                {
+                    capturedSearch = true;
+
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.True(capturedSearch);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType, bool includeHistory = false, bool includeDeleted = false)
         {
             return arg => arg != null &&
                 arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
                 arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
-                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
+                arg.Any(x => x.Item1 == "_includeHistory" && x.Item2 == includeHistory.ToString()) &&
+                arg.Any(x => x.Item1 == "_includeDeleted" && x.Item2 == includeDeleted.ToString());
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
@@ -836,9 +867,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    // string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
                     string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
-                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
                         .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
@@ -894,9 +924,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    // string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
                     string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
-                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
                         .Select(x => x.Item2).First().Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
@@ -1185,9 +1214,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    // string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
                     string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
-                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Id)
                         .Select(x => x.Item2).First().Split(',');
 
                     countOfSearches++;
@@ -1361,9 +1389,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 true)
                 .Returns(x =>
                 {
-                    // string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
                     string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
-                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Id)
                         .Select(x => x.Item2).First().Split(',');
 
                     SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
@@ -1387,7 +1414,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 {
                     string parentId = x.ArgAt<string>(1);
                     string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)
-                        .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        .Where(x => x.Item1 == KnownQueryParameterNames.Type)
                         .Select(x => x.Item2).First().Split(',');
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
@@ -2101,7 +2128,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             uint numberOfPagesPerCommit = 0,
             string containerName = null,
             string anonymizationConfigurationLocation = null,
-            string anonymizationConfigurationFileEtag = null)
+            string anonymizationConfigurationFileEtag = null,
+            bool includeHistory = false,
+            bool includeDeleted = false)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -2119,7 +2148,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit,
                 storageAccountContainerName: containerName,
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
-                anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag);
+                anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag,
+                includeHistory: includeHistory,
+                includeDeleted: includeDeleted);
         }
 
         private ExportJobTask CreateExportJobTask(
