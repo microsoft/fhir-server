@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:o}");
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(path: "Patient/", parameters: _fixture.ExportTestResourcesQueryParameters);
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_type=Observation,Patient&{_fixture.ExportTestResourcesQueryParameters}");
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", $"_type=Observation&_typeFilter=Observation%3F_tag%3D{_fixture.FixtureTag}");
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             string testContainer = "test-container";
 
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true");
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeDeleted=true");
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true&_includeDeleted=true");
