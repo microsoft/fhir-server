@@ -131,6 +131,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azurite is required to run these tests locally.
+
+            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
+            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true");
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+
+            // Assert both data are equal
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper));
+        }
+
+        [Fact]
+        public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azurite is required to run these tests locally.
+
+            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
+            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeDeleted=true");
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+
+            // Assert both data are equal
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper));
+        }
+
+        [Fact]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite is required to run these tests locally.
@@ -144,7 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper));
         }
     }
 }

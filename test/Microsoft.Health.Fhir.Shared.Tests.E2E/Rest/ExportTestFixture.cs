@@ -30,15 +30,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ExportTaskMetricsNotification>>());
         }
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistory { get; } = new();
+        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistoryAndDeletes { get; } = new();
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources => TestResourcesWithHistory
-            .GroupBy(entry => entry.Key.resourceId)
-            .Select(group => group.OrderByDescending(entry => entry.Value.Meta.LastUpdated).First())
+        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistory => TestResourcesWithHistory
             .Where(entry => !entry.Value.Meta.Extension.Any(extension =>
                 extension.Url == "http://azurehealthcareapis.com/data-extensions/deleted-state"
                 && ((FhirString)extension.Value).Value == "soft-deleted"))
             .ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithDeletes => TestResourcesWithHistoryAndDeletes
+            .GroupBy(entry => entry.Key.resourceId)
+            .Select(group => group.OrderByDescending(entry => entry.Value.Meta.LastUpdated).First())
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
+
+        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
+            TestResourcesWithHistory.Where(pair => TestResourcesWithDeletes.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
@@ -51,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string NewGuidString() => Guid.NewGuid().ToString();
 
             void AddResourceToTestResources(Resource resource) =>
-                TestResourcesWithHistory[(resource.TypeName, resource.Id, resource.VersionId)] = resource;
+                TestResourcesWithHistoryAndDeletes[(resource.TypeName, resource.Id, resource.VersionId)] = resource;
 
             Meta testDataMeta = new Meta()
             {
