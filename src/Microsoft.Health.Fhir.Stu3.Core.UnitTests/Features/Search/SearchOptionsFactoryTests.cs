@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public partial class SearchOptionsFactoryTests
     {
         [Fact]
-        public void GivenASupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public async void GivenASupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName = "address-city";
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName, value).Returns(expression);
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: new[] { Tuple.Create(paramName, value) });
 
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenMultipleSupportedSearchParams_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public async void GivenMultipleSupportedSearchParams_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName1 = "address-city";
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName2, value2),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters);
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenANotSupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public async void GivenANotSupportedSearchParam_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName1 = "address-city";
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName3, value3),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters);
 
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(ResourceType.Condition, CompartmentType.Practitioner, "945934-5934")]
         [InlineData(ResourceType.Patient, CompartmentType.RelatedPerson, "hgdfhdfgdf")]
         [InlineData(ResourceType.Claim, CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
-        public void GivenSearchParamsWithValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
+        public async void GivenSearchParamsWithValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
         {
             const string paramName1 = "address-city";
             const string paramName2 = "address-state";
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName2, value2),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters,
                 compartmentType.ToString(),

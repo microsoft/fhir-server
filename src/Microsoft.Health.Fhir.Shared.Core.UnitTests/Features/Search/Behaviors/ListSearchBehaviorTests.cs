@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 },
                 CancellationToken.None);
 
-            var emptyResponse = behavior.CreateEmptySearchResponse(getResourceRequest);
+            var emptyResponse = await behavior.CreateEmptySearchResponse(getResourceRequest, cancellationToken: default);
             Assert.Equal(emptyResponse.Bundle, response.Bundle);
         }
 

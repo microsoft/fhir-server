@@ -5,13 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface ISearchOptionsFactory
     {
-        SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false);
+        Task<SearchOptions> Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, CancellationToken cancellationToken = default);
 
-        SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, bool useSmartCompartmentDefinition = false);
+        Task<SearchOptions> Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, bool useSmartCompartmentDefinition = false, CancellationToken cancellationToken = default);
     }
 }

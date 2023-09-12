@@ -6,7 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -19,6 +22,9 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -44,18 +50,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
+        private readonly SearchParameterInfo _patientAddressSearchParameterInfo;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private DefaultFhirRequestContext _defaultFhirRequestContext;
         private readonly ISortingValidator _sortingValidator;
+        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
-            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
+            _patientAddressSearchParameterInfo = new SearchParameter { Name = "address-city", Code = "address-city", Type = SearchParamType.String }.ToInfo();
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Is<string>(p => p != DefaultResourceType), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
+            searchParameterDefinitionManager.GetSearchParameter("Patient", "address-city").Returns(_patientAddressSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                               Substitute.For<ISearchParameterStatusDataStore>(),
+                               searchParameterDefinitionManager,
+                               Substitute.For<ISearchParameterSupportResolver>(),
+                               Substitute.For<IMediator>(),
+                               NullLogger<SearchParameterStatusManager>.Instance);
             _coreFeatures = new CoreFeatureConfiguration();
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
@@ -69,13 +86,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 contextAccessor,
                 _sortingValidator,
                 new ExpressionAccessControl(contextAccessor),
-                NullLogger<SearchOptionsFactory>.Instance);
+                NullLogger<SearchOptionsFactory>.Instance,
+                _searchParameterStatusManager);
         }
 
         [Fact]
-        public void GivenANullQueryParameters_WhenCreated_ThenDefaultSearchOptionsShouldBeCreated()
+        public async void GivenANullQueryParameters_WhenCreated_ThenDefaultSearchOptionsShouldBeCreated()
         {
-            SearchOptions options = CreateSearchOptions(queryParameters: null);
+            SearchOptions options = await CreateSearchOptions(queryParameters: null);
 
             Assert.NotNull(options);
 
@@ -85,11 +103,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenMultipleContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
+        public async void GivenMultipleContinuationTokens_WhenCreated_ThenExceptionShouldBeThrown()
         {
             const string encodedContinuationToken = "MTIz";
 
-            Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+            await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await CreateSearchOptions(
                 queryParameters: new[]
                 {
                     Tuple.Create(ContinuationTokenParamName, encodedContinuationToken),
@@ -98,9 +116,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenACount_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
+        public async void GivenACount_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
         {
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 queryParameters: new[]
                 {
                     Tuple.Create("_count", "5"),
@@ -111,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public async void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName1 = "address-city";
@@ -125,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName1, value1),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters);
 
@@ -136,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData("")]
         [InlineData("    ")]
-        public void GivenASearchParamWithEmptyValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList(string value)
+        public async void GivenASearchParamWithEmptyValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList(string value)
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName = "address-city";
@@ -146,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName, value),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: queryParameters);
 
@@ -155,20 +173,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenASearchParameterWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenASearchParameterWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
                 Tuple.Create(string.Empty, "city"),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters: queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters: queryParameters);
             Assert.NotNull(options);
             Assert.Equal(queryParameters.Take(1), options.UnsupportedSearchParams);
         }
 
         [Fact]
-        public void GivenSearchParametersWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenSearchParametersWithEmptyKey_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
@@ -176,14 +194,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(string.Empty, "anotherCity"),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.Single(options.UnsupportedSearchParams);
             Assert.Equal(queryParameters.Skip(1).Take(1), options.UnsupportedSearchParams);
         }
 
         [Fact]
-        public void GivenSearchParametersWithEmptyKeyEmptyValue_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenSearchParametersWithEmptyKeyEmptyValue_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
@@ -191,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(string.Empty, string.Empty),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.NotNull(options.UnsupportedSearchParams);
             Assert.Equal(2, options.UnsupportedSearchParams.Count);
@@ -200,7 +218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherValidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherValidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
@@ -208,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(string.Empty, string.Empty),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.NotNull(options.UnsupportedSearchParams);
             Assert.Single(options.UnsupportedSearchParams);
@@ -216,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherInvalidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenSearchParametersWithEmptyKeyEmptyValueWithAnotherInvalidParameter_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
@@ -224,7 +242,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(string.Empty, string.Empty),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.NotNull(options.UnsupportedSearchParams);
             Assert.Equal(2, options.UnsupportedSearchParams.Count);
@@ -233,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenASearchParamWithInvalidValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
+        public async void GivenASearchParamWithInvalidValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
         {
             const string paramName1 = "_count";
             const string value1 = "";
@@ -246,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(paramName2, value2),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 
@@ -255,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSortingShouldBeEmptyAndOperationOutcomeIssueCreated()
+        public async void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSortingShouldBeEmptyAndOperationOutcomeIssueCreated()
         {
             const string paramName = SearchParameterNames.ResourceType;
 
@@ -273,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(KnownQueryParameterNames.Sort, "-" + paramName),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 
@@ -287,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(SearchParameterNames.LastUpdated, SortOrder.Ascending)]
         [InlineData("-" + SearchParameterNames.LastUpdated, SortOrder.Descending)]
-        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder)
+        public async void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder)
         {
             _sortingValidator.ValidateSorting(default, out var errors).ReturnsForAnyArgs(true);
 
@@ -296,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(KnownQueryParameterNames.Sort, paramName),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 
@@ -306,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
+        public async void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
         {
             const string paramName = "unknownParameter";
 
@@ -315,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Tuple.Create(KnownQueryParameterNames.Sort, paramName),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: "Patient",
                 queryParameters: queryParameters);
 
@@ -334,9 +352,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(ResourceType.Condition, CompartmentType.Practitioner, "9aa")]
         [InlineData(ResourceType.Patient, CompartmentType.RelatedPerson, "fdsfasfasfdas")]
         [InlineData(ResourceType.Claim, CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
-        public void GivenAValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
+        public async void GivenAValidCompartmentSearch_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(ResourceType resourceType, CompartmentType compartmentType, string compartmentId)
         {
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: null,
                 compartmentType.ToString(),
@@ -358,9 +376,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(CompartmentType.Practitioner, "9aa")]
         [InlineData(CompartmentType.RelatedPerson, "fdsfasfasfdas")]
         [InlineData(CompartmentType.Encounter, "ksd;/fkds;kfsd;kf")]
-        public void GivenAValidCompartmentSearchWithNullResourceType_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(CompartmentType compartmentType, string compartmentId)
+        public async void GivenAValidCompartmentSearchWithNullResourceType_WhenCreated_ThenCorrectCompartmentSearchExpressionShouldBeGenerated(CompartmentType compartmentType, string compartmentId)
         {
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
                 compartmentType.ToString(),
@@ -377,9 +395,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("patients")]
         [InlineData("encounter")]
         [InlineData("Devices")]
-        public void GivenInvalidCompartmentType_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentType)
+        public async void GivenInvalidCompartmentType_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentType)
         {
-            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
                 invalidCompartmentType,
@@ -393,9 +411,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("")]
         [InlineData("       ")]
         [InlineData("\t\t")]
-        public void GivenInvalidCompartmentId_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentId)
+        public async void GivenInvalidCompartmentId_WhenCreated_ThenExceptionShouldBeThrown(string invalidCompartmentId)
         {
-            InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
+            InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await CreateSearchOptions(
                 resourceType: ResourceType.Claim.ToString(),
                 queryParameters: null,
                 CompartmentType.Patient.ToString(),
@@ -407,93 +425,138 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData(TotalType.Accurate)]
         [InlineData(TotalType.None)]
-        public void GivenNoTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldHaveCountWhenConfiguredByDefault(TotalType type)
+        public async void GivenNoTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldHaveCountWhenConfiguredByDefault(TotalType type)
         {
             _coreFeatures.IncludeTotalInBundle = type;
 
-            SearchOptions options = CreateSearchOptions(queryParameters: null);
+            SearchOptions options = await CreateSearchOptions(queryParameters: null);
 
             Assert.Equal(type, options.IncludeTotal);
         }
 
         [Fact]
-        public void GivenTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldOverrideDefault()
+        public async void GivenTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldOverrideDefault()
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Accurate;
 
-            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"), });
+            SearchOptions options = await CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"), });
 
             Assert.Equal(TotalType.None, options.IncludeTotal);
         }
 
         [Fact]
-        public void GivenNoTotalParameterWithInvalidDefault_WhenCreated_ThenDefaultSearchOptionsThrowException()
+        public async void GivenNoTotalParameterWithInvalidDefault_WhenCreated_ThenDefaultSearchOptionsThrowException()
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
 
-            Assert.Throws<SearchOperationNotSupportedException>(() => CreateSearchOptions(queryParameters: null));
+            await Assert.ThrowsAsync<SearchOperationNotSupportedException>(async () => await CreateSearchOptions(queryParameters: null));
         }
 
         [Fact]
-        public void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
+        public async void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
             _coreFeatures.DefaultItemCountPerSearch = 3;
 
-            SearchOptions options = CreateSearchOptions();
+            SearchOptions options = await CreateSearchOptions();
             Assert.Equal(3, options.MaxItemCount);
         }
 
         [Fact]
-        public void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
+        public async void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
         {
             _coreFeatures.MaxItemCountPerSearch = 20;
             _coreFeatures.DefaultItemCountPerSearch = 1;
 
-            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "10"), });
+            SearchOptions options = await CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "10"), });
             Assert.Equal(10, options.MaxItemCount);
         }
 
         [Fact]
-        public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsAddIssueToContext()
+        public async void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsAddIssueToContext()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
             _coreFeatures.DefaultItemCountPerSearch = 1;
 
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), });
+            await CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), });
 
             Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains("exceeds limit"));
         }
 
         [Fact]
-        public void GivenSetCoreFeatureForIncludeCount_WhenCreated_ThenSearchOptionsHaveSameValue()
+        public async void GivenSetCoreFeatureForIncludeCount_WhenCreated_ThenSearchOptionsHaveSameValue()
         {
             _coreFeatures.DefaultIncludeCountPerSearch = 9;
 
-            SearchOptions options = CreateSearchOptions();
+            SearchOptions options = await CreateSearchOptions();
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
         [Fact]
-        public void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
+        public async void GivenSearchParameterText_WhenCreated_ThenSearchParameterShouldBeAddedToUnsupportedList()
         {
             var queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Text, "mobile"),
             };
 
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
             Assert.NotNull(options);
             Assert.Single(options.UnsupportedSearchParams);
         }
 
-        private SearchOptions CreateSearchOptions(
+        [Fact]
+        public async void GivenASearchParamThatIsNotInEnabledState_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
+        {
+            const ResourceType resourceType = ResourceType.Patient;
+            const string paramName = "address-city";
+            const string spUri = "http://hl7.org/fhir/SearchParameter/Patient-address-city";
+            var queryParameters = new[]
+            {
+                Tuple.Create(paramName, spUri),
+            };
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _patientAddressSearchParameterInfo.SearchParameterStatus = Core.Features.Search.Registry.SearchParameterStatus.Disabled;
+            searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(_patientAddressSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
+            var referenceParser = Substitute.For<IReferenceSearchValueParser>();
+            var searchParameterParser = new SearchParameterExpressionParser(referenceParser);
+            var expressionParser = new ExpressionParser(() => searchParameterDefinitionManager, searchParameterParser);
+            var spDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            spDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(
+                new List<ResourceSearchParameterStatus>
+                {
+                    new ResourceSearchParameterStatus()
+                    {
+                        Status = _patientAddressSearchParameterInfo.SearchParameterStatus,
+                        Uri = new Uri(spUri),
+                    },
+                });
+            var spStatusManager = new SearchParameterStatusManager(spDataStore, searchParameterDefinitionManager, Substitute.For<ISearchParameterSupportResolver>(), Substitute.For<IMediator>(), NullLogger<SearchParameterStatusManager>.Instance);
+            var factory = new SearchOptionsFactory(
+                expressionParser,
+                () => searchParameterDefinitionManager,
+                new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
+                contextAccessor,
+                _sortingValidator,
+                new ExpressionAccessControl(contextAccessor),
+                NullLogger<SearchOptionsFactory>.Instance,
+                spStatusManager);
+
+            SearchOptions options = await factory.Create(resourceType.ToString(), queryParameters, cancellationToken: default);
+            Assert.NotNull(options);
+            Assert.Equal(queryParameters, options.UnsupportedSearchParams);
+        }
+
+        private async Task<SearchOptions> CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
             string compartmentType = null,
-            string compartmentId = null)
+            string compartmentId = null,
+            CancellationToken cancellationToken = default)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            return await _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
         }
     }
 }

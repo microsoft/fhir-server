@@ -211,7 +211,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 sqlSortingValidator,
                 new ExpressionAccessControl(_fhirRequestContextAccessor),
-                NullLogger<SearchOptionsFactory>.Instance);
+                NullLogger<SearchOptionsFactory>.Instance,
+                _searchParameterStatusManager);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
             var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);

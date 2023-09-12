@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -23,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
@@ -41,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
         private readonly List<string> _timeTravelParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+        private readonly SearchParameterStatusManager _statusManager;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -49,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
             ExpressionAccessControl expressionAccess,
-            ILogger<SearchOptionsFactory> logger)
+            ILogger<SearchOptionsFactory> logger,
+            SearchParameterStatusManager statusManager)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -58,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(expressionAccess, nameof(expressionAccess));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(statusManager, nameof(statusManager));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
@@ -65,27 +71,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _expressionAccess = expressionAccess;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
+            _statusManager = statusManager;
             _featureConfiguration = featureConfiguration.Value;
 
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public async Task<SearchOptions> Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, CancellationToken cancellationToken = default)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation);
+            return await Create(null, null, resourceType, queryParameters, isAsyncOperation, cancellationToken: cancellationToken);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
-        public SearchOptions Create(
+        public async Task<SearchOptions> Create(
             string compartmentType,
             string compartmentId,
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             bool isAsyncOperation = false,
-            bool useSmartCompartmentDefinition = false)
+            bool useSmartCompartmentDefinition = false,
+            CancellationToken cancellationToken = default)
         {
             var searchOptions = new SearchOptions();
-
+            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
             {
                 var queryHint = new List<(string param, string value)>();
@@ -295,6 +303,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 try
                 {
+                    var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == q.Item2).FirstOrDefault();
+
+                    if (searchParamStatus == null || searchParamStatus.Status != SearchParameterStatus.Enabled)
+                    {
+                        throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
+                    }
+
                     return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
                 }
                 catch (SearchParameterNotSupportedException)

@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // wanted list was not found
             if (listWrapper == null)
             {
-                return CreateEmptySearchResponse(request);
+                return await CreateEmptySearchResponse(request, cancellationToken);
             }
 
             ResourceElement list = _deserializer.Deserialize(listWrapper);
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // the requested resource was not found in the list
             if (!references.Any())
             {
-                return CreateEmptySearchResponse(request);
+                return await CreateEmptySearchResponse(request, cancellationToken);
             }
 
             // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
@@ -95,9 +95,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             return await next();
         }
 
-        public SearchResourceResponse CreateEmptySearchResponse(SearchResourceRequest request)
+        public async Task<SearchResourceResponse> CreateEmptySearchResponse(SearchResourceRequest request, CancellationToken cancellationToken)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(request.ResourceType, request.Queries);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(request.ResourceType, request.Queries, cancellationToken: cancellationToken);
 
             SearchResult emptySearchResult = SearchResult.Empty(searchOptions.UnsupportedSearchParams);
 

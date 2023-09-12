@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, cancellationToken);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition, cancellationToken);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, cancellationToken);
 
             SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
 
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation, cancellationToken);
 
             if (countOnly)
             {

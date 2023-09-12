@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
             sortingValidator.ValidateSorting(Arg.Is<IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)>>(x => x[0].searchParameter.Name == KnownQueryParameterNames.LastUpdated), out Arg.Any<IReadOnlyList<string>>()).Returns(true);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, new ExpressionAccessControl(_fhirRequestContextAccessor), NullLogger<SearchOptionsFactory>.Instance);
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, sortingValidator, new ExpressionAccessControl(_fhirRequestContextAccessor), NullLogger<SearchOptionsFactory>.Instance, _searchParameterStatusManager);
 
             var compartmentDefinitionManager = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
             await compartmentDefinitionManager.StartAsync(CancellationToken.None);
