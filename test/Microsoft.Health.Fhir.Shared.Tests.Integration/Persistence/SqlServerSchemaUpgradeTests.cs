@@ -335,13 +335,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private string Normalize(string text)
         {
             // remove inline comments
-            while (text.IndexOf("--") > 0)
+            while (text.IndexOf("--") != -1)
             {
                 var indexStart = text.IndexOf("--");
                 var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
                 if (indexEnd == -1)
                 {
-                    break;
+                    indexEnd = text.IndexOf('\r', indexStart);
+                    if (indexEnd == -1)
+                    {
+                        break;
+                    }
                 }
 
                 text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
