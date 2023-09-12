@@ -12,7 +12,6 @@ CREATE PROCEDURE dbo.MergeResources
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
-   ,@CompartmentAssignments dbo.CompartmentAssignmentList READONLY -- TODO: Remove after version 57 got deployed
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
    ,@TokenTexts dbo.TokenTextList READONLY

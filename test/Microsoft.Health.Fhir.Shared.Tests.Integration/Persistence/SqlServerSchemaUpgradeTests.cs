@@ -319,10 +319,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             return unexpectedDifference.ToString();
         }
 
-        private async Task<bool> IsObjectTextEqual(string connStr1, string connStr2, string storedProcedureName)
+        private async Task<bool> IsObjectTextEqual(string connStr1, string connStr2, string objectName)
         {
-            var text1 = await GetObjectText(connStr1, storedProcedureName);
-            var text2 = await GetObjectText(connStr2, storedProcedureName);
+            var text1 = await GetObjectText(connStr1, objectName);
+            var text2 = await GetObjectText(connStr2, objectName);
 
             text1 = Normalize(text1);
             text2 = Normalize(text2);
@@ -339,6 +339,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 var indexStart = text.IndexOf("--");
                 var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
+                if (indexEnd == -1)
+                {
+                    break;
+                }
+
                 text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
             }
 
