@@ -31,7 +31,7 @@ namespace Microsoft.Health.Internal.Fhir.SqlScriptRunner
             var scriptSections = script.Split($"{_newLine}GO{_newLine}");
             foreach (var section in scriptSections)
             {
-                var firstLine = section.Substring(0, 50).Replace(_newLine, Environment.NewLine, StringComparison.InvariantCulture);
+                var firstLine = section.Substring(0, Math.Min(50, section.Length)).Replace(_newLine, Environment.NewLine, StringComparison.InvariantCulture);
                 Console.WriteLine($"{DateTime.UtcNow.ToString("s")}: starting...");
                 Console.WriteLine(firstLine);
                 Console.WriteLine();
