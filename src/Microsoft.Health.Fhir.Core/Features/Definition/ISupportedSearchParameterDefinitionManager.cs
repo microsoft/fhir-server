@@ -13,10 +13,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public interface ISupportedSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
-        /// <summary>
-        /// Gets list of search parameters that are supported but not yet searchable or sortable.
-        /// </summary>
-        /// <returns>An <see cref="IEnumerable{T}"/> that contains the matching search parameters.</returns>
-        IEnumerable<SearchParameterInfo> GetSearchParametersRequiringReindexing();
     }
 }
