@@ -1212,6 +1212,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
+        [Fact]
+        public async Task GivenARevIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParametersWithOneSPDisabled_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
+                new DiagnosticReport
+                {
+                    Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
+                    Status = DiagnosticReport.DiagnosticReportStatus.Final,
+                    Code = new CodeableConcept("http://snomed.info/sct", "429858000"),
+                    Subject = new ResourceReference($"Patient/{Fixture.TrumanPatient.Id}"),
+                    Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
+                });
+
+            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
+            string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
+            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_lastUpdated=lt{lastUpdated}";
+
+            Bundle bundle = await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
+                Fixture.SmithSnomedDiagnosticReport,
+                Fixture.SmithSnomedObservation,
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanSnomedObservation,
+                newDiagnosticReportResponse.Resource);
+
+            // delete the extra entry added
+            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+        }
+
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

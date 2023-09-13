@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
+using MathNet.Numerics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -303,9 +304,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 try
                 {
-                    var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == q.Item2).FirstOrDefault();
+                    var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, q.Item1);
+                    var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
 
-                    if (searchParamStatus == null || searchParamStatus.Status != SearchParameterStatus.Enabled)
+                    // Could be null if using root search parameters like _count or _id
+                    if (searchParamStatus?.Status != SearchParameterStatus.Enabled)
                     {
                         throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
                     }
@@ -396,7 +399,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     try
                     {
                         SearchParameterInfo searchParameterInfo = resourceTypesString.Select(t => _searchParameterDefinitionManager.GetSearchParameter(t, sorting.Item1)).Distinct().First();
-                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                        if (searchParameterInfo != null)
+                        {
+                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                        }
+                        else
+                        {
+                            throw new SearchParameterNotSupportedException("Invalid sort value.");
+                        }
                     }
                     catch (SearchParameterNotSupportedException)
                     {
