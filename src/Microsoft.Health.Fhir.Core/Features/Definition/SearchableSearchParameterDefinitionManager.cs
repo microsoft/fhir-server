@@ -159,8 +159,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private bool IsEnabled(SearchParameterInfo parameter)
         {
+            if (parameter.Code == "_type")
+            {
+                return true;
+            }
+
             var searchParameterStatuses = _statusManager.GetAllSearchParameterStatus(default).ConfigureAwait(false).GetAwaiter().GetResult();
-            return searchParameterStatuses.Where(sp => sp.Uri.OriginalString.Equals(parameter.Url.OriginalString, StringComparison.OrdinalIgnoreCase)).FirstOrDefault().Status == SearchParameterStatus.Enabled;
+            return searchParameterStatuses.Where(sp => sp.Uri.OriginalString.Equals(parameter.Url.OriginalString, StringComparison.OrdinalIgnoreCase)).First().Status == SearchParameterStatus.Enabled;
         }
     }
 }

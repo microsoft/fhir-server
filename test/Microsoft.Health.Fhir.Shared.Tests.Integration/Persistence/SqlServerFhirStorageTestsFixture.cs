@@ -200,6 +200,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
+            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                SqlServerSearchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                searchParameterSupportResolver,
+                mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _searchParameterStatusManager);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
@@ -245,16 +255,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlQueryHashCalculator,
                 NullLogger<SqlServerSearchService>.Instance);
 
-            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
-            _searchParameterStatusManager = new SearchParameterStatusManager(
-                SqlServerSearchParameterStatusDataStore,
-                _searchParameterDefinitionManager,
-                searchParameterSupportResolver,
-                mediator,
-                NullLogger<SearchParameterStatusManager>.Instance);
-
             _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder, queueClient);
 
             _sqlQueueClient = new SqlQueueClient(SqlRetryService, NullLogger<SqlQueueClient>.Instance);
@@ -286,6 +286,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
+            await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
         public async Task DisposeAsync()

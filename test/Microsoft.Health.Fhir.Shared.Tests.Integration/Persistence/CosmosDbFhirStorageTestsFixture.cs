@@ -109,7 +109,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
-            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _searchParameterStatusManager);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -159,11 +158,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_container);
 
-            _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
-                () => documentClient,
-                _cosmosDataStoreConfiguration,
-                cosmosDocumentQueryFactory);
-
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(bundleConfiguration);
@@ -199,6 +193,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<CosmosFhirOperationDataStore>.Instance,
                 NullLoggerFactory.Instance);
 
+            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+            _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
+                () => documentClient,
+                _cosmosDataStoreConfiguration,
+                cosmosDocumentQueryFactory);
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                _searchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                searchParameterSupportResolver,
+                mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
+            await _searchParameterStatusManager.EnsureInitializedAsync(CancellationToken.None);
+            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _searchParameterStatusManager);
+
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             ISortingValidator sortingValidator = Substitute.For<ISortingValidator>();
@@ -226,16 +237,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
-
-            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-
-            _searchParameterStatusManager = new SearchParameterStatusManager(
-                _searchParameterStatusDataStore,
-                _searchParameterDefinitionManager,
-                searchParameterSupportResolver,
-                mediator,
-                NullLogger<SearchParameterStatusManager>.Instance);
 
             var queueClient = new TestQueueClient();
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
