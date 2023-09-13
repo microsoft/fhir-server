@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
 
                     // Could be null if using root search parameters like _count or _id
-                    if (searchParamStatus?.Status != SearchParameterStatus.Enabled)
+                    if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
                     {
                         throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
                     }

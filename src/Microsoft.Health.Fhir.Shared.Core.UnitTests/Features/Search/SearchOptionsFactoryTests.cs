@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string DefaultResourceType = "Patient";
         private const string ContinuationTokenParamName = "ct";
         private const string SPURI = "http://hl7.org/fhir/SearchParameter/Patient-address-city";
+        private const string SPTYPEURI = "http://hl7.org/fhir/SearchParameter/Resource-Type";
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
@@ -60,10 +61,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SPTYPEURI }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             _patientAddressSearchParameterInfo = new SearchParameter { Name = "address-city", Code = "address-city", Type = SearchParamType.String, Url = SPURI }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter("Patient", "address-city").Returns(_patientAddressSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter("Patient", "address-state").Returns(_patientAddressSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
 
