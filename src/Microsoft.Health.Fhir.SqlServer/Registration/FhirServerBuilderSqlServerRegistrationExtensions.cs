@@ -132,14 +132,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services
-                .RemoveServiceTypeExact<SqlQueueClient, INotificationHandler<StorageInitializedNotification>>()
-                .Add<SqlQueueClient>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IQueueClient>()
-                .AsService<INotificationHandler<StorageInitializedNotification>>();
-
             services.Add<SqlImportReindexer>()
                 .Transient()
                 .AsSelf()
