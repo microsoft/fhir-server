@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken = default)
         {
             var searchOptions = new SearchOptions();
-            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
+
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
             {
                 var queryHint = new List<(string param, string value)>();
@@ -298,19 +299,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
-            searchExpressions.AddRange(searchParams.Parameters.Select(
-            q =>
+            searchExpressions.AddRange(await Task.WhenAll(searchParams.Parameters.Select(
+            async q =>
             {
                 try
                 {
-                    var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, q.Item1);
-                    var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
-
-                    // Could be null if using root search parameters like _count or _id
-                    if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
-                    {
-                        throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
-                    }
+                    await CheckForSearchParameterEnabled(resourceType, q.Item1, cancellationToken);
 
                     return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
                 }
@@ -321,7 +315,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     return null;
                 }
             })
-            .Where(item => item != null));
+            .Where(item => item != null)));
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
@@ -484,6 +478,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+        }
+
+        private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
+        {
+            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
+            if (KnownQueryParameterNames.IsKnownParameter(code))
+            {
+                var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
+                var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
+
+                // Could be null if using root search parameters like _count or _id
+                if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
+                {
+                    throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
+                }
+            }
         }
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)

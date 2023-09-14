@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
+
 namespace Microsoft.Health.Fhir.Core.Features
 {
     /// <summary>
@@ -98,5 +100,48 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string HardDelete = "_hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
+
+        private static readonly string[] _parameterNames =
+        {
+            At,
+            Before,
+            ContinuationToken,
+            Count,
+            Format,
+            LastUpdated,
+            Mode,
+            Pretty,
+            Profile,
+            Since,
+            Sort,
+            Summary,
+            Elements,
+            Total,
+            List,
+            Id,
+            Type,
+            Container,
+            AnonymizationConfigurationLocation,
+            AnonymizationConfigurationCollectionReference,
+            AnonymizationConfigurationFileEtag,
+            OutputFormat,
+            TypeFilter,
+            Text,
+            Till,
+            IsParallel,
+            StartSurrogateId,
+            EndSurrogateId,
+            GlobalStartSurrogateId,
+            GlobalEndSurrogateId,
+            IgnoreSearchParamHash,
+            Identifier,
+            HardDelete,
+            PurgeHistory,
+        };
+
+        public static bool IsKnownParameter(string parameterName)
+        {
+            return _parameterNames.Contains(parameterName);
+        }
     }
 }
