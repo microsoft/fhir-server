@@ -28,10 +28,10 @@ namespace Microsoft.Health.Internal.Fhir.SqlScriptRunner
             var script = File.ReadAllText(_script);
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
-            var scriptSections = script.Split($"{_newLine}GO{_newLine}");
+            var scriptSections = script.Split($"{_newLine}GO{_newLine}", StringSplitOptions.RemoveEmptyEntries);
             foreach (var section in scriptSections)
             {
-                var firstLine = section.Substring(0, Math.Min(50, section.Length)).Replace(_newLine, Environment.NewLine, StringComparison.InvariantCulture);
+                var firstLine = section.Substring(0, Math.Min(100, section.Length)).Replace(_newLine, Environment.NewLine, StringComparison.InvariantCulture);
                 Console.WriteLine($"{DateTime.UtcNow.ToString("s")}: starting...");
                 Console.WriteLine(firstLine);
                 Console.WriteLine();
