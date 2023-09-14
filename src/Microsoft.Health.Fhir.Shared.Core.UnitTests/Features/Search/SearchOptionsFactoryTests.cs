@@ -47,12 +47,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string ContinuationTokenParamName = "ct";
         private const string SPURI = "http://hl7.org/fhir/SearchParameter/Patient-address-city";
         private const string SPTYPEURI = "http://hl7.org/fhir/SearchParameter/Resource-Type";
+        private const string ACCOUNTURI = "http://hl7.org/fhir/SearchParameter/Account-name";
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
         private readonly SearchParameterInfo _patientAddressSearchParameterInfo;
+        private readonly SearchParameterInfo _accountNameSearchParameterInfo;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private DefaultFhirRequestContext _defaultFhirRequestContext;
         private readonly ISortingValidator _sortingValidator;
@@ -64,8 +66,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SPTYPEURI }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             _patientAddressSearchParameterInfo = new SearchParameter { Name = "address-city", Code = "address-city", Type = SearchParamType.String, Url = SPURI }.ToInfo();
+            _accountNameSearchParameterInfo = new SearchParameter { Name = "name", Code = "name", Type = SearchParamType.String, Url = ACCOUNTURI }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter("Patient", "address-city").Returns(_patientAddressSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter("Patient", "address-state").Returns(_patientAddressSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter("Account", "name").Returns(_accountNameSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
 
@@ -81,6 +85,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new ResourceSearchParameterStatus()
                 {
                     Uri = new Uri(SPURI),
+                    Status = SearchParameterStatus.Enabled,
+                },
+                new ResourceSearchParameterStatus()
+                {
+                    Uri = new Uri(SPTYPEURI),
                     Status = SearchParameterStatus.Enabled,
                 },
             });
@@ -519,14 +528,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async void GivenASearchParamThatIsNotInEnabledState_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
         {
-            const ResourceType resourceType = ResourceType.Patient;
-            const string paramName = "address-city";
+            const ResourceType resourceType = ResourceType.Account;
+            const string paramName = "name";
             var queryParameters = new[]
             {
-                Tuple.Create(paramName, SPURI),
+                Tuple.Create(paramName, ACCOUNTURI),
             };
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(_patientAddressSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(_accountNameSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
             var referenceParser = Substitute.For<IReferenceSearchValueParser>();
@@ -539,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     new ResourceSearchParameterStatus()
                     {
                         Status = SearchParameterStatus.Disabled,
-                        Uri = new Uri(SPURI),
+                        Uri = new Uri(ACCOUNTURI),
                     },
                 });
             var spStatusManager = new SearchParameterStatusManager(spDataStore, searchParameterDefinitionManager, Substitute.For<ISearchParameterSupportResolver>(), Substitute.For<IMediator>(), NullLogger<SearchParameterStatusManager>.Instance);

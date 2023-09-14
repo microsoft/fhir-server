@@ -299,7 +299,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
 
-            searchExpressions.AddRange(await Task.WhenAll(searchParams.Parameters.Select(
+            var expressions = await Task.WhenAll(searchParams.Parameters.Select(
             async q =>
             {
                 try
@@ -314,8 +314,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     return null;
                 }
-            })
-            .Where(item => item != null)));
+            }));
+
+            searchExpressions.AddRange(expressions.Where(item => item != null));
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
@@ -484,6 +485,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
             if (KnownQueryParameterNames.IsKnownParameter(code))
+            {
+                // Always true for common parameters.
+                return;
+            }
+            else
             {
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
                 var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
