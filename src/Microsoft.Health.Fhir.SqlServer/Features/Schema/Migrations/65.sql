@@ -2831,7 +2831,7 @@ BEGIN TRY
                               AND IndexName = Ind);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = 'IndexProperties', @Action = 'Insert', @Rows = @@rowcount;
     DELETE @Indexes
-    WHERE  Tbl IN ('ResourceCurrent', 'ResourceHistory')
+    WHERE  Tbl IN ('Resource', 'ResourceCurrent', 'ResourceHistory')
            OR IndId = 1;
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@Indexes', @Action = 'Delete', @Rows = @@rowcount;
     WHILE EXISTS (SELECT *
@@ -6202,14 +6202,17 @@ BEGIN TRY
         ResourceTypeId      SMALLINT NOT NULL,
         ResourceSurrogateId BIGINT   NOT NULL);
     BEGIN TRANSACTION;
-    UPDATE B
-    SET    SearchParamHash = A.SearchParamHash
-    OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
-    FROM   @Resources AS A
-           INNER JOIN
-           dbo.ResourceCurrent AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+    UPDATE A
+    SET    SearchParamHash = (SELECT SearchParamHash
+                              FROM   @Resources AS B
+                              WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                     AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+    FROM   dbo.Resource AS A
+    WHERE  IsHistory = 0
+           AND EXISTS (SELECT *
+                       FROM   @Resources AS B
+                       WHERE  B.ResourceTypeId = A.ResourceTypeId
+                              AND B.ResourceSurrogateId = A.ResourceSurrogateId);
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
@@ -6860,8 +6863,21 @@ CREATE TRIGGER dbo.ResourceUpd
     ON dbo.Resource
     INSTEAD OF UPDATE
     AS BEGIN
+           IF UPDATE (SearchParamHash)
+              AND NOT UPDATE (IsHistory)
+               BEGIN
+                   UPDATE B
+                   SET    SearchParamHash = A.SearchParamHash
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.ResourceCurrent AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                   WHERE  A.IsHistory = 0;
+                   RETURN;
+               END
            IF NOT UPDATE (IsHistory)
-               RAISERROR ('Only history updates are supported via Resource view', 18, 127);
+               RAISERROR ('Generic updates are not supported via Resource view', 18, 127);
            DELETE A
            FROM   dbo.ResourceCurrent AS A
            WHERE  EXISTS (SELECT *

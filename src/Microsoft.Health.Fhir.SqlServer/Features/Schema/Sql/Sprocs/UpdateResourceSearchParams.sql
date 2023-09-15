@@ -29,11 +29,12 @@ BEGIN TRY
   BEGIN TRANSACTION
 
   -- Update the search parameter hash value in the main resource table
-  -- Cannot use trigger to update via view as it participates in a join
-  UPDATE B
-    SET SearchParamHash = A.SearchParamHash
-    OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
-    FROM @Resources A JOIN dbo.ResourceCurrent B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+  -- Avoid join to enable update via view
+  UPDATE A
+    SET SearchParamHash = (SELECT SearchParamHash FROM @Resources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+    FROM dbo.Resource A
+    WHERE IsHistory = 0
+      AND EXISTS (SELECT * FROM @Resources B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
   SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
