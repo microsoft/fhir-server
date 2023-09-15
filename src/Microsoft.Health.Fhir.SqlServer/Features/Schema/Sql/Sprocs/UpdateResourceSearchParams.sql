@@ -29,6 +29,7 @@ BEGIN TRY
   BEGIN TRANSACTION
 
   -- Update the search parameter hash value in the main resource table
+  -- Cannot use trigger to update via view as it participates in a join
   UPDATE B
     SET SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
