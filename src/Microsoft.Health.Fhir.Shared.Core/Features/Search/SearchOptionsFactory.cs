@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 using Task = System.Threading.Tasks.Task;
 
@@ -484,7 +485,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
-            if (KnownQueryParameterNames.IsKnownParameter(code))
+            if (KnownQueryParameterNames.IsKnownParameter(code) || SearchModifierCode.)
             {
                 // Always true for common parameters.
                 return;
@@ -492,7 +493,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             else
             {
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
-                var searchParamStatus = statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo?.Url.OriginalString).FirstOrDefault();
+                var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
 
                 // Could be null if using root search parameters like _count or _id
                 if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
