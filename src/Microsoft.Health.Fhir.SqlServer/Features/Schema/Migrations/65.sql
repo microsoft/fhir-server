@@ -6207,9 +6207,10 @@ BEGIN TRY
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids
     FROM   @Resources AS A
            INNER JOIN
-           dbo.ResourceCurrent AS B
+           dbo.Resource AS B
            ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+              AND B.ResourceSurrogateId = A.ResourceSurrogateId
+    WHERE  B.IsHistory = 0;
     SET @Rows = @@rowcount;
     DELETE B
     FROM   @Ids AS A
@@ -6861,7 +6862,20 @@ CREATE TRIGGER dbo.ResourceUpd
     INSTEAD OF UPDATE
     AS BEGIN
            IF NOT UPDATE (IsHistory)
-               RAISERROR ('Only history updates are supported via Resource view', 18, 127);
+              AND UPDATE (SearchParamHash)
+               BEGIN
+                   UPDATE B
+                   SET    SearchParamHash = A.SearchParamHash
+                   FROM   Inserted AS A
+                          INNER JOIN
+                          dbo.ResourceCurrent AS B
+                          ON B.ResourceTypeId = A.ResourceTypeId
+                             AND B.ResourceSurrogateId = A.ResourceSurrogateId
+                   WHERE  A.IsHistory = 0;
+                   RETURN;
+               END
+           IF NOT UPDATE (IsHistory)
+               RAISERROR ('Generic updates are not supported via Resource view', 18, 127);
            DELETE A
            FROM   dbo.ResourceCurrent AS A
            WHERE  EXISTS (SELECT *
