@@ -225,6 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        /*
         public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
             string resourceType,
             DateTime start,
@@ -234,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellation)
         {
             // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
-            
+
             // Add gt and lt lastUpdated query paraemters
             // Get count on the search
             // If count = rangeSize+-10% add time range to list
@@ -243,6 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Once till time > end time, till = end and make it the last entry in the list
             // Return list
         }
+        */
 
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
@@ -259,5 +261,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-     }
+    }
 }
