@@ -578,7 +578,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, CancellationToken cancellationToken)
         {
             await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
-            return await GetAsync(resource.ToResourceKey(), cancellationToken);
+            return resource;
         }
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
