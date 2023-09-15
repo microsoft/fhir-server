@@ -32,8 +32,7 @@ BEGIN TRY
   UPDATE B
     SET SearchParamHash = A.SearchParamHash
     OUTPUT deleted.ResourceTypeId, deleted.ResourceSurrogateId INTO @Ids 
-    FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-    WHERE B.IsHistory = 0
+    FROM @Resources A JOIN dbo.ResourceCurrent B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   SET @Rows = @@rowcount
 
   -- First, delete all the search params of the resources to reindex.
