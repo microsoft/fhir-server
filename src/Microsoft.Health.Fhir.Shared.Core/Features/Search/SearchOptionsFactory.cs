@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
-                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                if (Enum.TryParse(compartmentType, out Hl7.Fhir.Model.CompartmentType parsedCompartmentType))
                 {
                     if (string.IsNullOrWhiteSpace(compartmentId))
                     {
@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var smartCompartmentType = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType;
                 var smartCompartmentId = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentId;
 
-                if (Enum.TryParse(smartCompartmentType, out CompartmentType parsedCompartmentType))
+                if (Enum.TryParse(smartCompartmentType, out Hl7.Fhir.Model.CompartmentType parsedCompartmentType))
                 {
                     if (string.IsNullOrWhiteSpace(smartCompartmentId))
                     {
