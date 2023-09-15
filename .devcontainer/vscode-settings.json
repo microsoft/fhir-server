@@ -1,5 +1,8 @@
 {
 	"terminal.integrated.shell.linux": "/bin/bash",
+    "terminal.integrated.env.windows": {
+        "FHIR_SERVER_SQL_SERVER_BASE_CONNECTION_STRING": "Server=localhost,1433;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!"
+    },
 	"launch": {
 		"configurations": [{
             "name": "R4 SQL Server - DevContainer",

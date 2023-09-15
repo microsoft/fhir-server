@@ -1,0 +1,36 @@
+version: '3'
+
+services:
+  sql:
+    container_name: sql
+    image: "mcr.microsoft.com/mssql/server"
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: localDev1!
+    ports:
+    - "1433:1433"
+
+  fhir:
+    depends_on:
+      - "sql"
+    build: 
+      context: ../
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        # On Linux, you may need to update USER_UID and USER_GID below if not your local UID is not 1000.
+        USER_UID: 1000
+        USER_GID: 1000
+
+    init: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker-host.sock 
+      - ..:/workspace:cached
+
+    entrypoint: /usr/local/share/docker-init.sh
+
+    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
+    network_mode: service:sql
+    
+    # so the container won't exit
+    command: sleep infinity

@@ -25,6 +25,7 @@
 					"ASPNETCORE_ENVIRONMENT": "Development",
 					"DataStore": "SqlServer",
 					"SqlServer:AllowDatabaseCreation": "true",
+					"FHIR_SERVER_SQL_SERVER_BASE_CONNECTION_STRING": "",
 					"SqlServer:ConnectionString": "Server=sql,1433;Initial Catalog=FHIR;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!",
 					"SqlServer:Initialize": "true",
 					"SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
