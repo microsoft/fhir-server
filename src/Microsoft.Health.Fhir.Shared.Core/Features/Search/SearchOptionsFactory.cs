@@ -485,7 +485,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
-            if (KnownQueryParameterNames.IsKnownParameter(code) || SearchModifierCode.)
+            if (KnownQueryParameterNames.IsKnownParameter(code) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
             {
                 // Always true for common parameters.
                 return;
