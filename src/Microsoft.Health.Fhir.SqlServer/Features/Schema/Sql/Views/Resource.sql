@@ -164,13 +164,13 @@ INSERT INTO dbo.Resource
         ,TransactionId
         ,IsHistory
     )
-  SELECT ResourceTypeId = 0
+  SELECT ResourceTypeId = 0 -- dummy
         ,ResourceSurrogateId = SurrId
         ,ResourceId = newid()
         ,Version = 0
         ,IsDeleted = 0
         ,RequestMethod = NULL
-        ,RawResource = 0x01
+        ,RawResource = 0xF -- invisible
         ,IsRawResourceMetaSet = 0
         ,SearchParamHash = NULL
         ,TransactionId = NULL

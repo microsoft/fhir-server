@@ -2643,7 +2643,7 @@ BEGIN TRY
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
     WHILE @InputJobId IS NULL
           AND @JobId IS NULL
-          AND @LookedAtPartitions <= @MaxPartitions
+          AND @LookedAtPartitions < @MaxPartitions
           AND @CheckTimeoutJobs = 0
         BEGIN
             SET @Lock = 'DequeueJob_' + CONVERT (VARCHAR, @QueueType) + '_' + CONVERT (VARCHAR, @PartitionId);
@@ -2678,7 +2678,7 @@ BEGIN TRY
     SET @LookedAtPartitions = 0;
     WHILE @InputJobId IS NULL
           AND @JobId IS NULL
-          AND @LookedAtPartitions <= @MaxPartitions
+          AND @LookedAtPartitions < @MaxPartitions
         BEGIN
             SET @Lock = 'DequeueStoreCopyWorkUnit_' + CONVERT (VARCHAR, @PartitionId);
             BEGIN TRANSACTION;
@@ -3042,7 +3042,7 @@ SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetActiveJobs', @Mode AS VARCHAR (100) = 'Q=' + isnull(CONVERT (VARCHAR, @QueueType), 'NULL') + ' G=' + isnull(CONVERT (VARCHAR, @GroupId), 'NULL'), @st AS DATETIME = getUTCdate(), @JobIds AS BigintList, @PartitionId AS TINYINT, @MaxPartitions AS TINYINT = 16, @LookedAtPartitions AS TINYINT = 0, @Rows AS INT = 0;
 BEGIN TRY
     SET @PartitionId = @MaxPartitions * rand();
-    WHILE @LookedAtPartitions <= @MaxPartitions
+    WHILE @LookedAtPartitions < @MaxPartitions
         BEGIN
             IF @GroupId IS NULL
                 INSERT INTO @JobIds
@@ -6900,7 +6900,7 @@ SELECT 0 AS ResourceTypeId,
        0 AS Version,
        0 AS IsDeleted,
        NULL AS RequestMethod,
-       0x01 AS RawResource,
+       0xF AS RawResource,
        0 AS IsRawResourceMetaSet,
        NULL AS SearchParamHash,
        NULL AS TransactionId,
