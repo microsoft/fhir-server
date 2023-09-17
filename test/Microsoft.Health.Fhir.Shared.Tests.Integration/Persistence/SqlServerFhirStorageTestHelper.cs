@@ -262,10 +262,10 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             await using (SqlCommand outerCommand = connection.CreateCommand())
             {
                 outerCommand.CommandText = @"
-                    SELECT t.name 
-                    FROM sys.tables t
-                    INNER JOIN sys.columns c ON c.object_id = t.object_id
-                    WHERE c.name = 'ResourceSurrogateId'";
+SELECT t.name 
+  FROM (SELECT name, object_id FROM sys.objects WHERE name NOT IN ('ResourceCurrent', 'ResourceHistory') AND type IN ('u','v')) t 
+       JOIN sys.columns c ON c.object_id = t.object_id
+  WHERE c.name = 'ResourceSurrogateId'";
 
                 await using (SqlDataReader reader = await outerCommand.ExecuteReaderAsync())
                 {
