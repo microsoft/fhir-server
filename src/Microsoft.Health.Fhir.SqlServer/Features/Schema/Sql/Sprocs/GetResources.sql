@@ -83,5 +83,5 @@ BEGIN CATCH
 END CATCH
 GO
 --DECLARE @ResourceKeys dbo.ResourceKeyList
---INSERT INTO @ResourceKeys SELECT TOP 1 ResourceTypeId, ResourceId, NULL FROM Resource
+--INSERT INTO @ResourceKeys SELECT 96, newid(), NULL
 --EXECUTE dbo.GetResources @ResourceKeys

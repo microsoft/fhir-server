@@ -27,6 +27,7 @@ SELECT ResourceTypeId
       ,TransactionId
       ,NULL
   FROM dbo.ResourceCurrent
+  WHERE ResourceSurrogateId > 2522029824000000000 -- 1000-01-01 Dummy resource filter
 GO
 CREATE TRIGGER dbo.ResourceIns ON dbo.Resource INSTEAD OF INSERT
 AS
@@ -148,9 +149,9 @@ BEGIN
     WHERE EXISTS (SELECT * FROM Deleted B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.IsHistory = 1)
 END
 GO
--- This should gurantee SQL access stability when there are no resources. It should work for both view and table.
--- Resources are filtered out on 2 levels: by ResoureTypeId set to not existing value 0 and by RawResource set to invisible value 0x01
-INSERT INTO dbo.Resource
+-- This should gurantee SQL access stability when there are no resources.
+-- Dummy resources are filtered out in the view definition
+INSERT INTO dbo.ResourceCurrent
     (
          ResourceTypeId
         ,ResourceSurrogateId
@@ -164,7 +165,7 @@ INSERT INTO dbo.Resource
         ,TransactionId
         ,IsHistory
     )
-  SELECT ResourceTypeId = 0 -- dummy
+  SELECT ResourceTypeId = RT
         ,ResourceSurrogateId = SurrId
         ,ResourceId = newid()
         ,Version = 0
@@ -175,6 +176,7 @@ INSERT INTO dbo.Resource
         ,SearchParamHash = NULL
         ,TransactionId = NULL
         ,IsHistory = 0
-    FROM (SELECT TOP 100 SurrId = (row_number() OVER (ORDER BY colid)) + datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 FROM syscolumns) A
-    WHERE NOT EXISTS (SELECT * FROM dbo.Resource WHERE IsHistory = 0 AND ResourceTypeId = 0 AND ResourceSurrogateId = SurrId)
+    FROM (SELECT TOP 100 SurrId = 2522029824000000000 - (row_number() OVER (ORDER BY colid)) FROM syscolumns) A
+         CROSS JOIN (SELECT TOP 100 RT = row_number() OVER (ORDER BY colid) FROM syscolumns) B
+    WHERE NOT EXISTS (SELECT * FROM dbo.ResourceCurrent WHERE IsHistory = 0 AND ResourceTypeId = RT AND ResourceSurrogateId = SurrId)
 GO
