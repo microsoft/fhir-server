@@ -6,6 +6,7 @@ When commiting your PR, please make sure to do these steps at Squash/Merge to as
 1. **Add a milestone** to your PR for the sprint that it is merged (i.e. add S47)
 1. Tag the PR with the type of update: **Bug**, **Enhancement**, or **New-Feature**
 1. Tag the PR with **Azure API for FHIR** if this will release to the Azure API for FHIR and a tag for **Azure Healthcare APIs** if this will release to the FHIR service in the Azure Healthcare APIs.
+1. Tag the PR with **Schema Version backward compatible** or  **Schema Version backward incompatible** if this adds new Sql script which is/is not backward compatible with the code.
 1. Include a user friendly, 1-2 sentence in the Squash/Merge **description** wrapped at 72 characters
 1. Note if it **addresses a GitHub issue and/or a VSTS item** in the Squash/Merge description (i.e. #1234 or AB#12345)
 
