@@ -485,7 +485,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
-            if (KnownQueryParameterNames.IsKnownParameter(code) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
+
+            // The check for ':' is for composite search parameters such as _id:not
+            if (KnownQueryParameterNames.IsKnownParameter(code) || code.Contains(':', StringComparison.OrdinalIgnoreCase) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
             {
                 // Always true for common parameters.
                 return;
