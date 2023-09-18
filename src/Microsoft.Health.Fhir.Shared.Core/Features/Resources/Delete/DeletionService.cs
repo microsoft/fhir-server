@@ -122,8 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
             LogTime("Initial Search", stopwatch);
 
-            var startAuditTask = System.Threading.Tasks.Task.CompletedTask;
-            var endAuditTask = System.Threading.Tasks.Task.CompletedTask;
+            var auditTasks = new List<System.Threading.Tasks.Task>();
 
             // Delete the matched results...
             try
@@ -135,8 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             .Take(Math.Max(request.MaxDeleteCount.GetValueOrDefault() - itemsDeleted.Count, 0))
                             .ToArray();
 
-                    await startAuditTask;
-                    startAuditTask = CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId));
+                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId)));
                     LogTime("Starting Audit Log", stopwatch);
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
@@ -162,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                                 itemsDeleted.Add(id);
                             }
 
-                            await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, ids);
+                            auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, ids));
 
                             throw;
                         }
@@ -194,8 +192,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     LogTime($"Deleted {resultsToDelete.Count} Resources", stopwatch);
 
-                    await endAuditTask;
-                    endAuditTask = CreateAuditLog(request.ResourceType, request.DeleteOperation, true, resultsToDelete.Select((item) => item.Resource.ResourceId));
+                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, resultsToDelete.Select((item) => item.Resource.ResourceId)));
+                    auditTasks = auditTasks.Where((task) => !task.IsCompleted).ToList();
 
                     LogTime("Ending Audit Log", stopwatch);
 
@@ -222,13 +220,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             finally
             {
-                /* Tried this and it may have caused the tasks to hang at the end
                 LogTime($"Waiting on {auditTasks.Count} audits to be logged", stopwatch);
                 System.Threading.Tasks.Task.WaitAll(auditTasks.ToArray(), cancellationToken);
                 LogTime("Awaited all audit logs", stopwatch);
-                */
-                await startAuditTask;
-                await endAuditTask;
             }
 
             return itemsDeleted;
@@ -253,7 +247,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         private System.Threading.Tasks.Task CreateAuditLog(string resourceType, DeleteOperation operation, bool complete, IEnumerable<string> items, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
-            var auditTask = new System.Threading.Tasks.Task(() =>
+            var auditTask = System.Threading.Tasks.Task.Run(() =>
             {
                 AuditAction action = complete ? AuditAction.Executed : AuditAction.Executing;
                 var context = _contextAccessor.RequestContext;
