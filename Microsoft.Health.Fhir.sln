@@ -194,7 +194,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EventsReader", "tools\Event
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlScriptRunner", "tools\SqlScriptRunner\SqlScriptRunner.csproj", "{331482EA-8F88-49F0-B928-B0E356755D39}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BlobRewriter", "tools\BlobRewriter\BlobRewriter.csproj", "{B918782E-68BE-4A4F-8596-7F540E97EA76}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlobRewriter", "tools\BlobRewriter\BlobRewriter.csproj", "{B918782E-68BE-4A4F-8596-7F540E97EA76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PerfTester", "tools\PerfTester\PerfTester.csproj", "{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -458,6 +460,10 @@ Global
 		{B918782E-68BE-4A4F-8596-7F540E97EA76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B918782E-68BE-4A4F-8596-7F540E97EA76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B918782E-68BE-4A4F-8596-7F540E97EA76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -548,10 +554,11 @@ Global
 		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{331482EA-8F88-49F0-B928-B0E356755D39} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{B918782E-68BE-4A4F-8596-7F540E97EA76} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{01943F80-75EA-48FD-BA9E-FFC2E2ED5A3F} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
