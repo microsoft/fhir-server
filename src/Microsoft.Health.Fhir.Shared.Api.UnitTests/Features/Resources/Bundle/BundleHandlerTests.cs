@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             ISearchService searchService = Substitute.For<ISearchService>();
             var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser());
-            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver);
+            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver, Substitute.For<ILogger<TransactionBundleValidator>>());
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
