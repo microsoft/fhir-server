@@ -104,10 +104,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             JObject serializableEntity = JObject.FromObject(new
             {
-                requestUrl = entry.Request.Url,
-                resourceType,
-                conditionalQueries,
+                label = nameof(TransactionBundleValidator),
+                requestMethod = entry.Request.Method,
+                queryRequestUrl = entry.Request.Url,
+                queryResourceType = resourceType,
+                queryConditionalQueries = conditionalQueries,
                 matchedResults = matchedResults?.Count,
+                matchedResourceId = matchedResults?.Count == 1 ? matchedResults.First().Resource.ResourceId : null,
                 idDictionary = idDictionary.Count,
             });
 
