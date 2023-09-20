@@ -486,8 +486,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
 
-            // The check for ':' is for composite search parameters such as _id:not
-            if (KnownQueryParameterNames.IsKnownParameter(code) || code.Contains(':', StringComparison.OrdinalIgnoreCase) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
+            // Excluding common parameters and modifiers, and chained or compound search parameters. The latter two need to be broken down to check the status.
+            if (KnownQueryParameterNames.IsKnownParameter(code) || code.Contains(':', StringComparison.OrdinalIgnoreCase) || code.Contains('.', StringComparison.OrdinalIgnoreCase) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
             {
                 // Always true for common parameters.
                 return;
