@@ -46,10 +46,6 @@
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "FhirServer:Security:Enabled": "false",
-                "TaskHosting:Enabled": "true",
-                "TaskHosting:MaxRunningTaskCount": "2",
-                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
-                "FhirServer:Operations:Import:Enabled": "true"
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
