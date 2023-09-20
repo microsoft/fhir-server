@@ -618,7 +618,7 @@ END
                 _allRetriesFail = allRetriesFail;
             }
 
-            public string DefaultDatabase { get; }
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
 
             public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
             {
@@ -651,7 +651,7 @@ END
                 _sqlConnectionBuilder = sqlConnectionBuilder;
             }
 
-            public string DefaultDatabase { get; }
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
 
             public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
             {
