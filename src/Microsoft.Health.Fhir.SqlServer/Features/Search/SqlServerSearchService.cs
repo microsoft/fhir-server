@@ -312,7 +312,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             await _sqlRetryService.ExecuteSql(
                 async (cancellationToken, sqlException) =>
                 {
+#pragma warning disable CS0618 // Type or member is obsolete
                     using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
+#pragma warning restore CS0618 // Type or member is obsolete
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
                         // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.

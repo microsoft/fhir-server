@@ -101,22 +101,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
-            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(SqlServerDataStoreConfiguration);
-            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(SqlServerDataStoreConfiguration, sqlRetryLogicBaseProvider);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
+#pragma warning disable CS0618
             sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(TestConnectionString)));
+#pragma warning restore CS0618
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, SqlServerDataStoreConfiguration, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => _schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
             Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionStringProviderFunc);
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);

@@ -257,8 +257,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
+#pragma warning disable CS0618 // Type or member is obsolete
                     using SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-
+#pragma warning restore CS0618 // Type or member is obsolete
                     // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                     // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
                     sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
@@ -368,7 +369,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
+#pragma warning disable CS0618 // Type or member is obsolete
                 using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+#pragma warning restore CS0618 // Type or member is obsolete
                 conn.RetryLogicProvider = null;
                 await conn.OpenAsync(cancellationToken);
                 cmd.Connection = conn;
