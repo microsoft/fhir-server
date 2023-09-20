@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
+            // NOTE: Azurite is required to run these tests locally.
 
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(true);
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataIsExportedWithTypeParameter_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
+            // NOTE: Azurite is required to run these tests locally.
 
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(false);
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenGroupDataWithNoMemberPatientIdIsExported_ThenNoDataIsExported()
         {
-            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
+            // NOTE: Azurite is required to run these tests locally.
 
             // Add data for test
             string groupId = await CreateGroupWithoutPatientIds();
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportTaskMetricsNotificationShouldBePosted()
         {
-            // NOTE: Azure Storage Emulator or Azurite is required to run these tests locally.
+            // NOTE: Azurite is required to run these tests locally.
 
             if (!_fixture.IsUsingInProcTestServer)
             {

@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "buildR4",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.R4.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
             "stopAtEntry": false,
@@ -22,11 +22,6 @@
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
                 "CosmosDb:Host": "https://localhost:8081/",
                 "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
-                "TaskHosting:Enabled": "true",
-                "TaskHosting:MaxRunningTaskCount": "2",
-                "FhirServer:Operations:Export:StorageAccountConnection": "UseDevelopmentStorage=true",
-                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
-                "FhirServer:Operations:Import:Enabled": "true"
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -38,7 +33,7 @@
             "request": "launch",
             "preLaunchTask": "buildR4",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R4.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.R4.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
             "stopAtEntry": false,
@@ -46,11 +41,15 @@
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "SqlServer",
                 "SqlServer:AllowDatabaseCreation": "true",
-                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
+                "SqlServer:ConnectionString": "Server=localhost,1433;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!;Initial Catalog=FHIR_R4",
                 "SqlServer:Initialize": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "FhirServer:Security:Enabled": "false",
+                "TaskHosting:Enabled": "true",
+                "TaskHosting:MaxRunningTaskCount": "2",
+                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer:Operations:Import:Enabled": "true"
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -62,7 +61,7 @@
             "request": "launch",
             "preLaunchTask": "buildSTU3",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.Stu3.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
             "stopAtEntry": false,
@@ -85,7 +84,7 @@
             "request": "launch",
             "preLaunchTask": "buildSTU3",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.Stu3.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.Stu3.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
             "stopAtEntry": false,
@@ -109,7 +108,7 @@
             "request": "launch",
             "preLaunchTask": "buildR5",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.R5.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
             "stopAtEntry": false,
@@ -132,7 +131,7 @@
             "request": "launch",
             "preLaunchTask": "buildR5",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net7.0/Microsoft.Health.Fhir.R5.Web.dll",
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/net6.0/Microsoft.Health.Fhir.R5.Web.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
             "stopAtEntry": false,

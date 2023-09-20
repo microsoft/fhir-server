@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using DotLiquid.Tags;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;

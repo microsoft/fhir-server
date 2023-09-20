@@ -674,38 +674,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
-                var data = result.Resource.RawResource.Data;
+                ResourceElement overrideDataElement = null;
                 var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
 
                 if (anonymizer != null)
                 {
-                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
                     try
                     {
-                        element = anonymizer.Anonymize(element);
+                        overrideDataElement = anonymizer.Anonymize(overrideDataElement);
                     }
                     catch (Exception ex)
                     {
                         throw new FailedToAnonymizeResourceException(ex.Message, ex);
                     }
-
-                    // Serialize into NDJson and write to the file.
-                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
                 }
-                else if (!resourceWrapper.RawResource.IsMetaSet)
+                else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
                 {
                     // For older records in Cosmos the metadata isn't included in the raw resource
-                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
-                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
-                }
-                else if (addSoftDeletedExtension)
-                {
-                    // If the resource is deleted and we aren't anonymizing it, we need to add the soft delete extension
-                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
-                    data = _resourceToByteArraySerializer.StringSerialize(element, addSoftDeletedExtension);
+                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
                 }
 
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
+                var outputData = result.Resource.RawResource.Data;
+
+                // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
+                if (overrideDataElement is not null)
+                {
+                    outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
+                }
+
+                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
             }
         }
 

@@ -73,7 +73,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Export with history and soft deleted records
 # @name export
-GET https://{{hostname}}/$export?_includeHistory=true&includeDeleted=true
+GET https://{{hostname}}/$export?_includeHistory=true&_includeDeleted=true
 Accept: application/fhir+json
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
