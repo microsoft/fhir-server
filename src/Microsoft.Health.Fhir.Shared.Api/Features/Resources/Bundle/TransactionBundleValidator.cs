@@ -5,16 +5,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -22,12 +25,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public class TransactionBundleValidator
     {
         private readonly ResourceReferenceResolver _referenceResolver;
+        private readonly ILogger<TransactionBundleValidator> _logger;
 
-        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver)
+        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver, ILogger<TransactionBundleValidator> logger)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _referenceResolver = referenceResolver;
+            _logger = logger;
         }
 
         /// <summary>
@@ -95,6 +101,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
+
+            JObject serializableEntity = JObject.FromObject(new
+            {
+                requestUrl = entry.Request.Url,
+                resourceType,
+                conditionalQueries,
+                matchedResults = matchedResults?.Count,
+                idDictionary = idDictionary.Count,
+            });
+
+            _logger.LogInformation(serializableEntity.ToString());
 
             if (matchedResults?.Count > 1)
             {
