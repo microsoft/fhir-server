@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             }
             catch (Exception ex)
             {
-                Assert.Equal(nameof(InvalidOperationException), ex.GetType().Name);
+                Assert.Equal(nameof(ArgumentException), ex.GetType().Name);
             }
         }
 
