@@ -1278,7 +1278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             int countOfSearches = 0;
-            _ = _searchService.SearchAsync(
+            _searchService.SearchAsync(
                 KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken,
@@ -1291,7 +1291,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     if (countOfSearches == 1)
                     {
-                        // ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
                         ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)
                             .Where(x => x.Item1 == Core.Features.KnownQueryParameterNames.Id)
                             .Select(x => x.Item2).First().Split(',');

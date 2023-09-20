@@ -53,16 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var resourceElement = resource.ToResourceElement();
 
-            var isDeleted = resourceElement.IsSoftDeleted();
+            var resourceWapper = _resourceFactory.Create(resourceElement, true, keepVersion);
 
-            if (isDeleted)
-            {
-                resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
-            }
-
-            var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
-
-            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWapper);
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)

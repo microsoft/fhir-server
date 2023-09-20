@@ -41,7 +41,7 @@
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "SqlServer",
                 "SqlServer:AllowDatabaseCreation": "true",
-                "SqlServer:ConnectionString": "Server=localhost,1433;Persist Security Info=False;TrustServerCertificate=true;User ID=sa;Password=localDev1!;Initial Catalog=FHIR_R4",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "SqlServer:Initialize": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
