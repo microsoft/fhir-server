@@ -636,9 +636,22 @@ END
                 return sqlConnection;
             }
 
-            public Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
-                throw new NotImplementedException();
+#pragma warning disable CS0618 // Type or member is obsolete
+                SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
+#pragma warning restore CS0618 // Type or member is obsolete
+                _retryCount++;
+                if (_allRetriesFail || _retryCount == 1)
+                {
+                    var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = "FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST",
+                    };
+                    sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                }
+
+                return sqlConnection;
             }
         }
 
