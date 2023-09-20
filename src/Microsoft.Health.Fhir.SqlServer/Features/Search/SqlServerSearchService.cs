@@ -122,7 +122,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+
+            SqlSearchType searchType = SqlSearchType.Default;
+            searchType |= sqlSearchOptions.IncludeHistory ? SqlSearchType.IncludeHistory : searchType;
+            searchType |= sqlSearchOptions.IncludeDeleted ? SqlSearchType.IncludeDeleted : searchType;
+
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
@@ -203,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            return await SearchImpl(sqlSearchOptions, SqlSearchType.History, null, cancellationToken);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.IncludeHistory & SqlSearchType.IncludeDeleted, null, cancellationToken);
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
@@ -282,6 +287,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
+            // ! - Trace
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(_compartmentSearchRewriter)
@@ -694,7 +700,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType == SqlSearchType.History)
+            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory))
             {
                 // history is always sorted by _lastUpdated.
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();
