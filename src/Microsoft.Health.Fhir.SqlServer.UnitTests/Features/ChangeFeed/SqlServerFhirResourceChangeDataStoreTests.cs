@@ -69,10 +69,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenEmptyConnectionString_WhenGetResourceChanges_ThenInvalidOperationExceptionShouldBeThrown()
         {
-            var resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(string.Empty);
-
             try
             {
+                var resourceChangeDataStore = GetResourcChangeDataStoreWithGivenConnectionString(string.Empty);
+
                 await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
             }
             catch (Exception ex)
