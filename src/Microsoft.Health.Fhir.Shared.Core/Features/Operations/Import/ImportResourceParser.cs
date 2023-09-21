@@ -52,8 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             var resourceElement = resource.ToResourceElement();
-
-            var resourceWapper = _resourceFactory.Create(resourceElement, true, keepVersion);
+            var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
 
             return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
         }
