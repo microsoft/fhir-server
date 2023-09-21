@@ -159,6 +159,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
+                    // TODO: This logic will need to be changed. Do we need to compare the entire resource key or only part of it?
+                    // GivenImportedResourceOverExisting_WhenImportVersionNotSpecified_ThenBothVersionsExistCorrectly
                     if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
                         && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
                     {

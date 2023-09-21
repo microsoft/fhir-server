@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public static T AddTestTag<T>(this T input, string tag)
             where T : Resource
         {
-            input.Meta = new Meta();
+            input.Meta = input.Meta ?? new();
             input.Meta.Tag.Add(new Coding("http://e2e-test", tag));
 
             return input;
