@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            return await SearchImpl(sqlSearchOptions, SqlSearchType.IncludeHistory & SqlSearchType.IncludeDeleted, null, cancellationToken);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.IncludeHistory | SqlSearchType.IncludeDeleted, null, cancellationToken);
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
