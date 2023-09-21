@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task ExecuteSql(string commandText)
         {
-            using SqlConnection sqlConnection = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();
+            using SqlConnection sqlConnection = _fixture.SqlConnectionBuilder.GetSqlConnection();
             using SqlCommand sqlCommand = sqlConnection.CreateCommand();
             await sqlConnection.OpenAsync();
             sqlCommand.CommandText = commandText;
@@ -589,7 +589,7 @@ END
             var t = new Thread(new ThreadStart(() =>
             {
                 _output.WriteLine($"{DateTime.Now:O}: Start KillConnection thread.");
-                using SqlConnection sqlConnection = _fixture.SqlConnectionBuilder.GetSqlConnectionAsync().GetAwaiter().GetResult();
+                using SqlConnection sqlConnection = _fixture.SqlConnectionBuilder.GetSqlConnection();
                 var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
                 {
                     Pooling = false,
@@ -618,9 +618,29 @@ END
                 _allRetriesFail = allRetriesFail;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                _retryCount++;
+                if (_allRetriesFail || _retryCount == 1)
+                {
+                    var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = "FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST",
+                    };
+                    sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                }
+
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
+#pragma warning restore CS0618 // Type or member is obsolete
                 _retryCount++;
                 if (_allRetriesFail || _retryCount == 1)
                 {
@@ -644,9 +664,24 @@ END
                 _sqlConnectionBuilder = sqlConnectionBuilder;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                {
+                    Pooling = false,
+                };
+                sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
+#pragma warning restore CS0618 // Type or member is obsolete
                 var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
                 {
                     Pooling = false,
