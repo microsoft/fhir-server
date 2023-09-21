@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json.Linq;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -25,15 +23,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public class TransactionBundleValidator
     {
         private readonly ResourceReferenceResolver _referenceResolver;
-        private readonly ILogger<TransactionBundleValidator> _logger;
 
-        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver, ILogger<TransactionBundleValidator> logger)
+        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
-            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _referenceResolver = referenceResolver;
-            _logger = logger;
         }
 
         /// <summary>
@@ -101,20 +96,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
-
-            JObject serializableEntity = JObject.FromObject(new
-            {
-                label = nameof(TransactionBundleValidator),
-                requestMethod = entry.Request.Method,
-                queryRequestUrl = entry.Request.Url,
-                queryResourceType = resourceType,
-                queryConditionalQueries = conditionalQueries,
-                matchedResults = matchedResults?.Count,
-                matchedResourceId = matchedResults?.Count == 1 ? matchedResults.First().Resource.ResourceId : null,
-                idDictionary = idDictionary.Count,
-            });
-
-            _logger.LogInformation(serializableEntity.ToString());
 
             if (matchedResults?.Count > 1)
             {
