@@ -485,23 +485,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
         {
             var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
-
-            // Excluding common parameters and modifiers, and chained or compound search parameters. The latter two need to be broken down to check the status.
-            if (KnownQueryParameterNames.IsKnownParameter(code) || code.Contains(':', StringComparison.OrdinalIgnoreCase) || code.Contains('.', StringComparison.OrdinalIgnoreCase) || Enum.IsDefined(typeof(SearchModifierCode), resourceType))
-            {
-                // Always true for common parameters.
-                return;
-            }
-            else
+            try
             {
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
                 var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
 
-                // Could be null if using root search parameters like _count or _id
                 if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
                 {
                     throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
                 }
+            }
+            catch (SearchParameterNotSupportedException)
+            {
+                throw;
+            }
+            catch (ArgumentNullException)
+            {
+                // If there is an error, we will just ignore it and not check the status since it could be a base search parameter such as _type or a complex one with modifer _id:not..
+                _logger.LogInformation("Status is not available for search parameter with code {Code}. Bypassing status check.", code);
             }
         }
 
