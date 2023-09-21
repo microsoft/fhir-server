@@ -109,9 +109,6 @@ steps:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
     msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net7.0'
-
-- task: PoliCheck@2
-  displayName: Run PoliCheck
   
 - task: BinSkim@4
   inputs:
@@ -120,7 +117,9 @@ steps:
     Function:           analyze
     AnalyzeTargetGlob:  'f|$(Agent.TempDirectory)/artifacts/**/*Microsoft.Health.*.dll'
 
- ## Tool is no longer supported:
+ ## PoliCheck@2 does not need to be added since it is run internally
+
+ ## Tools that are no longer supported:
  # AutoApplicability@1, CodeMetrics@1, VulnerabilityAssessment@0
 
 - task: SdtReport@2
@@ -156,7 +155,7 @@ steps:
     FxCop: false
     ModernCop: false
     MSRD: false
-    PoliCheck: true
+    PoliCheck: false
     RoslynAnalyzers: true
     SDLNativeRules: false
     Semmle: false
