@@ -3,7 +3,7 @@
     "type": "transaction",
     "entry": [
         {
-            "fullUrl": "urn:uuid:5506D36E-D841-4849-AE95-42FCB321F4E4",
+            "fullUrl": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8",
             "resource": {
                 "resourceType": "Patient",
                 "identifier": [
@@ -19,7 +19,7 @@
             }
         },
         {
-            "fullUrl": "urn:uuid:0D6EF84A-F199-4C00-9034-3BDA480FB8C5",
+            "fullUrl": "urn:uuid:70aedfe9-ad6e-4664-945a-81779945dd90",
             "resource": {
                 "resourceType": "ImagingStudy",
                 "identifier": [
@@ -30,7 +30,7 @@
                 ],
                 "status": "available",
                 "subject": {
-                    "reference": "urn:uuid:5506D36E-D841-4849-AE95-42FCB321F4E4"
+                    "reference": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8"
                 },
                 "series": [
                     {
