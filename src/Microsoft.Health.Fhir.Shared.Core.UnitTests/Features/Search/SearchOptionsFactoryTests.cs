@@ -487,6 +487,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData("false", "false")]
+        [InlineData("true", "false")]
+        [InlineData("false", "true")]
+        [InlineData("true", "true")]
+        [InlineData("TRUE", "TRUE")]
+        [InlineData("bad", "bad")]
+        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(string includeHistory, string includeDeleted)
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.IncludeHistory, includeHistory),
+                Tuple.Create(KnownQueryParameterNames.IncludeDeleted, includeDeleted),
+            };
+
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            Assert.NotNull(options);
+
+            bool includeHistoryBool = false;
+            bool includeDeletedBool = false;
+
+            bool.TryParse(includeHistory, out includeHistoryBool);
+            bool.TryParse(includeDeleted, out includeDeletedBool);
+
+            Assert.Equal(includeHistoryBool, options.IncludeHistory);
+            Assert.Equal(includeDeletedBool, options.IncludeDeleted);
+
+            Assert.Empty(options.UnsupportedSearchParams);
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
