@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -80,7 +81,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <param name="httpContext">The HTTP context.</param>
         /// <param name="claimsExtractor">The extractor used to extract claims.</param>
         /// <param name="shouldCheckForAuthXFailure">Only emit LogExecuted messages if this is an authentication error (401), since others would already have been logged.</param>
-        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false)
+        /// <param name="durationMs">Backend duration of the request processed in milliseconds.</param>
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false, long? durationMs = null)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
@@ -88,11 +90,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
             if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
             {
-                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
+                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor, durationMs);
             }
         }
 
-        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor, long? durationMs = null)
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
@@ -116,6 +118,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     sanitizedOperationType = UnknownOperationType;
                 }
 
+                Dictionary<string, string> additionalProperties = null;
+                if (durationMs != null)
+                {
+                    additionalProperties = new Dictionary<string, string>();
+                    additionalProperties["durationMs"] = durationMs.ToString();
+                }
+
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -128,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     customHeaders: _auditHeaderReader.Read(httpContext),
                     operationType: sanitizedOperationType,
                     callerAgent: DefaultCallerAgent,
-                    additionalProperties: null);
+                    additionalProperties: additionalProperties);
             }
         }
 
