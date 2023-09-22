@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#pragma warning disable CA1303
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
         public static void Main()
         {
+            Console.WriteLine("!!!See App.config for the details!!!");
             var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
             var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";

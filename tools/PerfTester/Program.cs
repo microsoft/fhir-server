@@ -43,6 +43,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
         public static void Main()
         {
+            Console.WriteLine("!!!See App.config for the details!!!");
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
