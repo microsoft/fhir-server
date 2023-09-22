@@ -30,6 +30,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BinaryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportDataValidationTests.cs" />
