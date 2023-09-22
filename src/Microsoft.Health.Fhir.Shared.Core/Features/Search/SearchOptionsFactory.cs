@@ -305,7 +305,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 try
                 {
-                    await CheckForSearchParameterEnabled(resourceType, q.Item1, cancellationToken);
+                    if (!unsupportedSearchParameters.Contains(q))
+                    {
+                        await CheckForSearchParameterEnabled(resourceType, q.Item1, cancellationToken);
+                    }
 
                     return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
                 }
@@ -497,7 +500,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             catch (SearchParameterNotSupportedException)
             {
-                if (code.Contains(':', StringComparison.OrdinalIgnoreCase))
+                if (code.Contains(':', StringComparison.OrdinalIgnoreCase) || code.Contains('.', StringComparison.OrdinalIgnoreCase))
                 {
                     return;
                 }
