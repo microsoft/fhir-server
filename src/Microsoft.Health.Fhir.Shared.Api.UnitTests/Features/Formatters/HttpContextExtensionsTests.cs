@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
-        public void GivenARequestWithSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummeryTypeIsApplied()
+        public void GivenARequestWithSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_summary", "text");
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
-        public void GivenARequestWithCapsSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummeryTypeIsApplied()
+        public void GivenARequestWithCapsSummaryType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_SUMMARY", "DATA");
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
-        public void GivenARequestWithCountType_WhenSerializingTheResponse_ThenTheCorrectSummeryTypeIsApplied()
+        public void GivenARequestWithCountType_WhenSerializingTheResponse_ThenTheCorrectSummaryTypeIsApplied()
         {
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_count", "0");
