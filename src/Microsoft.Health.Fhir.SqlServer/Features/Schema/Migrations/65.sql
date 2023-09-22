@@ -862,8 +862,9 @@ CREATE TABLE dbo.ResourceCurrent (
 
 ALTER TABLE dbo.ResourceCurrent SET (LOCK_ESCALATION = AUTO);
 
-CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsDeleted_0
-    ON dbo.ResourceCurrent(ResourceTypeId, ResourceSurrogateId) WHERE IsDeleted = 0
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsHistory_0_IsDeleted_0
+    ON dbo.ResourceCurrent(ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0
+                                                                      AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL

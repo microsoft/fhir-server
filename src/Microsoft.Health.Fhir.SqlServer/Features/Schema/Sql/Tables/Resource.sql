@@ -18,7 +18,11 @@
 
 ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 
-CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+-- Strictly speaking, IsHistory=0 filter in the index is not required because table has check constraint. 
+-- But SQL Server has a bug. For queries having IsHistory=0 in WHERE, SQL knows that only current table should be looked at.
+-- But when choosing indexes it forgets about this unless IsHistory=0 is also included in index definition.
+-- Without this redundant filtering clause in the index SQL chooses clustered index scan. For large tables it is a difference between running OK and timing out. 
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsHistory_0_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId) WHERE IsHistory = 0 AND IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
 
