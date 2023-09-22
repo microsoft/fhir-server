@@ -81,7 +81,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return parameter;
             }
 
-            throw new SearchParameterNotSupportedException(resourceType, code);
+            return null;
+
+            // throw new SearchParameterNotSupportedException(resourceType, code);
         }
 
         public SearchParameterInfo GetSearchParameter(string definitionUri)

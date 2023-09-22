@@ -497,6 +497,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             catch (SearchParameterNotSupportedException)
             {
+                if (code.Contains(':', StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
                 throw;
             }
             catch (ArgumentNullException)
