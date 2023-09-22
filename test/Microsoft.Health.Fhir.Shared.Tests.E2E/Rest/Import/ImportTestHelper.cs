@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Resource = Hl7.Fhir.Model.Resource;
@@ -62,6 +63,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             VerifyBundle(result, resources);
         }
 
+        public static async Task VerifyHistoryResultAsync(TestFhirClient client, params Resource[] resources)
+        {
+            var ids = resources.Select(r => r.Id).Distinct().ToArray();
+
+            foreach (string id in ids)
+            {
+                Bundle result = await client.SearchAsync($"{id}/_history");
+                VerifyBundleWithMeta(result, resources.Where(r => r.Id == id).ToArray());
+            }
+        }
+
         public static void VerifyBundle(Bundle result, params Resource[] resources)
         {
             Assert.Equal(resources.Length, result.Entry.Count);
@@ -69,6 +81,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
             {
                 Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+            }
+        }
+
+        public static void VerifyBundleWithMeta(Bundle result, params Resource[] resources)
+        {
+            Assert.Equal(resources.Length, result.Entry.Count);
+
+            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            {
+                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+                Assert.Contains(resources, expectedResource => expectedResource.Meta.LastUpdated.Equals(resultResource.Meta.LastUpdated));
+                Assert.Contains(resources, expectedResource => expectedResource.Meta.VersionId.Equals(resultResource.Meta.VersionId));
+            }
+
+            foreach (Resource inputResource in resources.Where(x => x.Meta.Extension.Any(x => x.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl)))
+            {
+                 Bundle.EntryComponent matchingEntry = result.Entry.Single(r => r.Resource.Id.Equals(inputResource.Id));
+                 matchingEntry.Request.Method = Bundle.HTTPVerb.DELETE;
             }
         }
 

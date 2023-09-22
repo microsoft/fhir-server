@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -35,29 +36,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Validate that the new version of the resource is returned by a general search.
             var resourceId = _fixture.NewImplicitVersionIdResources.Import[0].Id;
             var queryById = $"Patient?_id={resourceId}&_tag={_fixture.FixtureTag}";
+
             Bundle result = await _client.SearchAsync(queryById);
-            ImportTestHelper.VerifyBundle(result, _fixture.NewImplicitVersionIdResources.Import.ToArray());
+            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.NewImplicitVersionIdResources.Import.ToArray());
 
             // TODO - why is the new version not being imported? Why is this not 2?
-            // Assert.Equal("2", result.Entry[0].Resource.Meta.VersionId);
+            Assert.Equal("2", result.Entry[0].Resource.Meta.VersionId);
 
             // Validate that the old version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
 
-            ImportTestHelper.VerifyBundle(
+            ImportTestHelper.VerifyBundleWithMeta(
                 result,
                 _fixture.NewImplicitVersionIdResources.Import.Concat(_fixture.NewImplicitVersionIdResources.Existing).ToArray());
         }
 
         [Fact]
-        public async Task GivenImportedResourceOverExisting_WhenImportVersionInConflict_ThenNotImportedWithError()
+        public async Task GivenImportedResourceOverExisting_WhenImportVersionInConflict_ThenOnlyOneResourceOnServer()
         {
             // Validate that the new version of the resource is returned by a general search.
-            var resourceId = _fixture.ConflictingVersionResources.Import[0].Id;
+            var resourceId = _fixture.ConflictingVersionResources.Import.Select(r => r.Id).Distinct().Single();
             var queryById = $"Patient?_id={resourceId}&_tag={_fixture.FixtureTag}";
             Bundle result = await _client.SearchAsync(queryById);
-            ImportTestHelper.VerifyBundle(result, _fixture.ConflictingVersionResources.Import.ToArray());
+            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.ConflictingVersionResources.Import.ToArray());
 
             // Only one version should be imported.
             Assert.Equal("1", result.Entry[0].Resource.Meta.VersionId);
@@ -66,29 +68,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
 
-            ImportTestHelper.VerifyBundle(
-                result,
-                _fixture.ConflictingVersionResources.Import.ToArray());
+            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.ConflictingVersionResources.Import.ToArray());
         }
 
         [Fact]
         public async Task GivenImportWithCreateAndDelete_WhenDeleteAfterCreate_ThenBothVersionsExistCorrectly()
         {
             // Validate that the new version of the resource is returned by a general search.
-            var resourceId = _fixture.ImportAndDeleteResources.Import[0].Id;
-            var queryById = $"Patient?_id={resourceId}&_tag={_fixture.FixtureTag}";
-            Bundle result = await _client.SearchAsync(queryById);
-            ImportTestHelper.VerifyBundle(result, _fixture.ImportAndDeleteResources.Import.ToArray());
+            var resourceIds = _fixture.ImportAndDeleteResources.Import.Select(r => r.Id).Distinct().ToArray();
+            var queryByIds = $"Patient?_id={string.Join(",", resourceIds)}&_tag={_fixture.FixtureTag}";
 
-            Assert.Equal("2", result.Entry[0].Resource.Meta.VersionId);
+            List<Resource> expectedNonHistorical = new()
+            {
+                _fixture.ImportAndDeleteResources.Import[1],
+                _fixture.ImportAndDeleteResources.Import[3],
+                _fixture.ImportAndDeleteResources.Import[5],
+                _fixture.ImportAndDeleteResources.Import[7],
+            };
 
-            // Validate that the old version of the resource is returned by a history search.
-            var queryByIdHistory = $"Patient/{resourceId}/_history";
-            result = await _client.SearchAsync(queryByIdHistory);
+            List<Resource> expectedNonHistoricalMetaMatching = new()
+            {
+                _fixture.ImportAndDeleteResources.Import[1],
+                _fixture.ImportAndDeleteResources.Import[3],
 
-            ImportTestHelper.VerifyBundle(
-                result,
-                _fixture.ImportAndDeleteResources.Import.Concat(_fixture.ImportAndDeleteResources.Existing).ToArray());
+                // We cannot expect both versions of explicitVersionImplicitUpdatedGuid to exist since import cannot infer the order without lastUpdated.
+                // We cannot expect both versions of implicitVersionUpdatedGuid to exist since import cannot infer the order without lastUpdated.
+            };
+
+            Bundle result = await _fixture.TestFhirClient.SearchAsync(queryByIds);
+            ImportTestHelper.VerifyBundle(result, expectedNonHistorical.ToArray());
+            ImportTestHelper.VerifyBundleWithMeta(result, expectedNonHistoricalMetaMatching.ToArray());
+
+            // Validate all versions
+            await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, _fixture.ImportAndDeleteResources.Import.ToArray());
         }
 
         /*

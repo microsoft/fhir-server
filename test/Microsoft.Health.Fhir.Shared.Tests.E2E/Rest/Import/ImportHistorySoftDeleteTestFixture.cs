@@ -81,11 +81,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return (
                 new()
                 {
-                    DefaultPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1)),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1)),
                 },
                 new()
                 {
-                    PatientNoVersionOrLastUpdated(id: sharedId),
+                    CreateTestPatient(id: sharedId),
                 });
         }
 
@@ -95,27 +95,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return (
                 new()
                 {
-                    DefaultPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1), versionId: "1"),
                 },
                 new()
                 {
-                    DefaultPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
                 });
         }
 
         private (List<Resource> Existing, List<Resource> Import) GetImportAndDeleteResources()
         {
-            string sharedId = Guid.NewGuid().ToString("N");
+            string explicitVersionUpdatedGuid = Guid.NewGuid().ToString("N");
+            string implicitVersionExplicitUpdatedGuid = Guid.NewGuid().ToString("N");
+            string explicitVersionImplicitUpdatedGuid = Guid.NewGuid().ToString("N");
+            string implicitVersionUpdatedGuid = Guid.NewGuid().ToString("N");
+
             return (
                 new(),
                 new()
                 {
-                    DefaultPatient(id: sharedId),
-                    DefaultPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "2"),
+                    // The order of these is important for the test. Indexes 1, 3, 5 are expected to be available via search w/o history.
+                    CreateTestPatient(id: explicitVersionUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1"),
+                    CreateTestPatient(id: explicitVersionUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow, versionId: "2", deleted: true),
+                    CreateTestPatient(id: implicitVersionExplicitUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
+                    CreateTestPatient(id: implicitVersionExplicitUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow, deleted: true),
+                    CreateTestPatient(id: explicitVersionImplicitUpdatedGuid, versionId: "1"),
+                    CreateTestPatient(id: explicitVersionImplicitUpdatedGuid, versionId: "2", deleted: true),
+                    CreateTestPatient(id: implicitVersionUpdatedGuid),
+                    CreateTestPatient(id: implicitVersionUpdatedGuid, deleted: true),
                 });
         }
 
-        private Patient PatientNoVersionOrLastUpdated(string id = null, bool deleted = false)
+        private Patient CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, bool deleted = false)
         {
             var rtn = new Patient()
             {
@@ -123,33 +134,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
             .AddTestTag(FixtureTag);
 
+            if (lastUpdated is not null)
+            {
+                rtn.Meta = new Meta { LastUpdated = lastUpdated };
+            }
+
+            if (versionId is not null)
+            {
+                rtn.Meta.VersionId = versionId;
+            }
+
             if (deleted)
             {
                 rtn.Meta.Extension = new List<Extension> { { new Extension(KnownFhirPaths.AzureSoftDeletedExtensionUrl, new FhirString("soft-deleted")) } };
             }
 
-            return rtn;
-        }
-
-        private Patient PatientNoVersion(string id = null, DateTimeOffset? lastUpdated = null, bool deleted = false)
-        {
-            var rtn = PatientNoVersionOrLastUpdated(id: id, deleted: deleted);
-            rtn.Meta.LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow;
-            return rtn;
-        }
-
-        private Patient PatientNoLastUpdated(string id = null, string versionId = null, bool deleted = false)
-        {
-            var rtn = PatientNoVersionOrLastUpdated(id: id, deleted: deleted);
-            rtn.Meta.VersionId = versionId ?? "1";
-            return rtn;
-        }
-
-        private Patient DefaultPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, bool deleted = false)
-        {
-            var rtn = PatientNoVersionOrLastUpdated(id: id, deleted: deleted);
-            rtn.Meta.LastUpdated = lastUpdated ?? DateTimeOffset.UtcNow;
-            rtn.Meta.VersionId = versionId ?? "1";
             return rtn;
         }
     }
