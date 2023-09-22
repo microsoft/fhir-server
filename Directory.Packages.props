@@ -4,18 +4,25 @@
     <HealthcareSharedPackageVersion>6.2.149</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
+
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
+
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="7.0.1" />
+
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+
     <!-- CVE-2021-26701 -->
     <PackageVersion Include="System.Text.Encodings.Web" Version="7.0.0" />
+
     <!-- CVE-2020-1045 -->
     <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
+
     <!-- CVE-2022-26907 -->
     <PackageVersion Include="Microsoft.Rest.ClientRuntime" Version="2.3.24" />
   </ItemGroup>
+
   <!-- SDK Packages -->
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net7.0'">
@@ -93,7 +100,7 @@
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.1.0.62" />
     <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.1.0.101" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.SqlServer" Version="6.2.149" />
+    <PackageVersion Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Tools.Sql.Tasks" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="2.13.3" />
