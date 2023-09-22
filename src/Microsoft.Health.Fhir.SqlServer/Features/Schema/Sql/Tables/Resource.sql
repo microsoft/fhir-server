@@ -18,7 +18,7 @@
 
 ALTER TABLE dbo.ResourceCurrent SET ( LOCK_ESCALATION = AUTO )
 
-CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrgateId_WHERE_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+CREATE UNIQUE INDEX IXU_ResourceTypeId_ResourceSurrogateId_WHERE_IsDeleted_0 ON dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId) WHERE IsDeleted = 0 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 CREATE INDEX IX_ResourceTypeId_TransactionId_WHERE_TransactionId_NOT_NULL ON dbo.ResourceCurrent (ResourceTypeId, TransactionId) WHERE TransactionId IS NOT NULL ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
 
