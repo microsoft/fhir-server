@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     using (CancellationTokenSource operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token))
                     {
                         await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, operationTokenSource.Token);
-                        return HealthCheckResult.Healthy("Successfully connected to the data store.");
+                        return HealthCheckResult.Healthy("Successfully connected.");
                     }
                 }
                 catch (CosmosOperationCanceledException coce)
@@ -80,36 +80,58 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        _logger.LogWarning(coce, "Failed to connect to the data store. External cancellation requested.");
-                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. External cancellation requested.");
+                        const string message = "Failed to connect to the data store. External cancellation requested.";
+
+                        // Handling an extenal cancellation.
+                        // No reasons to retry as the cancellation was external to the health check.
+
+                        _logger.LogWarning(coce, message);
+                        return HealthCheckResult.Unhealthy(message);
                     }
                     else if (attempt >= maxNumberAttempts)
                     {
-                        _logger.LogWarning(coce, "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
-                        return HealthCheckResult.Degraded("Failed to connect to the data store. Operation canceled.");
+                        // This is a very rare situation. This condition indicates that multiple attempts to connect to the data store happened, but they were not successful.
+
+                        _logger.LogWarning(
+                            coce,
+                            "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.",
+                            attempt,
+                            nameof(CosmosOperationCanceledException));
+                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. Operation canceled.");
                     }
                     else
                     {
                         // Number of attempts not reached. Allow retry.
+
                         _logger.LogWarning(coce, "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
                     }
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
+                    // Handling CMK errors.
+
+                    _logger.LogWarning(
+                        ex,
+                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.");
+
                     return HealthCheckResult.Degraded(
-                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
+                        "Failed to connect to the data store. Customer-managed key is not available.",
                         exception: ex,
                         new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
                 }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
                 {
+                    // Handling request rate exceptions.
+
                     return HealthCheckResult.Degraded("Connection to the data store was successful, however, the rate limit has been exceeded.");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to connect to the data store.");
+                    // Handling other exceptions.
 
-                    return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
+                    const string message = "Failed to connect to the data store.";
+                    _logger.LogWarning(ex, message);
+                    return HealthCheckResult.Unhealthy(message);
                 }
             }
             while (true);
