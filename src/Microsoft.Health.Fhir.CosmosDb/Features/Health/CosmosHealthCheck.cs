@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     else if (attempt >= maxNumberAttempts)
                     {
                         _logger.LogWarning(coce, "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
-                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. Operation canceled.");
+                        return HealthCheckResult.Degraded("Failed to connect to the data store. Operation canceled.");
                     }
                     else
                     {
@@ -96,14 +96,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
-                    return HealthCheckResult.Unhealthy(
+                    return HealthCheckResult.Degraded(
                         "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
                         exception: ex,
                         new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
                 }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
                 {
-                    return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
+                    return HealthCheckResult.Degraded("Connection to the data store was successful, however, the rate limit has been exceeded.");
                 }
                 catch (Exception ex)
                 {

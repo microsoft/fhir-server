@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             _testProvider.PerformTestAsync(default, default, _cosmosCollectionConfiguration, CancellationToken.None).ThrowsForAnyArgs(coce);
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.Equal(HealthStatus.Unhealthy, result.Status);
+            Assert.Equal(HealthStatus.Degraded, result.Status);
             _testProvider.ReceivedWithAnyArgs(3);
         }
 
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
                 HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-                Assert.Equal(HealthStatus.Unhealthy, result.Status);
+                Assert.Equal(HealthStatus.Degraded, result.Status);
                 Assert.Contains("customer-managed key is not available", result.Description);
                 Assert.NotNull(result.Data);
                 Assert.True(result.Data.ContainsKey("IsCustomerManagedKeyError"));
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-            Assert.Equal(HealthStatus.Healthy, result.Status);
+            Assert.Equal(HealthStatus.Degraded, result.Status);
             Assert.Contains("rate limit", result.Description);
         }
     }
