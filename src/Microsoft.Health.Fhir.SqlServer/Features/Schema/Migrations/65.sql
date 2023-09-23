@@ -6789,8 +6789,7 @@ SELECT ResourceTypeId,
        SearchParamHash,
        TransactionId,
        NULL
-FROM   dbo.ResourceCurrent
-WHERE  ResourceSurrogateId > 2522029824000000000;
+FROM   dbo.ResourceCurrent;
 
 
 GO
@@ -6892,28 +6891,5 @@ CREATE TRIGGER dbo.ResourceDel
                                  AND B.ResourceSurrogateId = A.ResourceSurrogateId
                                  AND B.IsHistory = 1);
        END
-
-
-GO
-INSERT INTO dbo.ResourceCurrent (ResourceTypeId, ResourceSurrogateId, ResourceId, Version, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash, TransactionId, IsHistory)
-SELECT RT AS ResourceTypeId,
-       SurrId AS ResourceSurrogateId,
-       newid() AS ResourceId,
-       0 AS Version,
-       0 AS IsDeleted,
-       NULL AS RequestMethod,
-       0xF AS RawResource,
-       0 AS IsRawResourceMetaSet,
-       NULL AS SearchParamHash,
-       NULL AS TransactionId,
-       0 AS IsHistory
-FROM   (SELECT TOP 100 2522029824000000000 - (row_number() OVER (ORDER BY colid)) AS SurrId
-        FROM   syscolumns) AS A CROSS JOIN (SELECT TOP 100 row_number() OVER (ORDER BY colid) AS RT
-                                            FROM   syscolumns) AS B
-WHERE  NOT EXISTS (SELECT *
-                   FROM   dbo.ResourceCurrent
-                   WHERE  IsHistory = 0
-                          AND ResourceTypeId = RT
-                          AND ResourceSurrogateId = SurrId);
 
 GO
