@@ -54,6 +54,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(continuationToken);
 
+            if (int.TryParse(continuationToken, out _))
+            {
+                return continuationToken;
+            }
+
             using MemoryStream memoryStream = StreamManager.GetStream(tag: nameof(ContinuationTokenConverter));
             using var deflate = new DeflateStream(memoryStream, CompressionLevel.Fastest);
             using var writer = new StreamWriter(deflate, Encoding.UTF8);

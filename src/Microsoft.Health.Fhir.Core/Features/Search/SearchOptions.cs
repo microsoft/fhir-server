@@ -48,12 +48,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             QueryHints = other.QueryHints;
+            UseIndexedPaging = other.UseIndexedPaging;
         }
 
         /// <summary>
         /// Gets the optional continuation token.
         /// </summary>
         public string ContinuationToken { get; internal set; }
+
+        /// <summary>
+        /// This is used to instruct SqlQueryGenerator to use OFFSET instead of TOP for paging results.
+        /// </summary>
+        public bool UseIndexedPaging { get; internal set; }
 
         /// <summary>
         /// Gets a value indicating whether to only return the record count

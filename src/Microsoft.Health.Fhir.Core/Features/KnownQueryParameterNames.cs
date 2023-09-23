@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// </summary>
         public const string ContinuationToken = "ct";
 
+        public const string Skip = "_skip";
+
         public const string Count = "_count";
 
         /// <summary>

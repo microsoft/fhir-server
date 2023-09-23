@@ -81,5 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the server supports the $bulk-delete.
         /// </summary>
         public bool SupportsBulkDelete { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the sql generator should use OFFSET for paging search results.
+        /// </summary>
+        public bool SupportsIndexedPaging { get; set; } = true;
     }
 }

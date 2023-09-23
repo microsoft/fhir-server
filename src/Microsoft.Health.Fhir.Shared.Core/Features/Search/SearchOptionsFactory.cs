@@ -104,6 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            searchOptions.UseIndexedPaging = _featureConfiguration.SupportsIndexedPaging;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
@@ -118,7 +119,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                    // check is continuation token is a numerical format which means it must use an offset
+                    if (int.TryParse(query.Item2, out _))
+                    {
+                        continuationToken = query.Item2;
+                        searchOptions.UseIndexedPaging = true;
+                    }
+                    else
+                    {
+                        continuationToken = ContinuationTokenConverter.Decode(query.Item2);
+                        searchOptions.UseIndexedPaging = false;
+                    }
+
                     setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format || query.Item1 == KnownQueryParameterNames.Pretty)

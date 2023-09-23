@@ -313,6 +313,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 #endif
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPagingAndSkip_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}&_count=2&ct=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport, Fixture.SmithLoincDiagnosticReport);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            ValidateBundle(bundle, Fixture.TrumanLoincDiagnosticReport);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPagingAndSkip_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code={Fixture.SnomedCode}&_count=1&ct=1";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(bundle, Fixture.TrumanPatient);
+        }
+
         public class ClassFixture : HttpIntegrationTestFixture
         {
             public ClassFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
