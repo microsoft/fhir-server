@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Policy;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -316,10 +317,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
-            ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
+            ValidateReferenceToPatient("Bundle 1", bundleResponse1.Resource.Entry[1].Resource, patientId, bundleResponse1);
 
             FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
-            ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
+            ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
         }
 
         [Fact]
@@ -338,7 +339,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
-            ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
+            ValidateReferenceToPatient("Bundle 1", bundleResponse1.Resource.Entry[1].Resource, patientId, bundleResponse1);
 
             patient.Text = new Narrative
             {
@@ -350,19 +351,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
             Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);
-            ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
+            ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
         }
 
-        private static void ValidateReferenceToPatient(Resource resource, string patientId)
+        private static void ValidateReferenceToPatient(
+            string prefix,
+            Resource resource,
+            string patientId,
+            FhirResponse<Bundle> response)
         {
             IEnumerable<ResourceReference> imagingStudyReferences = resource.GetAllChildren<ResourceReference>();
             bool foundReference = false;
+            string expected = $"Patient/{patientId}";
 
             foreach (var reference in imagingStudyReferences)
             {
                 if (reference.Reference.StartsWith("Patient"))
                 {
-                    Assert.Equal($"Patient/{patientId}", reference.Reference);
+                    string current = reference.Reference;
+
+                    Assert.True(
+                        string.Equals(expected, current, StringComparison.Ordinal),
+                        userMessage: $"{prefix} - Expected patient reference ({expected}) is different than the current ({current}). Details: {response.GetFhirResponseDetailsAsJson()}");
+
                     foundReference = true;
                 }
             }
