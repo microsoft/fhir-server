@@ -202,9 +202,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         denormalizedPredicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
                     }
 
+                    AppendHistoryClause(delimitedClause); // This helps to select correct physical table
                     if (expression.SearchParamTableExpressions.Count == 0)
                     {
-                        AppendHistoryClause(delimitedClause);
                         AppendDeletedClause(delimitedClause);
                         AppendSearchParameterHashClause(delimitedClause);
                     }
