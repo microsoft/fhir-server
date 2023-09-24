@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
-        private static RawResourceDepuping _rawResourceDepuping;
+        private static RawResourceDeduping _rawResourceDeduping;
         private static object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -97,11 +97,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
 
-            if (_rawResourceDepuping == null)
+            if (_rawResourceDeduping == null)
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDepuping ??= new RawResourceDepuping(_sqlRetryService, _logger);
+                    _rawResourceDeduping ??= new RawResourceDeduping(_sqlRetryService, _logger);
                 }
             }
         }
@@ -516,7 +516,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
-            if (!_rawResourceDepuping.IsEnabled())
+            if (!_rawResourceDeduping.IsEnabled())
             {
                 return false;
             }
@@ -655,7 +655,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private class RawResourceDepuping
+        private class RawResourceDeduping
         {
             private ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerFhirDataStore> _logger;
@@ -663,7 +663,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             private DateTime? _lastUpdated;
             private object _databaseAccessLocker = new object();
 
-            public RawResourceDepuping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+            public RawResourceDeduping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
                 _sqlRetryService = sqlRetryService;
                 _logger = logger;
