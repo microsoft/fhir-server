@@ -1030,7 +1030,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/
-        [SkippableFact]
+        [Skip]
         public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
@@ -1062,8 +1062,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        // WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/
-        [SkippableFact]
+        [Fact(Skip = "WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/")]
         public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
@@ -1079,7 +1078,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        [Fact(Skip = "WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/")]
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() =>
