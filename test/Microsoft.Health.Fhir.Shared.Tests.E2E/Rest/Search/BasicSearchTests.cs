@@ -1034,8 +1034,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string[] expectedDiagnostics =
             {
-                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
                 string.Format(Core.Resources.SearchParameterNotSupported, "Cookie", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
             };
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
