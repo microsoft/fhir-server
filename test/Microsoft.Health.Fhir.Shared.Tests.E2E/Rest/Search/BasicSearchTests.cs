@@ -1029,6 +1029,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
+        // WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/
         [SkippableFact]
         public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
@@ -1061,7 +1062,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
-        [Fact]
+        // WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/
+        [SkippableFact]
         public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
