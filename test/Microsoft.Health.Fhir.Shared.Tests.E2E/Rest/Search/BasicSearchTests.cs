@@ -1029,8 +1029,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
-        // WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/
-        [Skip]
+        [Fact(Skip = "WI https://microsofthealth.visualstudio.com/Health/_workitems/edit/109880/")]
         public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =
