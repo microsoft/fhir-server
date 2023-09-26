@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>7.0.20</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>7.0.15</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
 
@@ -47,7 +47,7 @@
   <ItemGroup>
     <PackageVersion Include="AngleSharp" Version="1.0.4" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.2.2" />
-    <PackageVersion Include="Azure.Identity" Version="1.10.0" />
+    <PackageVersion Include="Azure.Identity" Version="1.10.1" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.0.0-beta.6" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.17.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
@@ -111,7 +111,7 @@
     <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.18.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageVersion Include="NSubstitute" Version="5.0.0" />
+    <PackageVersion Include="NSubstitute" Version="5.1.0" />
     <PackageVersion Include="Polly" Version="7.2.4" />
     <PackageVersion Include="prometheus-net.AspNetCore" Version="8.0.1" />
     <PackageVersion Include="prometheus-net.DotNetRuntime" Version="4.4.0" />
