@@ -123,12 +123,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
                 Assert.Equal(HealthStatus.Degraded, result.Status);
-                Assert.Contains("Customer-managed key is not available", result.Description);
+
                 Assert.NotNull(result.Data);
+                Assert.True(result.Data.Any());
+
+                Assert.True(result.Data.ContainsKey("Error"));
+                Assert.Contains("Customer-managed key is not available", result.Data["Error"].ToString());
+
                 Assert.True(result.Data.ContainsKey("IsCustomerManagedKeyError"));
                 Assert.True((bool)result.Data["IsCustomerManagedKeyError"]);
-                Assert.NotNull(result.Exception);
-                Assert.Equal(cosmosException, result.Exception);
             }
         }
 
@@ -148,7 +151,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
             Assert.DoesNotContain("Customer-managed key is not available", result.Description);
-            Assert.False(result.Data.Any());
+            Assert.True(result.Data.Any());
             Assert.Null(result.Exception);
         }
 
@@ -161,7 +164,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Degraded, result.Status);
-            Assert.Contains("rate limit", result.Description);
+            Assert.True(result.Data.ContainsKey("Error"));
+            Assert.Contains("Rate limit", result.Data["Error"].ToString());
         }
     }
 }
