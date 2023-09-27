@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
-    [Trait(Traits.Category, Categories.ExportLongRunning)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportLongRunningTests : IClassFixture<ExportTestFixture>
     {
