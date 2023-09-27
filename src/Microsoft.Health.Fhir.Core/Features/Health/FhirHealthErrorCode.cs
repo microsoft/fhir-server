@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Registration
+namespace Microsoft.Health.Fhir.Core.Features.Health
 {
-    public class AzureApiForFhirRuntimeConfiguration : IFhirRuntimeConfiguration
+    public enum FhirHealthErrorCode
     {
-        public bool IsSelectiveSearchParameterSupported => false;
-
-        public bool IsExportBackgroundWorkedSupported => true;
-
-        public bool IsCustomerKeyValidationBackgroudWorkerSupported => false;
+        Error000, // Not expected exceptions.
+        Error001, // External cancellation requested.
+        Error002, // Operation canceled.
+        Error003, // Customer Managed Key is not available.
+        Error004, // Rate-limit exceptions.
     }
 }

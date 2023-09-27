@@ -65,15 +65,15 @@ namespace Microsoft.Health.Fhir.Web
                 .AddConvertData()
                 .AddMemberMatch();
 
-            string dataStore = Configuration["DataStore"];
-            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
+            // Set the runtime configuration for the up and running service.
+            IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
+
+            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
             {
-                fhirServerBuilder.Services.Add<AzureApiForFhirRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
                 fhirServerBuilder.AddCosmosDb();
             }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
             {
-                fhirServerBuilder.Services.Add<AzureHealthDataServicesRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
                 fhirServerBuilder.AddSqlServer(config =>
                 {
                     Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Web
             need to ensure that the schema is initialized before the background workers are started.
             The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
-            fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+            fhirServerBuilder.AddBackgroundWorkers(runtimeConfiguration);
 
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
@@ -119,6 +119,29 @@ namespace Microsoft.Health.Fhir.Web
 
             AddApplicationInsightsTelemetry(services);
             AddAzureMonitorOpenTelemetry(services);
+        }
+
+        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
+        {
+            IFhirRuntimeConfiguration runtimeConfiguration = null;
+
+            string dataStore = Configuration["DataStore"];
+            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
+            {
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            }
+            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            {
+                runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid data store type '{dataStore}'.");
+            }
+
+            fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
+
+            return runtimeConfiguration;
         }
 
         private void AddTaskHostingService(IServiceCollection services)

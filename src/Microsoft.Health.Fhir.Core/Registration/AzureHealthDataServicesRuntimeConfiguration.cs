@@ -8,5 +8,9 @@ namespace Microsoft.Health.Fhir.Core.Registration
     public class AzureHealthDataServicesRuntimeConfiguration : IFhirRuntimeConfiguration
     {
         public bool IsSelectiveSearchParameterSupported => true;
+
+        public bool IsExportBackgroundWorkedSupported => false;
+
+        public bool IsCustomerKeyValidationBackgroudWorkerSupported => true;
     }
 }

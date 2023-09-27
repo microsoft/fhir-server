@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>7.0.15</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>7.0.20</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
 
@@ -94,6 +94,7 @@
     <PackageVersion Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Core" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageVersion Include="Microsoft.Health.Encryption" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.1.0.62" />

@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -16,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             data: new Dictionary<string, object>
                             {
                                 { "Reason", HealthStatusReason.ServiceUnavailable },
-                                { "Error", "External cancellation requested." },
+                                { "Error", FhirHealthErrorCode.Error001.ToString() },
                             });
                     }
                     else if (attempt >= maxNumberAttempts)
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             data: new Dictionary<string, object>
                             {
                                 { "Reason", HealthStatusReason.ServiceUnavailable },
-                                { "Error", "Operation cancelled." },
+                                { "Error", FhirHealthErrorCode.Error002.ToString() },
                             });
                     }
                     else
@@ -139,9 +139,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         description: DegradedDescription,
                         data: new Dictionary<string, object>
                         {
-                            { "IsCustomerManagedKeyError", true },
                             { "Reason", HealthStatusReason.CustomerManagedKeyAccessLost },
-                            { "Error", "Customer-managed key is not available." },
+                            { "Error", FhirHealthErrorCode.Error003.ToString() },
                         });
                 }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
@@ -157,7 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.ServiceDegraded },
-                            { "Error", "Rate limit has been exceeded." },
+                            { "Error", FhirHealthErrorCode.Error004.ToString() },
                         });
                 }
                 catch (Exception ex)
@@ -172,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.ServiceUnavailable },
-                            { "Error", message },
+                            { "Error", FhirHealthErrorCode.Error000.ToString() },
                         });
                 }
             }
