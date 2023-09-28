@@ -17,19 +17,19 @@ using Xunit;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ExportLongRunningTests : IClassFixture<ExportTestFixture>
+    public class ExportDataTests : IClassFixture<ExportDataTestFixture>
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly ExportTestFixture _fixture;
+        private readonly ExportDataTestFixture _fixture;
 
-        public ExportLongRunningTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
+        public ExportDataTests(ExportDataTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
@@ -43,15 +43,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:o}");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_since={_fixture.TestDataInsertionTime:o}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper, true));
         }
 
         [Fact]
@@ -60,8 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(path: "Patient/", parameters: _fixture.ExportTestResourcesQueryParameters);
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                path: "Patient/",
+                parameters: _fixture.ExportTestResourcesQueryParameters);
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -77,8 +84,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_type=Observation,Patient&{_fixture.ExportTestResourcesQueryParameters}");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_type=Observation,Patient&{_fixture.ExportTestResourcesQueryParameters}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -94,8 +104,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", $"_type=Observation&_typeFilter=Observation%3F_tag%3D{_fixture.FixtureTag}");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                path: "Patient/",
+                parameters: $"_type=Observation&_typeFilter=Observation%3F_tag%3D{_fixture.FixtureTag}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 3);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -113,12 +127,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-
             string testContainer = "test-container";
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_container={testContainer}&{_fixture.ExportTestResourcesQueryParameters}");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_container={testContainer}&{_fixture.ExportTestResourcesQueryParameters}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 3);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -135,15 +151,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 3);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper, true));
         }
 
         [Fact]
@@ -152,15 +171,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeDeleted=true");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeDeleted=true");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 3);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper, true));
         }
 
         [Fact]
@@ -169,15 +191,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true&_includeDeleted=true");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
+            Uri contentLocation = await ExportTestHelper.StartExportAsync(
+                _fixture.TestFhirClient,
+                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true&_includeDeleted=true");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 3);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper, true));
         }
     }
 }

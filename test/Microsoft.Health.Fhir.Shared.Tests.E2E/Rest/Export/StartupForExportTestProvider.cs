@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     [RequiresIsolatedDatabase]
     public class StartupForExportTestProvider : StartupBaseForCustomProviders

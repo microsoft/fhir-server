@@ -19,20 +19,20 @@ using Xunit.Abstractions;
 using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
     [Trait(Traits.Category, Categories.ExportDataValidation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ExportDataValidationTests : IClassFixture<ExportTestFixture>
+    public class ExportDataValidationTests : IClassFixture<ExportDataTestFixture>
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
         private readonly FhirJsonParser _fhirJsonParser;
-        private readonly ExportTestFixture _fixture;
+        private readonly ExportDataTestFixture _fixture;
 
-        public ExportDataValidationTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
+        public ExportDataValidationTests(ExportDataTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;

@@ -9,8 +9,8 @@
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.Common.props" />
   <PropertyGroup />
   <ItemGroup>
-    <None Include="Rest\AnonymizedExportUsingAcrTests.cs" />
-    <None Include="Rest\AnonymizedExportTests.cs" />
+    <None Include="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
+    <None Include="Rest\Export\AnonymizedExportTests.cs" />
     <None Include="Rest\CustomConvertDataTests.cs" />
     <None Include="Rest\ConvertDataTests.cs" />
   </ItemGroup>

@@ -16,13 +16,13 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
-    public class ExportTestFixture : HttpIntegrationTestFixture<StartupForExportTestProvider>
+    public class ExportDataTestFixture : HttpIntegrationTestFixture<StartupForExportTestProvider>
     {
         private MetricHandler _metricHandler;
 
-        public ExportTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+        public ExportDataTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
         }
@@ -48,6 +48,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
             TestResourcesWithHistory.Where(pair => TestResourcesWithDeletes.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
+        public Dictionary<string, Uri> ExportTestCasesContentUrls { get; } = new();
+
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         public DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
@@ -55,6 +57,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public string ExportTestResourcesQueryParameters => $"_type=Patient,Observation&_typeFilter=Patient%3F_tag%3D{FixtureTag},Observation%3F_tag%3D{FixtureTag}";
 
         protected override async Task OnInitializedAsync()
+        {
+            await SaveTestResourcesToServer();
+        }
+
+        private async Task SaveTestResourcesToServer()
         {
             void AddResourceToTestResources(Resource resource) =>
                 TestResourcesWithHistoryAndDeletes[(resource.TypeName, resource.Id, resource.VersionId)] = resource;
@@ -85,19 +92,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         }
                         else if (i % 10 == 0)
                         {
-                            Practitioner deletedResource = resource.DeepCopy() as Practitioner;
-                            testResourcesInfo.Add((deletedResource, true));
+                            testResourcesInfo.Add((resource.DeepCopy() as Resource, true));
                         }
                         else if (i % 4 == 1)
                         {
-                            Practitioner updatedResource = resource.DeepCopy() as Practitioner;
-                            updatedResource.Name.Add(new()
-                            {
-                                Given = updatedResource.Name.First().Given,
-                                Family = $"UpdatedFromVersion{updatedResource.Meta.VersionId}",
-                            });
+                            Resource updatedResource = resource.DeepCopy() as Resource;
 
-                            testResourcesInfo.Add((updatedResource, false));
+                            if (updatedResource is Patient)
+                            {
+                                Patient updatedPatient = updatedResource as Patient;
+                                updatedPatient.Name.Add(new()
+                                {
+                                    Given = updatedPatient.Name.First().Given,
+                                    Family = $"UpdatedFromVersion{updatedResource.Meta.VersionId}",
+                                });
+                                testResourcesInfo.Add((updatedPatient, false));
+                            }
+
+                            if (updatedResource is Encounter)
+                            {
+                                Encounter updatedEncounter = updatedResource as Encounter;
+                                updatedEncounter.Type.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
+                                testResourcesInfo.Add((updatedEncounter, false));
+                            }
+
+                            if (updatedResource is Observation)
+                            {
+                                Observation updatedObservation = updatedResource as Observation;
+                                updatedObservation.Category.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
+                                testResourcesInfo.Add((updatedObservation, false));
+                            }
                         }
                     }
                 }
@@ -108,24 +132,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             Console.WriteLine($"Generated {TestResourcesWithHistoryAndDeletes.Count} resources.");
-        }
-
-        private List<Resource> GenerateTestResources(int numberOfResources = 100)
-        {
-            var resources = new List<Resource>();
-
-            for (int i = 0; i < numberOfResources; i++)
-            {
-                resources.Add(new Practitioner
-                {
-                    Id = Guid.NewGuid().ToString("N"),
-                    Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) } },
-                    Active = true,
-                    Name = new List<HumanName>() { new HumanName() { Family = $"Test{i}", Given = new List<string> { "Export", "History", "SoftDelete" } } },
-                });
-            }
-
-            return resources;
         }
 
         private async System.Threading.Tasks.Task<List<Resource>> SaveResourceListToServer(List<(Resource resource, bool delete)> entries)
@@ -157,10 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Bundle> response = await TestFhirClient.PostBundleAsync(bundle);
 
-            if (response.StatusCode != System.Net.HttpStatusCode.OK)
-            {
-                throw new Exception("Could not save resources to server.");
-            }
+            response.Response.EnsureSuccessStatusCode();
 
             List<Resource> rtn = new();
 
@@ -185,48 +188,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return rtn;
         }
 
-        /*
-        private static List<Resource> GenerateTestResources(int numberOfPatients = 20)
+        private List<Resource> GenerateTestResources(int numberOfPatients = 5, int numberOfEncountersPerPatient = 1, int numberOfObservationsPerEncounter = 2)
         {
-            string[] firstNames = { "John", "Jane", "Robert", "Emily", "Michael", "Sarah", "William", "Anna", "James", "Laura" };
-
-            string[] lastNames = { "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez" };
-
-            static string RandomBirthdate()
-            {
-                DateTime startDate = new DateTime(1970, 1, 1);
-                int range = (DateTime.Today - startDate).Days;
-                return startDate.AddDays(_random.Next(range)).ToString("yyyy-MM-dd");
-            }
-
-            string RandomLastName() => lastNames[_random.Next(lastNames.Length)];
-
-            string RandomFirstName() => firstNames[_random.Next(firstNames.Length)];
-
-            Encounter CreateEncounter(string patientId)
-            {
-                return new()
-                {
-                    Id = Guid.NewGuid().ToString("N"),
-                    Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) }},
-                    Status = Encounter.EncounterStatus.Planned,
-                    Subject = new ResourceReference($"Patient/{patientId}"),
-                };
-            }
-
-            Observation CreateObservation(string patientId, string encounterId)
-            {
-                return new()
-                {
-                    Id = Guid.NewGuid().ToString("N"),
-                    Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) }},
-                    Status = ObservationStatus.Preliminary,
-                    Code = new CodeableConcept("http://loinc.org", "12345-6"),
-                    Subject = new ResourceReference($"Patient/{patientId}"),
-                    Encounter = new ResourceReference($"Encounter/{encounterId}"),
-                };
-            }
-
             var resources = new List<Resource>();
 
             for (int i = 0; i < numberOfPatients; i++)
@@ -236,40 +199,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Id = Guid.NewGuid().ToString("N"),
                     Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) }},
                     Active = true,
-                    Name = new List<HumanName>() { new HumanName() { Family = RandomLastName(), Given = new List<string> { RandomFirstName() }} },
-                    BirthDate = RandomBirthdate(),
+                    Name = new List<HumanName>() { new HumanName() { Family = $"Test{i}", Given = new List<string> { "Export", "History", "SoftDelete" } } },
                 };
                 resources.Add(patient);
 
-                for (int j = 0; j < _random.Next(1, 5); j++)
+                for (int j = 0; j < numberOfEncountersPerPatient; j++)
                 {
-                    var encounter = CreateEncounter(patient.Id);
+                    Encounter encounter = new()
+                    {
+                        Id = Guid.NewGuid().ToString("N"),
+                        Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) } },
+                        Status = Encounter.EncounterStatus.Planned,
+                        Type = new() { new CodeableConcept("http://e2e-test", $"Test{i}") },
+                        Class = new Coding("http://e2e-test", $"Test{i}"),
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                    };
                     resources.Add(encounter);
 
-                    for (int k = 0; k < _random.Next(1, 5); k++)
+                    for (int k = 0; k < numberOfObservationsPerEncounter; k++)
                     {
-                        var observation = CreateObservation(patient.Id, encounter.Id);
-                        resources.Add(observation);
-
-                        while (observation.Id.GetHashCode() % 4 != 0)
+                        Observation observation = new()
                         {
-                            observation = observation.DeepCopy() as Observation;
-                            observation.Code.Coding.Add(new Coding("http://loinc.org", "12345-1"));
-                            resources.Add(observation);
-                        }
-                    }
+                            Id = Guid.NewGuid().ToString("N"),
+                            Meta = new() { Tag = new List<Coding>() { new Coding("http://e2e-test", FixtureTag) } },
+                            Status = ObservationStatus.Preliminary,
+                            Category = new() { new CodeableConcept("http://e2e-test", $"Test{i}") },
+                            Code = new CodeableConcept("http://e2e-test", $"Test{i}"),
+                            Subject = new ResourceReference($"Patient/{patient.Id}"),
 
-                    while (encounter.Id.GetHashCode() % 4 != 0)
-                    {
-                        encounter = encounter.DeepCopy() as Encounter;
-                        encounter.ClassHistory.Add(new Encounter.ClassHistoryComponent() { Class = new Coding("http://hl7.org/fhir/v3/ActCode", "EMER") });
-                        resources.Add(encounter);
+                            // Encounter = new ResourceReference($"Encounter/{encounter.Id}"),
+                        };
+                        resources.Add(observation);
                     }
                 }
             }
 
             return resources;
         }
-        */
     }
 }

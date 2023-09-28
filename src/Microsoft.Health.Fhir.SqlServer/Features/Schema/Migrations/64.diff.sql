@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
-GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalStartId bigint = NULL, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
+CREATE OR ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalStartId bigint = NULL, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
@@ -75,20 +73,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---set nocount on
---DECLARE @Ranges TABLE (UnitId int PRIMARY KEY, MinId bigint, MaxId bigint, Cnt int)
---INSERT INTO @Ranges
---  EXECUTE dbo.GetResourceSurrogateIdRanges 96, 0, 9e18, 90000, 10
---SELECT count(*) FROM @Ranges
---DECLARE @UnitId int
---       ,@MinId bigint
---       ,@MaxId bigint
---DECLARE @Resources TABLE (RawResource varbinary(max))
---WHILE EXISTS (SELECT * FROM @Ranges)
---BEGIN
---  SELECT TOP 1 @UnitId = UnitId, @MinId = MinId, @MaxId = MaxId FROM @Ranges ORDER BY UnitId
---  INSERT INTO @Resources
---    EXECUTE dbo.GetResourcesByTypeAndSurrogateIdRange 96, @MinId, @MaxId, NULL, @MaxId -- last is to invoke snapshot logic 
---  DELETE FROM @Resources
---  DELETE FROM @Ranges WHERE UnitId = @UnitId
---END

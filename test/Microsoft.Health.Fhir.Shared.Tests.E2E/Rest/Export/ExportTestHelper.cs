@@ -19,7 +19,7 @@ using Newtonsoft.Json;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     internal static class ExportTestHelper
     {
@@ -251,11 +251,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         internal static bool ValidateDataFromBothSources(
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromServer,
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromStorageAccount,
-            ITestOutputHelper outputHelper)
+            ITestOutputHelper outputHelper,
+            bool allowDataFromServerToBeSubsetOfExportData = false)
         {
             bool result = true;
 
-            if (dataFromStorageAccount.Count != dataFromServer.Count)
+            if (dataFromStorageAccount.Count != dataFromServer.Count && (!allowDataFromServerToBeSubsetOfExportData || dataFromServer.Count < dataFromStorageAccount.Count))
             {
                 outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 result = false;
@@ -270,13 +271,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             // Enable this check when creating/updating data validation tests to ensure there is data to export
-            /*
             if (dataFromStorageAccount.Count == 0)
             {
-                _outputHelper.WriteLine("No data exported. This test expects data to be present.");
+                outputHelper.WriteLine("No data exported. This test expects data to be present.");
                 return false;
             }
-            */
 
             int wrongCount = 0;
             foreach (KeyValuePair<(string resourceType, string resourceId, string versionId), Resource> kvp in dataFromServer)
@@ -300,8 +299,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
             }
 
-            outputHelper.WriteLine($"Missing or wrong match count: {wrongCount}");
             return result;
+        }
+
+        internal static async Task<Uri> StartExportAsync(TestFhirClient testFhirClient, string path = "", string parameters = "")
+        {
+            Uri contentLocation = await testFhirClient.ExportAsync(path: path, parameters: parameters);
+
+            return contentLocation;
         }
     }
 }
