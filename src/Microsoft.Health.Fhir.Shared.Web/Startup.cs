@@ -68,18 +68,7 @@ namespace Microsoft.Health.Fhir.Web
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
 
-            if (KnownDataStores.IsCosmosDbDataStore(runtimeConfiguration.DataStore))
-            {
-                fhirServerBuilder.AddCosmosDb();
-            }
-            else if (KnownDataStores.IsSqlServerDataStore(runtimeConfiguration.DataStore))
-            {
-                fhirServerBuilder.AddSqlServer(config =>
-                {
-                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
-                });
-                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-            }
+            AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -121,16 +110,32 @@ namespace Microsoft.Health.Fhir.Web
             AddAzureMonitorOpenTelemetry(services);
         }
 
+        private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
+        {
+            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddCosmosDb();
+            }
+            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
+                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+            }
+        }
+
         private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
         {
             IFhirRuntimeConfiguration runtimeConfiguration = null;
 
             string dataStore = Configuration["DataStore"];
-            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
+            if (KnownDataStores.IsCosmosDbDataStore(dataStore))
             {
                 runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
             }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
+            else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
                 runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
             }

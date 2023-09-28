@@ -7,10 +7,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Health
 {
     public enum FhirHealthErrorCode
     {
-        Error000, // Not expected exceptions.
-        Error001, // External cancellation requested.
-        Error002, // Operation canceled.
-        Error003, // Customer Managed Key is not available.
-        Error004, // Rate-limit exceptions.
+        Error408, // External cancellation requested.
+        Error412, // Customer Managed Key is not available.
+        Error429, // Rate-limit exceptions.
+        Error500, // Not expected exceptions.
+        Error501, // Operation canceled.
     }
 }
