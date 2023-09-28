@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
                 Assert.Equal(HealthStatusReason.CustomerManagedKeyAccessLost, result.Data["Reason"]);
 
                 Assert.True(result.Data.ContainsKey("Error"));
-                Assert.Equal(FhirHealthErrorCode.Error003.ToString(), result.Data["Error"]);
+                Assert.Equal(FhirHealthErrorCode.Error412.ToString(), result.Data["Error"]);
             }
         }
 
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.True(result.Data.Any());
 
             Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error000.ToString(), result.Data["Error"]);
+            Assert.Equal(FhirHealthErrorCode.Error500.ToString(), result.Data["Error"]);
         }
 
         [Fact]
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
             Assert.Equal(HealthStatus.Degraded, result.Status);
 
             Assert.True(result.Data.ContainsKey("Error"));
-            Assert.Equal(FhirHealthErrorCode.Error004.ToString(), result.Data["Error"]);
+            Assert.Equal(FhirHealthErrorCode.Error429.ToString(), result.Data["Error"]);
         }
     }
 }

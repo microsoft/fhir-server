@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             data: new Dictionary<string, object>
                             {
                                 { "Reason", HealthStatusReason.ServiceUnavailable },
-                                { "Error", FhirHealthErrorCode.Error001.ToString() },
+                                { "Error", FhirHealthErrorCode.Error408.ToString() },
                             });
                     }
                     else if (attempt >= maxNumberAttempts)
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                             data: new Dictionary<string, object>
                             {
                                 { "Reason", HealthStatusReason.ServiceUnavailable },
-                                { "Error", FhirHealthErrorCode.Error002.ToString() },
+                                { "Error", FhirHealthErrorCode.Error501.ToString() },
                             });
                     }
                     else
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.CustomerManagedKeyAccessLost },
-                            { "Error", FhirHealthErrorCode.Error003.ToString() },
+                            { "Error", FhirHealthErrorCode.Error412.ToString() },
                         });
                 }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.ServiceDegraded },
-                            { "Error", FhirHealthErrorCode.Error004.ToString() },
+                            { "Error", FhirHealthErrorCode.Error429.ToString() },
                         });
                 }
                 catch (Exception ex)
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                         data: new Dictionary<string, object>
                         {
                             { "Reason", HealthStatusReason.ServiceUnavailable },
-                            { "Error", FhirHealthErrorCode.Error000.ToString() },
+                            { "Error", FhirHealthErrorCode.Error500.ToString() },
                         });
                 }
             }
