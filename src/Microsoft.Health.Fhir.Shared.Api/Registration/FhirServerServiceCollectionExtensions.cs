@@ -138,13 +138,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
             }
 
-            // if (runtimeConfiguration.IsCustomerKeyValidationBackgroudWorkerSupported)
-            // {
-                // Microsoft.Health.Abstractions
-                // fhirServerBuilder.Services.AddCustomerKeyValidationBackgroundService();
-                // fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            // }
-
             return fhirServerBuilder;
         }
 

@@ -68,11 +68,11 @@ namespace Microsoft.Health.Fhir.Web
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
 
-            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
+            if (KnownDataStores.IsCosmosDbDataStore(runtimeConfiguration.DataStore))
             {
                 fhirServerBuilder.AddCosmosDb();
             }
-            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+            else if (KnownDataStores.IsSqlServerDataStore(runtimeConfiguration.DataStore))
             {
                 fhirServerBuilder.AddSqlServer(config =>
                 {

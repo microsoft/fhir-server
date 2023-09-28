@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Registration
 {
     public interface IFhirRuntimeConfiguration
     {
+        string DataStore { get; }
+
         /// <summary>
         /// Selective Search Parameter.
         /// </summary>
