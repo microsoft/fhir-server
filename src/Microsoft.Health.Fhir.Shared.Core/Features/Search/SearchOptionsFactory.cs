@@ -299,15 +299,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CheckFineGrainedAccessControl(searchExpressions);
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
-
-            var expressions = await Task.WhenAll(searchParams.Parameters.Select(
-            async q =>
+            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
+            var expressions = searchParams.Parameters.Select(
+            q =>
             {
                 try
                 {
                     if (!unsupportedSearchParameters.Contains(q))
                     {
-                        await CheckForSearchParameterEnabled(resourceType, q.Item1, cancellationToken);
+                        CheckForSearchParameterEnabled(resourceType, q.Item1, statuses);
                     }
 
                     return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     return null;
                 }
-            }));
+            });
 
             searchExpressions.AddRange(expressions.Where(item => item != null));
 
@@ -485,9 +485,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return searchOptions;
         }
 
-        private async Task CheckForSearchParameterEnabled(string resourceType, string code, CancellationToken cancellationToken)
+        private void CheckForSearchParameterEnabled(string resourceType, string code, IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
-            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
             try
             {
                 var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
