@@ -42,46 +42,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [InlineData("tag")]
         public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
         {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.\
             string parameters = "not set";
-            bool allowDataFromServerToBeSubsetOfExportData = false;
-
-            if (parametersKey == "tag")
-            {
-                parameters = _fixture.ExportTestFilterQueryParameters();
-            }
-            else if (parametersKey == "since")
-            {
-                var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
-                parameters = $"_since={_fixture.TestDataInsertionTime:o}&_type={uniqueFixtureResources}&_isParallel=false";
-                allowDataFromServerToBeSubsetOfExportData = true;
-            }
-
-            // Trigger export request and check for export status
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: parameters);
-
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
-
-            // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
-                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
-
-            // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper, allowDataFromServerToBeSubsetOfExportData));
-        }
-
-        [Theory]
-        [InlineData("since")]
-        [InlineData("tag")]
-        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
-        {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-
-            string parameters = "not set";
-            bool allowDataFromServerToBeSubsetOfExportData = false;
 
             if (parametersKey == "tag")
             {
@@ -91,14 +53,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             {
                 var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
                 parameters = $"_since={_fixture.TestDataInsertionTime:o}&_type={uniqueFixtureResources}";
-                allowDataFromServerToBeSubsetOfExportData = true;
             }
 
             // Trigger export request and check for export status
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                path: "Patient/",
-                parameters: parameters);
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters)               
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -107,7 +65,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestPatientCompartmentResources, dataFromExport, _outputHelper, allowDataFromServerToBeSubsetOfExportData));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper));
+        }
+
+        [Theory]
+        [InlineData("since")]
+        [InlineData("tag")]
+        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
+        {
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            string parameters = "not set";
+
+            if (parametersKey == "tag")
+            {
+                parameters = _fixture.ExportTestFilterQueryParameters();
+            }
+            else if (parametersKey == "since")
+            {
+                var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+                parameters = $"_since={_fixture.TestDataInsertionTime:o}&_type={uniqueFixtureResources}";
+            }
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(path: "Patient/", parameters: parameters);
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+
+            // Assert both data are equal
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestPatientCompartmentResources, dataFromExport, _outputHelper));
         }
 
         [Theory]
@@ -116,10 +105,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-
             string[] testResorceTypes = { "Observation", "Patient" };
             string parameters = "not set";
-            bool allowDataFromServerToBeSubsetOfExportData = false;
 
             if (parametersKey == "tag")
             {
@@ -128,13 +115,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             else if (parametersKey == "since")
             {
                 parameters = $"_since={_fixture.TestDataInsertionTime:o}&_type={string.Join(',', testResorceTypes)}";
-                allowDataFromServerToBeSubsetOfExportData = true;
             }
 
             // Trigger export request and check for export status
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: parameters);
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters)  
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -147,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 .ToDictionary(x => x.Key, x => x.Value);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper, allowDataFromServerToBeSubsetOfExportData));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
 
         [Theory]
@@ -156,9 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-
             string parameters = "not set";
-            bool allowDataFromServerToBeSubsetOfExportData = false;
 
             if (parametersKey == "tag")
             {
@@ -167,14 +149,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             else if (parametersKey == "since")
             {
                 parameters = $"_since={_fixture.TestDataInsertionTime:o}&type=Observation";
-                allowDataFromServerToBeSubsetOfExportData = true;
             }
 
             // Trigger export request and check for export status
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                path: "Patient/",
-                parameters: _fixture.ExportTestFilterQueryParameters("Observation"));
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(path: "Patient/", parameters: _fixture.ExportTestFilterQueryParameters("Observation"));
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -187,7 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 .ToDictionary(x => x.Key, x => x.Value);
 
             // Assert both data are equal. Only Observation data is expected due to the type query parameter.
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper, allowDataFromServerToBeSubsetOfExportData));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
 
         // No need to test both code paths for testing container is written to.
@@ -198,9 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             string testContainer = "test-container";
 
             // Trigger export request and check for export status
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: $"_container={testContainer}&{_fixture.ExportTestFilterQueryParameters()}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_container={testContainer}&{_fixture.ExportTestFilterQueryParameters()}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -220,11 +196,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeHistory=true&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -232,12 +207,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
-            // removeme
-            var missing = _fixture.TestResourcesWithHistory.Where(x => !dataFromExport.Any(y => x.Key.resourceId == y.Key.resourceId && x.Key.versionId == y.Key.versionId));
-            var missingLastUpdated = missing.Select(x => x.Value.Meta.LastUpdated).ToList();
-
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper, true));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper));
         }
 
         // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
@@ -247,11 +218,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeDeleted=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync($"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeDeleted=true&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -260,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper, true));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper));
         }
 
         // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
@@ -270,11 +240,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await ExportTestHelper.StartExportAsync(
-                _fixture.TestFhirClient,
-                parameters: $"_since={_fixture.TestDataInsertionTime:O}&_includeHistory=true&_includeDeleted=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync($"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeHistory=true&_includeDeleted=true&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -283,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper, true));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper));
         }
     }
 }

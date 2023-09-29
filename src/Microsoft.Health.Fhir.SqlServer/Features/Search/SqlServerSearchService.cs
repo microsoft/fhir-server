@@ -122,11 +122,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-
             SqlSearchType searchType = sqlSearchOptions.GetSearchTypeFromOptions();
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
+
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= sqlSearchOptions.MaxItemCount &&

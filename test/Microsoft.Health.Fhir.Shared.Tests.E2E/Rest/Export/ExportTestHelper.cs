@@ -301,12 +301,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             return result;
         }
-
-        internal static async Task<Uri> StartExportAsync(TestFhirClient testFhirClient, string path = "", string parameters = "")
-        {
-            Uri contentLocation = await testFhirClient.ExportAsync(path: path, parameters: parameters);
-
-            return contentLocation;
-        }
     }
 }

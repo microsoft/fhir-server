@@ -169,11 +169,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist in the job record.
                 var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
-                List<Tuple<string, string>> queryParametersList = new();
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime.ToString()}"));
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)));
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)));
+                List<Tuple<string, string>> queryParametersList = new()
+                {
+                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
+                    Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)),
+                }
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
                 {
