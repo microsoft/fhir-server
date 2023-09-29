@@ -17,7 +17,14 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
             _connectionString = connectionString;
         }
 
-        #pragma warning disable CA2000
+        public string DefaultDatabase { get; }
+
+        public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+        {
+            return new SqlConnection(_connectionString);
+        }
+
+#pragma warning disable CA2000
 
         public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
         {

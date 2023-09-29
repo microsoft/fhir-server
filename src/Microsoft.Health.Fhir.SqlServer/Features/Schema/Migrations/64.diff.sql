@@ -1,6 +1,162 @@
-﻿--DROP PROCEDURE dbo.MergeResources
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
+       ,@st datetime = getUTCdate()
+       ,@InitialTranCount int = @@trancount
+       ,@IsCompletedBefore bit
+       ,@Rows int
+       ,@msg varchar(1000)
+
+DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)+' OC='+isnull(convert(varchar,@OverrideIsControlledByClientCheck),'NULL')
+
+BEGIN TRY
+  IF @InitialTranCount = 0 BEGIN TRANSACTION
+
+  UPDATE dbo.Transactions
+    SET IsCompleted = 1
+       ,@IsCompletedBefore = IsCompleted
+       ,EndDate = getUTCdate()
+       ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
+       ,FailureReason = @FailureReason
+    WHERE SurrogateIdRangeFirstValue = @TransactionId
+      AND (IsControlledByClient = 1 OR @OverrideIsControlledByClientCheck = 1)
+  SET @Rows = @@rowcount
+
+  IF @Rows = 0
+  BEGIN
+    SET @msg = 'Transaction ['+convert(varchar(20),@TransactionId)+'] is not controlled by client or does not exist.'
+    RAISERROR(@msg, 18, 127)
+  END
+
+  IF @IsCompletedBefore = 1
+  BEGIN
+    -- To make this call idempotent
+    IF @InitialTranCount = 0 ROLLBACK TRANSACTION
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Target='@IsCompletedBefore',@Text='=1'
+    RETURN
+  END
+
+  IF @InitialTranCount = 0 COMMIT TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
 GO
-CREATE PROCEDURE dbo.MergeResources
+CREATE OR ALTER PROCEDURE dbo.MergeResourcesBeginTransaction @Count int, @TransactionId bigint OUT, @SequenceRangeFirstValue int = NULL OUT, @HeartbeatDate datetime = NULL
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesBeginTransaction'
+       ,@Mode varchar(200) = 'Cnt='+convert(varchar,@Count)
+       ,@st datetime = getUTCdate()
+       ,@FirstValueVar sql_variant
+       ,@LastValueVar sql_variant
+
+BEGIN TRY
+  SET @TransactionId = NULL
+
+  IF @@trancount > 0 RAISERROR('MergeResourcesBeginTransaction cannot be called inside outer transaction.', 18, 127)
+ 
+  SET @FirstValueVar = NULL
+  WHILE @FirstValueVar IS NULL
+  BEGIN
+    EXECUTE sys.sp_sequence_get_range @sequence_name = 'dbo.ResourceSurrogateIdUniquifierSequence', @range_size = @Count, @range_first_value = @FirstValueVar OUT, @range_last_value = @LastValueVar OUT
+    SET @SequenceRangeFirstValue = convert(int,@FirstValueVar)
+    IF @SequenceRangeFirstValue > convert(int,@LastValueVar)
+      SET @FirstValueVar = NULL
+  END
+
+  SET @TransactionId = datediff_big(millisecond,'0001-01-01',sysUTCdatetime()) * 80000 + @SequenceRangeFirstValue
+
+  INSERT INTO dbo.Transactions
+         (  SurrogateIdRangeFirstValue,   SurrogateIdRangeLastValue,                      HeartbeatDate )
+    SELECT              @TransactionId, @TransactionId + @Count - 1, isnull(@HeartbeatDate,getUTCdate() )
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+GO
+CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
+   @ResourceTypeId smallint
+  ,@ResourceId varchar(64)
+  ,@KeepCurrentVersion bit
+  ,@IsResourceChangeCaptureEnabled bit
+AS
+set nocount on
+DECLARE @SP varchar(100) = object_name(@@procid)
+       ,@Mode varchar(200) = 'RT='+convert(varchar,@ResourceTypeId)+' R='+@ResourceId+' V='+convert(varchar,@KeepCurrentVersion)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)
+       ,@st datetime = getUTCdate()
+       ,@TransactionId bigint
+
+BEGIN TRY
+  IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesBeginTransaction @Count = 1, @TransactionId = @TransactionId OUT
+
+  IF @KeepCurrentVersion = 0
+    BEGIN TRANSACTION
+
+  DECLARE @SurrogateIds TABLE (ResourceSurrogateId BIGINT NOT NULL)
+
+  IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
+    UPDATE dbo.Resource
+      SET IsHistory = 1
+         ,RawResource = 0xF -- invisible value
+         ,SearchParamHash = NULL
+         ,HistoryTransactionId = @TransactionId
+      OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+      WHERE ResourceTypeId = @ResourceTypeId
+        AND ResourceId = @ResourceId
+        AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
+        AND RawResource <> 0xF
+  ELSE
+    DELETE dbo.Resource
+      OUTPUT deleted.ResourceSurrogateId INTO @SurrogateIds
+      WHERE ResourceTypeId = @ResourceTypeId
+        AND ResourceId = @ResourceId
+        AND (@KeepCurrentVersion = 0 OR IsHistory = 1)
+        AND RawResource <> 0xF
+
+  IF @KeepCurrentVersion = 0
+  BEGIN
+    -- PAGLOCK allows deallocation of empty page without waiting for ghost cleanup 
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ResourceWriteClaim B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ReferenceSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenText B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.StringSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.UriSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.NumberSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.QuantitySearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.DateTimeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.ReferenceTokenCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenTokenCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenDateTimeCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenQuantityCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenStringCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+    DELETE FROM B FROM @SurrogateIds A INNER LOOP JOIN dbo.TokenNumberNumberCompositeSearchParam B WITH (INDEX = 1, FORCESEEK, PAGLOCK) ON B.ResourceTypeId = @ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId OPTION (MAXDOP 1)
+  END
+  
+  IF @@trancount > 0 COMMIT TRANSACTION
+
+  IF @IsResourceChangeCaptureEnabled = 1 EXECUTE dbo.MergeResourcesCommitTransaction @TransactionId
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+--DROP PROCEDURE dbo.MergeResources
+GO
+CREATE OR ALTER PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
 -- 1. Ordinary put with single version per resource in input
 -- 2. Put with history preservation (multiple input versions per resource)
