@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using Antlr4.Runtime.Atn;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,13 +50,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
             TestResourcesWithHistory.Where(pair => TestResourcesWithDeletes.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
+        // If the patient is deleted but the child resources are not, they should not be returned in patient centric exports.
+        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestPatientCompartmentResources => TestResources
+            .Where(x => x.Key.resourceType != "Encounter" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Encounter).Subject.Reference.Split("/")[1]))
+            .Where(x => x.Key.resourceType != "Observation" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Observation).Subject.Reference.Split("/")[1]))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+
         public Dictionary<string, Uri> ExportTestCasesContentUrls { get; } = new();
 
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         public DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
 
-        public string ExportTestResourcesQueryParameters => $"_type=Patient,Observation&_typeFilter=Patient%3F_tag%3D{FixtureTag},Observation%3F_tag%3D{FixtureTag}";
+        public string ExportTestFilterQueryParameters(params string[] uniqueResourceTypes)
+        {
+            if (uniqueResourceTypes.Length == 0)
+            {
+                uniqueResourceTypes = TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct().ToArray();
+            }
+
+            var typeFilterPart = string.Join(',', uniqueResourceTypes.Select(rt => $"{rt}%3F_tag%3D{FixtureTag}"));
+
+            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}";
+        }
 
         protected override async Task OnInitializedAsync()
         {
@@ -74,64 +92,55 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             {
                 var testResourceResponse = await SaveResourceListToServer(testResourcesInfo);
 
-                try
+                AddResourcesToTestResources(testResourceResponse);
+
+                testResourcesInfo = new();
+
+                for (int i = 0; i < testResourceResponse.Count; i++)
                 {
-                    AddResourcesToTestResources(testResourceResponse);
+                    var resource = testResourceResponse[i];
 
-                    testResourcesInfo = new();
-
-                    for (int i = 0; i < testResourceResponse.Count; i++)
+                    if (resource.Meta.Extension.Any(x => x.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                     {
-                        var resource = testResourceResponse[i];
+                        // Skip already deleted resources for now.
+                        // TODO - add un-deletes in here.
+                        continue;
+                    }
+                    else if (i % 10 == 0)
+                    {
+                        testResourcesInfo.Add((resource.DeepCopy() as Resource, true));
+                    }
+                    else if (i % 4 == 1)
+                    {
+                        Resource updatedResource = resource.DeepCopy() as Resource;
 
-                        if (resource.Meta.Extension.Any(x => x.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
+                        if (updatedResource is Patient)
                         {
-                            // Skip already deleted resources for now.
-                            // TODO - add un-deletes in here.
-                            continue;
+                            Patient updatedPatient = updatedResource as Patient;
+                            updatedPatient.Name.Add(new()
+                            {
+                                Given = updatedPatient.Name.First().Given,
+                                Family = $"UpdatedFromVersion{updatedResource.Meta.VersionId}",
+                            });
+                            testResourcesInfo.Add((updatedPatient, false));
                         }
-                        else if (i % 10 == 0)
+
+                        if (updatedResource is Encounter)
                         {
-                            testResourcesInfo.Add((resource.DeepCopy() as Resource, true));
+                            Encounter updatedEncounter = updatedResource as Encounter;
+                            updatedEncounter.Type.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
+                            testResourcesInfo.Add((updatedEncounter, false));
                         }
-                        else if (i % 4 == 1)
+
+                        if (updatedResource is Observation)
                         {
-                            Resource updatedResource = resource.DeepCopy() as Resource;
-
-                            if (updatedResource is Patient)
-                            {
-                                Patient updatedPatient = updatedResource as Patient;
-                                updatedPatient.Name.Add(new()
-                                {
-                                    Given = updatedPatient.Name.First().Given,
-                                    Family = $"UpdatedFromVersion{updatedResource.Meta.VersionId}",
-                                });
-                                testResourcesInfo.Add((updatedPatient, false));
-                            }
-
-                            if (updatedResource is Encounter)
-                            {
-                                Encounter updatedEncounter = updatedResource as Encounter;
-                                updatedEncounter.Type.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
-                                testResourcesInfo.Add((updatedEncounter, false));
-                            }
-
-                            if (updatedResource is Observation)
-                            {
-                                Observation updatedObservation = updatedResource as Observation;
-                                updatedObservation.Category.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
-                                testResourcesInfo.Add((updatedObservation, false));
-                            }
+                            Observation updatedObservation = updatedResource as Observation;
+                            updatedObservation.Category.Add(new CodeableConcept("http://e2e-test", $"UpdatedFromVersion{updatedResource.Meta.VersionId}"));
+                            testResourcesInfo.Add((updatedObservation, false));
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                }
             }
-
-            Console.WriteLine($"Generated {TestResourcesWithHistoryAndDeletes.Count} resources.");
         }
 
         private async System.Threading.Tasks.Task<List<Resource>> SaveResourceListToServer(List<(Resource resource, bool delete)> entries)
@@ -181,6 +190,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
                     var allResourcesWithDeleted = await TestFhirClient.SearchAsync($"{inputResource.TypeName}/{inputResource.Id}/_history");
                     var deletedResource = allResourcesWithDeleted.Resource.Entry.OrderByDescending(x => x.Resource.Meta.LastUpdated).First().Resource;
                     deletedResource.Meta.Extension.Add(new Extension(KnownFhirPaths.AzureSoftDeletedExtensionUrl, new FhirString("soft-deleted")));
+
+                    // The history endpoint does not return the version id in the resource, so we need to parse it from the etag.
+                    var etagVersionMatch = Regex.Match(responseEntry.Response.Etag, @"\d+");
+
+                    if (deletedResource.Meta.VersionId is null && etagVersionMatch.Success)
+                    {
+                        deletedResource.Meta.VersionId = etagVersionMatch.Value;
+                    }
+
                     rtn.Add(deletedResource);
                 }
             }

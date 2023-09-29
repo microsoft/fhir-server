@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         {
             bool result = true;
 
-            if (dataFromStorageAccount.Count != dataFromServer.Count && (!allowDataFromServerToBeSubsetOfExportData || dataFromServer.Count < dataFromStorageAccount.Count))
+            if (dataFromStorageAccount.Count != dataFromServer.Count && !(allowDataFromServerToBeSubsetOfExportData && dataFromServer.Count < dataFromStorageAccount.Count))
             {
                 outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 result = false;

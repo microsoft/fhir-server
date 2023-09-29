@@ -123,9 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
 
-            SqlSearchType searchType = SqlSearchType.Default;
-            searchType |= sqlSearchOptions.IncludeHistory ? SqlSearchType.IncludeHistory : searchType;
-            searchType |= sqlSearchOptions.IncludeDeleted ? SqlSearchType.IncludeDeleted : searchType;
+            SqlSearchType searchType = sqlSearchOptions.GetSearchTypeFromOptions();
 
             SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
@@ -704,9 +702,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory))
+            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory) && searchOptions.Sort.Any())
             {
-                // history is always sorted by _lastUpdated.
+                // history is always sorted by _lastUpdated (except for export).
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 return newSearchOptions;

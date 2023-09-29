@@ -48,6 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             QueryHints = other.QueryHints;
+
+            IncludeHistory = other.IncludeHistory;
+            IncludeDeleted = other.IncludeDeleted;
         }
 
         /// <summary>

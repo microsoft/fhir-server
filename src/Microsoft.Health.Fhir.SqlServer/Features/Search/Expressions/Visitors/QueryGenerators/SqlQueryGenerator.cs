@@ -1319,7 +1319,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             if (!_searchType.HasFlag(SqlSearchType.IncludeDeleted))
             {
-                delimited.BeginDelimitedElement().Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0");
+                delimited.BeginDelimitedElement();
+
+                StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0 ");
             }
         }
 
@@ -1329,7 +1331,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 delimited.BeginDelimitedElement();
 
-                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
+                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
             }
         }
 
