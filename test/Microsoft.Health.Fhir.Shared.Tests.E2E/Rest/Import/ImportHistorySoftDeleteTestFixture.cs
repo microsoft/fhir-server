@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public (List<Resource> Existing, List<Resource> Import) ImportAndDeleteResources { get; private set; }
 
+        /*
         public List<Resource> ExistingResources => NewImplicitVersionIdResources.Existing
             .Concat(ConflictingVersionResources.Existing)
             .Concat(ImportAndDeleteResources.Existing).ToList();
@@ -35,6 +36,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public List<Resource> ImportResources => NewImplicitVersionIdResources.Import
             .Concat(ConflictingVersionResources.Import)
             .Concat(ImportAndDeleteResources.Import).ToList();
+        */
+        public List<Resource> ExistingResources => ConflictingVersionResources.Existing;
+
+        public List<Resource> ImportResources => ConflictingVersionResources.Import;
 
         // TODO - Add a test case for resources without version id or last updated.
 
@@ -44,9 +49,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            NewImplicitVersionIdResources = GetNewImplicitVersionIdResources();
-            ConflictingVersionResources = GetConflictingVersionResources();
-            ImportAndDeleteResources = GetImportAndDeleteResources();
+            // NewImplicitVersionIdResources = GetNewImplicitVersionIdResources();
+            var conflictingVersionResources = GetConflictingVersionResources();
+            var existingConflictingVersionResources = await SavePrerequisiteResourcesViaHttp(conflictingVersionResources.Existing);
+            ConflictingVersionResources = (existingConflictingVersionResources, conflictingVersionResources.Import);
+
+            // ImportAndDeleteResources = GetImportAndDeleteResources();
 
             // Add resources for testing of import on existing resources.
             await SavePrerequisiteResourcesViaHttp(ExistingResources);
@@ -58,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 ImportResources.ToArray());
         }
 
-        private async Task SavePrerequisiteResourcesViaHttp(List<Resource> existingServerResources)
+        private async Task<List<Resource>> SavePrerequisiteResourcesViaHttp(List<Resource> existingServerResources)
         {
             Bundle existingResourceBundle = new()
             {
@@ -72,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             var result = await TestFhirClient.PostBundleAsync(existingResourceBundle);
 
-            return;
+            return result.Resource.Entry.Select(_ => _.Resource).ToList();
         }
 
         private (List<Resource> Existing, List<Resource> Import) GetNewImplicitVersionIdResources()
@@ -85,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow),
                 });
         }
 

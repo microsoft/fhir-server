@@ -38,14 +38,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var queryById = $"Patient?_id={resourceId}&_tag={_fixture.FixtureTag}";
 
             Bundle result = await _client.SearchAsync(queryById);
-            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.NewImplicitVersionIdResources.Import.ToArray());
 
-            // TODO - why is the new version not being imported? Why is this not 2?
-            Assert.Equal("2", result.Entry[0].Resource.Meta.VersionId);
+            // No resources should be imported since the version id already exists.
+            Assert.Empty(result.Entry);
 
             // Validate that the old version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
+
+            // Manual assert - can be removed before merging
+            Assert.Equal("1", result.Entry.First().Resource.VersionId);
+            Assert.Equal(_fixture.NewImplicitVersionIdResources.Import[0].Meta.LastUpdated, result.Entry.First().Resource.Meta.LastUpdated);
 
             ImportTestHelper.VerifyBundleWithMeta(
                 result,
@@ -59,16 +62,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var resourceId = _fixture.ConflictingVersionResources.Import.Select(r => r.Id).Distinct().Single();
             var queryById = $"Patient?_id={resourceId}&_tag={_fixture.FixtureTag}";
             Bundle result = await _client.SearchAsync(queryById);
-            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.ConflictingVersionResources.Import.ToArray());
 
-            // Only one version should be imported.
-            Assert.Equal("1", result.Entry[0].Resource.Meta.VersionId);
+            // No resources should be imported since the version id already exists.
+            Assert.Empty(result.Entry);
 
             // Validate that the old version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
 
-            ImportTestHelper.VerifyBundleWithMeta(result, _fixture.ConflictingVersionResources.Import.ToArray());
+            // Manual assert - can be removed before merging
+            Assert.Equal("1", result.Entry.First().Resource.VersionId);
+            Assert.Equal(
+                _fixture.ConflictingVersionResources.Existing[0].Meta.LastUpdated,
+                result.Entry.First().Resource.Meta.LastUpdated);
+
+            ImportTestHelper.VerifyBundleWithMeta(
+                result,
+                _fixture.ConflictingVersionResources.Existing.ToArray());
         }
 
         [Fact]

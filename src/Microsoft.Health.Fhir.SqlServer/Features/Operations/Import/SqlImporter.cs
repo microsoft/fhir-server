@@ -141,14 +141,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             else
             {
-                // dedup by last updated
-                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).Select(_ => _.First()).ToList();
+                // If versionId and lastUpdated are specified, we assume the client may want to import multiple versions.
+                var inputWithVersionLastUpdated = goodResources.Where(_ => _.KeepVersion && _.KeepLastUpdated);
+
+                // If not, we dedup by last updated
+                var inputDedupped = goodResources
+                    .Where(_ => !_.KeepVersion || !_.KeepLastUpdated)
+                    .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true))
+                    .Select(_ => _.First()).ToList();
 
                 // 2 paths:
-                // 1 - if versions were specified on input then dups need to be checked within input and database
-                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
-                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
+                // 1 - if versions were specified on input then dups need to be checked within input and database.
+                //   - if multiple resources with same versoin we take the latest by lastUpdated.
+                var inputWithVersionDefined = inputWithVersionLastUpdated
+                    .Concat(inputDedupped.Where(_ => _.KeepVersion))
+                    .GroupBy(_ => _.ResourceWrapper.ToResourceKey())
+                    .Select(_ => _.OrderByDescending(x => x.KeepLastUpdated ? x.ResourceWrapper.LastModified : DateTime.MinValue).First())
+                    .ToList();
+
+                // DELETE ME - var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
+                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputWithVersionDefined.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
+                loaded.AddRange(inputWithVersionDefined.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
                 await MergeResourcesAsync(loaded, cancellationToken);
 
                 // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
