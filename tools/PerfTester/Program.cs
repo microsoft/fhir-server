@@ -9,12 +9,15 @@ using System;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 using DotLiquid.Tags;
+using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -37,6 +40,13 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly int _calls = int.Parse(ConfigurationManager.AppSettings["Calls"]);
         private static readonly string _callType = ConfigurationManager.AppSettings["CallType"];
         private static readonly bool _performTableViewCompare = bool.Parse(ConfigurationManager.AppSettings["PerformTableViewCompare"]);
+        private static readonly string _endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
+        private static readonly HttpClient _httpClient = new HttpClient();
+        private static readonly string _sourceStorageContainerName = ConfigurationManager.AppSettings["SourceStorageContainerName"];
+        private static readonly int _takeBlobs = int.Parse(ConfigurationManager.AppSettings["TakeBlobs"]);
+        private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
+        private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
+        private static readonly bool _writesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
 
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient<SqlServerFhirDataStore> _store;
@@ -47,6 +57,13 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+
+            if (_callType == "HttpPut")
+            {
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
+                ExecuteParallelCalls();
+                return;
+            }
 
             if (_callType == "GetByTransactionId")
             {
@@ -94,6 +111,59 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             tranIds = tranIds.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).Take(_calls).ToList();
             Console.WriteLine($"Selected random transaction ids={tranIds.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
             return tranIds;
+        }
+
+        private static void ExecuteParallelCalls()
+        {
+            var sourceContainer = GetContainer(_storageConnectionString, _sourceStorageContainerName);
+            var blobs = sourceContainer.GetBlobs().Where(_ => _.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase)).Skip(_skipBlobs).Take(_takeBlobs);
+            var tableOrView = GetResourceObjectType();
+            var sw = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
+            var calls = 0L;
+            var resources = 0;
+            long sumLatency = 0;
+            foreach (var blob in blobs)
+            {
+                if (Interlocked.Read(ref calls) >= _calls)
+                {
+                    break;
+                }
+
+                Console.WriteLine($"{tableOrView} blob={blob.Name} started...");
+                var lines = GetLinesInBlob(sourceContainer, blob.Name);
+                BatchExtensions.ExecuteInParallelBatches(lines, _threads, 1, (thread, lineItem) =>
+                {
+                    if (Interlocked.Read(ref calls) >= _calls)
+                    {
+                        return;
+                    }
+
+                    Interlocked.Increment(ref calls);
+                    var swLatency = Stopwatch.StartNew();
+                    var json = lineItem.Item2.First();
+                    var (resourceType, resourceId) = ParseJson(json);
+                    var status = PutResource(json, resourceType, resourceId);
+                    Interlocked.Increment(ref resources);
+                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                    Interlocked.Add(ref sumLatency, mcsec);
+                    _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+
+                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                                swReport.Restart();
+                            }
+                        }
+                    }
+                });
+            }
+
+            Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
         private static void ExecuteParallelCalls(ReadOnlyList<long> tranIds)
@@ -364,6 +434,14 @@ END
             }
         }
 
+        private static void PingDatabase()
+        {
+            using var conn = new SqlConnection(_connectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT 1", conn);
+            cmd.ExecuteNonQuery();
+        }
+
         private static string GetResourceObjectType()
         {
             using var conn = new SqlConnection(_connectionString);
@@ -374,14 +452,19 @@ END
 
         private static BlobContainerClient GetContainer()
         {
+            return GetContainer(_storageConnectionString, _storageContainerName);
+        }
+
+        private static BlobContainerClient GetContainer(string storageConnectionString, string storageContainerName)
+        {
             try
             {
-                var blobServiceClient = new BlobServiceClient(_storageConnectionString);
-                var blobContainerClient = blobServiceClient.GetBlobContainerClient(_storageContainerName);
+                var blobServiceClient = new BlobServiceClient(storageConnectionString);
+                var blobContainerClient = blobServiceClient.GetBlobContainerClient(storageContainerName);
 
                 if (!blobContainerClient.Exists())
                 {
-                    var container = blobServiceClient.CreateBlobContainer(_storageContainerName);
+                    var container = blobServiceClient.CreateBlobContainer(storageContainerName);
                     Console.WriteLine($"Created container {container.Value.Name}");
                 }
 
@@ -389,9 +472,122 @@ END
             }
             catch
             {
-                Console.WriteLine($"Unable to parse stroage reference or connect to storage account {_storageConnectionString}.");
+                Console.WriteLine($"Unable to parse stroage reference or connect to storage account {storageConnectionString}.");
                 throw;
             }
+        }
+
+        private static IEnumerable<string> GetLinesInBlob(BlobContainerClient container, string blobName)
+        {
+            using var reader = new StreamReader(container.GetBlobClient(blobName).Download().Value.Content);
+            while (!reader.EndOfStream)
+            {
+                yield return reader.ReadLine();
+            }
+        }
+
+        private static string PutResource(string jsonString, string resourceType, string resourceId)
+        {
+            using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+            var maxRetries = 10;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId);
+                bad = false;
+                try
+                {
+                    if (!_writesEnabled)
+                    {
+                        PingDatabase();
+                        status = "Skip";
+                        break;
+                    }
+
+                    var response = _httpClient.PutAsync(uri, content).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.Created:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static bool IsNetworkError(Exception e)
+        {
+            return e.Message.Contains("connection attempt failed", StringComparison.OrdinalIgnoreCase)
+                   || e.Message.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase)
+                   || e.Message.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static (string resourceType, string resourceId) ParseJson(string jsonString)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var idShort = jsonString.Substring(idStart, 50);
+            var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceId = idShort.Substring(0, idEnd);
+            if (string.IsNullOrEmpty(resourceId))
+            {
+                throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
+            var rtShort = jsonString.Substring(rtStart, 50);
+            var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceType = rtShort.Substring(0, rtEnd);
+            if (string.IsNullOrEmpty(resourceType))
+            {
+                throw new ArgumentException("Cannot parse resource type with string parser");
+            }
+
+            return (resourceType, resourceId);
         }
     }
 }
