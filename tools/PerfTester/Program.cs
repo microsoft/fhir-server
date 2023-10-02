@@ -489,7 +489,7 @@ END
         private static string PutResource(string jsonString, string resourceType, string resourceId)
         {
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-            var maxRetries = 10;
+            var maxRetries = 3;
             var retries = 0;
             var networkError = false;
             var bad = false;
