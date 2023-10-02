@@ -148,7 +148,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
                 var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
                 Interlocked.Add(ref sumLatency, mcsec);
-                _store.TryLogEvent($"threads={_threads}.{callType}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                _store.TryLogEvent($"{callType}.threads={_threads}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
 
                 if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                 {
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 }
             });
 
-            Console.WriteLine($"type={callType} wthreads={_threads} calls={calls} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+            Console.WriteLine($"type={callType} threads={_threads} calls={calls} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
         private static void LogEvent()
