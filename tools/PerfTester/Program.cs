@@ -123,16 +123,17 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
         private static void ExecuteParallelCalls(string callType)
         {
-            var sw = Stopwatch.StartNew();
-            var swReport = Stopwatch.StartNew();
-            var calls = 0L;
-            long sumLatency = 0;
             var callList = new List<int>();
             for (var i = 0; i < _calls; i++)
             {
                 callList.Add(i);
             }
 
+            var sw = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
+            var calls = 0L;
+            long sumLatency = 0;
+            Console.WriteLine($"type={callType} threads={_threads} starting...");
             BatchExtensions.ExecuteInParallelBatches(callList, _threads, 1, (thread, item) =>
             {
                 Interlocked.Increment(ref calls);
