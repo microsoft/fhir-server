@@ -513,6 +513,7 @@ END
                     {
                         case HttpStatusCode.OK:
                         case HttpStatusCode.Created:
+                        case HttpStatusCode.Conflict:
                         case HttpStatusCode.InternalServerError:
                             break;
                         default:
