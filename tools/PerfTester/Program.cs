@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Utils;
 using Microsoft.Health.SqlServer;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
+using Microsoft.VisualBasic;
 
 namespace Microsoft.Health.Internal.Fhir.PerfTester
 {
@@ -57,6 +58,13 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
+
+            if (_callType == "GetDate" || _callType == "LogEvent")
+            {
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")}");
+                ExecuteParallelCalls(_callType);
+                return;
+            }
 
             if (_callType == "HttpPut")
             {
@@ -111,6 +119,64 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             tranIds = tranIds.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).Take(_calls).ToList();
             Console.WriteLine($"Selected random transaction ids={tranIds.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
             return tranIds;
+        }
+
+        private static void ExecuteParallelCalls(string callType)
+        {
+            var sw = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
+            var calls = 0L;
+            long sumLatency = 0;
+            var callList = new List<int>();
+            for (var i = 0; i < _calls; i++)
+            {
+                callList.Add(i);
+            }
+
+            BatchExtensions.ExecuteInParallelBatches(callList, _threads, 1, (thread, item) =>
+            {
+                Interlocked.Increment(ref calls);
+                var swLatency = Stopwatch.StartNew();
+                if (callType == "GetDate")
+                {
+                    GetDate();
+                }
+                else
+                {
+                    LogEvent();
+                }
+
+                var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                Interlocked.Add(ref sumLatency, mcsec);
+                _store.TryLogEvent($"threads={_threads}.{callType}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+
+                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                {
+                    lock (swReport)
+                    {
+                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        {
+                            Console.WriteLine($"type={callType} threads={_threads} calls={calls} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                            swReport.Restart();
+                        }
+                    }
+                }
+            });
+
+            Console.WriteLine($"type={callType} wthreads={_threads} calls={calls} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+        }
+
+        private static void LogEvent()
+        {
+            _store.TryLogEvent("LogEvent", "Warn", $"threads ={_threads}", null, CancellationToken.None).Wait();
+        }
+
+        private static void GetDate()
+        {
+            using var conn = new SqlConnection(_connectionString);
+            conn.Open();
+            using var cmd = new SqlCommand("SELECT getUTCdate()", conn);
+            cmd.ExecuteNonQuery();
         }
 
         private static void ExecuteParallelCalls()
@@ -434,14 +500,6 @@ END
             }
         }
 
-        private static void PingDatabase()
-        {
-            using var conn = new SqlConnection(_connectionString);
-            conn.Open();
-            using var cmd = new SqlCommand("SELECT 1", conn);
-            cmd.ExecuteNonQuery();
-        }
-
         private static string GetResourceObjectType()
         {
             using var conn = new SqlConnection(_connectionString);
@@ -502,7 +560,7 @@ END
                 {
                     if (!_writesEnabled)
                     {
-                        PingDatabase();
+                        GetDate();
                         status = "Skip";
                         break;
                     }
