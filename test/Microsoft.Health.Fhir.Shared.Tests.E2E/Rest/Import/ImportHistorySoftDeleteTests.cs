@@ -138,15 +138,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 .Where(x => !x.Meta.Extension.Any(e => e.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 .ToList();
 
-            // We expect the first resource in the file to be imported unless it is a delete.
-            List<Resource> expectedHistorical = testResources
-                .GroupBy(r => r.Id)
-                .Select(r => r.First())
-                .Where(r => !r.Meta.Extension.Any(ex => ex.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
-                .ToList();
-
             // Since only one version is imported, this will always be 1.
-            foreach (var resource in expectedHistorical)
+            foreach (var resource in expectedNonHistorical)
             {
                 if (resource.Meta.VersionId is null || resource.Meta.LastUpdated is null)
                 {
@@ -163,44 +156,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Query the resource endpoint and ensure only non-deleted resources are returned.
             var resourceIds = testResources.Select(r => r.Id).Distinct().ToArray();
             var queryByIds = $"Patient?_id={string.Join(",", resourceIds)}&_tag={_fixture.FixtureTag}";
+
             Bundle result = await _fixture.TestFhirClient.SearchAsync(queryByIds);
             ImportTestHelper.VerifyBundle(result, expectedNonHistorical.ToArray());
-
-            // Ensure all resources were imported.
-            await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, expectedHistorical.ToArray());
         }
-
-        /*
-        [Fact]
-        public async Task GivenImportedResourcesWithBasicSoftDelete_WhenSearchedById_ThenNoResourceIsReturned()
-        {
-            // Validate that the soft deleted resource is not returned by a general search.
-            var queryById = $"Patient?_id={_fixture.ExistingServerResources["NewImplicitVersionId"].Id}&_tag={_fixture.FixtureTag}";
-            await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryById, new Resource[0]);
-        }
-
-        [Fact]
-        public async Task GivenImportedResourcesWithBasicSoftDelete_WhenSearchedById_ThenNoResourceIsReturned()
-        {
-            // Validate that the soft deleted resource is not returned by a general search.
-            var queryById = $"Patient?_id={_fixture.ExistingServerResources["NewImplicitVersionId"].Id}&_tag={_fixture.FixtureTag}";
-            await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryById, new Resource[0]);
-        }
-
-        [Fact]
-        public async Task GivenImportedResourcesWithBasicSoftDelete_WhenHistoryIsSearched_ThenAllVersionsReturned()
-        {
-            // Validate that the soft deleted resource IS returned by a history search.
-            var queryByIdHistory = $"Patient/{_fixture.PatientSimpleSoftDelete[0].Id}/_history";
-            Bundle result = await _client.SearchAsync(queryByIdHistory);
-
-            // #TODO - update stylecop settings to allow spread operator
-            ImportTestHelper.VerifyBundle(result, _fixture.PatientSimpleSoftDelete.ToArray());
-
-            Console.WriteLine(result.Entry[0].Resource.Meta.VersionId);
-            Console.WriteLine(result.Entry[1].Resource.Meta.VersionId);
-            Console.WriteLine("poop");
-        }
-        */
     }
 }

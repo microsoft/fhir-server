@@ -25,10 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public Dictionary<string, (List<Resource> Existing, List<Resource> Import)> TestResources { get; } = new();
 
-        // TODO - Add a test case for resources without version id or last updated.
-
-        // TODO - Test when resources are already in the database.
-
         public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         protected override async Task OnInitializedAsync()
