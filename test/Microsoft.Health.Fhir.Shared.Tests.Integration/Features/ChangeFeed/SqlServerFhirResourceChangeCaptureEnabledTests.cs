@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos.Spatial;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -190,6 +191,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
 
             Assert.Equal(0, await GetCount());
+            DisableInvisibleHistory();
+        }
+
+        [Fact]
+        public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterHardDeleting_CanRecreateResource()
+        {
+            EnableDatabaseLogging();
+            EnableInvisibleHistory();
+
+            var create = await _fixture.Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", create.VersionId);
+            var id = create.Id;
+
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+            await store.HardDeleteAsync(new ResourceKey("Organization", id), false, CancellationToken.None);
+
+            var reCreate = await _fixture.Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization().UpdateId(id));
+            Assert.Equal(id, reCreate.RawResourceElement.Id);
+            Assert.Equal("1", reCreate.RawResourceElement.VersionId);
+
+            await store.HardDeleteAsync(new ResourceKey("Organization", id), false, CancellationToken.None);
+
             DisableInvisibleHistory();
         }
 
