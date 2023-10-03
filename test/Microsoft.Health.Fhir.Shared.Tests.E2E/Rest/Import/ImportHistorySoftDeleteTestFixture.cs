@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Castle.Components.DictionaryAdapter.Xml;
 using DotLiquid.Util;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Models;
@@ -22,24 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
         }
 
-        public (List<Resource> Existing, List<Resource> Import) NewImplicitVersionIdResources { get; private set; }
-
-        public (List<Resource> Existing, List<Resource> Import) ConflictingVersionResources { get; private set; }
-
-        public (List<Resource> Existing, List<Resource> Import) ImportAndDeleteResources { get; private set; }
-
-        /*
-        public List<Resource> ExistingResources => NewImplicitVersionIdResources.Existing
-            .Concat(ConflictingVersionResources.Existing)
-            .Concat(ImportAndDeleteResources.Existing).ToList();
-
-        public List<Resource> ImportResources => NewImplicitVersionIdResources.Import
-            .Concat(ConflictingVersionResources.Import)
-            .Concat(ImportAndDeleteResources.Import).ToList();
-        */
-        public List<Resource> ExistingResources => ConflictingVersionResources.Existing;
-
-        public List<Resource> ImportResources => ConflictingVersionResources.Import;
+        public Dictionary<string, (List<Resource> Existing, List<Resource> Import)> TestResources { get; } = new();
 
         // TODO - Add a test case for resources without version id or last updated.
 
@@ -49,21 +33,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            // NewImplicitVersionIdResources = GetNewImplicitVersionIdResources();
-            var conflictingVersionResources = GetConflictingVersionResources();
-            var existingConflictingVersionResources = await SavePrerequisiteResourcesViaHttp(conflictingVersionResources.Existing);
-            ConflictingVersionResources = (existingConflictingVersionResources, conflictingVersionResources.Import);
+            TestResources.Add("NewImplicitVersionId", GetNewImplicitVersionIdResources());
+            TestResources.Add("ImportOverExistingVersionId", GetImportOverExistingVersionIdResources());
+            TestResources.Add("ImportWithSameVersionId", GetImportWithSameVersionIdResources());
+            TestResources.Add("ImportAndDeleteExplicitVersionUpdate", GetImportAndDeleteExplicitVersionUpdatedResources());
+            TestResources.Add("ImportAndDeleteImplicitVersionUpdated", GetImportAndDeleteImplicitVersionExplicitUpdatedResources());
 
-            // ImportAndDeleteResources = GetImportAndDeleteResources();
+            // Save existing test resources to the server. Update test resources with the new version id/last updated.
+            foreach (var resourceInfo in TestResources)
+            {
+                var existingResources = await SavePrerequisiteResourcesViaHttp(resourceInfo.Value.Existing);
+                TestResources[resourceInfo.Key] = (existingResources, resourceInfo.Value.Import);
 
-            // Add resources for testing of import on existing resources.
-            await SavePrerequisiteResourcesViaHttp(ExistingResources);
+                foreach (var importResource in resourceInfo.Value.Import)
+                {
+                    importResource.AddTestTag(FixtureTag);
+                }
+            }
 
             // Execute import request under test.
             await ImportTestHelper.ImportToServerAsync(
                 TestFhirClient,
                 StorageAccount,
-                ImportResources.ToArray());
+                TestResources.Values.SelectMany(x => x.Import).ToArray());
         }
 
         private async Task<List<Resource>> SavePrerequisiteResourcesViaHttp(List<Resource> existingServerResources)
@@ -89,48 +81,107 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return (
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1)),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow),
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1)),
                 });
         }
 
-        private (List<Resource> Existing, List<Resource> Import) GetConflictingVersionResources()
+        private (List<Resource> Existing, List<Resource> Import) GetImportOverExistingVersionIdResources()
         {
             string sharedId = Guid.NewGuid().ToString("N");
             return (
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(-1), versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
                 },
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
                 });
         }
 
-        private (List<Resource> Existing, List<Resource> Import) GetImportAndDeleteResources()
+        private (List<Resource> Existing, List<Resource> Import) GetImportWithSameVersionIdResources()
         {
-            string explicitVersionUpdatedGuid = Guid.NewGuid().ToString("N");
-            string implicitVersionExplicitUpdatedGuid = Guid.NewGuid().ToString("N");
-            string explicitVersionImplicitUpdatedGuid = Guid.NewGuid().ToString("N");
-            string implicitVersionUpdatedGuid = Guid.NewGuid().ToString("N");
+            string sharedId = Guid.NewGuid().ToString("N");
+            return (
+                new(),
+                new()
+                {
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
+                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow.AddMinutes(1), versionId: "1"),
+                });
+        }
+
+        private (List<Resource> Existing, List<Resource> Import) GetImportAndDeleteExplicitVersionUpdatedResources()
+        {
+            List<string> sharedIds = new();
+
+            for (int i = 0; i < 4; i++)
+            {
+                sharedIds.Add(Guid.NewGuid().ToString("N"));
+            }
 
             return (
                 new(),
                 new()
                 {
-                    // The order of these is important for the test. Indexes 1, 3, 5 are expected to be available via search w/o history.
-                    CreateTestPatient(id: explicitVersionUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1"),
-                    CreateTestPatient(id: explicitVersionUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow, versionId: "2", deleted: true),
-                    CreateTestPatient(id: implicitVersionExplicitUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
-                    CreateTestPatient(id: implicitVersionExplicitUpdatedGuid, lastUpdated: DateTimeOffset.UtcNow, deleted: true),
-                    CreateTestPatient(id: explicitVersionImplicitUpdatedGuid, versionId: "1"),
-                    CreateTestPatient(id: explicitVersionImplicitUpdatedGuid, versionId: "2", deleted: true),
-                    CreateTestPatient(id: implicitVersionUpdatedGuid),
-                    CreateTestPatient(id: implicitVersionUpdatedGuid, deleted: true),
+                    CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1"),
+                    CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow, versionId: "2", deleted: true),
+                    CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow, versionId: "2", deleted: true),
+                    CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1"),
+
+                    CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1", deleted: true),
+                    CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow, versionId: "2"),
+                    CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow, versionId: "2"),
+                    CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), versionId: "1", deleted: true),
+                });
+        }
+
+        private (List<Resource> Existing, List<Resource> Import) GetImportAndDeleteImplicitVersionExplicitUpdatedResources()
+        {
+            List<string> sharedIds = new();
+
+            for (int i = 0; i < 12; i++)
+            {
+                sharedIds.Add(Guid.NewGuid().ToString("N"));
+            }
+
+            return (
+                new(),
+                new()
+                {
+                    CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
+                    CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
+                    CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
+                    CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
+
+                    CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
+                    CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow),
+                    CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow),
+                    CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
+
+                    CreateTestPatient(id: sharedIds[4], versionId: "1"),
+                    CreateTestPatient(id: sharedIds[4], versionId: "2", deleted: true),
+                    CreateTestPatient(id: sharedIds[5], versionId: "2", deleted: true),
+                    CreateTestPatient(id: sharedIds[5], versionId: "1"),
+
+                    CreateTestPatient(id: sharedIds[6], versionId: "1", deleted: true),
+                    CreateTestPatient(id: sharedIds[6], versionId: "2"),
+                    CreateTestPatient(id: sharedIds[7], versionId: "2"),
+                    CreateTestPatient(id: sharedIds[7], versionId: "1", deleted: true),
+
+                    CreateTestPatient(id: sharedIds[8]),
+                    CreateTestPatient(id: sharedIds[8], deleted: true),
+                    CreateTestPatient(id: sharedIds[9], deleted: true),
+                    CreateTestPatient(id: sharedIds[9]),
+
+                    CreateTestPatient(id: sharedIds[10], deleted: true),
+                    CreateTestPatient(id: sharedIds[10]),
+                    CreateTestPatient(id: sharedIds[11]),
+                    CreateTestPatient(id: sharedIds[11], deleted: true),
                 });
         }
 
@@ -139,8 +190,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var rtn = new Patient()
             {
                 Id = id ?? Guid.NewGuid().ToString("N"),
-            }
-            .AddTestTag(FixtureTag);
+                Meta = new(),
+            };
 
             if (lastUpdated is not null)
             {

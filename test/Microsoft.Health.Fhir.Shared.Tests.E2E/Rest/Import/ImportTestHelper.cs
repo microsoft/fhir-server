@@ -65,40 +65,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public static async Task VerifyHistoryResultAsync(TestFhirClient client, params Resource[] resources)
         {
-            var ids = resources.Select(r => r.Id).Distinct().ToArray();
+            var historyUrls = resources.Select(r => $"/{r.TypeName}/{r.Id}/_history").Distinct().ToArray();
 
-            foreach (string id in ids)
+            foreach (string url in historyUrls)
             {
-                Bundle result = await client.SearchAsync($"{id}/_history");
-                VerifyBundleWithMeta(result, resources.Where(r => r.Id == id).ToArray());
+                Bundle result = await client.SearchAsync(url);
+                VerifyBundleWithMeta(result, resources.Where(r => url.StartsWith($"/{r.TypeName}/{r.Id}")).ToArray());
             }
         }
 
         public static void VerifyBundle(Bundle result, params Resource[] resources)
         {
-            Assert.Equal(resources.Length, result.Entry.Count);
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
 
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
             {
-                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource {resultResource.Id} with verson {resultResource.VersionId} not found in input resources.");
             }
         }
 
         public static void VerifyBundleWithMeta(Bundle result, params Resource[] resources)
         {
-            Assert.Equal(resources.Length, result.Entry.Count);
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
 
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
             {
-                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
-                Assert.Contains(resources, expectedResource => expectedResource.Meta.LastUpdated.Equals(resultResource.Meta.LastUpdated));
-                Assert.Contains(resources, expectedResource => expectedResource.Meta.VersionId.Equals(resultResource.Meta.VersionId));
-            }
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource with id {resultResource.Id} not found in result set.");
 
-            foreach (Resource inputResource in resources.Where(x => x.Meta.Extension.Any(x => x.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl)))
-            {
-                 Bundle.EntryComponent matchingEntry = result.Entry.Single(r => r.Resource.Id.Equals(inputResource.Id));
-                 matchingEntry.Request.Method = Bundle.HTTPVerb.DELETE;
+                Assert.True(
+                    resources.Any(expectedResource =>
+                    expectedResource.Id.Equals(resultResource.Id) &&
+                    expectedResource.Meta.LastUpdated.Equals(resultResource.Meta.LastUpdated) &&
+                    expectedResource.Meta.VersionId.Equals(resultResource.Meta.VersionId)),
+                    $"Resource with id {resultResource.Id} does not have matching meta in result set.");
             }
         }
 
