@@ -192,14 +192,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
-                    /*
-                    if (resource.IsDeleted)
+                    if (resource.IsDeleted && !resources.Any(_ => _.Wrapper.ToResourceKey(true).Equals(resource.ToResourceKey(true)) && !_.Wrapper.IsDeleted))
                     {
-                        // Don't bother marking the resource as deleted since it already does not exist.
+                        // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
-                    */
 
                     if (eTag.HasValue)
                     {
@@ -242,7 +240,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    // #TODO - change this logic for data migration scenario
                     if (resource.IsDeleted && existingResource.IsDeleted)
                     {
                         // Already deleted - don't create a new version

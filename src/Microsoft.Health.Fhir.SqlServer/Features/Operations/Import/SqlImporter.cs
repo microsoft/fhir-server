@@ -159,7 +159,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     .Select(_ => _.OrderByDescending(x => x.KeepLastUpdated ? x.ResourceWrapper.LastModified : DateTime.MinValue).First())
                     .ToList();
 
-                // DELETE ME - var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
                 var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputWithVersionDefined.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
                 loaded.AddRange(inputWithVersionDefined.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
                 await MergeResourcesAsync(loaded, cancellationToken);
@@ -172,8 +171,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
-                    // TODO: This logic will need to be changed. Do we need to compare the entire resource key or only part of it?
-                    // GivenImportedResourceOverExisting_WhenImportVersionNotSpecified_ThenBothVersionsExistCorrectly
                     if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
                         && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
                     {

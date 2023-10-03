@@ -122,10 +122,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             ImportTestHelper.VerifyBundle(result, expectedNonHistorical.ToArray());
 
-            // Since both last updated and version are specified, both resources should be imported.
-            List<Resource> expectedHistorical = testResources;
+            // Since both last updated and version are specified, both resources should be imported unless first version is delete.
+            List<Resource> expectedHistorical = testResources
+                .Where(r => !(r.Meta.VersionId == "1" && r.Meta.Extension.Any(ex => ex.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl)))
+                .ToList();
 
-            await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, expectedHistorical.ToArray());
+            await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, testResources.ToArray());
         }
 
         [Fact]
@@ -141,10 +143,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 .Where(x => !x.Meta.Extension.Any(e => e.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 .ToList();
 
-            // We expect the first version to exist when checking history.
+            // We expect the first resource in the file to be imported unless it is a delete.
             List<Resource> expectedHistorical = testResources
-                .GroupBy(x => x.Id)
-                .Select(x => x.First())
+                .GroupBy(r => r.Id)
+                .Select(r => r.First())
+                .Where(r => !r.Meta.Extension.Any(ex => ex.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 .ToList();
 
             // Since only one version is imported, this will always be 1.
