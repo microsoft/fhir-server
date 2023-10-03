@@ -640,7 +640,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
 
-            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, false, bundleResourceContext: null), CancellationToken.None);
 
             // Create the query <fhirserver>/Patient?foo=searchIndicesPatient1
             var queryParams = new List<Tuple<string, string>> { new(searchParamCode, sampleName1) };
@@ -721,7 +721,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
 
-            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(searchParamWrapper, true, true, null, false, false, false, bundleResourceContext: null), CancellationToken.None);
 
             using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -748,7 +748,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // then delete the search parameter resource from data base
                 await _searchParameterOperations2.DeleteSearchParameterAsync(deletedWrapper.RawResource, CancellationToken.None);
 
-                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+                UpsertOutcome deleteResult = await _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, true, null, false, false, false, bundleResourceContext: null), CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should have it listed as PendingDelete
                 var tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
@@ -1018,12 +1018,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private async Task<UpsertOutcome> CreatePatientResource(string patientName, string patientId)
         {
-            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(CreatePatientResourceWrapper(patientName, patientId), true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(CreatePatientResourceWrapper(patientName, patientId), true, true, null, false, false, false, bundleResourceContext: null), CancellationToken.None);
         }
 
         private async Task<UpsertOutcome> CreateObservationResource(string observationId)
         {
-            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(observationId), true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(observationId), true, true, null, false, false, false, bundleResourceContext: null), CancellationToken.None);
         }
 
         private async Task InitialieSecondFHIRService()

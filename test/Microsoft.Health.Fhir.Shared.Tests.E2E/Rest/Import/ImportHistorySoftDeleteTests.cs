@@ -41,18 +41,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             Bundle result = await _client.SearchAsync(queryById);
 
-            // No resources should be imported since the version id already exists.
+            // Only one resource should be returned (same id) new version
             Assert.Single(result.Entry);
+            Assert.Equal("2", result.Entry.Single().Resource.Meta.VersionId);
 
             // Validate that the old version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
 
+            // Inform the test which version id for asserting
+            _fixture.TestResources["NewImplicitVersionId"].Import[0].Meta.VersionId = "2";
             var expectedResources = _fixture.TestResources["NewImplicitVersionId"].Import
                 .Concat(_fixture.TestResources["NewImplicitVersionId"].Existing);
 
-            expectedResources.Single(_ => _.Meta.VersionId == null).Meta.VersionId = "2";
-
+            // Both versions should be returned by the history endpoint
             ImportTestHelper.VerifyBundleWithMeta(result, expectedResources.ToArray());
         }
 
@@ -70,16 +72,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Validate that the old version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
-
-            // Manual assert - can be removed before merging
             Assert.Equal("1", result.Entry.First().Resource.VersionId);
             Assert.Equal(
                 _fixture.TestResources["ImportOverExistingVersionId"].Existing[0].Meta.LastUpdated,
                 result.Entry.First().Resource.Meta.LastUpdated);
-
-            ImportTestHelper.VerifyBundleWithMeta(
-                result,
-                _fixture.TestResources["ImportOverExistingVersionId"].Existing.ToArray());
+            Assert.Single(result.Entry);
         }
 
         [Fact]
@@ -123,9 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTestHelper.VerifyBundle(result, expectedNonHistorical.ToArray());
 
             // Since both last updated and version are specified, both resources should be imported unless first version is delete.
-            List<Resource> expectedHistorical = testResources
-                .Where(r => !(r.Meta.VersionId == "1" && r.Meta.Extension.Any(ex => ex.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl)))
-                .ToList();
+            List<Resource> expectedHistorical = testResources;
 
             await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, testResources.ToArray());
         }

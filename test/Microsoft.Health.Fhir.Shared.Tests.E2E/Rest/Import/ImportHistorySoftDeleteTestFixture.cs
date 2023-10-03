@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return (
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow),
+                    CreateTestPatient(id: sharedId),
                 },
                 new()
                 {
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return (
                 new()
                 {
-                    CreateTestPatient(id: sharedId, lastUpdated: DateTimeOffset.UtcNow, versionId: "1"),
+                    CreateTestPatient(id: sharedId),
                 },
                 new()
                 {

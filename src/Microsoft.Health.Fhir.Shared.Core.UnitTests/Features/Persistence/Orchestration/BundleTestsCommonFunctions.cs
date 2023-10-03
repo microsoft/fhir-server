@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         public static async Task<ResourceWrapperOperation> GetResourceWrapperOperationAsync(DomainResource resource, BundleResourceContext bundleResourceContext)
         {
             ResourceWrapper wrapper = await GetResourceWrapperAsync(resource);
-            return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext);
+            return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, keepDeleted: false, bundleResourceContext);
         }
 
         private static Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MockMergeAsync(CallInfo arg)

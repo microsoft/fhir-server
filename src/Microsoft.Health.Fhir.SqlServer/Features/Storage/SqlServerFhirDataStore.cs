@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
-                    if (resource.IsDeleted && !resources.Any(_ => _.Wrapper.ToResourceKey(true).Equals(resource.ToResourceKey(true)) && !_.Wrapper.IsDeleted))
+                    if (resource.IsDeleted && !resourceExt.KeepDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    if (resource.IsDeleted && existingResource.IsDeleted)
+                    if (resource.IsDeleted && existingResource.IsDeleted && !resourceExt.KeepDeleted)
                     {
                         // Already deleted - don't create a new version
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
