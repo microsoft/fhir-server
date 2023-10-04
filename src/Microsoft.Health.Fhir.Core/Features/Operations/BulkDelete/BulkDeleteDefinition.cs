@@ -20,7 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             IList<Tuple<string, string>> searchParameters,
             string url,
             string baseUrl,
-            string parentRequestId)
+            string parentRequestId,
+            long startingResourceCount)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             Url = url;
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
+            StartingResourceCount = startingResourceCount;
         }
 
         [JsonConstructor]
@@ -56,5 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.ParentRequestId)]
         public string ParentRequestId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StartingResourceCount)]
+        public long StartingResourceCount { get; private set; }
     }
 }
