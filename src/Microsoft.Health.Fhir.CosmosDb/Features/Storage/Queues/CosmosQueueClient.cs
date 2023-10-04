@@ -78,7 +78,7 @@ public class CosmosQueueClient : IQueueClient
             .WithParameter("@groupId", groupId);
 
         // Add existing job records to the list of job infos
-        IReadOnlyList<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, queueType, cancellationToken);
+        IReadOnlyList<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, null, queueType, cancellationToken);
         if (existingJobs.Count > 0)
         {
             IEnumerable<JobInfo> existingJobInfos =
@@ -454,7 +454,7 @@ public class CosmosQueueClient : IQueueClient
                 .WithParameter("@groupId", groupId.ToString())
                 .WithParameter("@queueType", queueType);
 
-            var response = await ExecuteQueryAsync(sqlQuerySpec, 100, queueType, cancellationToken);
+            var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
 
             return response.ToList();
     }
@@ -497,7 +497,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
-    private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int itemCount, byte queueType, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
@@ -508,12 +508,17 @@ public class CosmosQueueClient : IQueueClient
                 new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
 
         var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+        FeedResponse<JobGroupWrapper> response;
 
-        while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && items.Count < itemCount)
+        while (itemCount == null || items.Count < itemCount.Value)
         {
-            items.AddRange(response);
             response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+            items.AddRange(response);
+
+            if (string.IsNullOrEmpty(response.ContinuationToken))
+            {
+                break;
+            }
         }
 
         return items;
