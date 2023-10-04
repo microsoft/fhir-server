@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             SearchParameterInfo refSearchParameter = null;
             bool wildCard = false;
 
+            // check before split if this is a wildcard match
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 refSearchParameter = null;
@@ -81,6 +82,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
+            }
+
+            // check after split if this is a wildcard match
+            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                refSearchParameter = null;
+                wildCard = true;
             }
 
             if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
