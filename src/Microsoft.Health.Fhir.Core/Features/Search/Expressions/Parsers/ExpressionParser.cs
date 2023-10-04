@@ -68,7 +68,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IEnumerable<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();
-            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
+
+            SearchParameterInfo refSearchParameter = null;
+            bool wildCard = false;
+
+            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                refSearchParameter = null;
+                wildCard = true;
+            }
+
+            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
@@ -84,29 +94,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 resourceTypes = resourceTypes.Intersect(allowedResourceTypesByScope).ToArray();
             }
 
-            SearchParameterInfo refSearchParameter;
             List<string> referencedTypes = null;
-            bool wildCard = false;
             string targetType = null;
-
-            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
-            {
-                refSearchParameter = null;
-                wildCard = true;
-            }
-            else
-            {
-                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
-                {
-                    searchParam = valueSpan;
-                }
-                else
-                {
-                    targetType = valueSpan.ToString();
-                }
-
-                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
-            }
 
             if (wildCard)
             {
@@ -124,6 +113,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         }
                     }
                 }
+            }
+            else
+            {
+                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
+                {
+                    searchParam = valueSpan;
+                }
+                else
+                {
+                    targetType = valueSpan.ToString();
+                }
+
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && referencedTypes != null)
