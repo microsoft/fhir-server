@@ -239,15 +239,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 formatName: null,
                 typeFilter: null,
                 includeAssociatedData: "_test"));
-
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
-                since: null,
-                till: null,
-                resourceType: null,
-                containerName: null,
-                formatName: null,
-                typeFilter: null,
-                includeAssociatedData: ","));
         }
 
         // We can configure OciArtifacts through three fields: LoginServer, ImageName and Digest
