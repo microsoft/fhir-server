@@ -78,14 +78,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = null;
                 wildCard = true;
             }
-
             else if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
 
             // check after split if this is a wildcard match
-            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+            if (!wildCard && valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
                 refSearchParameter = null;
                 wildCard = true;
