@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using ICSharpCode.SharpZipLib;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using static ICSharpCode.SharpZipLib.Zip.ExtendedUnixData;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -97,15 +100,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
-            [FromQuery(Name = KnownQueryParameterNames.IncludeDeleted)] bool includeDeleted = false,
-            [FromQuery(Name = KnownQueryParameterNames.IncludeHistory)] bool includeHistory = false,
+            [FromQuery(Name = KnownQueryParameterNames.IncludeAssociatedData)] string includeAssociatedData = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
-            ValidateForHistoryOrSoftDeletedExport(includeHistory, includeDeleted, typeFilter);
+            (bool includeHistory, bool includeDeleted) = ValidateAndParseIncludeAssociatedData(includeAssociatedData, typeFilter);
 
             return await SendExportRequest(
                 exportType: ExportJobType.All,
@@ -354,8 +356,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private static void ValidateForHistoryOrSoftDeletedExport(bool includeHistory, bool includeDeleted, string typeFilter)
+        private static (bool includeHistory, bool includeDeleted) ValidateAndParseIncludeAssociatedData(string associatedDataa, string typeFilter)
         {
+            var associatedDataParams = associatedDataa.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+            bool includeHistory = false;
+            bool includeDeleted = false;
+
+            foreach (var associatedDataParam in associatedDataParams)
+            {
+                if (associatedDataParam == "_deleted")
+                {
+                    includeDeleted = true;
+                }
+                else if (associatedDataParam == "_history")
+                {
+                    includeHistory = true;
+                }
+                else
+                {
+                    throw new RequestNotValidException(string.Format(Resources.InvalidExportAssociatedDataParameter, associatedDataParam));
+                }
+            }
+
             if (includeHistory || includeDeleted)
             {
                 if (!string.IsNullOrWhiteSpace(typeFilter))
@@ -363,6 +386,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
                 }
             }
+
+            return (includeHistory, includeDeleted);
         }
     }
 }

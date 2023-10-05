@@ -102,5 +102,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string IncludeHistory = "_includeHistory";
 
         public const string IncludeDeleted = "_includeDeleted";
+
+        /// <summary>
+        /// Used by $export as a comma-separated list of parameters instructing which initial data should be included.
+        /// </summary>
+        public const string IncludeAssociatedData = "includeAssociatedData";
     }
 }

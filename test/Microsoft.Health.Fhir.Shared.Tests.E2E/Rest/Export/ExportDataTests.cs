@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters)               
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters);
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters)  
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters);
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 

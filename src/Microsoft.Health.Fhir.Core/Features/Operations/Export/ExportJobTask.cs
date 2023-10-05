@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
                     Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)),
-                }
+                };
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
                 {

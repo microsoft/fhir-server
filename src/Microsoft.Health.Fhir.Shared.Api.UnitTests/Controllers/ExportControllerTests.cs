@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 containerName: null,
                 formatName: null,
                 typeFilter: "Patient%3Factive%3Dtrue",
-                includeHistory: true));
+                includeAssociatedData: "_history"));
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
                 since: null,
@@ -225,7 +225,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 containerName: null,
                 formatName: null,
                 typeFilter: "Patient%3Factive%3Dtrue",
-                includeDeleted: true));
+                includeAssociatedData: "_deleted"));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithDataIncluded_WhenKeyIsInvalid_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                typeFilter: null,
+                includeAssociatedData: "_test"));
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                typeFilter: null,
+                includeAssociatedData: ","));
         }
 
         // We can configure OciArtifacts through three fields: LoginServer, ImageName and Digest
