@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 wildCard = true;
             }
 
-            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
+            else if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
