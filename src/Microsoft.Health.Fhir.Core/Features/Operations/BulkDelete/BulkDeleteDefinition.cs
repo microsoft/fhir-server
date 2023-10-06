@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             string url,
             string baseUrl,
             string parentRequestId,
-            long startingResourceCount)
+            long startingResourceCount = 0)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;

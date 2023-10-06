@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<IReadOnlySet<string>> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<long> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -117,12 +117,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.DeleteAll ? searchCount : request.MaxDeleteCount);
 
-            var itemsDeleted = new HashSet<string>();
+            long numDeleted = 0;
 
             var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
             LogTime("Initial Search", stopwatch);
 
-            var auditTasks = new List<System.Threading.Tasks.Task>();
+            var deleteTasks = new List<Task<long>>();
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             // Delete the matched results...
             try
@@ -130,80 +131,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
                     IReadOnlyCollection<SearchResultEntry> resultsToDelete =
-                        request.DeleteAll ? matchedResults : matchedResults
-                            .Take(Math.Max(request.MaxDeleteCount.GetValueOrDefault() - itemsDeleted.Count, 0))
-                            .ToArray();
-
-                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resultsToDelete.Select((item) => item.Resource.ResourceId)));
-                    LogTime("Starting Audit Log", stopwatch);
+                        request.DeleteAll ? matchedResults : matchedResults.Take(Math.Max((int)(request.MaxDeleteCount.GetValueOrDefault() - numDeleted), 0)).ToArray();
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
-                        bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
-                        ResourceWrapperOperation[] softDeletes = resultsToDelete.Select(item =>
-                        {
-                            ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(request.ResourceType, item.Resource.ResourceId);
-                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
-                        }).ToArray();
-
-                        try
-                        {
-                            await _fhirDataStore.MergeAsync(softDeletes, cancellationToken);
-                        }
-                        catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
-                        {
-                            _logger.LogError(ex.InnerException, "Error soft deleting");
-
-                            var ids = ex.PartialResults.Select(item => item.Key.Id);
-                            foreach (string id in ids)
-                            {
-                                itemsDeleted.Add(id);
-                            }
-
-                            auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, ids));
-
-                            throw;
-                        }
-
-                        foreach (string id in itemsDeleted.Concat(resultsToDelete.Select(item => item.Resource.ResourceId)))
-                        {
-                            itemsDeleted.Add(id);
-                        }
+                        deleteTasks.Add(SoftDeleteResourcePage(request, resultsToDelete, cancellationTokenSource.Token));
                     }
                     else
                     {
-                        var parallelBag = new ConcurrentBag<string>();
-                        try
-                        {
-                            await Parallel.ForEachAsync(resultsToDelete, cancellationToken, async (item, innerCt) =>
-                            {
-                                await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
-                                parallelBag.Add(item.Resource.ResourceId);
-                            });
-                        }
-                        finally
-                        {
-                            foreach (string item in parallelBag)
-                            {
-                                itemsDeleted.Add(item);
-                            }
-                        }
+                        deleteTasks.Add(HardDeleteResourcePage(request, resultsToDelete, cancellationTokenSource.Token));
                     }
 
-                    LogTime($"Deleted {resultsToDelete.Count} Resources", stopwatch);
+                    if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
+                    {
+                        break;
+                    }
 
-                    auditTasks.Add(CreateAuditLog(request.ResourceType, request.DeleteOperation, true, resultsToDelete.Select((item) => item.Resource.ResourceId)));
-                    auditTasks = auditTasks.Where((task) => !task.IsCompleted).ToList();
+                    deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
+                    deleteTasks = deleteTasks.Where((task) => !task.IsCompletedSuccessfully).ToList();
 
-                    LogTime("Ending Audit Log", stopwatch);
-
-                    if (!string.IsNullOrEmpty(ct) && (request.MaxDeleteCount - itemsDeleted.Count > 0 || request.DeleteAll))
+                    if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numDeleted) > 0))
                     {
                         (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                             request.ResourceType,
                             request.ConditionalParameters,
                             cancellationToken,
-                            request.DeleteAll ? searchCount : request.MaxDeleteCount - itemsDeleted.Count,
+                            request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numDeleted),
                             ct);
                         LogTime("Next Page Search", stopwatch);
                     }
@@ -215,17 +168,87 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error soft deleting");
-                throw new IncompleteOperationException<IReadOnlySet<string>>(ex, itemsDeleted);
-            }
-            finally
-            {
-                LogTime($"Waiting on {auditTasks.Count} audits to be logged", stopwatch);
-                System.Threading.Tasks.Task.WaitAll(auditTasks.ToArray(), cancellationToken);
-                LogTime("Awaited all audit logs", stopwatch);
+                _logger.LogError(ex, "Error deleting");
+                cancellationTokenSource.Cancel();
             }
 
-            return itemsDeleted;
+            System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
+
+            if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
+            {
+                var exceptions = new List<Exception>();
+                deleteTasks.Where((task) => task.IsFaulted || task.IsCanceled).ToList().ForEach((Task<long> result) =>
+                    {
+                        if (result.Exception != null)
+                        {
+                            result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<long>).ToList().ForEach((ex) => numDeleted += ((IncompleteOperationException<long>)ex).PartialResults);
+                            if (result.IsFaulted)
+                            {
+                                exceptions.AddRange(result.Exception.InnerExceptions);
+                            }
+                        }
+                    });
+                var aggrigateException = new AggregateException(exceptions);
+                throw new IncompleteOperationException<long>(aggrigateException, numDeleted);
+            }
+
+            return numDeleted;
+        }
+
+        private async Task<long> SoftDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
+        {
+            await CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resourcesToDelete.Select((item) => item.Resource.ResourceId));
+
+            bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(request.ResourceType, cancellationToken);
+            ResourceWrapperOperation[] softDeletes = resourcesToDelete.Select(item =>
+            {
+                ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(request.ResourceType, item.Resource.ResourceId);
+                return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
+            }).ToArray();
+
+            try
+            {
+                await _fhirDataStore.MergeAsync(softDeletes, cancellationToken);
+            }
+            catch (IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> ex)
+            {
+                _logger.LogError(ex.InnerException, "Error soft deleting");
+
+                var ids = ex.PartialResults.Select(item => item.Key.Id);
+                await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, ids);
+
+                throw;
+            }
+
+            await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, resourcesToDelete.Select((item) => item.Resource.ResourceId));
+
+            return resourcesToDelete.Count;
+        }
+
+        private async Task<long> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
+        {
+            await CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resourcesToDelete.Select((item) => item.Resource.ResourceId));
+
+            var parallelBag = new ConcurrentBag<string>();
+            try
+            {
+                // This throws AggrigateExceptions
+                await Parallel.ForEachAsync(resourcesToDelete, cancellationToken, async (item, innerCt) =>
+                {
+                    await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
+                    parallelBag.Add(item.Resource.ResourceId);
+                });
+            }
+            catch (Exception ex)
+            {
+                await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
+                throw new IncompleteOperationException<long>(ex, parallelBag.Count);
+            }
+
+            await CreateAuditLog(request.ResourceType, request.DeleteOperation, true, parallelBag);
+
+            return parallelBag.Count;
         }
 
         private ResourceWrapper CreateSoftDeletedWrapper(string resourceType, string resourceId)

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
@@ -45,13 +46,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
+                    var searchParameters = new List<Tuple<string, string>>(definition.SearchParameters)
+                    {
+                        new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                    };
+
+                    int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
+
+                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
                     definitions.Add(processingDefinition);
                 }
             }
             else
             {
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
+                var searchParameters = new List<Tuple<string, string>>(definition.SearchParameters)
+                {
+                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                };
+
+                int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
+
+                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
                 definitions.Add(processingDefinition);
             }
 

@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             var failed = false;
             var cancelled = false;
             var succeeded = true;
+            var addBadCountWarning = false;
             var resourcesDeleted = new Dictionary<string, long>();
             var issues = new List<OperationOutcomeIssue>();
             var failureResultCode = HttpStatusCode.OK;
@@ -110,11 +111,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
 
                 if (job.GetJobTypeId() == (int)JobType.BulkDeleteProcessing && result != null)
                 {
+                    long jobTotal = 0;
                     foreach (var key in result.ResourcesDeleted.Keys)
                     {
+                        jobTotal += result.ResourcesDeleted[key];
                         if (!resourcesDeleted.TryAdd(key, result.ResourcesDeleted[key]))
                         {
                             resourcesDeleted[key] += result.ResourcesDeleted[key];
+                        }
+                    }
+
+                    if (job.Status == JobStatus.Completed)
+                    {
+                        var definition = job.DeserializeDefinition<BulkDeleteDefinition>();
+                        if (jobTotal < definition.StartingResourceCount)
+                        {
+                            addBadCountWarning = true;
+                        }
+                        else if (jobTotal > definition.StartingResourceCount)
+                        {
+                            // I have no clue how this could happen and it imiplies more data was deleted than existed when the job started.
+                            failed = true;
+                            failureResultCode = HttpStatusCode.InternalServerError;
+                            issues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Error,
+                                OperationOutcomeConstants.IssueType.Exception,
+                                detailsText: "Count mismatch exception. More resources were deleted than existed at the start of the job run. Please review audit logs to check the number and ids of deleted resources."));
                         }
                     }
                 }
@@ -149,6 +171,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 }
             }
 
+            if (addBadCountWarning)
+            {
+                issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    detailsText: "There was a count mismatch when checking the job results. This could mean a job was restarted unexpetedly or resources were deleted by another process while the job was running. Please double check that all desired resources have been deleted. Audit logs can be referenced to get a list of the resources deleted during this operation."));
+            }
+
             if (failed && issues.Count > 0)
             {
                 return new GetBulkDeleteResponse(fhirResults, issues, failureResultCode);
@@ -168,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             }
             else if (succeeded)
             {
-                return new GetBulkDeleteResponse(fhirResults, null, HttpStatusCode.OK);
+                return new GetBulkDeleteResponse(fhirResults, issues, HttpStatusCode.OK);
             }
             else
             {

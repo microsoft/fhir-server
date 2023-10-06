@@ -67,13 +67,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                IReadOnlySet<string> itemsDeleted;
+                long numDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
 
                 try
                 {
-                    itemsDeleted = await deleter.Value.DeleteMultipleAsync(
+                    numDeleted = await deleter.Value.DeleteMultipleAsync(
                         new ConditionalDeleteResourceRequest(
                             definition.Type,
                             (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
@@ -82,16 +82,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             deleteAll: true),
                         cancellationToken);
                 }
-                catch (IncompleteOperationException<IReadOnlySet<string>> ex)
+                catch (IncompleteOperationException<long> ex)
                 {
-                    itemsDeleted = ex.PartialResults;
+                    numDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count);
+                result.ResourcesDeleted.Add(definition.Type, numDeleted);
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count), cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
 
                 if (exception != null)
                 {

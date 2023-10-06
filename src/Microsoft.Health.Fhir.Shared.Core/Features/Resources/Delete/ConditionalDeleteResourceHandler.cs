@@ -113,8 +113,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            IReadOnlySet<string> itemsDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
-            return new DeleteResourceResponse(itemsDeleted.Count);
+            long numDeleted = await _deleter.DeleteMultipleAsync(request, cancellationToken);
+            return new DeleteResourceResponse((int)numDeleted);
         }
     }
 }
