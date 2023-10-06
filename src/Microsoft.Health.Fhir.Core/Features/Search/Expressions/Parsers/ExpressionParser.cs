@@ -71,23 +71,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             SearchParameterInfo refSearchParameter = null;
             bool wildCard = false;
+            string originalType = null;
 
             // check before split if this is a wildcard match
             if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
             {
-                refSearchParameter = null;
                 wildCard = true;
             }
-            else if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType) && !wildCard)
+            else if (TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> type))
+            {
+                originalType = type.ToString();
+
+                // valueSpan has been updated as we split on :, check again if this is a wildcard match
+                if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+                {
+                    wildCard = true;
+                }
+            }
+            else
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
-            }
-
-            // check after split if this is a wildcard match
-            if (!wildCard && valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
-            {
-                refSearchParameter = null;
-                wildCard = true;
             }
 
             if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
@@ -132,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     targetType = valueSpan.ToString();
                 }
 
-                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType, searchParam.ToString());
             }
 
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && referencedTypes != null)
@@ -140,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 referencedTypes = referencedTypes.Intersect(allowedResourceTypesByScope).ToList();
             }
 
-            return new IncludeExpression(resourceTypes, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
+            return new IncludeExpression(resourceTypes, refSearchParameter, originalType, targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
         }
 
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
