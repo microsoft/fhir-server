@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <HealthcareSharedPackageVersion>7.0.20</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>7.0.28</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>4.3.0</Hl7FhirVersion>
   </PropertyGroup>
 
@@ -109,7 +109,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="1.1.1" />
     <PackageVersion Include="Microsoft.SqlServer.DACFx" Version="162.0.52" />
-    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.18.0" />
+    <PackageVersion Include="Microsoft.SqlServer.SqlManagementObjects" Version="170.21.0" />
     <PackageVersion Include="Newtonsoft.Json.Schema" Version="3.0.15" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="NSubstitute" Version="5.1.0" />

@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
                 // Create the database.
-                await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
 
                 await using SqlCommand command = connection.CreateCommand();
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(databaseName, null);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand sqlCommand = connection.CreateCommand();
                 sqlCommand.CommandText = "SELECT 1";
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitWatchdogsParameters()
         {
-            await using var conn = _sqlConnectionBuilder.GetSqlConnection();
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             await conn.OpenAsync(CancellationToken.None);
             using var cmd = new SqlCommand(
                 @"
@@ -173,7 +173,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task ExecuteSqlCmd(string sql)
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
             using SqlCommand command = new SqlCommand(sql, connection);
             await connection.OpenAsync(CancellationToken.None);
             await command.ExecuteNonQueryAsync(CancellationToken.None);
@@ -186,7 +186,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
-                await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
                 await using SqlCommand command = connection.CreateCommand();
                 command.CommandTimeout = 600;
@@ -210,7 +210,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
             command.Parameters.AddWithValue("@uri", uri);
 
@@ -222,7 +222,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
 
             await command.Connection.OpenAsync(cancellationToken);
@@ -232,7 +232,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: cancellationToken);
             var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
 
             var parameter = new SqlParameter { ParameterName = "@id", Value = id };
@@ -245,7 +245,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync();
             await connection.OpenAsync();
 
             SqlCommand command = connection.CreateCommand();
@@ -255,7 +255,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         async Task IFhirStorageTestHelper.ValidateSnapshotTokenIsCurrent(object snapshotToken)
         {
-            await using SqlConnection connection = _sqlConnectionBuilder.GetSqlConnection();
+            await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync();
             await connection.OpenAsync();
 
             var sb = new StringBuilder();
@@ -304,9 +304,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
-#pragma warning disable CS0618 // Type or member is obsolete
             sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(testConnectionString)));
-#pragma warning restore CS0618 // Type or member is obsolete
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
@@ -330,9 +328,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task<SqlConnection> GetSqlConnectionAsync()
         {
-#pragma warning disable CS0618
             return await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
-#pragma warning restore CS0618
         }
 
         protected SqlConnection GetSqlConnection(string connectionString)
