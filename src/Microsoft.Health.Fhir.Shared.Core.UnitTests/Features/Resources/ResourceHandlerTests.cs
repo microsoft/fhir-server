@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -13,6 +14,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Core.Internal;
@@ -112,8 +114,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
+            var contextAccessr = new FhirRequestContextAccessor();
+            contextAccessr.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider, contextAccessr, auditLogger, logger);
 
             collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();

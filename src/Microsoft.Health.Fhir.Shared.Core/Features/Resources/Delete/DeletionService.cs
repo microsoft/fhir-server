@@ -120,7 +120,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             long numDeleted = 0;
 
             var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
-            LogTime("Initial Search", stopwatch);
 
             var deleteTasks = new List<Task<long>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -158,7 +157,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             cancellationToken,
                             request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numDeleted),
                             ct);
-                        LogTime("Next Page Search", stopwatch);
                     }
                     else
                     {
@@ -298,13 +296,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             });
 
             return auditTask;
-        }
-
-        private void LogTime(string message, Stopwatch watch)
-        {
-            var id = _contextAccessor.RequestContext.CorrelationId;
-            _logger.LogInformation($"Delete timing {id} - {message}: {watch.Elapsed.TotalMilliseconds}");
-            watch.Restart();
         }
     }
 }
