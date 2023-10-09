@@ -10,14 +10,11 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
-using DotLiquid.Tags;
-using ICSharpCode.SharpZipLib.Core;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -25,7 +22,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Store.Utils;
 using Microsoft.Health.SqlServer;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
-using Microsoft.VisualBasic;
 
 namespace Microsoft.Health.Internal.Fhir.PerfTester
 {
@@ -43,7 +39,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly bool _performTableViewCompare = bool.Parse(ConfigurationManager.AppSettings["PerformTableViewCompare"]);
         private static readonly string _endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
         private static readonly HttpClient _httpClient = new HttpClient();
-        private static readonly string _sourceStorageContainerName = ConfigurationManager.AppSettings["SourceStorageContainerName"];
+        private static readonly string _ndjsonStorageConnectionString = ConfigurationManager.AppSettings["NDJsonStorageConnectionString"];
+        private static readonly string _ndjsonStorageContainerName = ConfigurationManager.AppSettings["NDJsonStorageContainerName"];
         private static readonly int _takeBlobs = int.Parse(ConfigurationManager.AppSettings["TakeBlobs"]);
         private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
         private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
@@ -69,7 +66,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             if (_callType == "HttpPut")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
-                ExecuteParallelCalls();
+                ExecuteParallelHttpPuts();
                 return;
             }
 
@@ -180,55 +177,50 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             cmd.ExecuteNonQuery();
         }
 
-        private static void ExecuteParallelCalls()
+        private static void ExecuteParallelHttpPuts()
         {
-            var sourceContainer = GetContainer(_storageConnectionString, _sourceStorageContainerName);
-            var blobs = sourceContainer.GetBlobs().Where(_ => _.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase)).Skip(_skipBlobs).Take(_takeBlobs);
+            var resourceIds = GetRandomIds();
+            var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
             var sw = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var calls = 0L;
             var resources = 0;
             long sumLatency = 0;
-            foreach (var blob in blobs)
+            BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
                 {
-                    break;
+                    return;
                 }
 
-                Console.WriteLine($"{tableOrView} blob={blob.Name} started...");
-                var lines = GetLinesInBlob(sourceContainer, blob.Name);
-                BatchExtensions.ExecuteInParallelBatches(lines, _threads, 1, (thread, lineItem) =>
+                var callId = (int)Interlocked.Increment(ref calls) - 1;
+                if (callId >= resourceIds.Count)
                 {
-                    if (Interlocked.Read(ref calls) >= _calls)
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    Interlocked.Increment(ref calls);
-                    var swLatency = Stopwatch.StartNew();
-                    var json = lineItem.Item2.First();
-                    var (resourceType, resourceId) = ParseJson(json);
-                    var status = PutResource(json, resourceType, resourceId);
-                    Interlocked.Increment(ref resources);
-                    var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
-                    Interlocked.Add(ref sumLatency, mcsec);
-                    _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
+                var swLatency = Stopwatch.StartNew();
+                var json = lineItem.Item2.First();
+                var (resourceType, resourceId) = ParseJson(ref json, resourceIds[callId].ResourceId);
+                var status = PutResource(json, resourceType, resourceId);
+                Interlocked.Increment(ref resources);
+                var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
+                Interlocked.Add(ref sumLatency, mcsec);
+                _store.TryLogEvent($"{tableOrView}.threads={_threads}.Put:{status}:{resourceType}/{resourceId}", "Warn", $"mcsec={mcsec}", null, CancellationToken.None).Wait();
 
-                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                {
+                    lock (swReport)
                     {
-                        lock (swReport)
+                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                         {
-                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
-                            {
-                                Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
-                                swReport.Restart();
-                            }
+                            Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                            swReport.Restart();
                         }
                     }
-                });
-            }
+                }
+            });
 
             Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
@@ -401,7 +393,7 @@ END
             var container = GetContainer();
             var size = container.GetBlockBlobClient(_storageBlobName).GetProperties().Value.ContentLength;
             size -= 1000 * 10; // will get 10 ids in single seek. never go to the exact end, so there is always room for 10 ids from offset. designed for large data sets. 600M ids = 25GB.
-            Parallel.For(0, _calls / 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
+            Parallel.For(0, (_calls / 10) + 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
             {
                 var resourceIds = GetRandomIdsBySingleOffset(container, size);
                 lock (results)
@@ -413,8 +405,9 @@ END
                 }
             });
 
-            Console.WriteLine($"Selected random ids={results.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
-            return results.ToList();
+            var output = results.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(_calls).ToList();
+            Console.WriteLine($"Selected random ids={output.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
+            return output;
         }
 
         private static ReadOnlyList<(short ResourceTypeId, string ResourceId)> GetRandomIdsBySingleOffset(BlobContainerClient container, long size)
@@ -493,11 +486,30 @@ END
         {
             using var conn = new SqlConnection(_connectionString);
             conn.Open();
-            using var cmd = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0 ORDER BY ResourceTypeId, ResourceId OPTION (MAXDOP 1)", conn);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            using var cmd = new SqlCommand("SELECT ResourceTypeId FROM dbo.ResourceType WHERE Name = @Name", conn);
+            cmd.Parameters.AddWithValue("@Name", _nameFilter);
+            var ret = cmd.ExecuteScalar();
+            if (ret == DBNull.Value)
             {
-                yield return (reader.GetInt16(0), reader.GetString(1));
+                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WHERE IsHistory = 0 ORDER BY ResourceTypeId, ResourceId OPTION (MAXDOP 1)", conn);
+                cmd2.CommandTimeout = 0;
+                using var reader = cmd2.ExecuteReader();
+                while (reader.Read())
+                {
+                    yield return (reader.GetInt16(0), reader.GetString(1));
+                }
+            }
+            else
+            {
+                var resourceTypeId = (short)ret;
+                using var cmd2 = new SqlCommand("SELECT ResourceTypeId, ResourceId FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId) WHERE IsHistory = 0 AND ResourceTypeId = @ResourceTypeId ORDER BY ResourceTypeId, ResourceId OPTION (MAXDOP 1)", conn);
+                cmd2.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                cmd2.CommandTimeout = 0;
+                using var reader = cmd2.ExecuteReader();
+                while (reader.Read())
+                {
+                    yield return (reader.GetInt16(0), reader.GetString(1));
+                }
             }
         }
 
@@ -536,13 +548,34 @@ END
             }
         }
 
-        private static IEnumerable<string> GetLinesInBlob(BlobContainerClient container, string blobName)
+        private static IEnumerable<string> GetLinesInBlobs(BlobContainerClient container)
         {
-            using var reader = new StreamReader(container.GetBlobClient(blobName).Download().Value.Content);
-            while (!reader.EndOfStream)
+            var linesRead = 0;
+            var blobs = container.GetBlobs().Where(_ => _.Name.Contains(_nameFilter, StringComparison.OrdinalIgnoreCase)).Skip(_skipBlobs).Take(_takeBlobs);
+            foreach (var blob in blobs)
             {
-                yield return reader.ReadLine();
+                if (linesRead >= _calls)
+                {
+                    break;
+                }
+
+                Console.WriteLine($"blob={blob.Name} reading started...");
+                using var reader = new StreamReader(container.GetBlobClient(blob.Name).Download().Value.Content);
+                while (!reader.EndOfStream)
+                {
+                    if (linesRead >= _calls)
+                    {
+                        break;
+                    }
+
+                    yield return reader.ReadLine();
+                    linesRead++;
+                }
+
+                Console.WriteLine($"blob={blob.Name} reading completed. LinesRead={linesRead}");
             }
+
+            Console.WriteLine($"Reading completed. LinesRead={linesRead}");
         }
 
         private static string PutResource(string jsonString, string resourceType, string resourceId)
@@ -627,7 +660,7 @@ END
                    || e.Message.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static (string resourceType, string resourceId) ParseJson(string jsonString)
+        private static (string resourceType, string resourceId) ParseJson(ref string jsonString, string inputResourceId = null)
         {
             var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
             var idShort = jsonString.Substring(idStart, 50);
@@ -636,6 +669,12 @@ END
             if (string.IsNullOrEmpty(resourceId))
             {
                 throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            if (inputResourceId != null)
+            {
+                jsonString = jsonString.Replace($"\"id\":\"{resourceId}\"", $"\"id\":\"{inputResourceId}\"", StringComparison.Ordinal);
+                resourceId = inputResourceId;
             }
 
             var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
