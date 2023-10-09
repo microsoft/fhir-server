@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string containerName,
             string formatName,
             bool isParallel,
+            uint maxCount,
             string anonymizationConfigurationCollectionReference,
             string anonymizationConfigLocation,
             string anonymizationConfigFileETag,
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, till, filters, groupId, containerName, formatName, isParallel, anonymizationConfigurationCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
+            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, till, filters, groupId, containerName, formatName, isParallel, maxCount, anonymizationConfigurationCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;
