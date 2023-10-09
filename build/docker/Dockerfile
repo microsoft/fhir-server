@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.401-cbl-mariner2.0-amd64 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0.401-cbl-mariner2.0 AS build
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
 
@@ -69,11 +69,11 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net7.0
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0.11-cbl-mariner2.0-amd64 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.11-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
-# if someone doesnt clean first installs may fail
+# tdnf clean all - cleans all the repos used to obtain packages and reduces the size of our image.
 RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
 
 # See https://github.com/dotnet/SqlClient/issues/220
