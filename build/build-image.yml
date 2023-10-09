@@ -16,13 +16,8 @@ stages:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./jobs/update-semver.yml  
     - powershell: |
-        $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
-        $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
-
-        Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
-        Write-Host "Updated  build number to '$buildNumber"
+        Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]0.0.1"
       name: SetBuildVersion
 
 - stage: DockerBuild  
