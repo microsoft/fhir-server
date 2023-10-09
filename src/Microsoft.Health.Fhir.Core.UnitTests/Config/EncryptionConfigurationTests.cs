@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
                 {
                     KeyEncryptionKeyIdentity = new EncryptionKeyIdentity()
                     {
-                        FederatedClientId = "food",
+                        FederatedClientId = "foo",
                     },
                 },
             };
