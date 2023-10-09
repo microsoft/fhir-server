@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
-                .Returns(args => new HashSet<string> { "1", "2", "3"});
+                .Returns(args => 3);
 
             var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None));
             Assert.Single(result.ResourcesDeleted);
