@@ -46,10 +46,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var searchParameters = new List<Tuple<string, string>>(definition.SearchParameters)
+                    var searchParameters = new List<Tuple<string, string>>()
                     {
                         new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
                     };
+
+                    if (definition.SearchParameters != null)
+                    {
+                        searchParameters.AddRange(definition.SearchParameters);
+                    }
 
                     int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
 
