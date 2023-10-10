@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.401-cbl-mariner2.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0.402-cbl-mariner2.0 AS build
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
 
@@ -69,7 +69,8 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net7.0
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0.11-cbl-mariner2.0 AS runtime
+# Once https://github.com/dotnet/announcements/issues/20 is fixed, look at using mariner distroless image.
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.12-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
