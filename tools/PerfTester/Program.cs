@@ -63,7 +63,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 return;
             }
 
-            if (_callType == "HttpPut")
+            if (_callType == "HttpUpdate" || _callType == "HttpCreate")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
                 ExecuteParallelHttpPuts();
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
         private static void ExecuteParallelHttpPuts()
         {
-            var resourceIds = GetRandomIds();
+            var resourceIds = _callType == "HttpUpdate" ? GetRandomIds() : new List<(short ResourceTypeId, string ResourceId)>();
             var sourceContainer = GetContainer(_ndjsonStorageConnectionString, _ndjsonStorageContainerName);
             var tableOrView = GetResourceObjectType();
             var sw = Stopwatch.StartNew();
@@ -195,14 +195,16 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 }
 
                 var callId = (int)Interlocked.Increment(ref calls) - 1;
-                if (callId >= resourceIds.Count)
+                if (_callType == "HttpUpdate" && callId >= resourceIds.Count)
                 {
                     return;
                 }
 
+                var resourceIdInput = _callType == "HttpUpdate" ? resourceIds[callId].ResourceId : Guid.NewGuid().ToString();
+
                 var swLatency = Stopwatch.StartNew();
                 var json = lineItem.Item2.First();
-                var (resourceType, resourceId) = ParseJson(ref json, resourceIds[callId].ResourceId);
+                var (resourceType, resourceId) = ParseJson(ref json, resourceIdInput);
                 var status = PutResource(json, resourceType, resourceId);
                 Interlocked.Increment(ref resources);
                 var mcsec = (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0);
@@ -215,14 +217,14 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     {
                         if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
                         {
-                            Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
                             swReport.Restart();
                         }
                     }
                 }
             });
 
-            Console.WriteLine($"{tableOrView} type=HttpPut writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+            Console.WriteLine($"{tableOrView} type={_callType} writes={_writesEnabled} threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
         private static void ExecuteParallelCalls(ReadOnlyList<long> tranIds)
