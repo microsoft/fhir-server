@@ -196,6 +196,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BlobRewriter", "tools\BlobR
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PerfTester", "tools\PerfTester\PerfTester.csproj", "{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlScriptRunner", "tools\SqlScriptRunner\SqlScriptRunner.csproj", "{76C29222-8D35-43A2-89C5-43114D113C10}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -458,6 +460,10 @@ Global
 		{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{76C29222-8D35-43A2-89C5-43114D113C10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{76C29222-8D35-43A2-89C5-43114D113C10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{76C29222-8D35-43A2-89C5-43114D113C10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{76C29222-8D35-43A2-89C5-43114D113C10}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -548,6 +554,7 @@ Global
 		{9B3DEBE5-5C1F-419F-BBE3-BA67D1C074A7} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{71A1A274-23A9-441B-BB47-1FC561FF0F35} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{76C29222-8D35-43A2-89C5-43114D113C10} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
