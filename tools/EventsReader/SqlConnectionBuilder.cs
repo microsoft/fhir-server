@@ -6,7 +6,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer;
 
-namespace Microsoft.Health.Internal.Fhir.EventsReader
+namespace Microsoft.Health.Internal.Fhir.Sql
 {
     public class SqlConnectionBuilder : ISqlConnectionBuilder
     {
