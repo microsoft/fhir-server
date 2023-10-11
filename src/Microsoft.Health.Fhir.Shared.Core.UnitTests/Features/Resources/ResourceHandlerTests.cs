@@ -98,7 +98,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             observationResource.ConditionalDelete = CapabilityStatement.ConditionalDeleteStatus.Single;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
-            _conformanceProvider.GetCapabilityStatementOnStartup().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
+            _conformanceProvider.GetCapabilityStatementOnStartup(Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var typedElement = _conformanceStatement.ToTypedElement();
+                return Task.FromResult(typedElement.ToResourceElement());
+            });
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
 
             var collection = new ServiceCollection();
@@ -107,17 +111,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
-            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-
+            var contextAccessor = Substitute.For<FhirRequestContextAccessor>();
+            contextAccessor.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
-            var contextAccessr = new FhirRequestContextAccessor();
-            contextAccessr.RequestContext = new FhirRequestContext("method", "http://localhost", "http://localhost", "id", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>());
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider, contextAccessr, auditLogger, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore, _searchService, _resourceIdProvider, contextAccessor, auditLogger, logger);
 
             collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
