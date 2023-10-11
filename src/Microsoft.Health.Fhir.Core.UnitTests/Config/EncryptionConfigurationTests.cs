@@ -18,23 +18,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
         [Fact]
         public void GivenAnEncryptionConfiguration_WhenContainsValues_ReturnAsEncryptionConfigurationSet()
         {
-            EncryptionConfiguration encryption0 = new EncryptionConfiguration()
-            {
-                CustomerManagedKeyEncryption = new CustomerManagedKeyEncryption()
-                {
-                    KeyEncryptionKeyIdentity = new EncryptionKeyIdentity()
-                    {
-                        FederatedClientId = "foo",
-                    },
-                },
-            };
-            Assert.True(encryption0.IsEncryptionSet());
-
             EncryptionConfiguration encryption1 = new EncryptionConfiguration()
             {
                 CustomerManagedKeyEncryption = new CustomerManagedKeyEncryption()
                 {
-                    KeyEncryptionKeyUrl = new Uri("htts://fhir.com"),
+                    KeyEncryptionKeyUrl = new Uri("https://fhir.com"),
                 },
             };
             Assert.True(encryption1.IsEncryptionSet());
@@ -72,6 +60,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Config
                 CustomerManagedKeyEncryption = null,
             };
             Assert.False(encryption3.IsEncryptionSet());
+
+            EncryptionConfiguration encryption4 = new EncryptionConfiguration()
+            {
+                CustomerManagedKeyEncryption = new CustomerManagedKeyEncryption()
+                {
+                    KeyEncryptionKeyIdentity = new EncryptionKeyIdentity()
+                    {
+                        FederatedClientId = "foo",
+                    },
+                },
+            };
+            Assert.False(encryption4.IsEncryptionSet());
         }
     }
 }

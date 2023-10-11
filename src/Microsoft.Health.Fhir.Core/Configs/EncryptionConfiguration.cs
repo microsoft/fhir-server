@@ -13,17 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         {
             if (CustomerManagedKeyEncryption != null)
             {
+                // KeyEncryptionKeyUrl is the only required property.
+                // KeyEncryptionKeyIdentity.FederatedClientId is optional.
                 if (CustomerManagedKeyEncryption.KeyEncryptionKeyUrl != null)
                 {
                     return true;
-                }
-
-                if (CustomerManagedKeyEncryption.KeyEncryptionKeyIdentity != null)
-                {
-                    if (!string.IsNullOrEmpty(CustomerManagedKeyEncryption.KeyEncryptionKeyIdentity.FederatedClientId))
-                    {
-                        return true;
-                    }
                 }
             }
 
