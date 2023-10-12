@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
+        private static RawResourceDeduping _rawResourceDeduping;
         private static object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -92,7 +93,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlConnectionWrapperFactory);
+                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlRetryService, _logger);
+                }
+            }
+
+            if (_rawResourceDeduping == null)
+            {
+                lock (_flagLocker)
+                {
+                    _rawResourceDeduping ??= new RawResourceDeduping(_sqlRetryService, _logger);
                 }
             }
         }
@@ -507,6 +516,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
+            if (!_rawResourceDeduping.IsEnabled())
+            {
+                return false;
+            }
+
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
@@ -588,14 +602,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class IgnoreInputLastUpdated
         {
-            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
             private object _databaseAccessLocker = new object();
 
-            public IgnoreInputLastUpdated(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            public IgnoreInputLastUpdated(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
-                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
             }
 
             public bool IsEnabled()
@@ -627,11 +643,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-                    using var cmd = conn.CreateRetrySqlCommand();
+                    using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
-                    var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
                     return value != null && (double)value == 1;
+                }
+                catch (SqlException)
+                {
+                    return null;
+                }
+            }
+        }
+
+        private class RawResourceDeduping
+        {
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public RawResourceDeduping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+            {
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    var isEnabled = IsEnabledInDatabase();
+                    if (isEnabled.HasValue)
+                    {
+                        _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
+                    }
+                }
+
+                return _isEnabled;
+            }
+
+            private bool? IsEnabledInDatabase()
+            {
+                try
+                {
+                    using var cmd = new SqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'RawResourceDeduping.IsEnabled'"; // call can be made before store is initialized
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    return value == null || (double)value == 1;
                 }
                 catch (SqlException)
                 {
