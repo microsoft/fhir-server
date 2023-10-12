@@ -565,7 +565,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             command.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             command.Parameters.AddWithValue("@StartId", startId);
             command.Parameters.AddWithValue("@EndId", endId);
-            command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
             command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
             command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);

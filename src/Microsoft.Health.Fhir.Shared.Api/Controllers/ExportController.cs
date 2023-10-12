@@ -356,35 +356,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private static (bool includeHistory, bool includeDeleted) ValidateAndParseIncludeAssociatedData(string associatedDataa, string typeFilter)
+        private static (bool includeHistory, bool includeDeleted) ValidateAndParseIncludeAssociatedData(string associatedData, string typeFilter)
         {
-            var associatedDataParams = associatedDataa.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            var associatedDataParams = (associatedData ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var possibleParams = new List<string> { "_history", "_deleted" };
+            var invalidParams = associatedDataParams.Where(param => !possibleParams.Contains(param)).ToList();
 
-            bool includeHistory = false;
-            bool includeDeleted = false;
-
-            foreach (var associatedDataParam in associatedDataParams)
+            if (invalidParams.Any())
             {
-                if (associatedDataParam == "_deleted")
-                {
-                    includeDeleted = true;
-                }
-                else if (associatedDataParam == "_history")
-                {
-                    includeHistory = true;
-                }
-                else
-                {
-                    throw new RequestNotValidException(string.Format(Resources.InvalidExportAssociatedDataParameter, associatedDataParam));
-                }
+                throw new RequestNotValidException(string.Format(Resources.InvalidExportAssociatedDataParameter, string.Join(',', invalidParams)));
             }
 
-            if (includeHistory || includeDeleted)
+            bool includeHistory = associatedDataParams.Contains("_history");
+            bool includeDeleted = associatedDataParams.Contains("_deleted");
+
+            if ((includeHistory || includeDeleted) && !string.IsNullOrWhiteSpace(typeFilter))
             {
-                if (!string.IsNullOrWhiteSpace(typeFilter))
-                {
-                    throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
-                }
+                throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
             }
 
             return (includeHistory, includeDeleted);

@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeHistory=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync($"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeDeleted=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_deleted&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync($"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&_includeHistory=true&_includeDeleted=true&{parallelQueryParam}");
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history,_deleted&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
