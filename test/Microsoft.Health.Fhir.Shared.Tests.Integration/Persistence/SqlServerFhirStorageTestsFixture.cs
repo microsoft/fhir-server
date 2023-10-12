@@ -105,9 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlConnection = Substitute.For<ISqlConnectionBuilder>();
 
-#pragma warning disable CS0618
             sqlConnection.GetSqlConnectionAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs((x) => Task.FromResult(GetSqlConnection(TestConnectionString)));
-#pragma warning restore CS0618
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), SqlConnectionBuilder, sqlRetryLogicBaseProvider, SqlServerDataStoreConfiguration);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, SqlServerDataStoreConfiguration, NullLogger<SchemaManagerDataStore>.Instance);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);

@@ -68,7 +68,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate, IEnumerable<string> allowedResourceTypesByScope)
         {
             var valueSpan = includeValue.AsSpan();
-            if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
+
+            SearchParameterInfo refSearchParameter = null;
+            bool wildCard = false;
+            string originalType = null;
+
+            // check before split if this is a wildcard match
+            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+            {
+                wildCard = true;
+            }
+            else if (TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> type))
+            {
+                originalType = type.ToString();
+
+                // valueSpan has been updated as we split on :, check again if this is a wildcard match
+                if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
+                {
+                    wildCard = true;
+                }
+            }
+            else
             {
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
@@ -84,29 +104,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 resourceTypes = resourceTypes.Intersect(allowedResourceTypesByScope).ToArray();
             }
 
-            SearchParameterInfo refSearchParameter;
             List<string> referencedTypes = null;
-            bool wildCard = false;
             string targetType = null;
-
-            if (valueSpan.Equals("*".AsSpan(), StringComparison.InvariantCultureIgnoreCase))
-            {
-                refSearchParameter = null;
-                wildCard = true;
-            }
-            else
-            {
-                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
-                {
-                    searchParam = valueSpan;
-                }
-                else
-                {
-                    targetType = valueSpan.ToString();
-                }
-
-                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
-            }
 
             if (wildCard)
             {
@@ -125,13 +124,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     }
                 }
             }
+            else
+            {
+                if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> searchParam))
+                {
+                    searchParam = valueSpan;
+                }
+                else
+                {
+                    targetType = valueSpan.ToString();
+                }
+
+                refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType, searchParam.ToString());
+            }
 
             if (allowedResourceTypesByScope != null && !allowedResourceTypesByScope.Contains(KnownResourceTypes.All) && referencedTypes != null)
             {
                 referencedTypes = referencedTypes.Intersect(allowedResourceTypesByScope).ToList();
             }
 
-            return new IncludeExpression(resourceTypes, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
+            return new IncludeExpression(resourceTypes, refSearchParameter, originalType, targetType, referencedTypes, wildCard, isReversed, iterate, allowedResourceTypesByScope);
         }
 
         private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
