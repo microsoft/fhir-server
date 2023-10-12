@@ -206,7 +206,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return rtn;
         }
 
-        private List<Resource> GenerateTestResources(int numberOfPatients = 5, int numberOfEncountersPerPatient = 1, int numberOfObservationsPerEncounter = 2)
+        // 27 patients, 54 encounters, and, 108 observations.
+        private List<Resource> GenerateTestResources(int numberOfPatients = 27, int numberOfEncountersPerPatient = 2, int numberOfObservationsPerEncounter = 2)
         {
             var resources = new List<Resource>();
 
