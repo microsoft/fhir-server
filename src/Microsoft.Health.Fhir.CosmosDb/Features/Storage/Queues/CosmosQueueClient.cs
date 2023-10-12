@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,7 +77,7 @@ public class CosmosQueueClient : IQueueClient
             .WithParameter("@groupId", groupId);
 
         // Add existing job records to the list of job infos
-        IReadOnlyList<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, null, queueType, cancellationToken);
+        IReadOnlyList<JobGroupWrapper> existingJobs = await ExecuteQueryAsync(existingJobsSpec, 100, cancellationToken);
         if (existingJobs.Count > 0)
         {
             IEnumerable<JobInfo> existingJobInfos =
@@ -112,7 +111,7 @@ public class CosmosQueueClient : IQueueClient
                     container.Value,
                     new CosmosQueryContext(
                         sqlQuerySpec,
-                        new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)) }));
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.JobInfoPartitionKey) }));
 
                 FeedResponse<int> itemResponse = await query.ExecuteNextAsync(cancellationToken);
 
@@ -160,7 +159,7 @@ public class CosmosQueueClient : IQueueClient
         }
 
         using IScoped<Container> container = _containerFactory.Invoke();
-        ItemResponse<JobGroupWrapper> result = await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken);
+        ItemResponse<JobGroupWrapper> result = await container.Value.CreateItemAsync(jobInfo, new PartitionKey(JobGroupWrapper.JobInfoPartitionKey), cancellationToken: cancellationToken);
 
         return result.Resource.ToJobInfo().ToList();
     }
@@ -186,7 +185,7 @@ public class CosmosQueueClient : IQueueClient
 
         return await _retryPolicy.ExecuteAsync(async () =>
             {
-                IReadOnlyList<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, numberOfJobsToDequeue, queueType, cancellationToken);
+                IReadOnlyList<JobGroupWrapper> response = await ExecuteQueryAsync(sqlQuerySpec, numberOfJobsToDequeue, cancellationToken);
 
                 foreach (JobGroupWrapper item in response)
                 {
@@ -454,7 +453,7 @@ public class CosmosQueueClient : IQueueClient
                 .WithParameter("@groupId", groupId.ToString())
                 .WithParameter("@queueType", queueType);
 
-            var response = await ExecuteQueryAsync(sqlQuerySpec, null, queueType, cancellationToken);
+            var response = await ExecuteQueryAsync(sqlQuerySpec, 100, cancellationToken);
 
             return response.ToList();
     }
@@ -466,7 +465,7 @@ public class CosmosQueueClient : IQueueClient
            AND ARRAY_CONTAINS([{string.Join(",", jobIds.Select(x => $"'{x}'"))}], d.jobId)")
             .WithParameter("@queueType", queueType);
 
-        var response = await ExecuteQueryAsync(sqlQuerySpec, jobIds.Length, queueType, cancellationToken);
+        var response = await ExecuteQueryAsync(sqlQuerySpec, jobIds.Length, cancellationToken);
 
         var infos = new List<(JobGroupWrapper JobGroup, IReadOnlyList<JobDefinitionWrapper> MatchingJob)>();
         var jobIdsString = jobIds.Select(x => x.ToString()).ToHashSet();
@@ -497,7 +496,7 @@ public class CosmosQueueClient : IQueueClient
         }
     }
 
-    private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int itemCount, CancellationToken cancellationToken)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
@@ -505,20 +504,15 @@ public class CosmosQueueClient : IQueueClient
             container.Value,
             new CosmosQueryContext(
                 sqlQuerySpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
+                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.JobInfoPartitionKey), MaxItemCount = itemCount }));
 
         var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response;
+        FeedResponse<JobGroupWrapper> response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
 
-        while (itemCount == null || items.Count < itemCount.Value)
+        while ((response.Any() || !string.IsNullOrEmpty(response.ContinuationToken)) && items.Count < itemCount)
         {
-            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
             items.AddRange(response);
-
-            if (string.IsNullOrEmpty(response.ContinuationToken))
-            {
-                break;
-            }
+            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
         }
 
         return items;
@@ -532,7 +526,7 @@ public class CosmosQueueClient : IQueueClient
         {
             await container.Value.UpsertItemAsync(
                 definition,
-                new PartitionKey(definition.PartitionKey),
+                new PartitionKey(JobGroupWrapper.JobInfoPartitionKey),
                 new ItemRequestOptions { IfMatchEtag = definition.ETag },
                 cancellationToken: cancellationToken);
         }
