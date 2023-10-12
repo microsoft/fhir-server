@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.401-cbl-mariner2.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:7.0.402-cbl-mariner2.0 AS build
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
 
@@ -28,7 +28,7 @@ COPY ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj \
 
 COPY ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj \
      ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj
-	 
+
 COPY ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj \
      ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj
 
@@ -69,7 +69,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net7.0
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0.11-cbl-mariner2.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.12-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
