@@ -67,23 +67,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>
+                new List<Tuple<JobInfo, int>>
                 {
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(patientResult1),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(patientResult2),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(observationResult),
-                    },
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(patientResult1),
+                        },
+                        15),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(patientResult2),
+                        },
+                        7),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(observationResult),
+                        },
+                        5),
                 },
                 new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), null, System.Net.HttpStatusCode.OK));
         }
@@ -116,22 +122,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>
+                new List<Tuple<JobInfo, int>>()
                 {
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(patientResult1),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Running,
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(observationResult),
-                    },
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(patientResult1),
+                        },
+                        15),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Running,
+                        },
+                        0),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(observationResult),
+                        },
+                        5),
                 },
                 new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.Accepted));
         }
@@ -161,26 +173,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>
+                new List<Tuple<JobInfo, int>>()
                 {
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(patientResult1),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Running,
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Failed,
-                        Result = JsonConvert.SerializeObject(new { message = "Job failed" }),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Running,
-                    },
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(patientResult1),
+                        },
+                        15),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Running,
+                        },
+                        0),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Failed,
+                            Result = JsonConvert.SerializeObject(new { message = "Job failed" }),
+                        },
+                        0),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Running,
+                        },
+                        0),
                 },
                 new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.InternalServerError));
         }
@@ -210,21 +230,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             };
 
             await RunGetBulkDeleteTest(
-                new List<JobInfo>
+                new List<Tuple<JobInfo, int>>()
                 {
-                    new()
-                    {
-                        Status = JobStatus.Completed,
-                        Result = JsonConvert.SerializeObject(patientResult1),
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Cancelled,
-                    },
-                    new()
-                    {
-                        Status = JobStatus.Running,
-                    },
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Completed,
+                            Result = JsonConvert.SerializeObject(patientResult1),
+                        },
+                        15),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Cancelled,
+                        },
+                        0),
+                    new Tuple<JobInfo, int>(
+                        new()
+                        {
+                            Status = JobStatus.Running,
+                        },
+                        0),
                 },
                 new GetBulkDeleteResponse(ToParameters(resultsDictionary).ToArray(), issues, System.Net.HttpStatusCode.OK));
         }
@@ -248,17 +274,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await Assert.ThrowsAsync<JobNotFoundException>(async () => await _handler.Handle(request, CancellationToken.None));
         }
 
-        private async Task RunGetBulkDeleteTest(IReadOnlyList<JobInfo> jobs, GetBulkDeleteResponse expectedResponse)
+        private async Task RunGetBulkDeleteTest(IReadOnlyList<Tuple<JobInfo, int>> jobs, GetBulkDeleteResponse expectedResponse)
         {
             _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Read);
 
-            var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, "test", "test", "test"));
             foreach (var job in jobs)
             {
-                job.Definition = definition;
+                var definition = JsonConvert.SerializeObject(new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, null, null, "test", "test", "test", job.Item2));
+                job.Item1.Definition = definition;
             }
 
-            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs);
+            _queueClient.GetJobByGroupIdAsync((byte)QueueType.BulkDelete, Arg.Any<long>(), true, Arg.Any<CancellationToken>()).Returns(jobs.Select(job => job.Item1).ToList());
             var request = new GetBulkDeleteRequest(1);
             var response = await _handler.Handle(request, CancellationToken.None);
 

@@ -34,6 +34,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var result = new SearchResult(2, new List<Tuple<string, string>>());
+                return Task.FromResult(result);
+            });
             _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService);
 
             _progress = new Progress<string>((result) => { });

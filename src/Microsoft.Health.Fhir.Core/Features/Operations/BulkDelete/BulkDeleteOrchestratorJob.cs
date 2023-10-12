@@ -40,22 +40,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
             var definitions = new List<BulkDeleteDefinition>();
+
+            var searchParameters = new List<Tuple<string, string>>()
+            {
+                new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+            };
+
+            if (definition.SearchParameters != null)
+            {
+                searchParameters.AddRange(definition.SearchParameters);
+            }
+
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var searchParameters = new List<Tuple<string, string>>()
-                    {
-                        new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
-                    };
-
-                    if (definition.SearchParameters != null)
-                    {
-                        searchParameters.AddRange(definition.SearchParameters);
-                    }
-
                     int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
 
                     var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
@@ -64,11 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             }
             else
             {
-                var searchParameters = new List<Tuple<string, string>>(definition.SearchParameters)
-                {
-                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
-                };
-
                 int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
 
                 var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
