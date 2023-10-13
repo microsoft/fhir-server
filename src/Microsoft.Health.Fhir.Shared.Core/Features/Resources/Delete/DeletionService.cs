@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     bool keepHistory = await _conformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
+                    UpsertOutcome result = await _retryPolicy.ExecuteAsync(async () => await _fhirDataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext), cancellationToken));
 
                     version = result?.Wrapper.Version;
                     break;
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         ResourceWrapperOperation[] softDeletes = resultsToDelete.Select(item =>
                         {
                             ResourceWrapper deletedWrapper = CreateSoftDeletedWrapper(request.ResourceType, item.Resource.ResourceId);
-                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, false, bundleResourceContext: request.BundleResourceContext);
+                            return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
                         }).ToArray();
 
                         try

@@ -151,8 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     .Select(_ => _.First()).ToList();
 
                 // 2 paths:
-                // 1 - if versions were specified on input then dups need to be checked within input and database.
-                //   - if multiple resources with same versoin we take the latest by lastUpdated.
+                // #1 - If versions were specified on input then dups need to be checked within input and database. If multiple resources with same version we take the latest by lastUpdated.
                 var inputWithVersionDefined = inputWithVersionLastUpdated
                     .Concat(inputDedupped.Where(_ => _.KeepVersion))
                     .GroupBy(_ => _.ResourceWrapper.ToResourceKey())
@@ -163,7 +162,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 loaded.AddRange(inputWithVersionDefined.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
                 await MergeResourcesAsync(loaded, cancellationToken);
 
-                // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
+                // #2 - if versions were not specified they have to be assigned as next based on union of input and database.
                 // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
                 var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
                 //// check whether record can fit
@@ -204,10 +203,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task MergeResourcesAsync(IList<ImportResource> resources, CancellationToken cancellationToken)
         {
-            var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, keepDeleted: _.KeepVersion, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, true, false, cancellationToken);
-            input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, keepDeleted: false, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, false, false, cancellationToken);
+            var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+            await _store.MergeInternalAsync(input, true, false, true, cancellationToken);
+            input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+            await _store.MergeInternalAsync(input, false, false, true, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
