@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using DotLiquid.Tags;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -141,25 +142,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             else
             {
-                // If versionId and lastUpdated are specified, we assume the client may want to import multiple versions.
-                var inputWithVersionLastUpdated = goodResources.Where(_ => _.KeepVersion && _.KeepLastUpdated);
-
-                // If not, we dedup by last updated
-                var inputDedupped = goodResources
-                    .Where(_ => !_.KeepVersion || !_.KeepLastUpdated)
-                    .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true))
-                    .Select(_ => _.First()).ToList();
+                // dedup by last updated
+                var inputExplicitDedupped = goodResources.Where(_ => _.KeepVersion && _.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: false)).Select(_ => _.First());
+                var inputImplicitDedupped = goodResources.Where(_ => !_.KeepVersion || !_.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)).Select(_ => _.First());
+                var inputDedupped = inputExplicitDedupped.Concat(inputImplicitDedupped).ToList();
 
                 // 2 paths:
-                // #1 - If versions were specified on input then dups need to be checked within input and database. If multiple resources with same version we take the latest by lastUpdated.
-                var inputWithVersionDefined = inputWithVersionLastUpdated
-                    .Concat(inputDedupped.Where(_ => _.KeepVersion))
-                    .GroupBy(_ => _.ResourceWrapper.ToResourceKey())
-                    .Select(_ => _.OrderByDescending(x => x.KeepLastUpdated ? x.ResourceWrapper.LastModified : DateTime.MinValue).First())
-                    .ToList();
-
-                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputWithVersionDefined.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
-                loaded.AddRange(inputWithVersionDefined.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
+                // 1 - if versions were specified on input then dups need to be checked within input and database
+                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).Select(_ => _.First()).ToList(); // dedup input by versions in input.
+                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
+                var inputDeduppedWithVersionsNotInDb = inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(ignoreVersion: false), out _)); // dedup input by versions in db.
+                loaded.AddRange(inputDeduppedWithVersionsNotInDb.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
                 await MergeResourcesAsync(loaded, cancellationToken);
 
                 // #2 - if versions were not specified they have to be assigned as next based on union of input and database.
@@ -204,9 +197,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private async Task MergeResourcesAsync(IList<ImportResource> resources, CancellationToken cancellationToken)
         {
             var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, true, false, true, cancellationToken);
+            await _store.MergeInternalAsync(input, true, true, false, cancellationToken);
             input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, false, false, true, cancellationToken);
+            await _store.MergeInternalAsync(input, false, true, false, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)

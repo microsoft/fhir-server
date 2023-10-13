@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // No resources should be imported since the version id already exists.
             Assert.Empty(result.Entry);
 
-            // Validate that the old version of the resource is returned by a history search.
+            // Validate that the existing version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
             Assert.Equal("1", result.Entry.First().Resource.VersionId);
@@ -90,15 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Only a single version of the resource should be imported
             Assert.Single(result.Entry);
 
-            // Validate that the old version of the resource is returned by a history search.
+            // Validate a single version of the resource is returned by a history search.
             var queryByIdHistory = $"Patient/{resourceId}/_history";
             result = await _client.SearchAsync(queryByIdHistory);
-
-            // Currently last resource in the file is the one that is imported.
-            // If this behavior changes then the test will need to change.
-            ImportTestHelper.VerifyBundleWithMeta(
-                result,
-                _fixture.TestResources["ImportWithSameVersionId"].Import.Last());
+            Assert.True(result.Entry.Count == 1);
         }
 
         [Fact]
@@ -119,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             ImportTestHelper.VerifyBundle(result, expectedNonHistorical.ToArray());
 
-            // Since both last updated and version are specified, both resources should be imported unless first version is delete.
+            // Since both last updated and version are specified, both resources should be imported in all cases.
             List<Resource> expectedHistorical = testResources;
 
             await ImportTestHelper.VerifyHistoryResultAsync(_fixture.TestFhirClient, testResources.ToArray());
