@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             else
             {
-                // dedup by last updated
+                // dedup by last updated - keep all versions in explicit meta case or only first in file in implicit case.
                 var inputExplicitDedupped = goodResources.Where(_ => _.KeepVersion && _.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: false)).Select(_ => _.First());
                 var inputImplicitDedupped = goodResources.Where(_ => !_.KeepVersion || !_.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)).Select(_ => _.First());
                 var inputDedupped = inputExplicitDedupped.Concat(inputImplicitDedupped).ToList();
