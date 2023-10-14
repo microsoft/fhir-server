@@ -10,7 +10,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using DotLiquid.Tags;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -142,28 +141,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             else
             {
-                // dedup by last updated - keep all versions in explicit meta case or only first in file in implicit case.
-                var inputExplicitDedupped = goodResources.Where(_ => _.KeepVersion && _.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: false)).Select(_ => _.First());
-                var inputImplicitDedupped = goodResources.Where(_ => !_.KeepVersion || !_.KeepLastUpdated).GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)).Select(_ => _.First());
-                var inputDedupped = inputExplicitDedupped.Concat(inputImplicitDedupped).ToList();
+                // dedup by last updated - keep all versions when version and lastUpdated exist on record.
+                var inputDedupped = goodResources
+                    .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: !_.KeepVersion || !_.KeepLastUpdated))
+                    .Select(_ => _.First())
+                    .ToList();
 
                 // 2 paths:
-                // 1 - if versions were specified on input then dups need to be checked within input and database
-                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).Select(_ => _.First()).ToList(); // dedup input by versions in input.
-                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
-                var inputDeduppedWithVersionsNotInDb = inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(ignoreVersion: false), out _)); // dedup input by versions in db.
-                loaded.AddRange(inputDeduppedWithVersionsNotInDb.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
+                // #1 - if versions were specified on input then duplicates by verrion need to be checked within this input set and the database.
+                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).Select(_ => _.First()).ToList(); // dedup by version
+                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey())); // find existing resource keys in db for filtering.
+                //// Add if the version is not in db. Sorting is used in merge to set isHistory - don't change it without updating that method.
+                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(ignoreVersion: false), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified));
                 await MergeResourcesAsync(loaded, cancellationToken);
 
                 // #2 - if versions were not specified they have to be assigned as next based on union of input and database.
                 // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
-                var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
+                var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).Select(_ => _.First()).ToList();
                 //// check whether record can fit
-                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
+                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(ignoreVersion: true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
-                    if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
+                    if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(ignoreVersion: true), out var dateKey)
                         && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
                     {
                         inputDeduppedNoVersionForCheck.Add(resource);
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var versionSlots = (await _store.StoreClient.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_model.GetResourceTypeName(_.ResourceTypeId), _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
-                    var resourceKey = resource.ResourceWrapper.ToResourceKey(true);
+                    var resourceKey = resource.ResourceWrapper.ToResourceKey(ignoreVersion: true);
                     versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
 
                     if (versionSlotKey.VersionId == "0") // no version slot available
