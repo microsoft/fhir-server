@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 loaded.AddRange(inputDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
                 await MergeResourcesAsync(loaded, cancellationToken);
             }
-            else
+            else if (importMode == ImportMode.IncrementalLoad)
             {
                 // dedup by last updated - keep all versions when version and lastUpdated exist on record.
                 var inputDedupped = goodResources
@@ -147,18 +147,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     .Select(_ => _.First())
                     .ToList();
 
-                // 2 paths:
-                // #1 - if versions were specified on input then duplicates by verrion need to be checked within this input set and the database.
-                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).Select(_ => _.First()).ToList(); // dedup by version
-                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: false)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey())); // find existing resource keys in db for filtering.
-                //// Add if the version is not in db. Sorting is used in merge to set isHistory - don't change it without updating that method.
-                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(ignoreVersion: false), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified));
-                await MergeResourcesAsync(loaded, cancellationToken);
+                await HandleIncrementalVersionedImport(inputDedupped);
 
-                // #2 - if versions were not specified they have to be assigned as next based on union of input and database.
-                // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
+                await HandleIncrementalUnversionedImport(inputDedupped);
+            }
+
+            async Task HandleIncrementalVersionedImport(List<ImportResource> inputDedupped)
+            {
+                // Dedup by version via ToResourceKey - only keep first occurance of a version in this batch.
+                var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
+
+                // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
+                var currentResourceKeysInDb = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
+
+                // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
+                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentResourceKeysInDb.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified));
+                await MergeResourcesAsync(loaded, cancellationToken);
+            }
+
+            async Task HandleIncrementalUnversionedImport(List<ImportResource> inputDedupped)
+            {
+                // Dedup by resource id - only keep first occurance of an unversioned resource. This method is run in many parallel workers - we cannot guarantee processing order across parallel file streams. Taking the first resource avoids conflicts.
                 var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).Select(_ => _.First()).ToList();
-                //// check whether record can fit
+
+                // Ensure that the imported resources can "fit" between existing versions in the db. We want to keep versionId sequential along with lastUpdated.
+                // First part is setup.
                 var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(ignoreVersion: true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
@@ -170,6 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
+                // Second part is testing if the imported resources can "fit" between existing versions in the db.
                 var versionSlots = (await _store.StoreClient.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_model.GetResourceTypeName(_.ResourceTypeId), _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
@@ -187,6 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
+                // Finally merge the resources to the db.
                 var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
                 await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion).ToList(), cancellationToken);
                 await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion).ToList(), cancellationToken);
