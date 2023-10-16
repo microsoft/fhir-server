@@ -10,7 +10,6 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using ICSharpCode.SharpZipLib;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -34,7 +33,6 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using static ICSharpCode.SharpZipLib.Zip.ExtendedUnixData;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
