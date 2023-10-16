@@ -75,5 +75,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V63 = 63,
         V64 = 64,
         V65 = 65,
+        V66 = 66,
     }
 }
