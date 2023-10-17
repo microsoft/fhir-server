@@ -38,6 +38,41 @@ DECLARE @st datetime = getUTCdate()
 DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceTypeId))+','+convert(varchar,max(ResourceTypeId))+'] Sur=['+convert(varchar,min(ResourceSurrogateId))+','+convert(varchar,max(ResourceSurrogateId))+'] V='+convert(varchar,max(Version))+' Rows='+convert(varchar,count(*)) FROM @Resources),'Input=Empty')
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
 
+-- wait if required
+DECLARE @LogTarget int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.Target') -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.Target', 50 --UPDATE Parameters SET Number = 2 WHERE Id = 'avg_log_write_percent.Target'
+IF @LogTarget IS NOT NULL
+BEGIN
+  DECLARE @LogWaitLastUpdated datetime = (SELECT Date FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.LastUpdated') -- INSERT INTO Parameters (Id, Date) SELECT 'avg_log_write_percent.LastUpdated', getUTCdate()
+  IF datediff(second,@LogWaitLastUpdated,getUTCdate()) > 100
+  BEGIN
+    BEGIN TRANSACTION
+    
+    UPDATE dbo.Parameters SET Number = Number + 0 WHERE Id = 'avg_log_write_percent.WaitSec' -- hold lock
+    
+    DECLARE @avg_log_write_percent int = (SELECT avg(avg_log_write_percent) FROM sys.dm_db_resource_stats WHERE end_time > dateadd(second,-100,getUTCdate()))
+    
+    IF @avg_log_write_percent > @LogTarget + 1 OR @avg_log_write_percent < @LogTarget - 1 
+    BEGIN
+      EXECUTE dbo.LogEvent @Process=@SP,@Status='Warn',@Target='avg_log_write_percent',@Text=@avg_log_write_percent
+      IF @avg_log_write_percent > @LogTarget
+        UPDATE dbo.Parameters SET Number = Number + 1 WHERE Id = 'avg_log_write_percent.WaitSec'
+      IF @avg_log_write_percent < @LogTarget
+        UPDATE dbo.Parameters SET Number = Number - 1 WHERE Id = 'avg_log_write_percent.WaitSec' AND Number > 0
+    END
+
+    UPDATE dbo.Parameters SET Date = getUTCdate() WHERE Id = 'avg_log_write_percent.LastUpdated'
+    
+    COMMIT TRANSACTION
+  END
+
+  DECLARE @LogWaitSec int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.WaitSec') -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.WaitSec', 0 --UPDATE Parameters SET Number = 0 WHERE Id = 'avg_log_write_percent.WaitSec'
+  WHILE @LogWaitSec > 0
+  BEGIN
+    WAITFOR DELAY '00:00:01'
+    SET @LogWaitSec = @LogWaitSec - 1
+  END
+END
+
 SET @AffectedRows = 0
 
 BEGIN TRY
@@ -67,7 +102,6 @@ BEGIN TRY
   BEGIN
     IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
                  FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                 WHERE B.IsHistory = 0
               )
     BEGIN
       BEGIN TRANSACTION

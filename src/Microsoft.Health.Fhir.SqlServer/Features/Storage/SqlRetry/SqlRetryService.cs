@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: "FHIR_Migration3_Log", cancellationToken: cancellationToken).ConfigureAwait(false);
                 conn.RetryLogicProvider = null;
                 await conn.OpenAsync(cancellationToken);
                 cmd.Connection = conn;

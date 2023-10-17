@@ -3875,16 +3875,15 @@ BEGIN TRY
            CASE WHEN EXISTS (SELECT *
                              FROM   dbo.Resource AS B
                              WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                    AND B.ResourceId = A.ResourceId
                                     AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE 0 END AS Version
     FROM   (SELECT TOP (@DummyTop) *
             FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
-                                                        FROM     dbo.Resource AS B
+                                                        FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                         WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                  AND B.ResourceId = A.ResourceId
                                                                  AND B.ResourceSurrogateId < A.ResourceSurrogateId
                                                         ORDER BY B.ResourceSurrogateId DESC) AS L OUTER APPLY (SELECT   TOP 1 *
-                                                                                                               FROM     dbo.Resource AS B
+                                                                                                               FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                                                                                WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                                                                         AND B.ResourceId = A.ResourceId
                                                                                                                         AND B.ResourceSurrogateId > A.ResourceSurrogateId
@@ -4290,6 +4289,51 @@ DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@pro
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
 SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
+DECLARE @LogTarget AS INT = (SELECT Number
+                             FROM   dbo.Parameters
+                             WHERE  Id = 'avg_log_write_percent.Target');
+IF @LogTarget IS NOT NULL
+    BEGIN
+        DECLARE @LogWaitLastUpdated AS DATETIME = (SELECT Date
+                                                   FROM   dbo.Parameters
+                                                   WHERE  Id = 'avg_log_write_percent.LastUpdated');
+        IF datediff(second, @LogWaitLastUpdated, getUTCdate()) > 100
+            BEGIN
+                BEGIN TRANSACTION;
+                UPDATE dbo.Parameters
+                SET    Number = Number + 0
+                WHERE  Id = 'avg_log_write_percent.WaitSec';
+                DECLARE @avg_log_write_percent AS INT = (SELECT avg(avg_log_write_percent)
+                                                         FROM   sys.dm_db_resource_stats
+                                                         WHERE  end_time > dateadd(second, -100, getUTCdate()));
+                IF @avg_log_write_percent > @LogTarget + 1
+                   OR @avg_log_write_percent < @LogTarget - 1
+                    BEGIN
+                        EXECUTE dbo.LogEvent @Process = @SP, @Status = 'Warn', @Target = 'avg_log_write_percent', @Text = @avg_log_write_percent;
+                        IF @avg_log_write_percent > @LogTarget
+                            UPDATE dbo.Parameters
+                            SET    Number = Number + 1
+                            WHERE  Id = 'avg_log_write_percent.WaitSec';
+                        IF @avg_log_write_percent < @LogTarget
+                            UPDATE dbo.Parameters
+                            SET    Number = Number - 1
+                            WHERE  Id = 'avg_log_write_percent.WaitSec'
+                                   AND Number > 0;
+                    END
+                UPDATE dbo.Parameters
+                SET    Date = getUTCdate()
+                WHERE  Id = 'avg_log_write_percent.LastUpdated';
+                COMMIT TRANSACTION;
+            END
+        DECLARE @LogWaitSec AS INT = (SELECT Number
+                                      FROM   dbo.Parameters
+                                      WHERE  Id = 'avg_log_write_percent.WaitSec');
+        WHILE @LogWaitSec > 0
+            BEGIN
+                WAITFOR DELAY '00:00:01';
+                SET @LogWaitSec = @LogWaitSec - 1;
+            END
+    END
 SET @AffectedRows = 0;
 BEGIN TRY
     DECLARE @Existing AS TABLE (
@@ -4319,8 +4363,7 @@ BEGIN TRY
                               INNER JOIN
                               dbo.Resource AS B
                               ON B.ResourceTypeId = A.ResourceTypeId
-                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                       WHERE  B.IsHistory = 0)
+                                 AND B.ResourceSurrogateId = A.ResourceSurrogateId)
                 BEGIN
                     BEGIN TRANSACTION;
                     INSERT INTO @Existing (ResourceTypeId, SurrogateId)
