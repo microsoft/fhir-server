@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         public ExportDataTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
+            DataStore = dataStore;
         }
 
         public MetricHandler MetricHandler
@@ -34,35 +35,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ExportTaskMetricsNotification>>());
         }
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistoryAndDeletes { get; } = new();
+        internal DataStore DataStore { get; private set; }
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistory => TestResourcesWithHistoryAndDeletes
+        internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistoryAndDeletes { get; } = new();
+
+        internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistory => TestResourcesWithHistoryAndDeletes
             .Where(entry => !entry.Value.Meta.Extension.Any(extension =>
                 extension.Url == "http://azurehealthcareapis.com/data-extensions/deleted-state"
                 && ((FhirString)extension.Value).Value == "soft-deleted"))
             .ToDictionary(entry => entry.Key, entry => entry.Value);
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithDeletes => TestResourcesWithHistoryAndDeletes
+        internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithDeletes => TestResourcesWithHistoryAndDeletes
             .GroupBy(entry => entry.Key.resourceId)
             .Select(group => group.OrderByDescending(entry => entry.Value.Meta.LastUpdated).First())
             .ToDictionary(entry => entry.Key, entry => entry.Value);
 
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
+        internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
             TestResourcesWithHistory.Where(pair => TestResourcesWithDeletes.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
         // If the patient is deleted but the child resources are not, they should not be returned in patient centric exports.
-        public Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestPatientCompartmentResources => TestResources
+        internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestPatientCompartmentResources => TestResources
             .Where(x => x.Key.resourceType != "Encounter" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Encounter).Subject.Reference.Split("/")[1]))
             .Where(x => x.Key.resourceType != "Observation" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Observation).Subject.Reference.Split("/")[1]))
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        public Dictionary<string, Uri> ExportTestCasesContentUrls { get; } = new();
+        internal Dictionary<string, Uri> ExportTestCasesContentUrls { get; } = new();
 
-        public string FixtureTag { get; } = Guid.NewGuid().ToString();
+        internal string FixtureTag { get; } = Guid.NewGuid().ToString();
 
-        public DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
+        internal DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
 
-        public string ExportTestFilterQueryParameters(params string[] uniqueResourceTypes)
+        internal string ExportTestFilterQueryParameters(params string[] uniqueResourceTypes)
         {
             if (uniqueResourceTypes.Length == 0)
             {
@@ -78,21 +81,84 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         {
             await SaveTestResourcesToServer();
 
-            // await StartTestExportOperations();
+            await StartTestExportOperations();
         }
 
         private async Task StartTestExportOperations()
         {
+            // Shared Parameters
             var uniqueFixtureResources = string.Join(',', TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
-            string parameters = $"_since={TestDataInsertionTime:o}&_type={uniqueFixtureResources}";
+            string sinceAndTypeExportParameters = $"_since={TestDataInsertionTime:o}&_type={uniqueFixtureResources}";
 
+            // All data export tests
             ExportTestCasesContentUrls.Add(
                 $"{nameof(ExportDataTests.GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-since",
-                await TestFhirClient.ExportAsync(parameters: parameters));
+                await TestFhirClient.ExportAsync(parameters: sinceAndTypeExportParameters));
 
             ExportTestCasesContentUrls.Add(
                 $"{nameof(ExportDataTests.GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-tag",
                 await TestFhirClient.ExportAsync(parameters: ExportTestFilterQueryParameters()));
+
+            // Patient centric export tests
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-since",
+                await TestFhirClient.ExportAsync(path: "Patient/", parameters: sinceAndTypeExportParameters));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-tag",
+                await TestFhirClient.ExportAsync(path: "Patient/", parameters: ExportTestFilterQueryParameters()));
+
+            // Patient/Observation resource system export tests
+            string[] testResorceTypes = { "Observation", "Patient" };
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-since",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:o}&_type={string.Join(',', testResorceTypes)}"));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-tag",
+                await TestFhirClient.ExportAsync(parameters: ExportTestFilterQueryParameters(testResorceTypes)));
+
+            // Patient entric Observation resource Patient export tests
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-since",
+                await TestFhirClient.ExportAsync(path: "Patient/", parameters: $"_since={TestDataInsertionTime:o}&_type=Observation"));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-tag",
+                await TestFhirClient.ExportAsync(path: "Patient/", parameters: ExportTestFilterQueryParameters("Observation")));
+
+            // Export to specific container
+            string testContainer = "test-container";
+            ExportTestCasesContentUrls.Add(
+                nameof(ExportDataTests.GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer),
+                await TestFhirClient.ExportAsync(parameters: $"_container={testContainer}&{ExportTestFilterQueryParameters()}"));
+
+            // Export with history only
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=true",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history&_isParallel=true"));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=false",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history&_isParallel=false"));
+
+            // Export with delete only
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=true",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_deleted&_isParallel=true"));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=false",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_deleted&_isParallel=false"));
+
+            // Export with history and deletes
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=true",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history,_deleted&_isParallel=true"));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-_isParallel=false",
+                await TestFhirClient.ExportAsync(parameters: $"_since={TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history,_deleted&_isParallel=false"));
         }
 
         private async Task SaveTestResourcesToServer()
