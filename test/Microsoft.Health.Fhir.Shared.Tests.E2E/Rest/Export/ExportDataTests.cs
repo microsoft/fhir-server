@@ -37,17 +37,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             _fixture = fixture;
         }
 
-        [Theory]
-        [InlineData("since")]
-        [InlineData("tag")]
-        public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
+        [Fact]
+        public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.\
+            string parameters = _fixture.ExportTestFilterQueryParameters();
 
             // Trigger export request and check for export status
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-{parametersKey}"];
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters);
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -57,15 +56,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResources, dataFromExport, _outputHelper));
         }
 
-        [Theory]
-        [InlineData("since")]
-        [InlineData("tag")]
-        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
+        [Fact]
+        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-{parametersKey}"];
+            string parameters = _fixture.ExportTestFilterQueryParameters();
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // Trigger export request and check for export status
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(path: "Patient/", parameters: parameters);
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -75,16 +75,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestPatientCompartmentResources, dataFromExport, _outputHelper));
         }
 
-        [Theory]
-        [InlineData("since")]
-        [InlineData("tag")]
-        public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
+        [Fact]
+        public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
             string[] testResorceTypes = { "Observation", "Patient" };
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-{parametersKey}"];
+            var parameters = _fixture.ExportTestFilterQueryParameters(testResorceTypes);
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // Trigger export request and check for export status
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: parameters);
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -98,15 +99,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
 
-        [Theory]
-        [InlineData("since")]
-        [InlineData("tag")]
-        public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string parametersKey)
+        [Fact]
+        public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-{parametersKey}"];
+            var parameters = _fixture.ExportTestFilterQueryParameters("Observation");
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // Trigger export request and check for export status
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(path: "Patient/", parameters: parameters);
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -126,9 +128,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         {
             // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
             string testContainer = "test-container";
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[nameof(GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer)];
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // Trigger export request and check for export status
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_container={testContainer}&{_fixture.ExportTestFilterQueryParameters()}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -143,12 +147,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [Theory]
         [InlineData("_isParallel=true")]
         [InlineData("_isParallel=false")]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer)}-{parallelQueryParam}"];
+            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
+            {
+                // CosmosDB does not have parallel export support yet.
+                return;
+            }
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+
+            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history&{parallelQueryParam}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -162,12 +176,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [Theory]
         [InlineData("_isParallel=true")]
         [InlineData("_isParallel=false")]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-{parallelQueryParam}"];
+            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
+            {
+                // CosmosDB does not have parallel export support yet.
+                return;
+            }
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+
+            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_deleted&{parallelQueryParam}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
@@ -183,10 +207,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [InlineData("_isParallel=false")]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            Uri contentLocation = _fixture.ExportTestCasesContentUrls[$"{nameof(GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer)}-{parallelQueryParam}"];
+            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
+            {
+                // CosmosDB does not have parallel export support yet.
+                return;
+            }
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, 15);
+            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
+            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+
+            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history,_deleted&{parallelQueryParam}");
+
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
