@@ -4294,40 +4294,47 @@ DECLARE @LogTarget AS INT = (SELECT Number
                              WHERE  Id = 'avg_log_write_percent.Target');
 IF @LogTarget IS NOT NULL
     BEGIN
-        DECLARE @LogWaitLastUpdated AS DATETIME = (SELECT Date
-                                                   FROM   dbo.Parameters
-                                                   WHERE  Id = 'avg_log_write_percent.LastUpdated');
-        IF datediff(second, @LogWaitLastUpdated, getUTCdate()) > 100
+        IF datediff(second, (SELECT Date
+                             FROM   dbo.Parameters
+                             WHERE  Id = 'avg_log_write_percent.LastUpdated'), getUTCdate()) > 180
             BEGIN
                 BEGIN TRANSACTION;
-                UPDATE dbo.Parameters
-                SET    Number = Number + 0
-                WHERE  Id = 'avg_log_write_percent.WaitSec';
-                DECLARE @avg_log_write_percent AS INT = (SELECT avg(avg_log_write_percent)
-                                                         FROM   sys.dm_db_resource_stats
-                                                         WHERE  end_time > dateadd(second, -100, getUTCdate()));
-                IF @avg_log_write_percent > @LogTarget + 1
-                   OR @avg_log_write_percent < @LogTarget - 1
+                EXECUTE sp_getapplock 'avg_log_write_percent.WaitSec', 'Exclusive';
+                IF datediff(second, (SELECT Date
+                                     FROM   dbo.Parameters
+                                     WHERE  Id = 'avg_log_write_percent.LastUpdated'), getUTCdate()) > 180
                     BEGIN
-                        EXECUTE dbo.LogEvent @Process = @SP, @Status = 'Warn', @Target = 'avg_log_write_percent', @Text = @avg_log_write_percent;
-                        IF @avg_log_write_percent > @LogTarget
-                            UPDATE dbo.Parameters
-                            SET    Number = Number + 1
-                            WHERE  Id = 'avg_log_write_percent.WaitSec';
-                        IF @avg_log_write_percent < @LogTarget
-                            UPDATE dbo.Parameters
-                            SET    Number = Number - 1
-                            WHERE  Id = 'avg_log_write_percent.WaitSec'
-                                   AND Number > 0;
+                        DECLARE @Number AS INT = (SELECT Number
+                                                  FROM   dbo.Parameters
+                                                  WHERE  Id = 'avg_log_write_percent.WaitSec');
+                        DECLARE @avg_log_write_percent AS INT = (SELECT avg(avg_log_write_percent)
+                                                                 FROM   sys.dm_db_resource_stats
+                                                                 WHERE  end_time > dateadd(second, -180, getUTCdate()));
+                        IF @avg_log_write_percent > @LogTarget + 1
+                           OR @avg_log_write_percent < @LogTarget - 1
+                            BEGIN
+                                EXECUTE dbo.LogEvent @Process = @SP, @Status = 'Warn', @Target = 'avg_log_write_percent', @Text = @avg_log_write_percent;
+                                IF @avg_log_write_percent > @LogTarget + 1
+                                    UPDATE dbo.Parameters
+                                    SET    Number = @Number + 5
+                                    WHERE  Id = 'avg_log_write_percent.WaitSec'
+                                           AND Number = @Number;
+                                IF @avg_log_write_percent < @LogTarget - 1
+                                   AND @Number > 5
+                                    UPDATE dbo.Parameters
+                                    SET    Number = @Number - 5
+                                    WHERE  Id = 'avg_log_write_percent.WaitSec'
+                                           AND Number = @Number;
+                            END
+                        UPDATE dbo.Parameters
+                        SET    Date = getUTCdate()
+                        WHERE  Id = 'avg_log_write_percent.LastUpdated';
+                        COMMIT TRANSACTION;
                     END
-                UPDATE dbo.Parameters
-                SET    Date = getUTCdate()
-                WHERE  Id = 'avg_log_write_percent.LastUpdated';
-                COMMIT TRANSACTION;
             END
         DECLARE @LogWaitSec AS INT = (SELECT Number
                                       FROM   dbo.Parameters
-                                      WHERE  Id = 'avg_log_write_percent.WaitSec');
+                                      WHERE  Id = 'avg_log_write_percent.WaitSec') * rand();
         WHILE @LogWaitSec > 0
             BEGIN
                 WAITFOR DELAY '00:00:01';
