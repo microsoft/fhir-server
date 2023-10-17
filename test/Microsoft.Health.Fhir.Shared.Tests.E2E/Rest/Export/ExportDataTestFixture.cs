@@ -77,6 +77,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         protected override async Task OnInitializedAsync()
         {
             await SaveTestResourcesToServer();
+
+            // await StartTestExportOperations();
+        }
+
+        private async Task StartTestExportOperations()
+        {
+            var uniqueFixtureResources = string.Join(',', TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+            string parameters = $"_since={TestDataInsertionTime:o}&_type={uniqueFixtureResources}";
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-since",
+                await TestFhirClient.ExportAsync(parameters: parameters));
+
+            ExportTestCasesContentUrls.Add(
+                $"{nameof(ExportDataTests.GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer)}-tag",
+                await TestFhirClient.ExportAsync(parameters: ExportTestFilterQueryParameters()));
         }
 
         private async Task SaveTestResourcesToServer()
@@ -152,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             var bundle = new Bundle
             {
-                Type = Bundle.BundleType.Transaction,
+                Type = Bundle.BundleType.Batch,
                 Entry = new List<Bundle.EntryComponent>(),
             };
 
