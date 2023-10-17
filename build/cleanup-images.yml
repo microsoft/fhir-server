@@ -20,7 +20,7 @@ stages:
     parameters: 
       version: 'r4'
 
-- stage: CleanupR4
+- stage: CleanupR4B
   displayName: 'Cleanup R4B'
   dependsOn: []
   jobs:
