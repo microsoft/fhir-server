@@ -98,14 +98,25 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string HardDelete = "_hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
-
+        
+        /// <summary>
+        /// Used by queries from the $export mediator to signal that history should be included in the export search.
+        /// </summary>
         public const string IncludeHistory = "_includeHistory";
 
+        /// <summary>
+        /// Used by queries from the $export mediator to signal that soft deleted resources should be included in the export search.
+        /// </summary>
         public const string IncludeDeleted = "_includeDeleted";
 
         /// <summary>
         /// Used by $export as a comma-separated list of parameters instructing which initial data should be included.
         /// </summary>
         public const string IncludeAssociatedData = "includeAssociatedData";
+
+        /// <summary>
+        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// </summary>
+        public const string MaxCount = "_maxCount";
     }
 }

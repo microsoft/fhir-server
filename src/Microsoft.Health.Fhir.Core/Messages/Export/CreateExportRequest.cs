@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             bool isParallel = true,
             bool includeHistory = false,
             bool includeDeleted = false,
+            uint maxCount = 0,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
@@ -48,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             IsParallel = isParallel;
             IncludeHistory = includeHistory;
             IncludeDeleted = includeDeleted;
+            MaxCount = maxCount;
         }
 
         public Uri RequestUri { get; }
@@ -79,5 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public bool IncludeHistory { get; }
 
         public bool IncludeDeleted { get; }
+
+        public uint MaxCount { get; }
     }
 }

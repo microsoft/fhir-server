@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var results = await MergeInternalAsync(resources, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool enlistInTransaction, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -201,9 +201,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
-                    if (resource.IsDeleted)
+                    if (resource.IsDeleted && !keepAllDeleted)
                     {
-                        // Don't bother marking the resource as deleted since it already does not exist.
+                        // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    if (resource.IsDeleted && existingResource.IsDeleted)
+                    if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
                     {
                         // Already deleted - don't create a new version
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
