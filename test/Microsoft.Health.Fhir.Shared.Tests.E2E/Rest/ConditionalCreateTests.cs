@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // For calling a Conditional Create we do need to send a conditionalCreateCriteria which in this case is the base.
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.CreateAsync(
                 resourceToCreate,
-                $"base=observation"));
+                $"code=code"));
 
             var expectedSubstring = "A search parameter with the same code value 'code' already exists for base type 'Observation'";
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
