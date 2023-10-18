@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [Theory]
         [InlineData("_isParallel=true")]
         [InlineData("_isParallel=false")]
-        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        // [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
             if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         [Theory]
         [InlineData("_isParallel=true")]
         [InlineData("_isParallel=false")]
-        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        // [Trait(Traits.Category, Categories.ExportLongRunning)]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
         {
             if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
