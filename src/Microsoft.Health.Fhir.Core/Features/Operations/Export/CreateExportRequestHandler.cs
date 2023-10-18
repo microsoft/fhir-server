@@ -94,11 +94,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 anonymizationConfigurationCollectionReference: request.AnonymizationConfigurationCollectionReference,
                 anonymizationConfigurationLocation: request.AnonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: request.AnonymizationConfigurationFileETag,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                maximumNumberOfResourcesPerQuery: maxCount > 0 ? maxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
                 storageAccountContainerName: request.ContainerName,
                 isParallel: request.IsParallel,
-                maxCount: maxCount,
                 includeHistory: request.IncludeHistory,
                 includeDeleted: request.IncludeDeleted,
                 smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);

@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string HardDelete = "_hardDelete";
 
         public const string PurgeHistory = "_purgeHistory";
-        
+
         /// <summary>
         /// Used by queries from the $export mediator to signal that history should be included in the export search.
         /// </summary>
