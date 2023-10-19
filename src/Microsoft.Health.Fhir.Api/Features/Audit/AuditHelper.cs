@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// </summary>
     public class AuditHelper : IAuditHelper
     {
-        internal const string ProcessingDurationMs = "ProcessingDurationMs";
+        internal const string ProcessingDurationMs = "processingDurationMs";
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         internal const string UnknownOperationType = "Unknown";
 
