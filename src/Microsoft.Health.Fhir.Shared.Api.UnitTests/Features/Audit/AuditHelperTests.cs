@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 customHeaders: _auditHeaderReader.Read(_httpContext),
                 operationType: Arg.Any<string>(),
                 callerAgent: Arg.Any<string>(),
-                additionalProperties: Arg.Is<Dictionary<string, string>>(d => d.ContainsKey("durationMs") && d.ContainsValue(durationMs.ToString())));
+                additionalProperties: Arg.Is<Dictionary<string, string>>(d => d.ContainsKey(AuditHelper.ProcessingDurationMs) && d.ContainsValue(durationMs.ToString())));
         }
 
         [Fact]
