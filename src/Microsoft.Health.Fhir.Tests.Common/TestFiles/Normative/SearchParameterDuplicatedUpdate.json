@@ -1,0 +1,13 @@
+{
+    "resourceType": "SearchParameter",
+    "version": "4.0.1",
+    "name": "description",
+    "status": "draft",
+    "description": "The description of the research definition",
+    "code": "description",
+    "base": [
+        "ResearchDefinition"
+    ],
+    "type": "string",
+    "expression": "ResearchDefinition.description"
+}
