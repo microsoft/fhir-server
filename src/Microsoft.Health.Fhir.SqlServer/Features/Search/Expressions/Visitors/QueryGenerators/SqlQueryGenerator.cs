@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
                 StringBuilder.Append("SELECT DISTINCT ");
 
-                if (!context.UseIndexedPaging && expression.SearchParamTableExpressions.Count == 0)
+                if (!searchOptions.UseIndexedPaging && expression.SearchParamTableExpressions.Count == 0)
                 {
                     StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") ");
                 }
@@ -792,7 +792,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             StringBuilder.Append("SELECT DISTINCT ");
 
-            if (includeExpression.Reversed && context.UseIndexedPaging)
+            if (includeExpression.Reversed)
             {
                 // In case its revinclude, we limit the number of returned items as the resultset size is potentially
                 // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...

@@ -108,8 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     // for resources that have a value for the _sort parameter. So we will generate
                     // the appropriate Sort expression below.
                 }
-                else if ((continuationToken != null && continuationToken.SortValue == null) ||
-                    (continuationToken == null && context.Sort[0].sortOrder == SortOrder.Ascending))
+                else if (continuationToken != null && continuationToken.SortValue == null)
                 {
                     // We have a ct for resourceid but not for the sort value.
                     // This means we are paging through resources that do not have values for the _sort parameter.

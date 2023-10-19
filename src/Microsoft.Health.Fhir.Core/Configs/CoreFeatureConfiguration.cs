@@ -85,6 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets a value indicating whether the sql generator should use OFFSET for paging search results.
         /// </summary>
-        public bool SupportsIndexedPaging { get; set; } = true;
+        public bool SupportsIndexedPaging { get; set; }
     }
 }
