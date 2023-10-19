@@ -43,25 +43,30 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="services">The services collection.</param>
         /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
         /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
+        /// <param name="addMvc">An optional flag indicating wheter to register ASP.NET MVC components.</param>
         /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
         public static IFhirServerBuilder AddFhirServer(
             this IServiceCollection services,
             IConfiguration configurationRoot = null,
-            Action<FhirServerConfiguration> configureAction = null)
+            Action<FhirServerConfiguration> configureAction = null,
+            bool addMvc = true)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
-            services.AddMvc(options =>
-                {
-                    options.EnableEndpointRouting = false;
-                    options.RespectBrowserAcceptHeader = true;
-                })
-                .AddNewtonsoftJson(options =>
-                {
-                    options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
-                })
-                .AddRazorRuntimeCompilation();
+            if (addMvc)
+            {
+                services.AddMvc(options =>
+                    {
+                        options.EnableEndpointRouting = false;
+                        options.RespectBrowserAcceptHeader = true;
+                    })
+                    .AddNewtonsoftJson(options =>
+                    {
+                        options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
+                    })
+                    .AddRazorRuntimeCompilation();
+            }
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
