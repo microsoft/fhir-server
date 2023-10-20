@@ -1,13 +1,13 @@
 {
     "resourceType": "SearchParameter",
     "version": "4.0.1",
-    "name": "description",
+    "name": "reason",
     "status": "draft",
-    "description": "The description of the research definition",
-    "code": "description",
+    "description": "The reason for the study",
+    "code": "reason",
     "base": [
-        "ResearchDefinition"
+        "ImagingStudy"
     ],
     "type": "string",
-    "expression": "ResearchDefinition.description"
+    "expression": "ImagingStudy.reason"
 }
