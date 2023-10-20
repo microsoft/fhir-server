@@ -8,7 +8,7 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public sealed class DataStoreOperationIdentifier
+    public sealed class DataStoreOperationIdentifier : ResourceKey, IEquatable<DataStoreOperationIdentifier>
     {
         public DataStoreOperationIdentifier(ResourceWrapperOperation resourceWrapperOperation)
             : this(
@@ -30,21 +30,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool keepHistory,
             WeakETag weakETag,
             bool requireETagOnUpdate)
+         : base(resourceType, id, version)
         {
-            Id = EnsureArg.IsNotNull(id, nameof(id));
-            ResourceType = EnsureArg.IsNotNull(resourceType, nameof(resourceType));
-            Version = version; // Can be null.
             AllowCreate = allowCreate;
             KeepHistory = keepHistory;
             WeakETag = weakETag; // Can be null.
             RequireETagOnUpdate = requireETagOnUpdate;
         }
-
-        public string Id { get; }
-
-        public string ResourceType { get; }
-
-        public string Version { get; }
 
         public bool AllowCreate { get; }
 
@@ -66,13 +58,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return true;
             }
 
-            return Id == other.Id &&
-                ResourceType == other.ResourceType &&
-                Version == other.Version &&
-                AllowCreate == other.AllowCreate &&
-                KeepHistory == other.KeepHistory &&
-                WeakETag == other.WeakETag &&
-                RequireETagOnUpdate == other.RequireETagOnUpdate;
+            return base.Equals(other) &&
+                   AllowCreate == other.AllowCreate &&
+                   KeepHistory == other.KeepHistory &&
+                   WeakETag == other.WeakETag &&
+                   RequireETagOnUpdate == other.RequireETagOnUpdate;
         }
 
         public override bool Equals(object obj)
@@ -97,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Id, ResourceType, Version, AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
+            return HashCode.Combine(base.GetHashCode(), AllowCreate, KeepHistory, WeakETag, RequireETagOnUpdate);
         }
     }
 }

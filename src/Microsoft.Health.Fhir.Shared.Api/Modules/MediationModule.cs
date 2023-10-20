@@ -11,6 +11,8 @@ using MediatR.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -25,11 +27,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddMediatR(cfg =>
-                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All)
-                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>))
-                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>))
-                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPreProcessorBehavior<,>))
-                    .AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestPostProcessorBehavior<,>)));
+            {
+                cfg.RegisterServicesFromAssemblies(KnownAssemblies.All);
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionActionProcessorBehavior<,>));
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>));
+                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateRequestPreProcessor<>));
+                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<BundleRequest>), typeof(ValidateBundlePreProcessor));
+                cfg.AddRequestPreProcessor(typeof(IRequestPreProcessor<>), typeof(ValidateCapabilityPreProcessor<>));
+            });
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]

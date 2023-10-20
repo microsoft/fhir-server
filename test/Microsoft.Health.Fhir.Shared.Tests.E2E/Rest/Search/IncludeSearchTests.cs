@@ -274,6 +274,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithAllResources_WhenSearched_DoesNotIncludeUntypedReferences()
+        {
+            string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=*";
+
+            await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
+                Fixture.ObservationWithUntypedReferences);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
         {
             string query = $"_tag={Fixture.Tag}&_include=Patient:organization";
@@ -1240,7 +1251,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirClientException fce)
             {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {Client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
             }
 
             Assert.True(bundle != null, "The bundle is null. This is a non-expected scenario for this test. Review the existing test code and flow.");

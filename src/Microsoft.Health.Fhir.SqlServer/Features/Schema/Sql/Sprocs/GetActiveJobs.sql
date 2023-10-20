@@ -16,7 +16,7 @@ DECLARE @SP varchar(100) = 'GetActiveJobs'
 BEGIN TRY
   SET @PartitionId = @MaxPartitions * rand()
 
-  WHILE @LookedAtPartitions <= @MaxPartitions
+  WHILE @LookedAtPartitions < @MaxPartitions
   BEGIN
     IF @GroupId IS NULL
       INSERT INTO @JobIds SELECT JobId FROM dbo.JobQueue WHERE PartitionId = @PartitionId AND QueueType = @QueueType AND Status IN (0,1)

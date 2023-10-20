@@ -19,8 +19,14 @@ namespace Microsoft.Health.Internal.Fhir.Exporter
             _connectionString = connectionString;
         }
 
-        #pragma warning disable CA2000
-        public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, CancellationToken cancellationToken = default)
+        public string DefaultDatabase { get; }
+
+        public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+        {
+            return new SqlConnection(_connectionString);
+        }
+
+        public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
             return new SqlConnection(_connectionString);

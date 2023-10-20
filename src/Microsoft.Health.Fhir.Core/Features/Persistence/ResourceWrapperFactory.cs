@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         /// <param name="searchParameterDefinitionManager"> The search parameter definition manager.</param>
         /// <param name="resourceDeserializer">Resource deserializer</param>
+        /// <param name="resourceIdProvider">Resource id provider</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,

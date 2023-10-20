@@ -62,12 +62,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
-            IUrlResolver urlResolver,
+            Uri metadataUrl,
             SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(metadataUrl, nameof(metadataUrl));
 
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             statement.FhirVersion = modelInfoProvider.SupportedVersion.VersionString;
             statement.Date = ProductVersionInfo.CreationTime.ToString("O");
-            statement.Url = urlResolver.ResolveMetadataUrl(false);
+            statement.Url = metadataUrl;
 
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }

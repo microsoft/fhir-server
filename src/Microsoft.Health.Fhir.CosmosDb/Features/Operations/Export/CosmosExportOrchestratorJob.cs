@@ -10,7 +10,6 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -31,15 +30,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             EnsureArg.IsNotNull(progress, nameof(progress));
 
-            var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+            var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
 
-            var groupJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, true, cancellationToken);
+            var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             if (groupJobs.Count == 1)
             {
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
-                await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { JsonConvert.SerializeObject(processingRecord) }, jobInfo.GroupId, false, false, cancellationToken);
+                await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 
             record.Status = OperationStatus.Completed;

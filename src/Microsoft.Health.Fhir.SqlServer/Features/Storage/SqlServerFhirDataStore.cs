@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
+        private static RawResourceDeduping _rawResourceDeduping;
         private static object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -92,7 +93,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlConnectionWrapperFactory);
+                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlRetryService, _logger);
+                }
+            }
+
+            if (_rawResourceDeduping == null)
+            {
+                lock (_flagLocker)
+                {
+                    _rawResourceDeduping ??= new RawResourceDeduping(_sqlRetryService, _logger);
                 }
             }
         }
@@ -103,6 +112,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
+        }
+
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        {
             var retries = 0;
             while (true)
             {
@@ -110,8 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    // TODO: Remove ability to enlist in transaction
-                    var results = await MergeInternalAsync(resources, false, true, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -135,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool enlistInTransaction, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -143,10 +156,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
-            // ignore input resource version to get latest version from the store
+            // Ignore input resource version to get latest version from the store.
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
-            // assume that most likely case is that all resources should be updated
+            // Assume that most likely case is that all resources should be updated.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
@@ -188,9 +201,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
-                    if (resource.IsDeleted)
+                    if (resource.IsDeleted && !keepAllDeleted)
                     {
-                        // Don't bother marking the resource as deleted since it already does not exist.
+                        // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
@@ -236,14 +249,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
-                    if (resource.IsDeleted && existingResource.IsDeleted)
+                    if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
                     {
                         // Already deleted - don't create a new version
                         results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
 
-                    // check if resources are equal if its not a Delete action
+                    // Check if resources are equal if its not a Delete action
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
@@ -285,11 +298,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
-                    singleTransaction = true; // there is no way to rollback until TransactionId is added to Resource table
+                    singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
                 }
 
                 resource.ResourceSurrogateId = surrId;
-                if (resource.Version != InitialVersion) // do not begin transaction if all creates
+                if (resource.Version != InitialVersion) // Do not begin transaction if all creates
                 {
                     singleTransaction = true;
                 }
@@ -299,7 +312,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // do not call db with empty input
+            if (mergeWrappers.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -342,7 +355,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
             using var cmd = conn.CreateNonRetrySqlCommand();
 
-            // do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
+            // Do not use auto generated tvp generator as it does not allow to skip compartment tvp and paramters with default values
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = "dbo.MergeResources";
             cmd.Parameters.AddWithValue("@IsResourceChangeCaptureEnabled", _coreFeatures.SupportsResourceChangeCapture);
@@ -370,10 +383,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
+            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
             if (isBundleOperation)
             {
-                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
+                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
                 return await bundleOperation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
@@ -462,7 +475,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var trimmedMilliseconds = milliseconds.TrimEnd('0'); // get 069
             if (milliseconds.Equals("0000000", StringComparison.Ordinal))
             {
-                // when date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
+                // When date = 2022-03-09T01:40:52.0000000+02:00, value in dB is 2022-03-09T01:40:52+02:00, we need to replace the . after second
                 return formattedDate.Replace("." + milliseconds, string.Empty, StringComparison.Ordinal);
             }
 
@@ -503,6 +516,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
         {
+            if (!_rawResourceDeduping.IsEnabled())
+            {
+                return false;
+            }
+
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
@@ -526,7 +544,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var startIndex = json.IndexOf($"\"{propName}\":\"", StringComparison.Ordinal);
             if (startIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
+                // I think this should be a warning because it happens every time a resource is deleted. Maybe even info.
+                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 
@@ -534,7 +553,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var endIndex = json.IndexOf("\"", startIndex, StringComparison.Ordinal);
             if (endIndex == -1)
             {
-                _logger.LogError($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
+                _logger.LogWarning($"Cannot parse {propName} value from {(isExisting ? "existing" : "input")} {json}");
                 return string.Empty;
             }
 
@@ -573,7 +592,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resource, CancellationToken cancellationToken)
         {
             await BulkUpdateSearchParameterIndicesAsync(new[] { resource }, cancellationToken);
-            return await GetAsync(resource.ToResourceKey(), cancellationToken);
+            return resource;
         }
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
@@ -583,14 +602,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class IgnoreInputLastUpdated
         {
-            private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
             private object _databaseAccessLocker = new object();
 
-            public IgnoreInputLastUpdated(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+            public IgnoreInputLastUpdated(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
-                _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
             }
 
             public bool IsEnabled()
@@ -622,11 +643,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using var conn = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false).Result;
-                    using var cmd = conn.CreateRetrySqlCommand();
+                    using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
-                    var value = cmd.ExecuteScalarAsync(CancellationToken.None).Result;
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
                     return value != null && (double)value == 1;
+                }
+                catch (SqlException)
+                {
+                    return null;
+                }
+            }
+        }
+
+        private class RawResourceDeduping
+        {
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public RawResourceDeduping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+            {
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    var isEnabled = IsEnabledInDatabase();
+                    if (isEnabled.HasValue)
+                    {
+                        _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
+                    }
+                }
+
+                return _isEnabled;
+            }
+
+            private bool? IsEnabledInDatabase()
+            {
+                try
+                {
+                    using var cmd = new SqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'RawResourceDeduping.IsEnabled'"; // call can be made before store is initialized
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    return value == null || (double)value == 1;
                 }
                 catch (SqlException)
                 {

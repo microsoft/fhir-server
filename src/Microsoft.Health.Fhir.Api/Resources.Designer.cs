@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid combination of processing logic and bundle type: {0} and {1}..
+        /// </summary>
+        public static string BundleInvalidCombination {
+            get {
+                return ResourceManager.GetString("BundleInvalidCombination", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
         public static string BundleNotFound {
@@ -282,6 +291,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InitialImportModeNotEnabled {
             get {
                 return ResourceManager.GetString("InitialImportModeNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to in progress.
+        /// </summary>
+        public static string InProgress {
+            get {
+                return ResourceManager.GetString("InProgress", resourceCulture);
             }
         }
         
@@ -489,6 +507,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string MultipleProfilesProvided {
             get {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hard delete must be requested in order to purge history..
+        /// </summary>
+        public static string NoSoftPurge {
+            get {
+                return ResourceManager.GetString("NoSoftPurge", resourceCulture);
             }
         }
         

@@ -1,0 +1,62 @@
+# .SUMMARY Sample requests for Bulk Delete
+# These commands will remove all the data in your database,
+# sometimes without a way to recover it.
+#
+# Use these only in a testing environment.
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+### Setup test data. Reusing the Export data since it is a good mix of resources.
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/ExportDataBatch.json
+
+### Record Bulk Delete content location
+@bulkDeleteLocation = {{bulkDelete.response.headers.Content-Location}}
+
+### Bulk Delete with search parameteres
+# @name bulkDelete
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete with hard delete
+# @name bulkDelete
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&_hardDelete=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Purge History
+# @name bulkDelete
+DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&_purgeHistory=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete Encounters with hard delete
+# @name bulkDelete
+DELETE https://{{hostname}}/Encounter/$bulk-delete?_hardDelete=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Bulk Delete request
+GET {{bulkDeleteLocation}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Cancel Bulk Delete request
+DELETE {{bulkDeleteLocation}}
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}

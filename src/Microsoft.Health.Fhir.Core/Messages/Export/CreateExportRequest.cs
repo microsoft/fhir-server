@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             string containerName = null,
             string formatName = null,
             bool isParallel = true,
+            uint maxCount = 0,
             string anonymizationConfigurationCollectionReference = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ContainerName = containerName;
             FormatName = formatName;
             IsParallel = isParallel;
+            MaxCount = maxCount;
         }
 
         public Uri RequestUri { get; }
@@ -71,5 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string FormatName { get; }
 
         public bool IsParallel { get; }
+
+        public uint MaxCount { get; }
     }
 }

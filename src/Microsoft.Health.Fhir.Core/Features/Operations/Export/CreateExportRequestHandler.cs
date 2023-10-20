@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
+            uint maxCount = request.MaxCount > 0 ? request.MaxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery;
+
             var jobRecord = new ExportJobRecord(
                 request.RequestUri,
                 request.RequestType,
@@ -96,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 request.AnonymizationConfigurationCollectionReference,
                 request.AnonymizationConfigurationLocation,
                 request.AnonymizationConfigurationFileETag,
-                _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                maxCount,
                 _exportJobConfiguration.NumberOfPagesPerCommit,
                 request.ContainerName,
                 request.IsParallel,

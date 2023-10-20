@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -44,6 +45,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const int MergeAsyncDegreeOfParallelism = -1; // Max degree of parallelism during merge async. -1 will attempt to use all resources available in the system.
+
         private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
 
         /// <summary>
@@ -52,8 +55,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
         internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
 
-        private static readonly HardDelete _hardDelete = new HardDelete();
-        private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
+        private static readonly HardDelete _hardDelete = new();
+        private static readonly ReplaceSingleResource _replaceSingleResource = new();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
 
         private readonly IScoped<Container> _containerScope;
@@ -130,28 +133,76 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
+        }
+
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        {
             if (resources == null || resources.Count == 0)
             {
                 return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             }
 
+            Stopwatch watch = Stopwatch.StartNew();
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
-            ParallelOptions parallelOptions = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
-            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, cancellationToken) =>
+
+            await MergeInternalAsync(resources, results, null, cancellationToken);
+
+            KeyValuePair<DataStoreOperationIdentifier, DataStoreOperationOutcome>[] retrySequentially =
+                results.Where(x => x.Value.Exception is RequestRateExceededException).ToArray();
+
+            if (retrySequentially.Any())
+            {
+                ResourceWrapperOperation[] filtered = resources
+                    .Where(x => retrySequentially.Any(y => x.GetIdentifier().Equals(y.Key)))
+                    .ToArray();
+
+                if (filtered.Any())
+                {
+                    await MergeInternalAsync(filtered, results, 1, cancellationToken);
+                }
+            }
+
+            if (resources.Count > 2)
+            {
+                _logger.LogDebug("CosmosDbMergeAsync - Resource: {CountOfResources} - {ElapsedTime}ms", resources.Count, watch.ElapsedMilliseconds);
+            }
+
+            return results;
+        }
+
+        private async Task MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> results, int? maxParallelism, CancellationToken cancellationToken)
+        {
+            var parallelOptions = new ParallelOptions { CancellationToken = cancellationToken };
+
+            if (maxParallelism.HasValue)
+            {
+                parallelOptions.MaxDegreeOfParallelism = maxParallelism.Value;
+            }
+            else
+            {
+                parallelOptions.MaxDegreeOfParallelism = MergeAsyncDegreeOfParallelism;
+            }
+
+            await Parallel.ForEachAsync(resources, parallelOptions, async (resource, innerCt) =>
             {
                 DataStoreOperationIdentifier identifier = resource.GetIdentifier();
-
                 try
                 {
                     UpsertOutcome upsertOutcome = await InternalUpsertAsync(
-                        resource.Wrapper,
-                        resource.WeakETag,
-                        resource.AllowCreate,
-                        resource.KeepHistory,
-                        cancellationToken,
-                        resource.RequireETagOnUpdate);
+                            resource.Wrapper,
+                            resource.WeakETag,
+                            resource.AllowCreate,
+                            resource.KeepHistory,
+                            innerCt,
+                            resource.RequireETagOnUpdate);
 
-                    results.TryAdd(identifier, new DataStoreOperationOutcome(upsertOutcome));
+                    var result = new DataStoreOperationOutcome(upsertOutcome);
+                    results.AddOrUpdate(identifier, _ => result, (_, _) => result);
+                }
+                catch (RequestRateExceededException rateExceededException)
+                {
+                    results.TryAdd(identifier, new DataStoreOperationOutcome(rateExceededException));
                 }
                 catch (FhirException fhirException)
                 {
@@ -160,18 +211,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     results.TryAdd(identifier, new DataStoreOperationOutcome(fhirException));
                 }
+                catch (Exception ex)
+                {
+                    throw new IncompleteOperationException<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>>(ex, results);
+                }
             });
-
-            return results;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
+            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
 
             if (isBundleOperation)
             {
-                IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
+                IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 
                 // Internally Bundle Operation calls "MergeAsync".
                 return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
@@ -625,6 +678,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return (results, page.ContinuationToken);
+        }
+
+        // This method should only be called by async jobs as some queries could take a long time to traverse all pages.
+        internal async Task<IReadOnlyList<T>> ExecutePagedQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
+
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
+            var results = new List<T>();
+
+            return await retryPolicy.ExecuteAsync(async () =>
+                {
+                    using (FeedIterator<T> itr = _containerScope.Value.GetItemQueryIterator<T>(sqlQuerySpec, requestOptions: feedOptions))
+                    {
+                        while (itr.HasMoreResults)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            FeedResponse<T> response = await itr.ReadNextAsync(cancellationToken);
+                            results.AddRange(response.ToList());
+                        }
+
+                        return results;
+                    }
+                });
         }
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
