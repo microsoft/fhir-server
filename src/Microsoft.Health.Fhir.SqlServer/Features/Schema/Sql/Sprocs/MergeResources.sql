@@ -39,7 +39,7 @@ DECLARE @Mode varchar(200) = isnull((SELECT 'RT=['+convert(varchar,min(ResourceT
 SET @Mode += ' E='+convert(varchar,@RaiseExceptionOnConflict)+' CC='+convert(varchar,@IsResourceChangeCaptureEnabled)+' IT='+convert(varchar,@InitialTranCount)+' T='+isnull(convert(varchar,@TransactionId),'NULL')
 
 -- wait if required
-DECLARE @LogTarget int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.Target') -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.Target', 50 --UPDATE Parameters SET Number = 2 WHERE Id = 'avg_log_write_percent.Target'
+DECLARE @LogTarget int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.Target') -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.Target', 40 --UPDATE Parameters SET Number = 2 WHERE Id = 'avg_log_write_percent.Target'
 IF @LogTarget IS NOT NULL
 BEGIN
   IF datediff(second,(SELECT Date FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.LastUpdated'),getUTCdate()) > 180 -- INSERT INTO Parameters (Id, Date) SELECT 'avg_log_write_percent.LastUpdated', getUTCdate()
@@ -54,13 +54,15 @@ BEGIN
     
       DECLARE @avg_log_write_percent int = (SELECT avg(avg_log_write_percent) FROM sys.dm_db_resource_stats WHERE end_time > dateadd(second,-180,getUTCdate()))
     
+      EXECUTE dbo.LogEvent @Process='LogThrottling', @Status='Warn', @Target='avg_log_write_percent', @Text=@avg_log_write_percent
+
       IF @avg_log_write_percent > @LogTarget + 1 OR @avg_log_write_percent < @LogTarget - 1 
       BEGIN
         EXECUTE dbo.LogEvent @Process=@SP,@Status='Warn',@Target='avg_log_write_percent',@Text=@avg_log_write_percent
         IF @avg_log_write_percent > @LogTarget + 1
-          UPDATE dbo.Parameters SET Number = @Number + 5 WHERE Id = 'avg_log_write_percent.WaitSec' AND Number = @Number
-        IF @avg_log_write_percent < @LogTarget - 1 AND @Number > 5
-          UPDATE dbo.Parameters SET Number = @Number - 5 WHERE Id = 'avg_log_write_percent.WaitSec' AND Number = @Number
+          UPDATE dbo.Parameters SET Number = @Number + 10 WHERE Id = 'avg_log_write_percent.WaitSec' AND Number = @Number
+        IF @avg_log_write_percent < @LogTarget - 1
+          UPDATE dbo.Parameters SET Number = CASE WHEN @Number > 5 THEN @Number - 5 ELSE 0 END WHERE Id = 'avg_log_write_percent.WaitSec' AND Number = @Number
       END
 
       UPDATE dbo.Parameters SET Date = getUTCdate() WHERE Id = 'avg_log_write_percent.LastUpdated'
@@ -69,7 +71,7 @@ BEGIN
     END
   END
 
-  DECLARE @LogWaitSec int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.WaitSec') * rand() -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.WaitSec', 0 --UPDATE Parameters SET Number = 100 WHERE Id = 'avg_log_write_percent.WaitSec'
+  DECLARE @LogWaitSec int = (SELECT Number FROM dbo.Parameters WHERE Id = 'avg_log_write_percent.WaitSec') * rand() -- INSERT INTO Parameters (Id, Number) SELECT 'avg_log_write_percent.WaitSec', 100 --UPDATE Parameters SET Number = 100 WHERE Id = 'avg_log_write_percent.WaitSec'
   WHILE @LogWaitSec > 0
   BEGIN
     WAITFOR DELAY '00:00:01'
