@@ -1,0 +1,17 @@
+{
+    "resourceType": "SearchParameter",
+    "meta": {
+        "versionId": "3",
+        "lastUpdated": "2023-04-04T19:31:09.483+00:00"
+    },
+    "version": "1.0.0",
+    "name": "code",
+    "status": "active",
+    "description": "Observation filtering based on code",
+    "code": "code",
+    "base": [
+        "Observation"
+    ],
+    "type": "token",
+    "expression": "Observation.code.coding.where(system = 'http://loinc.org/' or system = 'http://loinc.org').code"
+}
