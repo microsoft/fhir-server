@@ -60,8 +60,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
-                })
-                .AddRazorRuntimeCompilation();
+                });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
