@@ -1,13 +1,13 @@
 {
     "resourceType": "SearchParameter",
     "version": "4.0.1",
-    "name": "reason",
+    "name": "relation",
     "status": "draft",
-    "description": "The reason for the study",
-    "code": "reason",
+    "description": "replaces | transforms | signs | appends",
+    "code": "relation",
     "base": [
-        "ImagingStudy"
+        "DocumentReference"
     ],
-    "type": "string",
-    "expression": "ImagingStudy.reason"
+    "type": "token",
+    "expression": "DocumentReference.relatesTo.code"
 }

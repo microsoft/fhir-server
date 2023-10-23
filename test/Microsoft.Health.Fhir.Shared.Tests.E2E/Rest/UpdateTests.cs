@@ -267,12 +267,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             /* When the server starts, search-parameters.json files are loaded and the default search parameters
              * are created. The search parameter with the code 'description' and base 'ResearchDefinition' already exists with
-             * the url http://hl7.org/fhir/SearchParameter/ImagingStudy-reason */
+             * the url http://hl7.org/fhir/SearchParameter/DocumentReference-relation */
 
             var id = Guid.NewGuid();
             var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedUpdate");
             resourceToCreate.Id = id.ToString();
-            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/ImagingStudy-reason";
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/DocumentReference-relation";
 
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(
                 $"SearchParameter/{id}",
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(operationOutcome.Issue);
             Assert.Single(operationOutcome.Issue);
 
-            var expectedError = "A search parameter with the same code value 'reason' already exists for base type 'ImagingStudy'.";
+            var expectedError = "A search parameter with the same code value 'relation' already exists for base type 'DocumentReference'.";
             Assert.Contains(expectedError, operationOutcome.Issue[0].Diagnostics);
         }
 
@@ -294,12 +294,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             /* When the server starts, search-parameters.json files are loaded and the default search parameters
              * are created. The search parameter with the code 'description' and base 'ResearchDefinition' already exists with
-             * the url http://hl7.org/fhir/SearchParameter/ImagingStudy-reason */
+             * the url http://hl7.org/fhir/SearchParameter/DocumentReference-relation */
 
             var id = Guid.NewGuid();
             var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedUpdate");
             resourceToCreate.Id = id.ToString();
-            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/reason-ImagingStudy-test-update-url";
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/relation-DocumentReference-test-update-url";
 
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.UpdateAsync(
                 $"SearchParameter/{id}",
@@ -311,13 +311,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(operationOutcome.Issue);
             Assert.Equal(2, operationOutcome.Issue.Count);
 
-            var firstIssue = "A search parameter with Uri 'http://hl7.org/fhir/SearchParameter/reason-ImagingStudy-test-update-url' was not found.";
-            var secondIssue = "A search parameter with the same code value 'reason' already exists for base type 'ImagingStudy'.";
+            var firstIssue = "A search parameter with Uri 'http://hl7.org/fhir/SearchParameter/relation-DocumentReference-test-update-url' was not found.";
+            var secondIssue = "A search parameter with the same code value 'relation' already exists for base type 'DocumentReference'.";
 
             Assert.Contains(firstIssue, operationOutcome.Issue[0].Diagnostics);
             Assert.Contains(secondIssue, operationOutcome.Issue[1].Diagnostics);
 
-            /* If a search parameter with the url http://hl7.org/fhir/SearchParameter/reason-ImagingStudy-test-update-url already exists
+            /* If a search parameter with the url http://hl7.org/fhir/SearchParameter/relation-DocumentReference-test-update-url already exists
              * this test will fail because the first Issue will not be shown in the OperationOutcome.
              */
         }
