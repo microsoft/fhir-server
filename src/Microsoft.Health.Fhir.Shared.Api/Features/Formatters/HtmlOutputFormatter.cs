@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,58 +68,58 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
-            var engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
-            var tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
+            IRazorViewEngine engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
+            ITempDataProvider tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
+
+            context.HttpContext.AllowSynchronousIO();
 
             var actionContext = new ActionContext(context.HttpContext, context.HttpContext.GetRouteData(), new ActionDescriptor());
 
-            using (TextWriter textWriter = context.WriterFactory(context.HttpContext.Response.Body, selectedEncoding))
+            await using TextWriter textWriter = context.WriterFactory(context.HttpContext.Response.Body, selectedEncoding);
+            var viewName = "ViewJson";
+            ViewEngineResult viewResult = engine.FindView(actionContext, viewName, true);
+
+            if (viewResult.View == null)
             {
-                var viewName = "ViewJson";
-                var viewResult = engine.FindView(actionContext, viewName, true);
-
-                if (viewResult.View == null)
-                {
-                    throw new FileNotFoundException(Api.Resources.ViewNotFound, $"{viewName}.cshtml");
-                }
-
-                var resourceInstance = (Resource)context.Object;
-                string div = null;
-
-                if (resourceInstance is DomainResource domainResourceInstance && !string.IsNullOrEmpty(domainResourceInstance.Text?.Div))
-                {
-                    div = _htmlSanitizer.Sanitize(domainResourceInstance.Text.Div);
-                }
-
-                var stringBuilder = new StringBuilder();
-                using (var stringWriter = new StringWriter(stringBuilder))
-                using (var jsonTextWriter = new JsonTextWriter(stringWriter))
-                {
-                    jsonTextWriter.ArrayPool = _charPool;
-                    jsonTextWriter.Formatting = Formatting.Indented;
-
-                    await _fhirJsonSerializer.SerializeAsync(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryTypeOrDefault(), context.HttpContext.GetElementsOrDefault());
-                }
-
-                var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
-                {
-                    Model = new CodePreviewModel
-                    {
-                        Code = stringBuilder.ToString(),
-                        Div = div,
-                    },
-                };
-
-                var viewContext = new ViewContext(
-                    actionContext,
-                    viewResult.View,
-                    viewDictionary,
-                    new TempDataDictionary(actionContext.HttpContext, tempDataProvider),
-                    textWriter,
-                    new HtmlHelperOptions());
-
-                await viewResult.View.RenderAsync(viewContext);
+                throw new FileNotFoundException(Api.Resources.ViewNotFound, $"{viewName}.cshtml");
             }
+
+            var resourceInstance = (Resource)context.Object;
+            string div = null;
+
+            if (resourceInstance is DomainResource domainResourceInstance && !string.IsNullOrEmpty(domainResourceInstance.Text?.Div))
+            {
+                div = _htmlSanitizer.Sanitize(domainResourceInstance.Text.Div);
+            }
+
+            var stringBuilder = new StringBuilder();
+            await using (var stringWriter = new StringWriter(stringBuilder))
+            await using (var jsonTextWriter = new JsonTextWriter(stringWriter))
+            {
+                jsonTextWriter.ArrayPool = _charPool;
+                jsonTextWriter.Formatting = Formatting.Indented;
+
+                await _fhirJsonSerializer.SerializeAsync(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryTypeOrDefault(), context.HttpContext.GetElementsOrDefault());
+            }
+
+            var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
+            {
+                Model = new CodePreviewModel
+                {
+                    Code = stringBuilder.ToString(),
+                    Div = div,
+                },
+            };
+
+            var viewContext = new ViewContext(
+                actionContext,
+                viewResult.View,
+                viewDictionary,
+                new TempDataDictionary(actionContext.HttpContext, tempDataProvider),
+                textWriter,
+                new HtmlHelperOptions());
+
+            await viewResult.View.RenderAsync(viewContext);
         }
     }
 }
