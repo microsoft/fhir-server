@@ -31,5 +31,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.SearchParams)]
         public IList<Tuple<string, string>> Parameters { get; private set; }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || GetType() != obj.GetType())
+            {
+                return false;
+            }
+
+            return GetHashCode() == obj.GetHashCode();
+        }
+
+        public override int GetHashCode()
+        {
+            var paramHash = default(HashCode);
+            foreach (var param in Parameters)
+            {
+                paramHash.Add(param.Item1);
+                paramHash.Add(param.Item2);
+            }
+
+            paramHash.Add(ResourceType);
+            return paramHash.ToHashCode();
+        }
     }
 }
