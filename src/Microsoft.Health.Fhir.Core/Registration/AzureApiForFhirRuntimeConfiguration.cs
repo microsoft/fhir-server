@@ -16,5 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Registration
         public bool IsExportBackgroundWorkedSupported => true;
 
         public bool IsCustomerKeyValidationBackgroudWorkerSupported => false;
+
+        public bool IsTransactionSupported => false;
     }
 }

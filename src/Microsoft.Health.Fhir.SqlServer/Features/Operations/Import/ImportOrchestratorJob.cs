@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -439,6 +440,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList();
                 return jobIds;
+            }
+            catch (SqlException ex) when (ex.Number == 2627)
+            {
+                _logger.LogError(ex, "Duplicate file detected in list of files to import.");
+                throw new JobExecutionException("Duplicate file detected in list of files to import.", ex);
             }
             catch (Exception ex)
             {
