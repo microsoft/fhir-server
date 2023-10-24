@@ -157,6 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // Ignore input resource version to get latest version from the store.
+            // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
@@ -407,7 +408,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            return await GetAsync(keys, false, cancellationToken); // do not retrun invisible records in public interface
+            return await GetAsync(keys, false, cancellationToken); // do not return invisible records in public interface
         }
 
         private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, CancellationToken cancellationToken)
