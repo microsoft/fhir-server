@@ -231,13 +231,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else
             {
-                return await InternalUpsertAsync(
-                    resource.Wrapper,
-                    resource.WeakETag,
-                    resource.AllowCreate,
-                    resource.KeepHistory,
-                    cancellationToken,
-                    resource.RequireETagOnUpdate);
+                try
+                {
+                    return await InternalUpsertAsync(
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        cancellationToken,
+                        resource.RequireETagOnUpdate);
+                }
+                catch (FhirException fhirException)
+                {
+                    // This block catches only FhirExceptions. FhirException can be thrown by the data store layer
+                    // in different situations, like: Failed pre-conditions, bad requests, resource not found, etc.
+
+                    _logger.LogInformation("Upserting failed. {ExceptionType}: {ExceptionMessage}", fhirException.GetType().ToString(), fhirException.Message);
+
+                    throw;
+                }
             }
         }
 
@@ -262,7 +274,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
-            _logger.LogDebug("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
+            _logger.LogInformation("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
