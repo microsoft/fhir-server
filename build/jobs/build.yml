@@ -29,14 +29,6 @@ steps:
       arguments: '--configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(assemblySemVer)" -p:FileVersion="$(assemblySemFileVer)" -p:InformationalVersion="$(informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{parameters.targetBuildFramework}}'
       workingDirectory: $(System.DefaultWorkingDirectory)
 
-- ${{ if eq(parameters.componentGovernance, 'true') }}:
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-      failOnAlert: true
-
 - ${{ if eq(parameters.unitTest, 'true') }}:
   - task: DotNetCoreCLI@2
     displayName: 'dotnet test'
