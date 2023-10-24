@@ -24,7 +24,7 @@ jobs:
     name: Check Metadata
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v3 # Uploads repository content to the runner
+      - uses: actions/checkout@v4 # Uploads repository content to the runner
         with:
           repository: "microsoft/fhir-server"
       - uses: actions/labeler@v4

@@ -6,7 +6,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer;
 
-namespace Microsoft.Health.Internal.Fhir.EventsReader
+namespace Microsoft.Health.Internal.Fhir.Sql
 {
     public class SqlConnectionBuilder : ISqlConnectionBuilder
     {
@@ -23,8 +23,6 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
         {
             return new SqlConnection(_connectionString);
         }
-
-#pragma warning disable CA2000
 
         public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
         {
