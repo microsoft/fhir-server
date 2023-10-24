@@ -527,11 +527,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return false;
             }
 
-            if (existing.RawResource == null)
-            {
-                return true;
-            }
-
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
