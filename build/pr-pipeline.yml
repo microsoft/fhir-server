@@ -190,7 +190,7 @@ stages:
       testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
-      sqlServerAdminPassword: '$($[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])'
+      sqlServerAdminPassword: $($[stageDependencies.UpdateRandom.Password.outputs['SetVariablesFromRandomString.password']])
       sqlServerName: $(DeploymentEnvironmentName)
       reindexEnabled: true
 
