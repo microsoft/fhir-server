@@ -15,13 +15,13 @@ BEGIN TRY
         ,A.ResourceSurrogateId
         -- set version to 0 if there is no gap available. It would indicate conflict for the caller.
         ,Version = CASE 
-                     WHEN EXISTS (SELECT * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0
+                     WHEN EXISTS (SELECT * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0
                      WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 
                      ELSE 0 
                    END
     FROM (SELECT TOP (@DummyTop) * FROM @ResourceDateKeys) A
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
