@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
         private bool previousSqlQueryGeneratorFailure = false;
-        private int maxTableExpressionCountLimitForExists = 8;
+        private int maxTableExpressionCountLimitForExists = 5;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _schemaInfo = schemaInfo;
             _searchParameterHash = searchParameterHash;
 
-            if (sqlException?.ErrorCode == SqlErrorCodes.QueryProcessorNoQueryPlan)
+            if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
                 previousSqlQueryGeneratorFailure = true;
             }
@@ -488,7 +488,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName
+            if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName)
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
@@ -498,9 +498,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
                 {
-                    // if chainLevel > 0 or if in sort mode or if ReferenceSearchParam, the intersection is already handled in a JOIN
+                    // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
 
@@ -1217,13 +1217,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private bool CheckAppendWithJoin(string tableName)
         {
-            // if this is an inner join on the Reference Search Param table, and either:
+            // if either:
             // 1. the number of table expressions is greater than the limit indicating a complex query
             // 2. the previous query generator failed to generate a query
             // then we will use the EXISTS clause instead of the inner join
-            if (tableName == VLatest.ReferenceSearchParam.TableName &&
-                (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
-                previousSqlQueryGeneratorFailure))
+            if (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
+                previousSqlQueryGeneratorFailure)
             {
                 return true;
             }

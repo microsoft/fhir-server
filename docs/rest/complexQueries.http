@@ -1,0 +1,161 @@
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the globalAdminServicePrincipal to verify scopes not enforced, and to be able to POST test data
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### FROM ICM: https://portal.microsofticm.com/imp/v3/incidents/incident/352320409/summary
+#GET https://{{hostname}}/Condition?patient=37e9d66c-9e3a-4344-b577-a32855916962&addressed_status=active&clinical-status=active&category=main&category=important&_count=100&extension-care-goals=6db9b2c6-45ce-4e5c-994e-02cc760dbdc5&recorder=f4845d77-d866-48c8-b548-2e867c9fb32f&note-text=deat&_include=Condition:recorder&_include=Condition:extension-care-goals&_revinclude=Goal:addresses-conditions&onset-date=ge2022-11-01T00:00:00.000Z
+GET https://{{hostname}}/Condition?patient=37e9d66c-9e3a-4344-b577-a32855916962&verification_status=active&clinical-status=active&category=main&category=important&_count=100&asserter=6db9b2c6-45ce-4e5c-994e-02cc760dbdc5&recorder=f4845d77-d866-48c8-b548-2e867c9fb32f&note-text=deat&_include=Condition:recorder&_include=Condition:asserter&_revinclude=Goal:addresses-conditions&onset-date=ge2022-11-01T00:00:00.000Z
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+GET https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+DELETE https://{{hostname}}/SearchParameter/Resource-id-string
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### POST a new search parameter
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+      "resourceType" : "SearchParameter",
+      "id" : "Condition-recorder",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/Condition-recorder",
+      "version" : "4.0.1",
+      "name" : "recorder",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (Patient Care)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/patientcare/index.cfm"
+        }]
+      }],
+      "description" : "Person who records this condition",
+      "code" : "recorder",
+      "base" : ["Condition"],
+      "type" : "reference",
+      "expression" : "Condition.recorder",
+      "xpath" : "f:Condition/f:recorder",
+      "xpathUsage" : "normal",
+      "target" : ["Practitioner",
+      "Patient",
+      "PractitionerRole",
+      "RelatedPerson"]
+    }
+
+
+### POST a new search parameter
+GET https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### POST a new search parameter
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+    {
+      "resourceType" : "SearchParameter",
+      "id" : "Goal-addressess-condition",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/Goal-addresses-conditions",
+      "version" : "4.0.1",
+      "name" : "addresses-conditions",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (Patient Care)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/patientcare/index.cfm"
+        }]
+      }],
+      "description" : "Health issues this plan addresses",
+      "code" : "addresses-conditions",
+      "base" : ["Goal"],
+      "type" : "reference",
+      "expression" : "Goal.addresses",
+      "xpath" : "f:Goal/f:addresses",
+      "xpathUsage" : "normal",
+      "target" : ["Condition"]
+    }
+
+### POST a new search parameter
+PUT https://{{hostname}}/SearchParameter/2d3cf49d-1e8a-48ab-9129-3f3bc7630ee3
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+    {
+      "resourceType" : "SearchParameter",
+      "id" : "2d3cf49d-1e8a-48ab-9129-3f3bc7630ee3",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/Condition-notes",
+      "version" : "4.0.1",
+      "name" : "note-text",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (FHIR Infrastructure)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+        }]
+      }],
+      "description" : "The annotation  - text content (as markdown)",
+      "code" : "note-text",
+      "base" : ["Condition"],
+      "type" : "string",
+      "expression" : "Condition.note.text",
+      "xpath" : "f:Condition/f:note/f:text",
+      "xpathUsage" : "normal"
+    }
