@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// <summary>
         /// Export background worker.
         /// </summary>
-        bool IsExportBackgroundWorkedSupported { get; }
+        bool IsExportBackgroundWorkerSupported { get; }
 
         /// <summary>
         /// Customer Key Validation background worker keeps running and checking the health of customer managed key.
