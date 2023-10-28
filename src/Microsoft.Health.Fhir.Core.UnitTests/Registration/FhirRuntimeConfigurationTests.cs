@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
             Assert.True(runtimeConfiguration.IsExportBackgroundWorkerSupported);
 
             // No support to CMK Background Service.
-            Assert.False(runtimeConfiguration.IsCustomerKeyValidationBackgroudWorkerSupported);
+            Assert.False(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);
 
             // No support to transactions.
             Assert.False(runtimeConfiguration.IsTransactionSupported);
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
             Assert.False(runtimeConfiguration.IsExportBackgroundWorkerSupported);
 
             // Support to CMK Background Service.
-            Assert.True(runtimeConfiguration.IsCustomerKeyValidationBackgroudWorkerSupported);
+            Assert.True(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);
 
             // Support to transactions.
             Assert.True(runtimeConfiguration.IsTransactionSupported);
