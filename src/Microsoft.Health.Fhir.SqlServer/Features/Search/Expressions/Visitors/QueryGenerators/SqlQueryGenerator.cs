@@ -488,7 +488,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName)
+            if (CheckAppendWithJoin()
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
                     // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -715,7 +715,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
-            else if (CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
+            else if (CheckAppendWithJoin())
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
             }
@@ -738,7 +738,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
+                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin())
                 {
                     // if > 1, the intersection is handled by the JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
@@ -1053,7 +1053,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (CheckAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1080,7 +1080,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    if (!CheckAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1102,7 +1102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (CheckAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1129,7 +1129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    if (!CheckAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1215,7 +1215,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             sb.Append(")");
         }
 
-        private bool CheckAppendWithJoin(string tableName)
+        private bool CheckAppendWithJoin()
         {
             // if either:
             // 1. the number of table expressions is greater than the limit indicating a complex query

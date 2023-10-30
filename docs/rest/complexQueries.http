@@ -1,3 +1,8 @@
+# This file attempts to create a complex query seen by a customer where
+# the SQL query plan generator failed to create a query plan
+# It adds two new custom search parameters to the database
+# which support the query on line 23,  Also line 22 contains the original query from the customer
+
 @hostname = localhost:44348
 
 ### Test rest client
@@ -15,7 +20,7 @@ grant_type=client_credentials
 
 ### FROM ICM: https://portal.microsofticm.com/imp/v3/incidents/incident/352320409/summary
 #GET https://{{hostname}}/Condition?patient=37e9d66c-9e3a-4344-b577-a32855916962&addressed_status=active&clinical-status=active&category=main&category=important&_count=100&extension-care-goals=6db9b2c6-45ce-4e5c-994e-02cc760dbdc5&recorder=f4845d77-d866-48c8-b548-2e867c9fb32f&note-text=deat&_include=Condition:recorder&_include=Condition:extension-care-goals&_revinclude=Goal:addresses-conditions&onset-date=ge2022-11-01T00:00:00.000Z
-GET https://{{hostname}}/Condition?patient=37e9d66c-9e3a-4344-b577-a32855916962&verification_status=active&clinical-status=active&category=main&category=important&_count=100&asserter=6db9b2c6-45ce-4e5c-994e-02cc760dbdc5&recorder=f4845d77-d866-48c8-b548-2e867c9fb32f&note-text=deat&_include=Condition:recorder&_include=Condition:asserter&_revinclude=Goal:addresses-conditions&onset-date=ge2022-11-01T00:00:00.000Z
+GET https://{{hostname}}/Condition?patient=37e9d66c-9e3a-4344-b577-a32855916962&verification-status=active&clinical-status=active&category=main&category=important&_count=100&asserter=6db9b2c6-45ce-4e5c-994e-02cc760dbdc5&recorder=f4845d77-d866-48c8-b548-2e867c9fb32f&note-text=deat&_include=Condition:recorder&_include=Condition:asserter&_revinclude=Goal:addresses-conditions&onset-date=ge2022-11-01T00:00:00.000Z
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
@@ -74,7 +79,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
     }
 
 
-### POST a new search parameter
+### GET a new search parameter
 GET https://{{hostname}}/SearchParameter
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
@@ -120,7 +125,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
       "target" : ["Condition"]
     }
 
-### POST a new search parameter
+### PUT a new search parameter
 PUT https://{{hostname}}/SearchParameter/2d3cf49d-1e8a-48ab-9129-3f3bc7630ee3
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
