@@ -3,11 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -20,25 +15,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Registration
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class FhirRuntimeConfigurationTests
     {
+        [Fact]
         public void GivenARuntimeConfiguration_WhenForAzureApiForFHIR_FollowsTheExpectedValues()
         {
+            // Azure API For FHIR.
             IFhirRuntimeConfiguration runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
 
+            // Support to Cosmos Db.
             Assert.Equal(KnownDataStores.CosmosDb, runtimeConfiguration.DataStore);
+
+            // No support to Selective Search Parameter.
             Assert.False(runtimeConfiguration.IsSelectiveSearchParameterSupported);
-            Assert.True(runtimeConfiguration.IsExportBackgroundWorkedSupported);
-            Assert.False(runtimeConfiguration.IsCustomerKeyValidationBackgroudWorkerSupported);
+
+            // Support to Export.
+            Assert.True(runtimeConfiguration.IsExportBackgroundWorkerSupported);
+
+            // No support to CMK Background Service.
+            Assert.False(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);
+
+            // No support to transactions.
             Assert.False(runtimeConfiguration.IsTransactionSupported);
         }
 
+        [Fact]
         public void GivenARuntimeConfiguration_WhenForAzureHealthDataServices_FollowsTheExpectedValues()
         {
+            // Azure Health Data Services.
             IFhirRuntimeConfiguration runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
 
+            // Support to SQL Server.
             Assert.Equal(KnownDataStores.SqlServer, runtimeConfiguration.DataStore);
+
+            // Support to Selective Search Parameter.
             Assert.True(runtimeConfiguration.IsSelectiveSearchParameterSupported);
-            Assert.False(runtimeConfiguration.IsExportBackgroundWorkedSupported);
-            Assert.True(runtimeConfiguration.IsCustomerKeyValidationBackgroudWorkerSupported);
+
+            // No support to Export.
+            Assert.False(runtimeConfiguration.IsExportBackgroundWorkerSupported);
+
+            // Support to CMK Background Service.
+            Assert.True(runtimeConfiguration.IsCustomerKeyValidationBackgroundWorkerSupported);
+
+            // Support to transactions.
             Assert.True(runtimeConfiguration.IsTransactionSupported);
         }
     }

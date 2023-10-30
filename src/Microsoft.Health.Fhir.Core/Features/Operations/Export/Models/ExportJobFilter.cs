@@ -32,64 +32,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.SearchParams)]
         public IList<Tuple<string, string>> Parameters { get; private set; }
 
-        public static bool operator ==(ExportJobFilter left, ExportJobFilter right)
-        {
-            return object.Equals(left, right);
-        }
-
-        public static bool operator !=(ExportJobFilter left, ExportJobFilter right)
-        {
-            return !object.Equals(left, right);
-        }
-
         public override bool Equals(object obj)
         {
-            if (ReferenceEquals(this, obj))
-            {
-                return true;
-            }
-
             if (obj == null || GetType() != obj.GetType())
             {
                 return false;
             }
 
-            ExportJobFilter other = (ExportJobFilter)obj;
-            return ResourceType == other.ResourceType && AreParametersEqual(Parameters, other.Parameters);
+            return GetHashCode() == obj.GetHashCode();
         }
 
         public override int GetHashCode()
         {
-            unchecked
+            var paramHash = default(HashCode);
+            foreach (var param in Parameters)
             {
-                int hash = 17;
-                hash = (hash * 23) + (ResourceType?.GetHashCode(StringComparison.InvariantCulture) ?? 0);
-
-                foreach (var param in Parameters)
-                {
-                    hash = (hash * 23) + (param?.GetHashCode() ?? 0);
-                }
-
-                return hash;
-            }
-        }
-
-        private static bool AreParametersEqual(IList<Tuple<string, string>> a, IList<Tuple<string, string>> b)
-        {
-            if (a.Count != b.Count)
-            {
-                return false;
+                paramHash.Add(param.Item1);
+                paramHash.Add(param.Item2);
             }
 
-            for (int i = 0; i < a.Count; i++)
-            {
-                if (a[i].Item1 != b[i].Item1 || a[i].Item2 != b[i].Item2)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            paramHash.Add(ResourceType);
+            return paramHash.ToHashCode();
         }
     }
 }

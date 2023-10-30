@@ -1485,7 +1485,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private static SearchParameterExpression CheckExpressionOrFirstChildIsSearchParam(Expression expression)
         {
-            if (expression is MultiaryExpression)
+            while (expression is MultiaryExpression)
             {
                 expression = ((MultiaryExpression)expression).Expressions[0];
             }
