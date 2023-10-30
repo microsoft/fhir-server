@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public sealed class CustomerManagedKeyEncryption
     {
-        public EncryptionKeyIdentity KeyEncryptionKeyIdentity { get; set; }
+        public EncryptionKeyIdentity KeyEncryptionKeyIdentity { get; set; } = new EncryptionKeyIdentity();
 
         public Uri KeyEncryptionKeyUrl { get; set; }
     }

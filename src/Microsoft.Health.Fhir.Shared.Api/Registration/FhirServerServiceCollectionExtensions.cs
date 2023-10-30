@@ -132,7 +132,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
-            if (runtimeConfiguration.IsExportBackgroundWorkedSupported)
+            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
             {
                 fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
             }
