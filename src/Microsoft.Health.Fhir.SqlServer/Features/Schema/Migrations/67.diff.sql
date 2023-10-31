@@ -1,81 +1,78 @@
-CREATE OR ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
+--DROP PROCEDURE dbo.EnqueueJobs
+GO
+ALTER PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
-DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
-       ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
-                           +' S='+isnull(convert(varchar,@StartId),'NULL')
-                           +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL') -- Could this just be a boolean for if historical records should be returned? GlobalEndId should equal EndId in all cases I can think of.
-                           +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
-                           +' DE'+isnull(convert(varchar,@IncludeDeleted),'NULL')
+DECLARE @SP varchar(100) = 'EnqueueJobs'
+       ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
+                           +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
+                           +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
+                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
        ,@st datetime = getUTCdate()
-       ,@DummyTop bigint = 9223372036854775807
+       ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
+       ,@MaxJobId bigint
+       ,@Rows int
+       ,@msg varchar(1000)
+       ,@JobIds BigintList
+       ,@InputRows int
 
 BEGIN TRY
-  DECLARE @ResourceIds TABLE (ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS PRIMARY KEY)
-  DECLARE @SurrogateIds TABLE (MaxSurrogateId bigint PRIMARY KEY)
+  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
+  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
+  SET @InputRows = @@rowcount
 
-  IF @GlobalEndId IS NOT NULL AND @IncludeHistory = 0 -- snapshot view
+  INSERT INTO @JobIds
+    SELECT JobId
+      FROM @Input A
+           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
+  
+  IF @@rowcount < @InputRows
   BEGIN
-    INSERT INTO @ResourceIds
-      SELECT DISTINCT ResourceId
-        FROM dbo.Resource 
-        WHERE ResourceTypeId = @ResourceTypeId 
-          AND ResourceSurrogateId BETWEEN @StartId AND @EndId
-          AND IsHistory = 1
-          AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-        OPTION (MAXDOP 1)
+    BEGIN TRANSACTION  
 
-    IF @@rowcount > 0
-      INSERT INTO @SurrogateIds
-        SELECT ResourceSurrogateId
-          FROM (SELECT ResourceId, ResourceSurrogateId, RowId = row_number() OVER (PARTITION BY ResourceId ORDER BY ResourceSurrogateId DESC)
-                  FROM dbo.Resource WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) -- w/o hint access to Resource table is inefficient when many versions are present. Hint is ignored if Resource is a view.
-                  WHERE ResourceTypeId = @ResourceTypeId
-                    AND ResourceId IN (SELECT TOP (@DummyTop) ResourceId FROM @ResourceIds)
-                    AND ResourceSurrogateId BETWEEN @StartId AND @GlobalEndId
-               ) A
-          WHERE RowId = 1
-            AND ResourceSurrogateId BETWEEN @StartId AND @EndId
-          OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
+
+    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+      RAISERROR('There are other active job groups',18,127)
+
+    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
+    INSERT INTO dbo.JobQueue
+        (
+             QueueType
+            ,GroupId
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status
+        )
+      OUTPUT inserted.JobId INTO @JobIds
+      SELECT @QueueType
+            ,GroupId = isnull(@GroupId,@MaxJobId+1)
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
+        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
+        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
+    SET @Rows = @@rowcount
+
+    COMMIT TRANSACTION
   END
 
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
-    FROM dbo.Resource
-    WHERE ResourceTypeId = @ResourceTypeId 
-      AND ResourceSurrogateId BETWEEN @StartId AND @EndId 
-      AND (IsHistory = 0 OR @IncludeHistory = 1)
-      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-  UNION ALL
-  SELECT ResourceTypeId, ResourceId, Version, IsDeleted, ResourceSurrogateId, RequestMethod, IsMatch = convert(bit,1), IsPartial = convert(bit,0), IsRawResourceMetaSet, SearchParamHash, RawResource 
-    FROM @SurrogateIds
-         JOIN dbo.Resource ON ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId = MaxSurrogateId
-    WHERE IsHistory = 1
-      AND (IsDeleted = 0 OR @IncludeDeleted = 1)
-      OPTION (MAXDOP 1)
+  IF @ReturnJobs = 1
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
 END TRY
 BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
   THROW
 END CATCH
 GO
---set nocount on
---DECLARE @Ranges TABLE (UnitId int PRIMARY KEY, MinId bigint, MaxId bigint, Cnt int)
---INSERT INTO @Ranges
---  EXECUTE dbo.GetResourceSurrogateIdRanges 96, 0, 9e18, 90000, 10
---SELECT count(*) FROM @Ranges
---DECLARE @UnitId int
---       ,@MinId bigint
---       ,@MaxId bigint
---DECLARE @Resources TABLE (RawResource varbinary(max))
---WHILE EXISTS (SELECT * FROM @Ranges)
---BEGIN
---  SELECT TOP 1 @UnitId = UnitId, @MinId = MinId, @MaxId = MaxId FROM @Ranges ORDER BY UnitId
---  INSERT INTO @Resources
---    EXECUTE dbo.GetResourcesByTypeAndSurrogateIdRange 96, @MinId, @MaxId, NULL, @MaxId -- last is to invoke snapshot logic 
---  DELETE FROM @Resources
---  DELETE FROM @Ranges WHERE UnitId = @UnitId
---END
+--DECLARE @Definitions StringList
+--INSERT INTO @Definitions SELECT 'Test'
+--EXECUTE dbo.EnqueueJobs 2, @Definitions, @ForceOneActiveJobGroup = 1
