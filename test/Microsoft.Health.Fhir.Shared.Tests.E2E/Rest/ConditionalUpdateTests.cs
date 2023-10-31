@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Bundle bundle = Samples.GetJsonSample("Bundle-MissingIdentifier").ToPoco<Bundle>();
             FhirClientException exception = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(bundle, string.Empty));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-            Assert.True(exception.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName)));
+            Assert.Equal(exception.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, bundle.TypeName));
         }
 
         [Fact]
@@ -229,6 +229,98 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}"));
 
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenUpdatingConditionallyANewDuplicatedSearchParameterResourceWithSameUrl_TheServerShouldFail()
+        {
+            /* When the server starts, search-parameters.json files are loaded and the default search parameters
+             * are created. The search parameter with the code 'subject' and base 'Goal' already exists with
+             * the url http://hl7.org/fhir/SearchParameter/Goal-subject */
+
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedConditionalUpdate");
+            resourceToCreate.Id = null;
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/Goal-subject"; // Same url than the default one
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                resourceToCreate,
+                $"url={resourceToCreate.Url}"));
+
+            var operationOutcome = ex.OperationOutcome;
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Single(operationOutcome.Issue);
+
+            var expectedError = "A search parameter with the same code value 'subject' already exists for base type 'Goal'.";
+            Assert.Contains(expectedError, operationOutcome.Issue[0].Diagnostics);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenUpdatingConditionallyANewDuplicatedSearchParameterResourceWithUrl_TheServerShouldFail()
+        {
+            /* When the server starts, search-parameters.json files are loaded and the default search parameters
+             * are created. The search parameter with the code 'subject' and base 'Goal' already exists with
+             * the url http://hl7.org/fhir/SearchParameter/Goal-subject */
+
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedConditionalUpdate");
+            resourceToCreate.Id = null;
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-url";
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                resourceToCreate,
+                $"url={resourceToCreate.Url}"));
+
+            var operationOutcome = ex.OperationOutcome;
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Equal(2, operationOutcome.Issue.Count);
+
+            var firstIssue = "A search parameter with Uri 'http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-url' was not found.";
+            var secondIssue = "A search parameter with the same code value 'subject' already exists for base type 'Goal'.";
+
+            Assert.Contains(firstIssue, operationOutcome.Issue[0].Diagnostics);
+            Assert.Contains(secondIssue, operationOutcome.Issue[1].Diagnostics);
+
+            /* If a search parameter with the url http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-url already exists
+             * this test will fail because the first Issue will not be shown in the OperationOutcome.
+             */
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenUpdatingConditionallyANewDuplicatedSearchParameterResourceWithCode_TheServerShouldFail()
+        {
+            /* When the server starts, search-parameters.json files are loaded and the default search parameters
+             * are created. The search parameter with the code 'subject' and base 'Goal' already exists with
+             * the url http://hl7.org/fhir/SearchParameter/Goal-subject */
+
+            var resourceToCreate = Samples.GetJsonSample<SearchParameter>("SearchParameterDuplicatedConditionalUpdate");
+            resourceToCreate.Id = null;
+            resourceToCreate.Url = "http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-code";
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.ConditionalUpdateAsync(
+                resourceToCreate,
+                $"code=subject"));
+
+            var operationOutcome = ex.OperationOutcome;
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.NotNull(operationOutcome);
+            Assert.NotEmpty(operationOutcome.Issue);
+            Assert.Equal(2, operationOutcome.Issue.Count);
+
+            var firstIssue = "A search parameter with Uri 'http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-code' was not found.";
+            var secondIssue = "A search parameter with the same code value 'subject' already exists for base type 'Goal'.";
+
+            Assert.Contains(firstIssue, operationOutcome.Issue[0].Diagnostics);
+            Assert.Contains(secondIssue, operationOutcome.Issue[1].Diagnostics);
+
+            /* If a search parameter with the url http://hl7.org/fhir/SearchParameter/subject-goal-test-conditional-update-code already exists
+             * this test will fail because the first Issue will not be shown in the OperationOutcome.
+             */
         }
     }
 }

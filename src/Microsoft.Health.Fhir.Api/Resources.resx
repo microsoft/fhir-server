@@ -397,4 +397,15 @@
   <data name="SearchParameterStatusNotFound" xml:space="preserve">
     <value>No Search Parameters found. </value>
   </data>
+  <data name="NoSoftPurge" xml:space="preserve">
+    <value>Hard delete must be requested in order to purge history.</value>
+  </data>
+  <data name="InProgress" xml:space="preserve">
+    <value>in progress</value>
+    <comment>Header value for the X-Progress header to indicate a job is in progress</comment>
+  </data>
+  <data name="BundleInvalidCombination" xml:space="preserve">
+    <value>Invalid combination of processing logic and bundle type: {0} and {1}.</value>
+    <comment>Error message when there is a invalid/unknown combination of a bundle type and a processing logic.</comment>
+  </data>
 </root>

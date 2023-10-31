@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 },
                 CancellationToken.None);
 
-            Assert.Equal(1, getResourceRequest.Received().Queries.Count);
+            Assert.Single(getResourceRequest.Received().Queries);
             Assert.Equal("_id", getResourceRequest.Received().Queries[0].Item1);
             Assert.Contains("pat1", getResourceRequest.Received().Queries[0].Item2);
             Assert.Contains("pat2", getResourceRequest.Received().Queries[0].Item2);

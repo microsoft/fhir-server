@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -16,11 +17,17 @@ namespace Microsoft.Health.Fhir.Client
         public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count, string tag)
             where TResource : Resource, new()
         {
-            TResource[] resources = new TResource[count];
+            return (await CreateResourcesAsync(client, typeof(TResource), count, tag)).Cast<TResource>().ToArray();
+        }
+
+        public static async Task<Resource[]> CreateResourcesAsync(this FhirClient client, Type resourceType, int count, string tag)
+        {
+            var resources = new Resource[count];
 
             for (int i = 0; i < resources.Length; i++)
             {
-                TResource resource = new TResource();
+                var resource = (Resource)Activator.CreateInstance(resourceType);
+
                 resource.Meta = new Meta()
                 {
                     Tag = new List<Coding>

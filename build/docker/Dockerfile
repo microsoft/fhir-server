@@ -1,7 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0.304-alpine3.17 AS build
-
+FROM mcr.microsoft.com/dotnet/sdk:7.0.402-cbl-mariner2.0 AS build
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
+
+RUN groupadd nonroot -g 1000 && useradd -r -M -s /sbin/nologin -g nonroot -c nonroot nonroot -u 998
 
 WORKDIR /repo
 
@@ -27,7 +28,7 @@ COPY ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj \
 
 COPY ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj \
      ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj
-	 
+
 COPY ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj \
      ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj
 
@@ -68,15 +69,19 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}" -f net7.0
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0.7-alpine3.17 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:7.0.12-cbl-mariner2.0 AS runtime
 
 ARG FHIR_VERSION
 
-RUN set -x && \
-    # See https://www.abhith.net/blog/docker-sql-error-on-aspnet-core-alpine/
-    apk add --no-cache icu-libs && \
-    addgroup nonroot && \
-    adduser -S -D -H -s /sbin/nologin -G nonroot -g nonroot nonroot
+# tdnf clean all - cleans all the repos used to obtain packages and reduces the size of our image.
+RUN tdnf clean all && tdnf repolist --refresh && tdnf update -y && tdnf clean all
+
+# See https://github.com/dotnet/SqlClient/issues/220
+RUN tdnf install icu -y && \
+  tdnf clean all
+
+COPY --from=build /etc/group /etc/group
+COPY --from=build /etc/passwd /etc/passwd
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     ASPNETCORE_URLS=http://+:8080

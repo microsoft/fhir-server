@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 FhirResponse response = await request();
 
-                Assert.Fail($"Request was supposed to fail with '{nameof(FhirClientException)}'. Response status code '{response.StatusCode}'. Correlation Id: {response.GetActivityId()}.");
+                Assert.Fail($"Request was supposed to fail with '{nameof(FhirClientException)}'. Response status code '{response.StatusCode}'. Correlation Id: {response.GetRequestId()}.");
             }
             catch (FhirClientException fhirException)
             {

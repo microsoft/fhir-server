@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             await ImportTestHelper.ImportToServerAsync(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 resources.ToArray());
         }
 

@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public Func<SearchOptions, SearchResult> SearchImplementation { get; set; }
 
-            public override Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+            public override Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
             {
                 throw new NotImplementedException();
             }

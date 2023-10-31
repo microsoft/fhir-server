@@ -39,10 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             // The FHIR storage fixture configures organization resources to have the "no-version" versioning policy
             RawResourceElement organizationResource = await Mediator.CreateResourceAsync(Samples.GetDefaultOrganization());
+            Assert.Equal("1", organizationResource.VersionId);
 
             ResourceElement newResourceValues = Samples.GetDefaultOrganization().UpdateId(organizationResource.Id);
+            //// next line is a must to make test valid, otherwise we do not attempt to save resource
+            newResourceValues.ToPoco<Organization>().Text = new Narrative { Status = Narrative.NarrativeStatus.Generated, Div = $"<div>{ContentUpdated}</div>" };
 
             SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(organizationResource.VersionId));
+            Assert.Equal("2", updateResult.RawResourceElement.VersionId);
 
             ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Organization, updateResult.RawResourceElement.Id);
 

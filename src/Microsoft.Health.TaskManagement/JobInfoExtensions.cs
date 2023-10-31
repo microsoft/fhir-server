@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Newtonsoft.Json;
@@ -15,9 +16,42 @@ public static class JobInfoExtensions
     {
         EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
-        IJobData jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
+        try
+        {
+            IJobData jobDataDefinition = JsonConvert.DeserializeObject<JobDataDefinition>(jobInfo.Definition);
 
-        return jobDataDefinition?.TypeId;
+            return jobDataDefinition?.TypeId;
+        }
+        catch (Exception ex)
+        {
+            jobInfo.Result = ex.Message;
+            throw;
+        }
+    }
+
+    public static T DeserializeDefinition<T>(this JobInfo jobInfo)
+        where T : IJobData
+    {
+        EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+        if (jobInfo.Definition == null)
+        {
+            return default;
+        }
+
+        return JsonConvert.DeserializeObject<T>(jobInfo.Definition);
+    }
+
+    public static T DeserializeResult<T>(this JobInfo jobInfo)
+    {
+        EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
+
+        if (jobInfo.Result == null)
+        {
+            return default;
+        }
+
+        return JsonConvert.DeserializeObject<T>(jobInfo.Result);
     }
 
     [SuppressMessage("Code", "CA1812:Avoid uninstantiated internal classes", Justification = "Used by JsonConvert")]

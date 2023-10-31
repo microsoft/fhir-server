@@ -85,6 +85,9 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterUnsupportedType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterBadSyntax.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterDuplicatedConditionalCreate.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterDuplicatedConditionalUpdate.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterDuplicatedUpdate.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
@@ -289,7 +292,10 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NSubstitute" />
     <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />

@@ -6,12 +6,14 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -29,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
-            CheckConditionalReferenceInResource(resource);
+            CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)
             {
@@ -50,13 +52,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             var resourceElement = resource.ToResourceElement();
-            var resourceWapper = _resourceFactory.Create(resourceElement, false, true, keepVersion);
 
-            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, resourceWapper);
+            var isDeleted = resourceElement.IsSoftDeleted();
+
+            if (isDeleted)
+            {
+                resource.Meta.RemoveExtension(KnownFhirPaths.AzureSoftDeletedExtensionUrl);
+            }
+
+            var resourceWapper = _resourceFactory.Create(resourceElement, isDeleted, true, keepVersion);
+
+            return new ImportResource(index, offset, length, !lastUpdatedIsNull, keepVersion, isDeleted, resourceWapper);
         }
 
-        private static void CheckConditionalReferenceInResource(Resource resource)
+        private static void CheckConditionalReferenceInResource(Resource resource, ImportMode importMode)
         {
+            if (importMode == ImportMode.IncrementalLoad)
+            {
+                return;
+            }
+
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
             foreach (ResourceReference reference in references)
             {
@@ -67,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (reference.Reference.Contains('?', StringComparison.Ordinal))
                 {
-                    throw new NotSupportedException("Conditional reference is not supported for $import.");
+                    throw new NotSupportedException($"Conditional reference is not supported for $import in {ImportMode.InitialLoad}.");
                 }
             }
         }

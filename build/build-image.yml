@@ -1,0 +1,33 @@
+# DESCRIPTION:
+# Builds a docker image for a branch
+
+trigger: none
+
+variables:
+  
+- template: build-variables.yml
+
+stages:
+- stage: UpdateVersion
+  displayName: 'Determine Semver'
+  dependsOn: []
+  jobs:
+  - job: Semver
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - powershell: |
+        Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]0.0.1"
+      name: SetAssemblyVersion
+
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetAssemblyVersion.assemblySemFileVer']]
+  jobs:
+  - template: ./jobs/docker-build-all.yml
+    parameters: 
+      tag: $(build.BuildNumber)

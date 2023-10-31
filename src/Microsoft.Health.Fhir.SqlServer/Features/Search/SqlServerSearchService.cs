@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
-        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
@@ -81,7 +80,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlConnectionBuilder sqlConnectionBuilder,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
@@ -94,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -112,7 +109,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compartmentSearchRewriter = compartmentSearchRewriter;
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
@@ -409,7 +405,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             while (await reader.ReadAsync(cancellationToken))
                             {
-                                PopulateResourceTableColumnsToRead(
+                                ReadWrapper(
                                     reader,
                                     out short resourceTypeId,
                                     out string resourceId,
@@ -421,23 +417,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     out bool isPartialEntry,
                                     out bool isRawResourceMetaSet,
                                     out string searchParameterHash,
-                                    out Stream rawResourceStream);
+                                    out byte[] rawResourceBytes,
+                                    out bool isInvisible);
+
+                                if (isInvisible)
+                                {
+                                    continue;
+                                }
+
                                 numberOfColumnsRead = reader.FieldCount;
 
-                                string rawResource;
-                                await using (rawResourceStream)
+                                // If we get to this point, we know there are more results so we need a continuation token
+                                // Additionally, this resource shouldn't be included in the results
+                                if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
                                 {
-                                    // If we get to this point, we know there are more results so we need a continuation token
-                                    // Additionally, this resource shouldn't be included in the results
-                                    if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
-                                    {
-                                        moreResults = true;
+                                    moreResults = true;
 
-                                        continue;
-                                    }
-
-                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                    continue;
                                 }
+
+                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
                                 _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
@@ -577,25 +577,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            SearchResult searchResult = null;
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
+            LogSqlCommand(sqlCommand);
+            List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
+                sqlCommand,
+                async (cmd, cancel) =>
                 {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
-                    LogSqlCommand(sqlCommand);
-
-                    using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-
-                    var resources = new List<SearchResultEntry>();
-                    while (await reader.ReadAsync(cancellationToken))
+                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
+                    resources = new List<SearchResultEntry>();
+                    while (await reader.ReadAsync(cancel))
                     {
-                        PopulateResourceTableColumnsToRead(
+                        ReadWrapper(
                             reader,
                             out short _,
                             out string resourceId,
@@ -607,7 +602,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isPartialEntry,
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
-                            out Stream rawResourceStream);
+                            out byte[] rawResourceBytes,
+                            out bool isInvisible);
+
+                        if (isInvisible)
+                        {
+                            continue;
+                        }
 
                         // original sql was: AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
                         if (!(searchParameterHash == null || searchParameterHash != searchParamHashFilter))
@@ -615,11 +616,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        string rawResource;
-                        await using (rawResourceStream)
-                        {
-                            rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                        }
+                        using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                        var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
 
                         if (string.IsNullOrEmpty(rawResource))
                         {
@@ -644,12 +642,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
-                    searchResult = new SearchResult(resources, null, null, new List<Tuple<string, string>>());
-                    searchResult.TotalCount = resources.Count;
                     return;
                 },
+                _logger,
+                null,
                 cancellationToken);
-            return searchResult;
+            return new SearchResult(resources, null, null, new List<Tuple<string, string>>()) { TotalCount = resources.Count };
         }
 
         private static (long StartId, long EndId) ReaderToSurrogateIdRange(SqlDataReader sqlDataReader)
@@ -659,66 +657,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<IReadOnlyList<(long StartId, long EndId)>> GetSurrogateIdRanges(string resourceType, long startId, long endId, int rangeSize, int numberOfRanges, bool up, CancellationToken cancellationToken)
         {
-            // TODO: this code will not set capacity for the result list!
-
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
-            List<(long StartId, long EndId)> searchList = null;
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
-                    LogSqlCommand(sqlCommand);
-
-                    searchList = await _sqlRetryService.ExecuteSqlDataReader(
-                       sqlCommand,
-                       ReaderToSurrogateIdRange,
-                       _logger,
-                       $"{nameof(GetSurrogateIdRanges)} failed.",
-                       cancellationToken);
-                    return;
-                },
-                cancellationToken);
-            return searchList;
+            using var sqlCommand = new SqlCommand();
+            GetResourceSurrogateIdRanges.PopulateCommand(sqlCommand, resourceTypeId, startId, endId, rangeSize, numberOfRanges, up);
+            sqlCommand.CommandTimeout = GetReindexCommandTimeout();
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderToSurrogateIdRange, _logger, cancellationToken);
         }
 
-        private static (short ResourceTypeId, string Name) ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
+        private static string ReaderGetUsedResourceTypes(SqlDataReader sqlDataReader)
         {
-            return (sqlDataReader.GetInt16(0), sqlDataReader.GetString(1));
+            return sqlDataReader.GetString(1);
         }
 
-        public override async Task<IReadOnlyList<(short ResourceTypeId, string Name)>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        private static (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) ReaderGetSurrogateIdsAndCountForResourceType(SqlDataReader sqlDataReader)
         {
-            var resourceTypes = new List<(short ResourceTypeId, string Name)>();
+            return (sqlDataReader.GetInt64(0), sqlDataReader.GetInt64(1), sqlDataReader.GetInt32(2));
+        }
 
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
-
-                    sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-                    sqlCommand.CommandText = "dbo.GetUsedResourceTypes";
-                    LogSqlCommand(sqlCommand);
-
-                    resourceTypes = await _sqlRetryService.ExecuteSqlDataReader(
-                       sqlCommand,
-                       ReaderGetUsedResourceTypes,
-                       _logger,
-                       $"{nameof(GetUsedResourceTypes)} failed.",
-                       cancellationToken);
-                    return;
-                },
-                cancellationToken);
-
-            return resourceTypes;
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand("dbo.GetUsedResourceTypes") { CommandType = CommandType.StoredProcedure };
+            LogSqlCommand(sqlCommand);
+            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetUsedResourceTypes, _logger, cancellationToken);
         }
 
         /// <summary>
@@ -817,7 +778,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return newSearchOptions;
         }
 
-        private void PopulateResourceTableColumnsToRead(
+        private void ReadWrapper(
             SqlDataReader reader,
             out short resourceTypeId,
             out string resourceId,
@@ -829,41 +790,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             out bool isPartialEntry,
             out bool isRawResourceMetaSet,
             out string searchParameterHash,
-            out Stream rawResourceStream)
+            out byte[] rawResourceBytes,
+            out bool isInvisible)
         {
-            searchParameterHash = null;
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.SearchParamHash,
-                    VLatest.Resource.RawResource);
-            }
-            else
-            {
-                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
-                    isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
-                    VLatest.Resource.ResourceTypeId,
-                    VLatest.Resource.ResourceId,
-                    VLatest.Resource.Version,
-                    VLatest.Resource.IsDeleted,
-                    VLatest.Resource.ResourceSurrogateId,
-                    VLatest.Resource.RequestMethod,
-                    _isMatch,
-                    _isPartial,
-                    VLatest.Resource.IsRawResourceMetaSet,
-                    VLatest.Resource.RawResource);
-            }
+            resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
+            resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
+            version = reader.Read(VLatest.Resource.Version, 2);
+            isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
+            resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
+            requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
+            isMatch = reader.Read(_isMatch, 6);
+            isPartialEntry = reader.Read(_isPartial, 7);
+            isRawResourceMetaSet = reader.Read(VLatest.Resource.IsRawResourceMetaSet, 8);
+            searchParameterHash = reader.Read(VLatest.Resource.SearchParamHash, 9);
+            rawResourceBytes = reader.GetSqlBytes(10).Value;
+            isInvisible = rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF;
         }
 
         [Conditional("DEBUG")]
@@ -996,81 +937,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             int rowCount = maxItemCount;
             SearchResult searchResult = null;
 
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
+            while (true)
+            {
+                long tmpEndResourceSurrogateId;
+                int tmpCount;
+
+                using var sqlCommand = new SqlCommand();
+                sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
+                sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
+                sqlCommand.Parameters.AddWithValue("@p1", resourceTypeId);
+                sqlCommand.Parameters.AddWithValue("@p2", tmpStartResourceSurrogateId);
+                sqlCommand.Parameters.AddWithValue("@p3", rowCount);
+                sqlCommand.CommandText = @"
+                    SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(*)
+                    FROM (SELECT TOP (@p3) ResourceSurrogateId
+                    FROM dbo.Resource
+                    WHERE ResourceTypeId = @p1
+                    AND IsHistory = 0
+                    AND IsDeleted = 0
+                    AND ResourceSurrogateId > @p2
+                    AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
+                    ORDER BY
+                    ResourceSurrogateId
+                    ) A";
+                LogSqlCommand(sqlCommand);
+
+                IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
+                if (results.Count == 0)
                 {
-                    while (true)
-                    {
-                        long tmpEndResourceSurrogateId;
-                        int tmpCount;
+                    break;
+                }
 
-                        using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                        using SqlCommand sqlCommand = connection.CreateCommand();
-                        connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                        await connection.OpenAsync(cancellationToken);
+                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
 
-                        sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
+                tmpStartResourceSurrogateId = singleResult.StartResourceSurrogateId;
+                tmpEndResourceSurrogateId = singleResult.EndResourceSurrogateId;
+                tmpCount = singleResult.Count;
 
-                        sqlCommand.Parameters.AddWithValue("@p0", searchParamHash);
-                        sqlCommand.Parameters.AddWithValue("@p1", resourceTypeId);
-                        sqlCommand.Parameters.AddWithValue("@p2", tmpStartResourceSurrogateId);
-                        sqlCommand.Parameters.AddWithValue("@p3", rowCount);
-                        sqlCommand.CommandText = @"
-                            ; WITH A AS (SELECT TOP (@p3) ResourceSurrogateId
-                            FROM dbo.Resource
-                            WHERE ResourceTypeId = @p1
-                                AND IsHistory = 0
-                                AND IsDeleted = 0
-                                AND ResourceSurrogateId > @p2
-                                AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                            ORDER BY
-                                ResourceSurrogateId
-                            )
-                            SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(*) FROM A
-                            ";
-                        LogSqlCommand(sqlCommand);
+                totalCount += tmpCount;
+                if (startResourceSurrogateId == 0)
+                {
+                    startResourceSurrogateId = tmpStartResourceSurrogateId;
+                }
 
-                        using var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                        await reader.ReadAsync(cancellationToken);
-                        if (!reader.HasRows)
-                        {
-                            break;
-                        }
+                if (tmpEndResourceSurrogateId > 0)
+                {
+                    endResourceSurrogateId = tmpEndResourceSurrogateId;
+                    tmpStartResourceSurrogateId = tmpEndResourceSurrogateId;
+                }
 
-                        tmpStartResourceSurrogateId = reader.GetInt64(0);
-                        tmpEndResourceSurrogateId = reader.GetInt64(1);
-                        tmpCount = reader.GetInt32(2);
+                if (tmpCount <= 1)
+                {
+                    break;
+                }
+            }
 
-                        totalCount += tmpCount;
-                        if (startResourceSurrogateId == 0)
-                        {
-                            startResourceSurrogateId = tmpStartResourceSurrogateId;
-                        }
-
-                        if (tmpEndResourceSurrogateId > 0)
-                        {
-                            endResourceSurrogateId = tmpEndResourceSurrogateId;
-                            tmpStartResourceSurrogateId = tmpEndResourceSurrogateId;
-                        }
-
-                        if (tmpCount <= 1)
-                        {
-                            break;
-                        }
-                    }
-
-                    searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
-                    searchResult.ReindexResult = new SearchResultReindex()
-                    {
-                        Count = totalCount,
-                        StartResourceSurrogateId = startResourceSurrogateId,
-                        EndResourceSurrogateId = endResourceSurrogateId,
-                        CurrentResourceSurrogateId = startResourceSurrogateId,
-                    };
-
-                    return;
-                },
-                cancellationToken);
+            searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
+            searchResult.ReindexResult = new SearchResultReindex()
+            {
+                Count = totalCount,
+                StartResourceSurrogateId = startResourceSurrogateId,
+                EndResourceSurrogateId = endResourceSurrogateId,
+                CurrentResourceSurrogateId = startResourceSurrogateId,
+            };
 
             return searchResult;
         }
@@ -1088,46 +1017,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             long endResourceSurrogateId = 0;
 
             SearchResult searchResult = null;
-            await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
-                {
-                    using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
-                    using SqlCommand sqlCommand = connection.CreateCommand();
-                    connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await connection.OpenAsync(cancellationToken);
 
-                    sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
+            using var sqlCommand = new SqlCommand();
+            sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
+            sqlCommand.Parameters.AddWithValue("@p0", resourceTypeId);
+            sqlCommand.CommandText = "SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(ResourceSurrogateId) FROM dbo.Resource WHERE ResourceTypeId = @p0 AND IsHistory = 0 AND IsDeleted = 0";
+            LogSqlCommand(sqlCommand);
 
-                    sqlCommand.Parameters.AddWithValue("@p0", resourceTypeId);
-                    sqlCommand.CommandText = @"
-                        SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(ResourceSurrogateId)
-                        FROM dbo.Resource
-                        WHERE ResourceTypeId = @p0
-                            AND IsHistory = 0
-                            AND IsDeleted = 0";
-                    LogSqlCommand(sqlCommand);
+            IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
+            if (results.Count > 0)
+            {
+                (long StartResourceSurrogateId, long EndResourceSurrogateId, int Count) singleResult = results.Single();
 
-                    using var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
-                    await reader.ReadAsync(cancellationToken);
-                    if (reader.HasRows)
-                    {
-                        startResourceSurrogateId = reader.GetInt64(0);
-                        endResourceSurrogateId = reader.GetInt64(1);
-                        totalCount = reader.GetInt32(2);
-                    }
+                startResourceSurrogateId = singleResult.StartResourceSurrogateId;
+                endResourceSurrogateId = singleResult.EndResourceSurrogateId;
+                totalCount = singleResult.Count;
+            }
 
-                    searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
-                    searchResult.ReindexResult = new SearchResultReindex()
-                    {
-                        Count = totalCount,
-                        StartResourceSurrogateId = startResourceSurrogateId,
-                        EndResourceSurrogateId = endResourceSurrogateId,
-                        CurrentResourceSurrogateId = startResourceSurrogateId,
-                    };
-
-                    return;
-                },
-                cancellationToken);
+            searchResult = new SearchResult(totalCount, Array.Empty<Tuple<string, string>>());
+            searchResult.ReindexResult = new SearchResultReindex()
+            {
+                Count = totalCount,
+                StartResourceSurrogateId = startResourceSurrogateId,
+                EndResourceSurrogateId = endResourceSurrogateId,
+                CurrentResourceSurrogateId = startResourceSurrogateId,
+            };
 
             return searchResult;
         }

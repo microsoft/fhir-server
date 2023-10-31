@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -12,9 +13,11 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
@@ -32,18 +35,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
         private IReadOnlyCollection<ResourceSearchParameterStatus> _resourceSearchParameterStatus = null;
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger;
         private readonly IQueueClient _queueClient;
+        private readonly IAuditLogger _auditLogger;
 
-        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IQueueClient queueClient)
+        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IQueueClient queueClient, IAuditLogger auditLogger)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
 
             _authorizationService = authorizationService;
             _searchParameterStatusManager = searchParameterStatusManager;
             _logger = logger;
             _queueClient = queueClient;
+            _auditLogger = auditLogger;
         }
 
         public async Task<SearchParameterStateUpdateResponse> Handle(SearchParameterStateUpdateRequest request, CancellationToken cancellationToken)
@@ -168,6 +174,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                         });
 
                         _logger.LogInformation("SearchParameterUpdated. SearchParameter: {SearchParameter}, Status: {Status}", uri, searchParameterGroup.Key.ToString().ToLowerInvariant());
+                        _auditLogger.LogAudit(
+                            AuditAction.Executed,
+                            OperationsConstants.SearchParameterStatus,
+                            ResourceType.SearchParameter.ToString(),
+                            new Uri(uri),
+                            System.Net.HttpStatusCode.OK,
+                            null,
+                            null,
+                            null,
+                            additionalProperties: new Dictionary<string, string>()
+                            {
+                                { "Status", searchParameterGroup.Key.ToString() },
+                            });
                     }
                 }
 
@@ -176,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
                         {
                             Resource = succeededResults,
                         });
-             }
+            }
 
             bundle.Type = Bundle.BundleType.BatchResponse;
             bundle.Total = invalidSearchParameters?.Count + searchParametersToUpdate?.Count;

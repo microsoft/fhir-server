@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string _resourceType = KnownResourceTypes.Encounter;
         private readonly TestFhirClient _client;
-        private SemaphoreSlim _createSemaphore = new(5, 5);
+        private static SemaphoreSlim _createSemaphore = new(5, 5);
 
         public ConditionalDeleteTests(HttpIntegrationTestFixture<Startup> fixture)
         {
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier=", CancellationToken.None));
             Assert.Equal(HttpStatusCode.PreconditionFailed, fhirException.StatusCode);
-            Assert.True(fhirException.Response.Resource.Issue[0].Diagnostics.Equals(string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType)));
+            Assert.Equal(fhirException.Response.Resource.Issue[0].Diagnostics, string.Format(Core.Resources.ConditionalOperationNotSelectiveEnough, _resourceType));
         }
 
         [InlineData(1)]
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(int.MaxValue)]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
+        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRangeCount_TheServerShouldReturnError(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
             await Assert.ThrowsAsync<FhirClientException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var identifier = Guid.NewGuid().ToString();
 
             await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithIdentifier(identifier)));
+            await ValidateResults(identifier, create);
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
 
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task CreateWithIdentifier(string identifier)
         {
-            await _createSemaphore.WaitAsync();
+            await _createSemaphore.WaitAsync(TimeSpan.FromMinutes(1));
 
             try
             {
@@ -167,13 +168,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             try
             {
-                FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
+                FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier=http://e2etests|{identifier}&_summary=count");
 
                 return result.Resource.Total;
             }
             catch (FhirClientException fce)
             {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
             }
             catch (Exception ex)
             {

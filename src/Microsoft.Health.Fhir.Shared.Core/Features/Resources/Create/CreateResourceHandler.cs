@@ -59,10 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: true);
+            ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: true);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
-            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, true, keepHistory, null, false, false, bundleOperationId: null), cancellationToken);
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(new ResourceWrapperOperation(resourceWrapper, true, keepHistory, null, false, false, request.BundleResourceContext), cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;
 

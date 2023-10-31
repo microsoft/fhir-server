@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             ValueSets = await ImportTestHelper.ImportToServerAsync<ValueSet>(
                 TestFhirClient,
-                CloudStorageAccount,
+                StorageAccount,
                 vs => AddValueSet(vs, "http://somewhere.com/test/system"),
                 vs => AddValueSet(vs, "urn://localhost/test"),
                 vs => AddValueSet(vs, "http://example.org/rdf#54135-9"),

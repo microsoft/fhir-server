@@ -11,7 +11,9 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyValidationsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\AzureStorageBlobHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
@@ -36,6 +38,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestStorageAccount.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
@@ -58,6 +61,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportStringSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTokenSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportUriSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportHistorySoftDeleteTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportHistorySoftDeleteTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
@@ -125,6 +130,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)Rest\Directory.Build.props" />
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

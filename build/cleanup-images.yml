@@ -20,6 +20,14 @@ stages:
     parameters: 
       version: 'r4'
 
+- stage: CleanupR4B
+  displayName: 'Cleanup R4B'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'r4b'
+
 - stage: CleanupR5
   displayName: 'Cleanup R5'
   dependsOn: []

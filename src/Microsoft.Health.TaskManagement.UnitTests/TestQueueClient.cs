@@ -103,7 +103,7 @@ namespace Microsoft.Health.JobManagement.UnitTests
             return dequeuedJobs;
         }
 
-        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null)
+        public Task<JobInfo> DequeueAsync(byte queueType, string worker, int heartbeatTimeoutSec, CancellationToken cancellationToken, long? jobId = null, bool checkTimeoutJobsOnly = false)
         {
             DequeueFaultAction?.Invoke();
             JobInfo job = null;

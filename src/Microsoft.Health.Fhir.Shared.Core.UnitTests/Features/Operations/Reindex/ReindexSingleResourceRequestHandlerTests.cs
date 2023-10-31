@@ -207,11 +207,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             if (httpMethodName == HttpPostName)
             {
-                await _fhirDataStore.Received().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), _cancellationToken);
+                await _fhirDataStore.Received().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
             }
             else if (httpMethodName == HttpGetName)
             {
-                await _fhirDataStore.DidNotReceive().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), _cancellationToken);
+                await _fhirDataStore.DidNotReceive().UpdateSearchParameterIndicesAsync(Arg.Any<ResourceWrapper>(), _cancellationToken);
             }
         }
     }

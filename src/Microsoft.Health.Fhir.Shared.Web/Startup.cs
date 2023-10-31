@@ -65,21 +65,10 @@ namespace Microsoft.Health.Fhir.Web
                 .AddConvertData()
                 .AddMemberMatch();
 
-            string dataStore = Configuration["DataStore"];
-            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
-            {
-                fhirServerBuilder.Services.Add<AzureApiForFhirRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
-                fhirServerBuilder.AddCosmosDb();
-            }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
-            {
-                fhirServerBuilder.Services.Add<AzureHealthDataServicesRuntimeConfiguration>().Singleton().AsImplementedInterfaces();
-                fhirServerBuilder.AddSqlServer(config =>
-                {
-                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
-                });
-                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
-            }
+            // Set the runtime configuration for the up and running service.
+            IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
+
+            AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
@@ -92,7 +81,7 @@ namespace Microsoft.Health.Fhir.Web
             need to ensure that the schema is initialized before the background workers are started.
             The Export background worker is only needed in Cosmos services. In SQL it is handled by the common Job Hosting worker.
             */
-            fhirServerBuilder.AddBackgroundWorkers(dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase));
+            fhirServerBuilder.AddBackgroundWorkers(runtimeConfiguration);
 
             // Set up Bundle Orchestrator.
             fhirServerBuilder.AddBundleOrchestrator(Configuration);
@@ -119,6 +108,45 @@ namespace Microsoft.Health.Fhir.Web
 
             AddApplicationInsightsTelemetry(services);
             AddAzureMonitorOpenTelemetry(services);
+        }
+
+        private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
+        {
+            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddCosmosDb();
+            }
+            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+            {
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
+                services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
+            }
+        }
+
+        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
+        {
+            IFhirRuntimeConfiguration runtimeConfiguration = null;
+
+            string dataStore = Configuration["DataStore"];
+            if (KnownDataStores.IsCosmosDbDataStore(dataStore))
+            {
+                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
+            }
+            else if (KnownDataStores.IsSqlServerDataStore(dataStore))
+            {
+                runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid data store type '{dataStore}'.");
+            }
+
+            fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
+
+            return runtimeConfiguration;
         }
 
         private void AddTaskHostingService(IServiceCollection services)

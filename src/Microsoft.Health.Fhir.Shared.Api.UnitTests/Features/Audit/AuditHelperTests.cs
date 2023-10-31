@@ -5,14 +5,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Web;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -112,7 +120,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 correlationId: CorrelationId,
                 callerIpAddress: CallerIpAddressInString,
                 callerClaims: Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
         }
 
         [Fact]
@@ -173,7 +183,158 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 CorrelationId,
                 CallerIpAddressInString,
                 Claims,
-                customHeaders: _auditHeaderReader.Read(_httpContext));
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>());
+        }
+
+        [Fact]
+        public void GivenDuration_WhenLogExecutedIsCalled_ThenAdditionalPropertiesIsNotNullInAuditLog()
+        {
+            long durationMs = 1123;
+            const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
+            const string expectedResourceType = "Patient";
+
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _fhirRequestContext.ResourceType.Returns(expectedResourceType);
+            _httpContext.Response.StatusCode = (int)expectedStatusCode;
+
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor, durationMs: durationMs);
+
+            _auditLogger.Received(1).LogAudit(
+                AuditAction.Executed,
+                AuditEventType,
+                expectedResourceType,
+                Uri,
+                expectedStatusCode,
+                CorrelationId,
+                CallerIpAddressInString,
+                Claims,
+                customHeaders: _auditHeaderReader.Read(_httpContext),
+                operationType: Arg.Any<string>(),
+                callerAgent: Arg.Any<string>(),
+                additionalProperties: Arg.Is<Dictionary<string, string>>(d => d.ContainsKey(AuditHelper.ProcessingDurationMs) && d.ContainsValue(durationMs.ToString())));
+        }
+
+        [Fact]
+        public void GivenAuditHelper_WhenLogExecutingIsCalled_ThenCallerAgentShouldAlwaysBeDefaultCallerAgent()
+        {
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.Received().LogAudit(
+                auditAction: Arg.Any<AuditAction>(),
+                operation: Arg.Any<string>(),
+                resourceType: Arg.Any<string>(),
+                requestUri: Arg.Any<Uri>(),
+                statusCode: Arg.Any<HttpStatusCode?>(),
+                correlationId: Arg.Any<string>(),
+                callerIpAddress: Arg.Any<string>(),
+                callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
+                operationType: Arg.Any<string>(),
+                callerAgent: AuditHelper.DefaultCallerAgent);
+        }
+
+        [Theory]
+        [InlineData("DELETE", "DELETE")]
+        [InlineData("GET", "GET")]
+        [InlineData("PATCH", "PATCH")]
+        [InlineData("POST", "POST")]
+        [InlineData("PUT", "PUT")]
+        [InlineData(" DELETE   ", "DELETE")]
+        [InlineData("INVALID", AuditHelper.UnknownOperationType)]
+        [InlineData("1234", AuditHelper.UnknownOperationType)]
+        [InlineData("\nPOSTT\n", AuditHelper.UnknownOperationType)]
+        [InlineData("\r\n  PUT   \r\n", "PUT")]
+        [InlineData("   ", AuditHelper.UnknownOperationType)]
+        [InlineData("PAT\r\nCH", AuditHelper.UnknownOperationType)]
+        [InlineData(null, AuditHelper.UnknownOperationType)]
+        public void GivenOperationType_WhenLogAuditIsCalled_ThenRightOperationTypeShouldBeLogged(
+            string actualOperationType,
+            string expectedOperationType)
+        {
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _httpContext.Request.Method = actualOperationType;
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.Received().LogAudit(
+                auditAction: Arg.Any<AuditAction>(),
+                operation: Arg.Any<string>(),
+                resourceType: Arg.Any<string>(),
+                requestUri: Arg.Any<Uri>(),
+                statusCode: Arg.Any<HttpStatusCode?>(),
+                correlationId: Arg.Any<string>(),
+                callerIpAddress: Arg.Any<string>(),
+                callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
+                customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
+                operationType: expectedOperationType,
+                callerAgent: AuditHelper.DefaultCallerAgent);
+        }
+
+        [Fact]
+        public void GivenAuditEventWithLogInjectionAttack_WhenLogExecutedIsCalled_ThenAuditLogHasSanitzedInput()
+        {
+            const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
+            const string expectedResourceType = "Patient";
+            var headers = new Dictionary<string, string>
+            {
+                { "CustomHeader", "<div>injection attack </div>" },
+            };
+            ReadOnlyDictionary<string, string> customHeaders = new ReadOnlyDictionary<string, string>(headers);
+            var securityConfig = new SecurityConfiguration();
+            IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();
+            optionsConfig.Value.Returns(securityConfig);
+            var logger = new TestLogger();
+            var auditLogger = new AuditLogger(optionsConfig, logger);
+
+            auditLogger.LogAudit(
+                AuditAction.Executed,
+                AuditEventType,
+                expectedResourceType,
+                Uri,
+                expectedStatusCode,
+                CorrelationId,
+                CallerIpAddressInString,
+                Claims,
+                customHeaders: customHeaders);
+
+            var expectedHeaders = HttpUtility.HtmlEncode(string.Join(";", customHeaders.Select(header => $"{header.Key}={header.Value}")));
+            Assert.Contains(expectedHeaders, logger.LogRecords.First().State);
+        }
+
+        private class TestLogger : ILogger<IAuditLogger>
+        {
+            internal List<LogRecord> LogRecords { get; } = new List<LogRecord>();
+
+            public IDisposable BeginScope<TState>(TState state)
+            {
+                return null;
+            }
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception exception,
+                Func<TState, Exception, string> formatter)
+            {
+                LogRecords.Add(new LogRecord() { LogLevel = logLevel, State = state.ToString() });
+            }
+
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return false;
+            }
+
+            internal class LogRecord
+            {
+                internal LogLevel LogLevel { get; init; }
+
+                internal string State { get; init; }
+            }
         }
     }
 }

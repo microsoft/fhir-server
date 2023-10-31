@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -23,39 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static void SetModelInfoProvider()
         {
             ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
-        }
-
-        public static OperationOutcome.IssueComponent ToPoco(this OperationOutcomeIssue issue)
-        {
-            EnsureArg.IsNotNull(issue, nameof(issue));
-
-            CodeableConcept details = null;
-            var coding = new List<Coding>();
-            if (issue.DetailsCodes != null)
-            {
-                coding = issue.DetailsCodes.Coding.Select(x => new Coding(x.System, x.Code, x.Display)).ToList();
-            }
-
-            if (coding.Count != 0 || issue.DetailsText != null)
-            {
-                details = new CodeableConcept()
-                {
-                    Coding = coding,
-                    Text = issue.DetailsText,
-                };
-            }
-
-            return new OperationOutcome.IssueComponent
-            {
-                Severity = Enum.Parse<OperationOutcome.IssueSeverity>(issue.Severity),
-                Code = Enum.Parse<OperationOutcome.IssueType>(issue.Code),
-                Details = details,
-                Diagnostics = issue.Diagnostics,
-#pragma warning disable CS0618 // Type or member is obsolete
-                Location = issue.Location,
-#pragma warning restore CS0618 // Type or member is obsolete
-                Expression = issue.Expression,
-            };
         }
 
         public static ResourceElement ToResourceElement(this Base resource)
@@ -127,6 +93,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var poco = resource.ToPoco();
             poco.Meta.LastUpdated = lastUpdated;
+            return poco.ToResourceElement();
+        }
+
+        public static ResourceElement TryAddSoftDeletedExtension(this ResourceElement resource)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            Resource poco = resource.ToPoco();
+            poco.Meta ??= new Meta();
+
+            if (!poco.Meta.Extension.Any(x => string.Equals(x.Url, KnownFhirPaths.AzureSoftDeletedExtensionUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                poco.Meta.Extension.Add(
+                    new Extension
+                    {
+                        Url = KnownFhirPaths.AzureSoftDeletedExtensionUrl,
+                        Value = new FhirString("soft-deleted"),
+                    });
+            }
+
             return poco.ToResourceElement();
         }
 

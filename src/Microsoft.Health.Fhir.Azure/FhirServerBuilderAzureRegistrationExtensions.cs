@@ -5,7 +5,6 @@
 
 using Azure.Storage.Blobs;
 using EnsureThat;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
@@ -108,7 +107,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializerV2>()
                     .Transient()
-                    .AsService<IIntegrationDataStoreClientInitilizer<CloudBlobClient>>();
+                    .AsService<IIntegrationDataStoreClientInitializer>();
 
                 fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
                     .Transient()
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializerV2>()
                 .Transient()
-                .AsService<IIntegrationDataStoreClientInitilizer<CloudBlobClient>>();
+                .AsService<IIntegrationDataStoreClientInitializer>();
             }
 
             fhirServerBuilder.Services.Add<AzureBlobIntegrationDataStoreClient>()

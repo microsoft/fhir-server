@@ -76,5 +76,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the server supports the $status operation for SearchParameters.
         /// </summary>
         public bool SupportsSelectableSearchParameters { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the server supports the $bulk-delete.
+        /// </summary>
+        public bool SupportsBulkDelete { get; set; }
     }
 }

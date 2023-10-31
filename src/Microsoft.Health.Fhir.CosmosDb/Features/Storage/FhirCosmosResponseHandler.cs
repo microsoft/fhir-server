@@ -51,11 +51,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 response = await base.SendAsync(request, cancellationToken);
 
-                await _cosmosResponseProcessor.ProcessResponse(CosmosResponseMessage.Create(response));
+                await _cosmosResponseProcessor.ProcessResponseAsync(CosmosResponseMessage.Create(response), cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    await _cosmosResponseProcessor.ProcessErrorResponse(CosmosResponseMessage.Create(response));
+                    await _cosmosResponseProcessor.ProcessErrorResponseAsync(CosmosResponseMessage.Create(response), cancellationToken);
                 }
             }
             finally

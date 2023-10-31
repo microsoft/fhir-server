@@ -12,7 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         ImportOrchestrator = 2,
         ExportProcessing = 3,
         ExportOrchestrator = 4,
-        ReindexOrchestrator = 5,
-        ReindexProcessing = 6,
+        BulkDeleteProcessing = 5,
+        BulkDeleteOrchestrator = 6,
+        ReindexOrchestrator = 7,
+        ReindexProcessing = 8,
     }
 }

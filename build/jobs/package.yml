@@ -90,3 +90,4 @@ steps:
       pathtoPublish: '$(build.artifactStagingDirectory)/symbols'
       artifactName: 'symbols'
       publishLocation: 'container'
+      

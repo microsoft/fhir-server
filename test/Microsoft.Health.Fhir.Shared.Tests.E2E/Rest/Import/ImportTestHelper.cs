@@ -11,14 +11,15 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Resource = Hl7.Fhir.Model.Resource;
@@ -30,29 +31,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
     {
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
 
-        public static async Task<(Uri location, string etag)> UploadFileAsync(string content, CloudStorageAccount cloudAccount)
+        public static async Task<(Uri location, string etag)> UploadFileAsync(string content, ImportTestStorageAccount storageAccount)
         {
             string blobName = Guid.NewGuid().ToString("N");
             string containerName = Guid.NewGuid().ToString("N");
 
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+            BlobServiceClient blobClient = GetBlobServiceClient(storageAccount);
+            BlobContainerClient container = blobClient.GetBlobContainerClient(containerName);
             await container.CreateIfNotExistsAsync();
 
-            CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
-            await blob.UploadTextAsync(content);
+            BlockBlobClient blob = container.GetBlockBlobClient(blobName);
+            var response = await blob.UploadAsync(new MemoryStream(Encoding.UTF8.GetBytes(content)));
 
-            CloudBlob cloudBlob = container.GetBlobReference(blobName);
-            return (cloudBlob.Uri, cloudBlob.Properties.ETag);
+            return (blob.Uri, response.Value.ETag.ToString());
         }
 
-        public static async Task<string> DownloadFileAsync(string location, CloudStorageAccount cloudAccount)
+        public static async Task<string> DownloadFileAsync(string location, ImportTestStorageAccount storageAccount)
         {
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            ICloudBlob container = blobClient.GetBlobReferenceFromServer(new Uri(location));
-
+            BlobClient blob = GetBlobClient(new Uri(location), storageAccount);
             using MemoryStream stream = new MemoryStream();
-            await container.DownloadToStreamAsync(stream, CancellationToken.None);
+            await blob.DownloadToAsync(stream, CancellationToken.None);
 
             stream.Position = 0;
             using StreamReader reader = new StreamReader(stream);
@@ -65,17 +63,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             VerifyBundle(result, resources);
         }
 
-        public static void VerifyBundle(Bundle result, params Resource[] resources)
+        public static async Task VerifyHistoryResultAsync(TestFhirClient client, params Resource[] resources)
         {
-            Assert.Equal(resources.Length, result.Entry.Count);
+            var historyUrls = resources.Select(r => $"/{r.TypeName}/{r.Id}/_history").Distinct().ToArray();
 
-            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            foreach (string url in historyUrls)
             {
-                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+                Bundle result = await client.SearchAsync(url);
+                VerifyBundleWithMeta(result, resources.Where(r => url.StartsWith($"/{r.TypeName}/{r.Id}")).ToArray());
             }
         }
 
-        public static async Task<TResource[]> ImportToServerAsync<TResource>(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Action<TResource>[] resourceCustomizer)
+        public static void VerifyBundle(Bundle result, params Resource[] resources)
+        {
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
+
+            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            {
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource {resultResource.Id} with verson {resultResource.VersionId} not found in input resources.");
+            }
+        }
+
+        public static void VerifyBundleWithMeta(Bundle result, params Resource[] resources)
+        {
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
+
+            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            {
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource with id {resultResource.Id} not found in result set.");
+
+                Assert.True(
+                    resources.Any(expectedResource =>
+                    expectedResource.Id.Equals(resultResource.Id) &&
+                    expectedResource.Meta.LastUpdated.Equals(resultResource.Meta.LastUpdated) &&
+                    expectedResource.Meta.VersionId.Equals(resultResource.Meta.VersionId)),
+                    $"Resource with id {resultResource.Id} does not have matching meta in result set.");
+            }
+        }
+
+        public static async Task<TResource[]> ImportToServerAsync<TResource>(TestFhirClient testFhirClient, ImportTestStorageAccount storageAccount, params Action<TResource>[] resourceCustomizer)
             where TResource : Resource, new()
         {
             TResource[] resources = new TResource[resourceCustomizer.Length];
@@ -89,12 +123,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 resources[i].Id = Guid.NewGuid().ToString("N");
             }
 
-            await ImportToServerAsync(testFhirClient, cloudStorageAccount, resources);
+            await ImportToServerAsync(testFhirClient, storageAccount, resources);
 
             return resources;
         }
 
-        public static async Task ImportToServerAsync(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Resource[] resources)
+        public static async Task ImportToServerAsync(TestFhirClient testFhirClient, ImportTestStorageAccount storageAccount, params Resource[] resources)
         {
             Dictionary<string, StringBuilder> contentBuilders = new Dictionary<string, StringBuilder>();
 
@@ -112,7 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var inputFiles = new List<InputResource>();
             foreach ((string key, StringBuilder builder) in contentBuilders)
             {
-                (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(builder.ToString(), cloudStorageAccount);
+                (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(builder.ToString(), storageAccount);
                 inputFiles.Add(new InputResource()
                 {
                     Etag = etag,
@@ -157,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public static T AddTestTag<T>(this T input, string tag)
             where T : Resource
         {
-            input.Meta = new Meta();
+            input.Meta = input.Meta ?? new();
             input.Meta.Tag.Add(new Coding("http://e2e-test", tag));
 
             return input;
@@ -171,6 +205,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
+        }
+
+        private static BlobServiceClient GetBlobServiceClient(ImportTestStorageAccount storageAccount)
+        {
+            return AzureStorageBlobHelper.CreateBlobServiceClient(storageAccount.StorageUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
+        }
+
+        private static BlobClient GetBlobClient(Uri blobUri, ImportTestStorageAccount storageAccount)
+        {
+            return AzureStorageBlobHelper.CreateBlobClient(blobUri, storageAccount.SharedKeyCredential, storageAccount.ConnectionString);
         }
     }
 }

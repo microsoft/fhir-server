@@ -46,8 +46,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
     {
         var clone = jobRecord.Clone();
         clone.QueuedTime = DateTime.Parse("1900-01-01");
-        var def = JsonConvert.SerializeObject(clone, _jsonSerializerSettings);
-        var results = await _queueClient.EnqueueAsync((byte)QueueType.Export, new[] { def }, null, false, clone.Status == OperationStatus.Completed, cancellationToken);
+        var results = await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, isCompleted: clone.Status == OperationStatus.Completed, definitions: clone);
 
         if (results.Count != 1)
         {
@@ -67,7 +66,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
             throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
         }
 
-        var jobInfo = await _queueClient.GetJobByIdAsync((byte)QueueType.Export, jobId, true, cancellationToken);
+        var jobInfo = await _queueClient.GetJobByIdAsync(QueueType.Export, jobId, true, cancellationToken);
 
         if (jobInfo == null)
         {
@@ -77,11 +76,11 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
         var def = jobInfo.Definition;
         var status = jobInfo.Status;
         var result = jobInfo.Result;
-        var record = JsonConvert.DeserializeObject<ExportJobRecord>(jobInfo.Definition);
+        var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
 
         if (status == JobStatus.Completed)
         {
-            var groupJobs = (await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
+            var groupJobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken)).ToList();
             var inFlightJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
             var cancelledJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
             var failedJobsExist = groupJobs.Where(x => x.Id != jobInfo.Id).Any(x => x.Status == JobStatus.Failed);
@@ -173,8 +172,8 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
         try
         {
-            var jobWithGroupId = await _queueClient.GetJobByIdAsync((byte)QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
-            await _queueClient.CancelJobByGroupIdAsync((byte)QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
+            var jobWithGroupId = await _queueClient.GetJobByIdAsync(QueueType.Export, long.Parse(jobRecord.Id), false, cancellationToken);
+            await _queueClient.CancelJobByGroupIdAsync(QueueType.Export, jobWithGroupId.GroupId, cancellationToken);
         }
         catch (JobNotExistException ex)
         {
@@ -186,7 +185,7 @@ public abstract class FhirOperationDataStoreBase : IFhirOperationDataStore
 
     public virtual async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort numberOfJobsToAcquire, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
     {
-        IReadOnlyCollection<JobInfo> jobInfos = await _queueClient.DequeueJobsAsync((byte)QueueType.Export, numberOfJobsToAcquire, Environment.MachineName, (int)jobHeartbeatTimeoutThreshold.TotalSeconds, cancellationToken);
+        IReadOnlyCollection<JobInfo> jobInfos = await _queueClient.DequeueJobsAsync(QueueType.Export, numberOfJobsToAcquire, Environment.MachineName, (int)jobHeartbeatTimeoutThreshold.TotalSeconds, cancellationToken);
 
         var acquiredJobs = new List<ExportJobOutcome>();
 

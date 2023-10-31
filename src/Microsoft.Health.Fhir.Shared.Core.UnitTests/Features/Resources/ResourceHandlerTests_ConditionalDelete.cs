@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(2, result.ResourcesDeleted);
 
-            await _fhirDataStore.Received(2).UpsertAsync(Arg.Is<ResourceWrapperOperation>(x => x.Wrapper.IsDeleted), Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(1).MergeAsync(Arg.Is<IReadOnlyList<ResourceWrapperOperation>>(list => list.All(item => item.Wrapper.IsDeleted)), Arg.Any<CancellationToken>());
         }
 
         private ConditionalDeleteResourceRequest SetupConditionalDelete(
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count, bundleOperationId: null);
+            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count, bundleResourceContext: null);
 
             return message;
         }

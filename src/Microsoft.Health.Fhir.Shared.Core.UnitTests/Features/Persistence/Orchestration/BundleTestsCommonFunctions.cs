@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             /// To make the tests operating as expected, I've overrided the default behavior of <see cref="Substitute"/> and set the mock
             /// version of 'MergeAsync' to return some basic values for tests.
             dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
+            dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
 
             return dataStore;
         }
@@ -122,10 +123,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             return wrapper;
         }
 
-        public static async Task<ResourceWrapperOperation> GetResourceWrapperOperationAsync(DomainResource resource, Guid bundleOperationId)
+        public static async Task<ResourceWrapperOperation> GetResourceWrapperOperationAsync(DomainResource resource, BundleResourceContext bundleResourceContext)
         {
             ResourceWrapper wrapper = await GetResourceWrapperAsync(resource);
-            return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, bundleOperationId: bundleOperationId);
+            return new ResourceWrapperOperation(wrapper, true, true, null, requireETagOnUpdate: false, keepVersion: false, bundleResourceContext);
         }
 
         private static Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MockMergeAsync(CallInfo arg)

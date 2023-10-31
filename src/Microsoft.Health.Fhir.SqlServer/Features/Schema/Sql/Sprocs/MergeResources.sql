@@ -12,7 +12,6 @@ CREATE PROCEDURE dbo.MergeResources
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
-   ,@CompartmentAssignments dbo.CompartmentAssignmentList READONLY -- TODO: Remove after version 57 got deployed
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
    ,@TokenTexts dbo.TokenTextList READONLY
@@ -30,7 +29,7 @@ CREATE PROCEDURE dbo.MergeResources
 AS
 set nocount on
 DECLARE @st datetime = getUTCdate()
-       ,@SP varchar(100) = 'MergeResources'
+       ,@SP varchar(100) = object_name(@@procid)
        ,@DummyTop bigint = 9223372036854775807
        ,@InitialTranCount int = @@trancount
        ,@IsRetry bit = 0
@@ -67,7 +66,7 @@ BEGIN TRY
   BEGIN
     IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
                  FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                 WHERE B.IsHistory = 0
+                 --WHERE B.IsHistory = 0 -- With this clause wrong plans are created on empty/small database. Commented until resource separation is in place.
               )
     BEGIN
       BEGIN TRANSACTION
@@ -114,8 +113,16 @@ BEGIN TRY
         SET IsHistory = 1
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
-    
-      DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
+
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
+        UPDATE dbo.Resource
+          SET IsHistory = 1
+             ,RawResource = 0xF -- "invisible" value
+             ,SearchParamHash = NULL
+             ,HistoryTransactionId = @TransactionId
+          WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
+      ELSE
+        DELETE FROM dbo.Resource WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 0)
       SET @AffectedRows += @@rowcount
 
       DELETE FROM dbo.ResourceWriteClaim WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE SurrogateId = ResourceSurrogateId)
@@ -402,7 +409,7 @@ BEGIN CATCH
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
 
-  IF @RaiseExceptionOnConflict = 1 AND (error_number() = 2601 AND error_message() LIKE '%''dbo.Resource''%version%' OR error_number() = 2627 AND error_message() LIKE '%''dbo.Resource''%')
+  IF @RaiseExceptionOnConflict = 1 AND error_number() IN (2601, 2627) AND error_message() LIKE '%''dbo.Resource''%'
     THROW 50409, 'Resource has been recently updated or added, please compare the resource content in code for any duplicate updates', 1;
   ELSE
     THROW

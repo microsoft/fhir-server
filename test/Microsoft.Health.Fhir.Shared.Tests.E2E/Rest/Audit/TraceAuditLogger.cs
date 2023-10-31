@@ -26,9 +26,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             string correlationId,
             string callerIpAddress,
             IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
-            IReadOnlyDictionary<string, string> customHeaders)
+            IReadOnlyDictionary<string, string> customHeaders,
+            string operationType,
+            string callerAgent,
+            IReadOnlyDictionary<string, string> additionalProperties)
         {
-            _auditEntries.Add(new AuditEntry(auditAction, action, resourceType, requestUri, statusCode, correlationId, callerIpAddress, callerClaims, customHeaders));
+            _auditEntries.Add(new AuditEntry(
+                auditAction,
+                action,
+                resourceType,
+                requestUri,
+                statusCode,
+                correlationId,
+                callerIpAddress,
+                callerClaims,
+                customHeaders,
+                operationType,
+                callerAgent));
         }
 
         public IReadOnlyList<AuditEntry> GetAuditEntriesByCorrelationId(string correlationId)

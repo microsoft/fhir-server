@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             IReadOnlyCollection<ExportJobOutcome> jobOutcomes = await AcquireExportJobsAsync(maximumNumberOfConcurrentJobAllowed: 1);
 
             Assert.NotNull(jobOutcomes);
-            Assert.Equal(1, jobOutcomes.Count);
+            Assert.Single(jobOutcomes);
 
             ExportJobOutcome jobOutcome = jobOutcomes.FirstOrDefault();
 

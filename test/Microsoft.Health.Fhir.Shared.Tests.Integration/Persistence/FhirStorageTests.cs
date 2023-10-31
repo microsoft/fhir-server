@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAResourceId_WhenFetching_ThenTheResponseLoadsCorrectly()
         {
-            var saveResult = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetJsonSample("Weight"), bundleOperationId: null));
+            var saveResult = await Mediator.CreateResourceAsync(new CreateResourceRequest(Samples.GetJsonSample("Weight"), bundleResourceContext: null));
             var getResult = (await Mediator.GetResourceAsync(new ResourceKey("Observation", saveResult.Id))).ToResourceElement(_deserializer);
 
             Assert.NotNull(getResult);
@@ -721,7 +721,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                await _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
+                await _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None);
 
                 // Get the reindexed resource from the database
                 var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
@@ -760,7 +760,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var deserializedResource = _fhirJsonParser.Parse<Patient>(original.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false, false, bundleOperationId: null), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), allowCreate: false, keepHistory: false, WeakETag.FromVersionId(original.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
                 // Let's update the resource again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
@@ -770,7 +770,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
 
                 // Attempt to reindex the resource
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, CancellationToken.None));
             }
             finally
             {
@@ -806,10 +806,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
                 ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleOperationId: null), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, allowCreate: true, keepHistory: false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
                 // Attempt to reindex the version of the resource that hasn't been deleted
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(updated.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, CancellationToken.None));
             }
             finally
             {
@@ -827,8 +827,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenAValidResource_WhenUpdatingAResourceWithSameDataImmaterialKeepHistoryValue_ServerShouldNotCreateANewVersionAndReturnOk(bool keepHistory)
         {
             // Upserting a resource twice with no data change
-            UpsertOutcome createResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, keepHistory, null, false, false, bundleOperationId: null), CancellationToken.None);
-            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), true, keepHistory, null, false, false, bundleOperationId: null), CancellationToken.None);
+            UpsertOutcome createResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(Guid.NewGuid().ToString()), true, keepHistory, null, false, false, bundleResourceContext: null), CancellationToken.None);
+            UpsertOutcome upsertResult = await _dataStore.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(createResult.Wrapper.ResourceId), true, keepHistory, null, false, false, bundleResourceContext: null), CancellationToken.None);
 
             Assert.NotNull(createResult);
             Assert.NotNull(upsertResult);
@@ -918,11 +918,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var deserializedResource = _fhirJsonParser.Parse<Patient>(original1.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false, false, bundleOperationId: null), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original1.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
                 deserializedResource = _fhirJsonParser.Parse<Patient>(original2.RawResource.Data);
                 UpdatePatient(deserializedResource);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false, false, bundleOperationId: null), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(UpdatePatientResourceWrapper(deserializedResource), false, false, WeakETag.FromVersionId(original2.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
                 // Let's update the resources again with new information
                 searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
@@ -978,7 +978,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 // Delete one of the two resources
                 ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
-                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleOperationId: null), CancellationToken.None);
+                await _dataStore.UpsertAsync(new ResourceWrapperOperation(deletedWrapper, true, false, WeakETag.FromVersionId(deletedWrapper.Version), false, false, bundleResourceContext: null), CancellationToken.None);
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
@@ -995,12 +995,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        [Fact]
+        public async Task GivenMultipleResourceTypes_WhenGettingUsedTypes_ThenAllUsedTypesAreReturned()
+        {
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            await Mediator.UpsertResourceAsync(patientResource1);
+            await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Specimen"));
+
+            var expectedTypes = new List<string>()
+            {
+                "Observation",
+                "Patient",
+                "Specimen",
+            };
+
+            var resourceTypes = await _fixture.SearchService.GetUsedResourceTypes(CancellationToken.None);
+
+            // There may be other resource types in use from other tests, so only the ones this tests adds are checked
+            foreach (var type in expectedTypes)
+            {
+                Assert.Contains(type, resourceTypes);
+            }
+        }
+
         [Fact(Skip = "Not valid test in Merge Resources design.")]
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenResourceWrapperWithEmptyRawResource_WhenUpserting_ThenExceptionisThrown()
         {
             var wrapper = CreateObservationResourceWrapper("obsId1", true);
-            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleOperationId: null), CancellationToken.None));
+            await Assert.ThrowsAsync<ServiceUnavailableException>(() => _fixture.DataStore.UpsertAsync(new ResourceWrapperOperation(wrapper, true, true, null, false, false, bundleResourceContext: null), CancellationToken.None));
         }
 
         private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)
@@ -1042,7 +1066,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
+                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"),
+                originalWrapper.ResourceSurrogateId);
 
             return (originalWrapper, updatedWrapper);
         }
@@ -1060,7 +1085,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.SearchIndices,
                 originalWrapper.CompartmentIndices,
                 originalWrapper.LastModifiedClaims,
-                originalWrapper.SearchParameterHash);
+                originalWrapper.SearchParameterHash,
+                originalWrapper.ResourceSurrogateId);
         }
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)

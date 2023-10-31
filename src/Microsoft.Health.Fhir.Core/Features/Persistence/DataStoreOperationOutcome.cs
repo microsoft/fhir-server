@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Exception = null;
         }
 
-        public DataStoreOperationOutcome(FhirException exception)
+        public DataStoreOperationOutcome(MicrosoftHealthException exception)
         {
             EnsureArg.IsNotNull(exception, nameof(exception));
 
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             get { return Exception == null; }
         }
 
-        public FhirException Exception { get; }
+        public MicrosoftHealthException Exception { get; }
 
         public UpsertOutcome UpsertOutcome { get; }
     }

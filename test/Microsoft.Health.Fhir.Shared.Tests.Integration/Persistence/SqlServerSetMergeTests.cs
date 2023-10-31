@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);
@@ -80,8 +80,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);
@@ -102,8 +102,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             mergeResults = await _store.MergeAsync(
                 new List<ResourceWrapperOperation>
                 {
-                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleOperationId: null),
-                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleOperationId: null),
+                    new ResourceWrapperOperation(patientWrapper, true, true, null, false, false, bundleResourceContext: null),
+                    new ResourceWrapperOperation(observationWrapper, true, true, null, false, false, bundleResourceContext: null),
                 },
                 default);
             Assert.NotNull(mergeResults);
