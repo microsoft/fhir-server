@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _resourceDeserializer = Substitute.For<IResourceDeserializer>();
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), _cancellationToken).Returns(DataActions.Reindex);
+            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Is(_cancellationToken)).Returns(DataActions.Reindex);
 
             var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
