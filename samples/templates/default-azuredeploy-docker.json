@@ -27,6 +27,7 @@
         "appServicePlanSku": {
             "type": "string",
             "allowedValues": [
+                "B3",
                 "S1",
                 "S2",
                 "S3",
