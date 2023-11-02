@@ -14,6 +14,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -211,33 +212,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
         {
-            try
-            {
-                using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-                using SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateRetrySqlCommand();
-                sqlCommandWrapper.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
-                sqlCommandWrapper.Parameters.AddWithValue("@QueueType", queueType);
-                await using SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
-                if (sqlDataReader.HasRows)
-                {
-                    var result = await sqlDataReader.ReadJobInfoAsync(cancellationToken);
-                    return result?.Id.ToString();
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "PeekAsync failed.");
-                if (ex.IsRetriable())
-                {
-                    throw new RetriableJobException(ex.Message, ex);
-                }
+            using var sqlCommand = new SqlCommand();
+            PopulatePeekCommand(sqlCommand, queueType);
 
-                throw;
+            var jobs = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "PeekAsync failed.");
+            if (jobs.Any())
+            {
+                return jobs[0].Id.ToString();
             }
+            else
+            {
+                return null;
+            }
+        }
+
+        private static void PopulatePeekCommand(SqlCommand sqlCommand, byte queueType)
+        {
+            sqlCommand.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
         }
 
         public bool IsInitialized()

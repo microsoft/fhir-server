@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             Assert.Equal(1, result.SucceededResourceCount);
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
-            Assert.Equal(1, jobs.Count);
+            Assert.Single(jobs);
             var childJob = jobs.First();
             Assert.NotNull(childJob);
             Assert.Equal(jobInfo.GroupId, childJob.GroupId);

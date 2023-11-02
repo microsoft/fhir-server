@@ -36,9 +36,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         private static readonly string GetJobByHashQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
 
-        private static readonly string CheckActiveJobsByStatusQuery =
-            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
-
         private readonly IScoped<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;

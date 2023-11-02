@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
         public async void GivenARequestToUpdateSearchParameterStatus_WhenRequestIsValied_ThenAuditLogContainsStateChange()
         {
             var loggers = CreateTestAuditLogger();
-            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, loggers.auditLogger);
+            var searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, loggers.auditLogger);
             List<Tuple<Uri, SearchParameterStatus>> updates = new List<Tuple<Uri, SearchParameterStatus>>()
             {
                 new Tuple<Uri, SearchParameterStatus>(new Uri(ResourceId), SearchParameterStatus.Disabled),

@@ -12,6 +12,8 @@ public static class SoftDeletedFhirPathExtension
     /// <summary>
     /// Return true if this resource contains the Azure 'soft-deleted' extension in meta data
     /// </summary>
+    /// <param name="resourceElement">The resource to check</param>
+    /// <returns>True if the resource is soft deleted</returns>
     public static bool IsSoftDeleted(this ResourceElement resourceElement)
     {
         return resourceElement.Predicate(KnownFhirPaths.IsSoftDeletedExtension);

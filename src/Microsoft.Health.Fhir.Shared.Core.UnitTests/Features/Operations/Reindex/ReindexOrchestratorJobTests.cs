@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var reindexJobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, 1, true, Arg.Any<CancellationToken>());
             var processingJob = reindexJobs.FirstOrDefault();
 
-            Assert.Equal(1, reindexJobs.Count);
+            Assert.Single(reindexJobs);
             Assert.NotNull(processingJob);
 
             var processingJobDefinition = JsonConvert.DeserializeObject<ReindexProcessingJobDefinition>(processingJob.Definition);

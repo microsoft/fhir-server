@@ -129,8 +129,6 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
 
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
             if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
             {
                 fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();

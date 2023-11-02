@@ -456,7 +456,7 @@ public class CosmosQueueClient : IQueueClient
            WHERE c.queueType = @queueType and c.status in (0,1)")
         .WithParameter("@queueType", queueType);
 
-        var response = await ExecuteQueryAsync(sqlQuerySpec, 1, cancellationToken);
+        var response = await ExecuteQueryAsync(sqlQuerySpec, 1, queueType, cancellationToken);
 
         return response.ToList().FirstOrDefault().ToJobInfo().FirstOrDefault();
     }
