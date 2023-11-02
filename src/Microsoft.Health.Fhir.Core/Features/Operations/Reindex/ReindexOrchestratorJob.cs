@@ -178,6 +178,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             else if (_reindexJobRecord.ForceReindex)
             {
                 resourceList.UnionWith(_reindexJobRecord.SearchParameterResourceTypes);
+
+                // Adding these in so they get included in search param status updates.
+                foreach (var searchParam in _reindexJobRecord.TargetSearchParameterTypes)
+                {
+                    if (_reindexJobRecord.SearchParams.Contains(searchParam))
+                    {
+                        continue;
+                    }
+
+                    _reindexJobRecord.SearchParams.Add(searchParam);
+                }
             }
             else
             {
