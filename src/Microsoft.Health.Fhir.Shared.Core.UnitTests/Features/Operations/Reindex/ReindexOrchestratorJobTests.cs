@@ -103,7 +103,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             // Get one search parameter and configure it such that it needs to be reindexed
             var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
-            param.IsSearchable = false;
+
+            // Get one search parameter and configure it such that it needs to be reindexed
+            ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
+            {
+                new ResourceSearchParameterStatus()
+                {
+                    LastUpdated = DateTime.UtcNow,
+                    Uri = new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    Status = SearchParameterStatus.Supported,
+                },
+            });
+            var searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
+            searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
+
+            var reindexJobTaskFactory = () =>
+             new ReindexOrchestratorJob(
+                 _queueClient,
+                 () => _searchService.CreateMockScope(),
+                 _searchDefinitionManager,
+                 ModelInfoProvider.Instance,
+                 searchParameterStatusmanager,
+                 _searchParameterOperations,
+                 NullLoggerFactory.Instance);
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -148,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Returns(CreateSearchResult());
             try
             {
-                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+                var jobResult = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
             }
             catch (RetriableJobException ex)
             {
