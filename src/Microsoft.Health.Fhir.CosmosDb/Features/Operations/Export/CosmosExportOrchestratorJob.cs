@@ -120,32 +120,40 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             }
 
             var rec = new ExportJobRecord(
-                        requestUri: record.RequestUri,
-                        exportType: record.ExportType,
-                        exportFormat: format,
-                        resourceType: string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
-                        filters: record.Filters,
-                        hash: record.Hash,
-                        rollingFileSizeInMB: record.RollingFileSizeInMB,
-                        requestorClaims: record.RequestorClaims,
-                        since: record.Since,
-                        till: record.Till,
-                        feedRange: feedRange,
-                        groupId: record.GroupId,
-                        storageAccountConnectionHash: record.StorageAccountConnectionHash,
-                        storageAccountUri: record.StorageAccountUri,
-                        anonymizationConfigurationCollectionReference: record.AnonymizationConfigurationCollectionReference,
-                        anonymizationConfigurationLocation: record.AnonymizationConfigurationLocation,
-                        anonymizationConfigurationFileETag: record.AnonymizationConfigurationFileETag,
-                        maximumNumberOfResourcesPerQuery: record.MaximumNumberOfResourcesPerQuery,
-                        numberOfPagesPerCommit: record.NumberOfPagesPerCommit,
-                        storageAccountContainerName: container,
-                        isParallel: record.IsParallel,
-                        schemaVersion: record.SchemaVersion,
-                        typeId: (int)JobType.ExportProcessing,
-                        smartRequest: record.SmartRequest);
-            rec.Id = string.Empty;
-            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
+                        record.RequestUri,
+                        record.ExportType,
+                        format,
+                        record.ResourceType,
+                        record.Filters,
+                        record.Hash,
+                        record.RollingFileSizeInMB,
+                        record.RequestorClaims,
+                        record.Since,
+                        record.Till,
+                        startSurrogateId: null,
+                        endSurrogateId: null,
+                        globalStartSurrogateId: null,
+                        globalEndSurrogateId: null,
+                        record.GroupId,
+                        record.StorageAccountConnectionHash,
+                        record.StorageAccountUri,
+                        record.AnonymizationConfigurationCollectionReference,
+                        record.AnonymizationConfigurationLocation,
+                        record.AnonymizationConfigurationFileETag,
+                        record.MaximumNumberOfResourcesPerQuery,
+                        record.NumberOfPagesPerCommit,
+                        container,
+                        record.IsParallel,
+                        record.IncludeHistory,
+                        record.IncludeDeleted,
+                        record.SchemaVersion,
+                        (int)JobType.ExportProcessing,
+                        record.SmartRequest)
+            {
+                Id = string.Empty,
+                QueuedTime = record.QueuedTime, // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
+            };
+
             return rec;
         }
     }

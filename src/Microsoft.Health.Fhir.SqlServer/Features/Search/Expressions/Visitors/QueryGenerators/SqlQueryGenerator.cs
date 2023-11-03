@@ -190,9 +190,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
-                if (_schemaInfo.Current < SchemaVersionConstants.PartitionedTables &&
-                    expression.SearchParamTableExpressions.Count == 0 &&
-                    !_searchType.HasFlag(SqlSearchType.History) &&
+                if (expression.SearchParamTableExpressions.Count == 0 &&
+                    !_searchType.HasFlag(SqlSearchType.IncludeHistory) &&
+                    !_searchType.HasFlag(SqlSearchType.IncludeDeleted) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
@@ -1316,19 +1316,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.History))
+            if (!_searchType.HasFlag(SqlSearchType.IncludeDeleted))
             {
-                delimited.BeginDelimitedElement().Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0");
+                delimited.BeginDelimitedElement();
+
+                StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0 ");
             }
         }
 
         private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.History))
+            if (!_searchType.HasFlag(SqlSearchType.IncludeHistory))
             {
                 delimited.BeginDelimitedElement();
 
-                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
+                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
             }
         }
 
@@ -1483,7 +1485,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private static SearchParameterExpression CheckExpressionOrFirstChildIsSearchParam(Expression expression)
         {
-            if (expression is MultiaryExpression)
+            while (expression is MultiaryExpression)
             {
                 expression = ((MultiaryExpression)expression).Expressions[0];
             }

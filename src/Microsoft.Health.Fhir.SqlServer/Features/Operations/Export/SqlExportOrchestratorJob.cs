@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -23,23 +25,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class SqlExportOrchestratorJob : IJob
     {
-        private const int DefaultNumberOfSurrogateIdRanges = 100;
-
         private IQueueClient _queueClient;
         private ISearchService _searchService;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public SqlExportOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService)
+            ISearchService searchService,
+            IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
 
             _queueClient = queueClient;
             _searchService = searchService;
+            _exportJobConfiguration = exportJobConfiguration.Value;
+
+            NumberOfSurrogateIdRanges = _exportJobConfiguration.NumberOfParallelRecordRanges;
         }
 
-        internal int NumberOfSurrogateIdRanges { get; set; } = DefaultNumberOfSurrogateIdRanges;
+        internal int NumberOfSurrogateIdRanges { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -73,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                                         .GroupBy(x => x.ResourceType)
                                         .ToDictionary(x => x.Key, x => x.Max(r => long.Parse(r.EndSurrogateId)));
 
-                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (type, cancel) =>
+                await Parallel.ForEachAsync(resourceTypes, new ParallelOptions { MaxDegreeOfParallelism = _exportJobConfiguration.CoordinatorMaxDegreeOfParallelization, CancellationToken = cancellationToken }, async (type, cancel) =>
                 {
                     var startId = globalStartId;
                     if (enqueued.TryGetValue(type, out var max))
@@ -164,6 +170,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         numberOfPagesPerCommit: record.NumberOfPagesPerCommit,
                         storageAccountContainerName: container,
                         isParallel: record.IsParallel,
+                        includeHistory: record.IncludeHistory,
+                        includeDeleted: record.IncludeDeleted,
                         schemaVersion: record.SchemaVersion,
                         typeId: (int)JobType.ExportProcessing,
                         smartRequest: record.SmartRequest);

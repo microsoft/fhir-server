@@ -159,6 +159,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string IsParallel = "isParallel";
 
+        public const string IncludeHistory = "includeHistory";
+
+        public const string IncludeDeleted = "includeDeleted";
+
         public const string SmartRequest = "smartRequest";
 
         public const string DeleteOperation = "deleteOperation";

@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public string FhirUserClaim { get; set; } = "fhirUser";
 
+        public string ExtensionFhirUserClaim { get; set; } = "extension_fhirUser";
+
         public bool ErrorOnMissingFhirUserClaim { get; set; } = false;
 
         public bool EnableSmartWithoutAuth { get; set; } = false;

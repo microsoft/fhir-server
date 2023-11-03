@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
                     string.Empty :
-                    Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
+                    Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
                 if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri))
                 {
@@ -169,10 +169,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist in the job record.
                 var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
-                var queryParametersList = new List<Tuple<string, string>>()
+                List<Tuple<string, string>> queryParametersList = new()
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
+                    Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)),
                 };
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
@@ -679,31 +681,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
-                var data = result.Resource.RawResource.Data;
+                ResourceElement overrideDataElement = null;
+                var addSoftDeletedExtension = resourceWrapper.IsDeleted && _exportJobRecord.IncludeDeleted;
 
                 if (anonymizer != null)
                 {
-                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
                     try
                     {
-                        element = anonymizer.Anonymize(element);
+                        overrideDataElement = anonymizer.Anonymize(overrideDataElement);
                     }
                     catch (Exception ex)
                     {
                         throw new FailedToAnonymizeResourceException(ex.Message, ex);
                     }
-
-                    // Serialize into NDJson and write to the file.
-                    data = _resourceToByteArraySerializer.StringSerialize(element);
                 }
-                else if (!resourceWrapper.RawResource.IsMetaSet)
+                else if (!resourceWrapper.RawResource.IsMetaSet || addSoftDeletedExtension)
                 {
                     // For older records in Cosmos the metadata isn't included in the raw resource
-                    ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
-                    data = _resourceToByteArraySerializer.StringSerialize(element);
+                    overrideDataElement = _resourceDeserializer.Deserialize(resourceWrapper);
                 }
 
-                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, data);
+                var outputData = result.Resource.RawResource.Data;
+
+                // If any modifications were made to the resource / are needed, serialize the element instead of using the raw data string.
+                if (overrideDataElement is not null)
+                {
+                    outputData = _resourceToByteArraySerializer.StringSerialize(overrideDataElement, addSoftDeletedExtension);
+                }
+
+                _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, outputData);
             }
         }
 

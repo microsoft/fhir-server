@@ -6,6 +6,7 @@
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -28,9 +29,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return bytesToWrite;
         }
 
-        public string StringSerialize(ResourceElement resourceElement)
+        public string StringSerialize(ResourceElement resourceElement, bool addSoftDeletedExtension = false)
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
+
+            if (addSoftDeletedExtension)
+            {
+                resourceElement.TryAddSoftDeletedExtension();
+            }
 
             return resourceElement.Instance.ToJson();
         }

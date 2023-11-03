@@ -48,6 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             QueryHints = other.QueryHints;
+
+            IncludeHistory = other.IncludeHistory;
+            IncludeDeleted = other.IncludeDeleted;
         }
 
         /// <summary>
@@ -115,6 +118,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _includeCount = value;
             }
         }
+
+        /// <summary>
+        /// Gets a value indicating whether to include history resources in the search result,
+        /// as long as they match the other search parameters as well.
+        /// </summary>
+        public bool IncludeHistory { get; internal set; } = false;
+
+        /// <summary>
+        /// Gets a value indicating whether to include deleted resources in the search result,
+        /// as long as they match the other search parameters as well.
+        /// </summary>
+        public bool IncludeDeleted { get; internal set; } = false;
 
         /// <summary>
         /// Gets the search expression.

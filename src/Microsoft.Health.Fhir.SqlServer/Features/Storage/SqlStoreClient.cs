@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
+        private const string _invisibleResource = " ";
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -52,7 +53,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken, bool includeInvisible = false)
+        {
+            return await GetAsync(keys.Select(_ => new ResourceDateKey(getResourceTypeId(_.ResourceType), _.Id, 0, _.VersionId)).ToList(), decompress, getResourceTypeName, cancellationToken, includeInvisible);
+        }
+
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             if (keys == null || keys.Count == 0)
             {
@@ -60,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResources", CommandType = CommandType.StoredProcedure, CommandTimeout = 180 + (int)(2400.0 / 10000 * keys.Count) };
-            var tvpRows = keys.Select(_ => new ResourceKeyListRow(getResourceTypeId(_.ResourceType), _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
+            var tvpRows = keys.Select(_ => new ResourceKeyListRow(_.ResourceTypeId, _.Id, _.VersionId == null ? null : int.TryParse(_.VersionId, out var version) ? version : int.MinValue));
             new ResourceKeyListTableValuedParameterDefinition("@ResourceKeys").AddParameter(cmd.Parameters, tvpRows);
             var start = DateTime.UtcNow;
             var timeoutRetries = 0;
@@ -68,8 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    //// ignore nulls returned for invisible resources
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -114,8 +119,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourcesByTransactionId", CommandType = CommandType.StoredProcedure, CommandTimeout = 600 };
             cmd.Parameters.AddWithValue("@TransactionId", transactionId);
-            //// ignore nulls returned for invisible resources
-            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _ != null).ToList();
+            //// ignore invisible resources
+            return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, true, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => _.RawResource.Data != _invisibleResource).ToList();
         }
 
         private static ResourceWrapper ReadResourceWrapper(SqlDataReader reader, bool readRequestMethod, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName)
@@ -131,13 +136,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var searchParamHash = reader.Read(VLatest.Resource.SearchParamHash, 8);
             var requestMethod = readRequestMethod ? reader.Read(VLatest.Resource.RequestMethod, 9) : null;
 
+            string rawResource;
             if (rawResourceBytes.Length == 1 && rawResourceBytes[0] == 0xF) // invisible resource
             {
-                return null;
+                rawResource = _invisibleResource;
             }
-
-            using var rawResourceStream = new MemoryStream(rawResourceBytes);
-            var rawResource = decompress(rawResourceStream);
+            else
+            {
+                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                rawResource = decompress(rawResourceStream);
+            }
 
             return new ResourceWrapper(
                 resourceId,

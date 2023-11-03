@@ -34,5 +34,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Performs a shallow clone of this instance
         /// </summary>
         public SqlSearchOptions CloneSqlSearchOptions() => (SqlSearchOptions)MemberwiseClone();
+
+        internal SqlSearchType GetSearchTypeFromOptions()
+        {
+            var searchType = SqlSearchType.Default;
+
+            if (IncludeHistory)
+            {
+                searchType |= SqlSearchType.IncludeHistory;
+            }
+
+            if (IncludeDeleted)
+            {
+                searchType |= SqlSearchType.IncludeDeleted;
+            }
+
+            return searchType;
+        }
     }
 }
