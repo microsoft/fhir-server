@@ -90,17 +90,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 });
         }
 
-        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
-        {
-            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName
-                FROM root r
-                WHERE r.isSystem = false");
-
-            var requestOptions = new QueryRequestOptions();
-
-            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
-        }
-
         public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
