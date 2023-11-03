@@ -83,11 +83,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
-                AppendFilterCondition(
-                   "AND",
-                   true,
-                   (KnownResourceWrapperProperties.IsHistory, false),
-                   (KnownResourceWrapperProperties.IsDeleted, false));
+                if (searchOptions.IncludeHistory is false)
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsHistory, false));
+                }
+
+                if (searchOptions.IncludeDeleted is false)
+                {
+                    AppendFilterCondition(
+                        "AND",
+                        true,
+                        (KnownResourceWrapperProperties.IsDeleted, false));
+                }
 
                 if (!searchOptions.CountOnly)
                 {

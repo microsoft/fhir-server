@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -32,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Identity.Client;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -97,12 +99,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             [FromQuery(Name = KnownQueryParameterNames.IsParallel)] bool isParallel = true,
+            [FromQuery(Name = KnownQueryParameterNames.IncludeAssociatedData)] string includeAssociatedData = null,
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
+            (bool includeHistory, bool includeDeleted) = ValidateAndParseIncludeAssociatedData(includeAssociatedData, typeFilter);
 
             return await SendExportRequest(
                 exportType: ExportJobType.All,
@@ -113,6 +118,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: isParallel,
+                includeHistory: includeHistory,
+                includeDeleted: includeDeleted,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -123,16 +131,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType(
+            string typeParameter,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
-            string typeParameter)
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
@@ -152,6 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: false,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -162,17 +172,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceTypeById(
+            string typeParameter,
+            string idParameter,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Till)] PartialDateTime till,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
-            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
-            string typeParameter,
-            string idParameter)
+            [FromQuery(Name = KnownQueryParameterNames.MaxCount)] uint maxCount = 0,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationCollectionReference)] string anonymizationConfigCollectionReference = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation = null,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag = null)
         {
             CheckIfExportIsEnabled();
             ValidateForAnonymizedExport(containerName, anonymizationConfigCollectionReference, anonymizationConfigLocation, anonymizationConfigFileETag);
@@ -193,6 +204,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName: containerName,
                 formatName: formatName,
                 isParallel: false,
+                maxCount: maxCount,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: anonymizationConfigLocation,
                 anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -244,6 +256,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string containerName = null,
             string formatName = null,
             bool isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
+            uint maxCount = 0,
             string anonymizationConfigCollectionReference = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
@@ -259,6 +274,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 containerName,
                 formatName,
                 isParallel,
+                includeDeleted,
+                includeHistory,
+                maxCount,
                 anonymizationConfigCollectionReference,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
@@ -292,7 +310,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     CheckReferenceAndETagParameterConflictForAnonymizedExport(anonymizationConfigCollectionReference, anonymizationConfigFileETag);
                     CheckConfigCollectionReferenceIsValid(anonymizationConfigCollectionReference);
-                    CheckIfConfigCollectionReferencIsConfigured(anonymizationConfigCollectionReference);
+                    CheckIfConfigCollectionReferenceIsConfigured(anonymizationConfigCollectionReference);
                 }
             }
         }
@@ -326,7 +344,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckIfConfigCollectionReferencIsConfigured(string anonymizationConfigCollectionReference)
+        private void CheckIfConfigCollectionReferenceIsConfigured(string anonymizationConfigCollectionReference)
         {
             var ociImage = ImageInfo.CreateFromImageReference(anonymizationConfigCollectionReference);
 
@@ -343,6 +361,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new RequestNotValidException(string.Format(Resources.AnonymizationConfigCollectionNotConfigured, anonymizationConfigCollectionReference));
             }
+        }
+
+        private static (bool includeHistory, bool includeDeleted) ValidateAndParseIncludeAssociatedData(string associatedData, string typeFilter)
+        {
+            var associatedDataParams = (associatedData ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var possibleParams = new List<string> { "_history", "_deleted" };
+            var invalidParams = associatedDataParams.Where(param => !possibleParams.Contains(param)).ToList();
+
+            if (invalidParams.Any())
+            {
+                throw new RequestNotValidException(string.Format(Resources.InvalidExportAssociatedDataParameter, string.Join(',', invalidParams)));
+            }
+
+            bool includeHistory = associatedDataParams.Contains("_history");
+            bool includeDeleted = associatedDataParams.Contains("_deleted");
+
+            if ((includeHistory || includeDeleted) && !string.IsNullOrWhiteSpace(typeFilter))
+            {
+                throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
+            }
+
+            return (includeHistory, includeDeleted);
         }
     }
 }

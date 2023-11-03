@@ -9,18 +9,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long index, long offset, int length, bool keepLastUpdated, bool keepVersion, ResourceWrapper resourceWrapper)
+        public ImportResource(long index, long offset, int length, bool keepLastUpdated, bool keepVersion, bool isDeleted, ResourceWrapper resourceWrapper)
         {
             Index = index;
             Offset = offset;
             Length = length;
             KeepLastUpdated = keepLastUpdated;
             KeepVersion = keepVersion;
+            IsDeleted = isDeleted;
             ResourceWrapper = resourceWrapper;
         }
 
         public ImportResource(ResourceWrapper resource)
-            : this(0, 0, 0, false, false, resource)
+            : this(0, 0, 0, false, false, false, resource)
         {
         }
 
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Length = 0;
             KeepLastUpdated = false;
             KeepVersion = false;
+            IsDeleted = false;
             ImportError = importError;
         }
 
@@ -58,6 +60,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Flag indicating whether version was provided on input
         /// </summary>
         public bool KeepVersion { get; set; }
+
+        /// <summary>
+        /// Flag indicating whether deletion state was provided on input
+        /// </summary>
+        public bool IsDeleted { get; set; }
 
         /// <summary>
         /// Resource wrapper from raw content

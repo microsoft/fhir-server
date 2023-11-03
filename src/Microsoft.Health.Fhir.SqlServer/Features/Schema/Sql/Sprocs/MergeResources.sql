@@ -12,7 +12,6 @@ CREATE PROCEDURE dbo.MergeResources
    ,@SingleTransaction bit = 1
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
-   ,@CompartmentAssignments dbo.CompartmentAssignmentList READONLY -- TODO: Remove after version 57 got deployed
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
    ,@TokenTexts dbo.TokenTextList READONLY
@@ -67,7 +66,7 @@ BEGIN TRY
   BEGIN
     IF EXISTS (SELECT * -- This extra statement avoids putting range locks when we don't need them
                  FROM @Resources A JOIN dbo.Resource B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                 WHERE B.IsHistory = 0
+                 --WHERE B.IsHistory = 0 -- With this clause wrong plans are created on empty/small database. Commented until resource separation is in place.
               )
     BEGIN
       BEGIN TRANSACTION
@@ -115,7 +114,7 @@ BEGIN TRY
         WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId AND KeepHistory = 1)
       SET @AffectedRows += @@rowcount
 
-      IF @IsResourceChangeCaptureEnabled = 1 AND EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 1)
+      IF @IsResourceChangeCaptureEnabled = 1 AND NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'InvisibleHistory.IsEnabled' AND Number = 0)
         UPDATE dbo.Resource
           SET IsHistory = 1
              ,RawResource = 0xF -- "invisible" value

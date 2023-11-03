@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid combination of processing logic and bundle type: {0} and {1}..
+        /// </summary>
+        public static string BundleInvalidCombination {
+            get {
+                return ResourceManager.GetString("BundleInvalidCombination", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
         public static string BundleNotFound {
@@ -374,7 +383,16 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidElementsParameter", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to invalid parametr given for export associated data.
+        /// </summary>
+        public static string InvalidExportAssociatedDataParameter {
+            get {
+                return ResourceManager.GetString("InvalidExportAssociatedDataParameter", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to Invalid launch context parameters..
         /// </summary>
@@ -696,6 +714,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TransactionFailed {
             get {
                 return ResourceManager.GetString("TransactionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The request &quot;_typeFilter&quot; cannot be used with an export request with historical or soft deleted resources..
+        /// </summary>
+        public static string TypeFilterNotSupportedWithHistoryOrDeletedExport {
+            get {
+                return ResourceManager.GetString("TypeFilterNotSupportedWithHistoryOrDeletedExport", resourceCulture);
             }
         }
         

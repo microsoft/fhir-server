@@ -189,6 +189,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, SupportedTotalTypes));
                     }
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludeHistory, StringComparison.OrdinalIgnoreCase) && bool.TryParse(query.Item2, out bool includeHistory))
+                {
+                    searchOptions.IncludeHistory = includeHistory;
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.IncludeDeleted, StringComparison.OrdinalIgnoreCase) && bool.TryParse(query.Item2, out bool includeDeleted))
+                {
+                    searchOptions.IncludeDeleted = includeDeleted;
+                }
                 else
                 {
                     // Parse the search parameters.

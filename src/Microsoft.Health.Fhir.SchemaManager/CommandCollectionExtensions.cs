@@ -79,10 +79,12 @@ public static class CommandCollectionExtensions
             string? authenticationTypeValue = config[OptionAliases.AuthenticationType];
             if (!string.IsNullOrWhiteSpace(authenticationTypeValue))
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 if (Enum.TryParse(authenticationTypeValue, true, out SqlServerAuthenticationType sqlServerAuthenticationType))
                 {
                     x.AuthenticationType = sqlServerAuthenticationType;
                 }
+#pragma warning restore CS0618 // Type or member is obsolete
             }
         });
 

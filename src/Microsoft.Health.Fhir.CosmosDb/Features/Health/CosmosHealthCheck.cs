@@ -12,8 +12,10 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Health;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -21,6 +23,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 {
     public class CosmosHealthCheck : IHealthCheck
     {
+        private const string UnhealthyDescription = "The store is unhealthy.";
+        private const string DegradedDescription = "The health of the store has degraded.";
+
         private readonly IScoped<Container> _container;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
@@ -69,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
                     using (CancellationTokenSource operationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeBasedTokenSource.Token))
                     {
                         await _testProvider.PerformTestAsync(_container.Value, _configuration, _cosmosCollectionConfiguration, operationTokenSource.Token);
-                        return HealthCheckResult.Healthy("Successfully connected to the data store.");
+                        return HealthCheckResult.Healthy("Successfully connected.");
                     }
                 }
                 catch (CosmosOperationCanceledException coce)
@@ -80,36 +85,94 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
                     if (cancellationToken.IsCancellationRequested)
                     {
+                        // Handling an extenal cancellation.
+                        // No reasons to retry as the cancellation was external to the health check.
+
                         _logger.LogWarning(coce, "Failed to connect to the data store. External cancellation requested.");
-                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. External cancellation requested.");
+
+                        return HealthCheckResult.Unhealthy(
+                            description: UnhealthyDescription,
+                            data: new Dictionary<string, object>
+                            {
+                                { "Reason", HealthStatusReason.ServiceUnavailable },
+                                { "Error", FhirHealthErrorCode.Error408.ToString() },
+                            });
                     }
                     else if (attempt >= maxNumberAttempts)
                     {
-                        _logger.LogWarning(coce, "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
-                        return HealthCheckResult.Unhealthy("Failed to connect to the data store. Operation canceled.");
+                        // This is a very rare situation. This condition indicates that multiple attempts to connect to the data store happened, but they were not successful.
+
+                        _logger.LogWarning(
+                            coce,
+                            "Failed to connect to the data store. There were {NumberOfAttempts} attempts to connect to the data store, but they suffered a '{ExceptionType}'.",
+                            attempt,
+                            nameof(CosmosOperationCanceledException));
+
+                        return HealthCheckResult.Unhealthy(
+                            description: UnhealthyDescription,
+                            data: new Dictionary<string, object>
+                            {
+                                { "Reason", HealthStatusReason.ServiceUnavailable },
+                                { "Error", FhirHealthErrorCode.Error501.ToString() },
+                            });
                     }
                     else
                     {
                         // Number of attempts not reached. Allow retry.
-                        _logger.LogWarning(coce, "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.", attempt, nameof(CosmosOperationCanceledException));
+
+                        _logger.LogWarning(
+                            coce,
+                            "Failed to connect to the data store. Attempt {NumberOfAttempts}. '{ExceptionType}'.",
+                            attempt,
+                            nameof(CosmosOperationCanceledException));
                     }
                 }
                 catch (CosmosException ex) when (ex.IsCmkClientError())
                 {
-                    return HealthCheckResult.Unhealthy(
-                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
-                        exception: ex,
-                        new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
+                    // Handling CMK errors.
+
+                    _logger.LogWarning(
+                        ex,
+                        "Connection to the data store was unsuccesful because the client's customer-managed key is not available.");
+
+                    return HealthCheckResult.Degraded(
+                        description: DegradedDescription,
+                        data: new Dictionary<string, object>
+                        {
+                            { "Reason", HealthStatusReason.CustomerManagedKeyAccessLost },
+                            { "Error", FhirHealthErrorCode.Error412.ToString() },
+                        });
                 }
                 catch (Exception ex) when (ex.IsRequestRateExceeded())
                 {
-                    return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
+                    // Handling request rate exceptions.
+
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to connect to the data store. Rate limit has been exceeded.");
+
+                    return HealthCheckResult.Degraded(
+                        description: DegradedDescription,
+                        data: new Dictionary<string, object>
+                        {
+                            { "Reason", HealthStatusReason.ServiceDegraded },
+                            { "Error", FhirHealthErrorCode.Error429.ToString() },
+                        });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to connect to the data store.");
+                    // Handling other exceptions.
 
-                    return HealthCheckResult.Unhealthy("Failed to connect to the data store.");
+                    const string message = "Failed to connect to the data store.";
+                    _logger.LogWarning(ex, message);
+
+                    return HealthCheckResult.Unhealthy(
+                        description: UnhealthyDescription,
+                        data: new Dictionary<string, object>
+                        {
+                            { "Reason", HealthStatusReason.ServiceUnavailable },
+                            { "Error", FhirHealthErrorCode.Error500.ToString() },
+                        });
                 }
             }
             while (true);

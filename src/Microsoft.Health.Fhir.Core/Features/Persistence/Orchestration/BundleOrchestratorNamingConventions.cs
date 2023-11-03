@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         public const string HttpHeaderBundleProcessingLogic = "x-bundle-processing-logic";
 
         public const string HttpHeaderOperationTag = "x-bundle-operation-id";
+
+        public const string HttpHeaderBundleResourceHttpVerb = "x-bundle-resource-http-verb";
     }
 }

@@ -19,7 +19,7 @@ using Newtonsoft.Json;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     internal static class ExportTestHelper
     {
@@ -63,14 +63,69 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
         }
 
-        internal static async Task<Dictionary<(string resourceType, string resourceId), Resource>> GetResourcesFromFhirServer(
+        internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> GetResourcesFromFhirServer(
             TestFhirClient testFhirClient,
             Uri requestUri,
             FhirJsonParser fhirJsonParser,
             ITestOutputHelper outputHelper)
         {
-            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
 
+            try
+            {
+                await foreach (Resource resource in GetResourceListFromFhirServer(testFhirClient, requestUri, fhirJsonParser))
+                {
+                    resourceIdToResourceMapping.TryAdd((resource.TypeName, resource.Id, resource.VersionId), resource);
+                }
+            }
+            catch (Exception ex)
+            {
+                outputHelper.WriteLine($"Unable to parse response into bundle: {ex}");
+                return resourceIdToResourceMapping;
+            }
+
+            return resourceIdToResourceMapping;
+        }
+
+        internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> GetResourcesWithHistoryFromFhirServer(
+            TestFhirClient testFhirClient,
+            Uri requestUri,
+            FhirJsonParser fhirJsonParser,
+            ITestOutputHelper outputHelper)
+        {
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
+
+            try
+            {
+                await foreach (Resource resource in GetResourceListFromFhirServer(testFhirClient, requestUri, fhirJsonParser))
+                {
+                    string resourceWithHistoryUriString = $"{testFhirClient.HttpClient.BaseAddress}/{resource.TypeName}/{resource.Id}/_history";
+
+                    if (requestUri.Query is not null)
+                    {
+                        resourceWithHistoryUriString += requestUri.Query;
+                    }
+
+                    await foreach (Resource historyResource in GetResourceListFromFhirServer(testFhirClient, new Uri(resourceWithHistoryUriString), fhirJsonParser))
+                    {
+                        resourceIdToResourceMapping.TryAdd((historyResource.TypeName, historyResource.Id, historyResource.VersionId), historyResource);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                outputHelper.WriteLine($"Unable to parse response into bundle: {ex}");
+                return resourceIdToResourceMapping;
+            }
+
+            return resourceIdToResourceMapping;
+        }
+
+        private static async IAsyncEnumerable<Resource> GetResourceListFromFhirServer(
+            TestFhirClient testFhirClient,
+            Uri requestUri,
+            FhirJsonParser fhirJsonParser)
+        {
             while (requestUri != null)
             {
                 HttpRequestMessage request = new HttpRequestMessage()
@@ -82,28 +137,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 using HttpResponseMessage response = await testFhirClient.HttpClient.SendAsync(request);
 
                 var responseString = await response.Content.ReadAsStringAsync();
-                Bundle searchResults;
-                try
-                {
-                    searchResults = fhirJsonParser.Parse<Bundle>(responseString);
-                }
-                catch (Exception ex)
-                {
-                    outputHelper.WriteLine($"Unable to parse response into bundle: {ex}");
-                    return resourceIdToResourceMapping;
-                }
-
-                foreach (Bundle.EntryComponent entry in searchResults.Entry)
-                {
-                    resourceIdToResourceMapping.TryAdd((entry.Resource.TypeName, entry.Resource.Id), entry.Resource);
-                }
+                Bundle searchResults = fhirJsonParser.Parse<Bundle>(responseString);
 
                 // Look at whether a continuation token has been returned.
                 string nextLink = searchResults.NextLink?.ToString();
                 requestUri = nextLink == null ? null : new Uri(nextLink);
-            }
 
-            return resourceIdToResourceMapping;
+                foreach (Bundle.EntryComponent entry in searchResults.Entry)
+                {
+                    yield return entry.Resource;
+                }
+            }
         }
 
         internal static (StorageSharedKeyCredential credential, string connectionString) GetStorageCredentialOrConnectionString(Uri storageServiceUri)
@@ -152,14 +196,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return (storageCredential, null);
         }
 
-        internal static async Task<Dictionary<(string resourceType, string resourceId), Resource>> DownloadBlobAndParse(
+        internal static async Task<Dictionary<(string resourceType, string resourceId, string versionId), Resource>> DownloadBlobAndParse(
             IList<Uri> blobUri,
             FhirJsonParser fhirJsonParser,
             ITestOutputHelper outputHelper)
         {
             if (blobUri == null || blobUri.Count == 0)
             {
-                return new Dictionary<(string resourceType, string resourceId), Resource>();
+                return new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
@@ -167,7 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Uri storageServiceUri = new UriBuilder(sampleUri.Scheme, sampleUri.Host).Uri;
 
             (StorageSharedKeyCredential credential, string connectionString) = GetStorageCredentialOrConnectionString(storageServiceUri);
-            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId, string versionId), Resource>();
             var localRun = credential == null;
 
             foreach (Uri uri in blobUri)
@@ -197,7 +241,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     // Ideally this should just be Add, but until we prevent duplicates from being added to the server
                     // there is a chance the same resource being added multiple times resulting in a key conflict.
-                    resourceIdToResourceMapping.TryAdd((resource.TypeName, resource.Id), resource);
+                    resourceIdToResourceMapping.TryAdd((resource.TypeName, resource.Id, resource.VersionId), resource);
                 }
             }
 
@@ -205,18 +249,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         internal static bool ValidateDataFromBothSources(
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromServer,
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount,
-            ITestOutputHelper outputHelper)
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromServer,
+            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromStorageAccount,
+            ITestOutputHelper outputHelper,
+            bool allowDataFromServerToBeSubsetOfExportData = false)
         {
             bool result = true;
 
-            if (dataFromStorageAccount.Count != dataFromServer.Count)
+            if (dataFromStorageAccount.Count != dataFromServer.Count && !(allowDataFromServerToBeSubsetOfExportData && dataFromServer.Count < dataFromStorageAccount.Count))
             {
                 outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 result = false;
 
-                foreach (KeyValuePair<(string resourceType, string resourceId), Resource> kvp in dataFromStorageAccount)
+                foreach (KeyValuePair<(string resourceType, string resourceId, string versionId), Resource> kvp in dataFromStorageAccount)
                 {
                     if (!dataFromServer.ContainsKey(kvp.Key))
                     {
@@ -226,16 +271,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             // Enable this check when creating/updating data validation tests to ensure there is data to export
-            /*
-            if (dataFromStorageAccount.Count == 0)
-            {
-                _outputHelper.WriteLine("No data exported. This test expects data to be present.");
-                return false;
-            }
-            */
+            // if (dataFromStorageAccount.Count == 0)
+            // {
+            //     outputHelper.WriteLine("No data exported. This test expects data to be present.");
+            //     return false;
+            // }
 
             int wrongCount = 0;
-            foreach (KeyValuePair<(string resourceType, string resourceId), Resource> kvp in dataFromServer)
+            foreach (KeyValuePair<(string resourceType, string resourceId, string versionId), Resource> kvp in dataFromServer)
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
@@ -256,7 +299,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
             }
 
-            outputHelper.WriteLine($"Missing or wrong match count: {wrongCount}");
             return result;
         }
     }

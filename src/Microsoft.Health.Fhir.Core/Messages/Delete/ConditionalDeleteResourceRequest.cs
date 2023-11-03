@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
@@ -19,9 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             DeleteOperation deleteOperation,
             int? maxDeleteCount,
-            Guid? bundleOperationId = null,
+            BundleResourceContext bundleResourceContext = null,
             bool deleteAll = false)
-            : base(resourceType, conditionalParameters, bundleOperationId)
+            : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 

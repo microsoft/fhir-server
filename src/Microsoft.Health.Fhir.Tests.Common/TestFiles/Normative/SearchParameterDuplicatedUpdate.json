@@ -1,0 +1,13 @@
+{
+    "resourceType": "SearchParameter",
+    "version": "4.0.1",
+    "name": "relation",
+    "status": "draft",
+    "description": "replaces | transforms | signs | appends",
+    "code": "relation",
+    "base": [
+        "DocumentReference"
+    ],
+    "type": "token",
+    "expression": "DocumentReference.relatesTo.code"
+}

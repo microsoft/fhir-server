@@ -122,8 +122,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+            SqlSearchType searchType = sqlSearchOptions.GetSearchTypeFromOptions();
+
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
+
             if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= sqlSearchOptions.MaxItemCount &&
@@ -203,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            return await SearchImpl(sqlSearchOptions, SqlSearchType.History, null, cancellationToken);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.IncludeHistory | SqlSearchType.IncludeDeleted, null, cancellationToken);
         }
 
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
@@ -282,6 +285,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
+            // ! - Trace
             SqlRootExpression expression = (SqlRootExpression)searchExpression
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(_compartmentSearchRewriter)
@@ -549,18 +553,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId);
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId, options.IncludeHistory, options.IncludeDeleted);
         }
 
-        private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalStartId, long? globalEndId)
+        private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalStartId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
         {
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
             command.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             command.Parameters.AddWithValue("@StartId", startId);
             command.Parameters.AddWithValue("@EndId", endId);
-            command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
+            command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
+            command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
         }
 
         /// <summary>
@@ -573,13 +578,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="windowEndId">The upper bound for the window of time to consider for historical records</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="searchParamHashFilter">When not null then we filter using the searchParameterHash</param>
+        /// <param name="includeHistory">Return historical records that match the other parameters.</param>
+        /// <param name="includeDeleted">Return deleted records that match the other parameters.</param>
         /// <returns>All resources with surrogate ids greater than or equal to startId and less than or equal to endId. If windowEndId is set it will return the most recent version of a resource that was created before windowEndId that is within the range of startId to endId.</returns>
-        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null)
+        public async Task<SearchResult> SearchBySurrogateIdRange(string resourceType, long startId, long endId, long? windowStartId, long? windowEndId, CancellationToken cancellationToken, string searchParamHashFilter = null, bool includeHistory = false, bool includeDeleted = false)
         {
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId);
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
             List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
@@ -694,9 +701,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType == SqlSearchType.History)
+            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory) && searchOptions.Sort.Any())
             {
-                // history is always sorted by _lastUpdated.
+                // history is always sorted by _lastUpdated (except for export).
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 return newSearchOptions;

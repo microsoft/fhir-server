@@ -51,6 +51,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.Core" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Rest.ClientRuntime" />
     <PackageReference Include="Hl7.Fhir.Support.Poco" />
     <PackageReference Include="Hl7.Fhir.Serialization" />
     <PackageReference Include="Hl7.FhirPath" />

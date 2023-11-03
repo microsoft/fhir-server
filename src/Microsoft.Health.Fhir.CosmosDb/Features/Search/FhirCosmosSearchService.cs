@@ -818,6 +818,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     // break from the for loop because enough results have been found
                     return false;
                 }
+                else if (includes.Count == maxCount && !string.IsNullOrEmpty(includeResponse.continuationToken))
+                {
+                    return false;
+                }
             }
 
             return true;
