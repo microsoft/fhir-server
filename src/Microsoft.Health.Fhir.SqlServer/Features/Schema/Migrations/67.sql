@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (66, 'started');
+VALUES (67, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -2895,7 +2895,7 @@ BEGIN TRY
                                    0 AS Dummy
                             FROM   @Input) AS A) AS A
             WHERE  NOT EXISTS (SELECT *
-                               FROM   dbo.JobQueue AS B
+                               FROM   dbo.JobQueue AS B WITH (INDEX (IX_QueueType_DefinitionHash))
                                WHERE  B.QueueType = @QueueType
                                       AND B.DefinitionHash = A.DefinitionHash
                                       AND B.Status <> 5);

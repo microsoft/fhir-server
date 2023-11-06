@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public sealed class EncryptionConfiguration
     {
-        public CustomerManagedKeyEncryption CustomerManagedKeyEncryption { get; set; }
+        public CustomerManagedKeyEncryption CustomerManagedKeyEncryption { get; set; } = new CustomerManagedKeyEncryption();
 
         public bool IsEncryptionSet()
         {

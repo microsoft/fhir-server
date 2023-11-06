@@ -134,15 +134,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Smart
 
                     if (includeFhirUserClaim)
                     {
+                        // Check if the "fhirUser" claim is present.
                         var fhirUser = principal.FindFirstValue(authorizationConfiguration.FhirUserClaim);
                         if (string.IsNullOrEmpty(fhirUser))
                         {
-                            // look for the fhirUser info in a header
-                            if (context.Request.Headers.ContainsKey(KnownHeaders.FhirUserHeader)
-                                && context.Request.Headers.TryGetValue(KnownHeaders.FhirUserHeader, out var hValue))
-                            {
-                                fhirUser = hValue.ToString();
-                            }
+                            // The "fhirUser" claim is not present, check if the "extension_fhirUser" claim is present.
+                            // Azure B2C will prefix the claim with "extension_" if the value is added to the user using a graph extension.
+                            fhirUser = principal.FindFirstValue(authorizationConfiguration.ExtensionFhirUserClaim);
                         }
 
                         try

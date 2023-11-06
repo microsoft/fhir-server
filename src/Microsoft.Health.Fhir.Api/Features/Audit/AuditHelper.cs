@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// </summary>
     public class AuditHelper : IAuditHelper
     {
+        internal const string ProcessingDurationMs = "processingDurationMs";
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
         internal const string UnknownOperationType = "Unknown";
 
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 if (durationMs != null)
                 {
                     additionalProperties = new Dictionary<string, string>();
-                    additionalProperties["durationMs"] = durationMs.ToString();
+                    additionalProperties[ProcessingDurationMs] = durationMs.ToString();
                 }
 
                 _auditLogger.LogAudit(

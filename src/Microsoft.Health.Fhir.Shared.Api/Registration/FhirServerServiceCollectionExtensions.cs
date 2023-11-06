@@ -60,8 +60,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
-                })
-                .AddRazorRuntimeCompilation();
+                });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -133,7 +132,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
-            if (runtimeConfiguration.IsExportBackgroundWorkedSupported)
+            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
             {
                 fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
             }

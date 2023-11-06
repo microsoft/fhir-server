@@ -143,51 +143,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Assert.True(blobUris.All((url) => url.OriginalString.Contains(testContainer)));
         }
 
-        // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
-        [Theory]
-        [InlineData("_isParallel=true")]
-        [InlineData("_isParallel=false")]
-        public async Task GivenFhirServer_WhenDataIsExportedWithHistory_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
+        [Fact]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        public async Task GivenFhirServer_WhenDataIsExportedWithHistoryParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
-            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
-            {
-                // CosmosDB does not have parallel export support yet.
-                return;
-            }
+            await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: false);
+        }
 
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+        [Fact]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        public async Task GivenFhirServer_WhenDataIsExportedWithHistoryNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            await ExportAndSoftDeleteTestHelper(parallel: false, history: true, deletes: false);
+        }
 
-            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history&{parallelQueryParam}");
+        [Fact]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            await ExportAndSoftDeleteTestHelper(parallel: true, history: false, deletes: true);
+        }
 
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+        [Fact]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletesNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            await ExportAndSoftDeleteTestHelper(parallel: false, history: false, deletes: true);
+        }
 
-            // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
-                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+        [Fact]
+        public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: true);
+        }
 
-            // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistory, dataFromExport, _outputHelper));
+        [Fact]
+        [Trait(Traits.Category, Categories.ExportLongRunning)]
+        public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletesNotParallel_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            await ExportAndSoftDeleteTestHelper(parallel: false, history: true, deletes: true);
         }
 
         // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
-        [Theory]
-        [InlineData("_isParallel=true")]
-        [InlineData("_isParallel=false")]
-        public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
+        private async Task ExportAndSoftDeleteTestHelper(bool parallel, bool history, bool deletes)
         {
-            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
+            if (_fixture.DataStore == DataStore.CosmosDb && parallel)
             {
                 // CosmosDB does not have parallel export support yet.
                 return;
             }
 
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+            string uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
+            string includeAssociatedDataParam = (history ? "_history" : string.Empty) + (deletes ? (history ? "," : string.Empty) + "_deleted" : string.Empty);
 
             // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_deleted&{parallelQueryParam}");
+            string parallelQueryParam = $"_isParallel={parallel}";
+            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData={includeAssociatedDataParam}&{parallelQueryParam}");
 
             IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
@@ -195,33 +206,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
-            // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithDeletes, dataFromExport, _outputHelper));
-        }
+            var expectedResources = _fixture.TestResourcesWithHistoryAndDeletes;
 
-        // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
-        [Theory]
-        [InlineData("_isParallel=true")]
-        [InlineData("_isParallel=false")]
-        public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletes_ThenExportedDataIsSameAsDataInFhirServer(string parallelQueryParam)
-        {
-            if (_fixture.DataStore == DataStore.CosmosDb && parallelQueryParam == "_isParallel=true")
+            if (!history)
             {
-                // CosmosDB does not have parallel export support yet.
-                return;
+                expectedResources = _fixture.TestResourcesWithDeletes;
             }
 
-            // NOTE: Azurite or Azure Storage Explorer is required to run these tests locally.
-            var uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
-
-            // Trigger export request and check for export status. _typeFilter and history/soft delete parameters cannot be used together.
-            Uri contentLocation = await _fixture.TestFhirClient.ExportAsync(parameters: $"_since={_fixture.TestDataInsertionTime:O}&_type={uniqueFixtureResources}&includeAssociatedData=_history,_deleted&{parallelQueryParam}");
-
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
-
-            // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
-                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
+            if (!deletes)
+            {
+                expectedResources = _fixture.TestResourcesWithHistory;
+            }
 
             // Assert both data are equal
             Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper));

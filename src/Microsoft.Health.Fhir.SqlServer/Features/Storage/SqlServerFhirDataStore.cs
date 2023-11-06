@@ -157,7 +157,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // Ignore input resource version to get latest version from the store.
-            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+            // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
+            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -407,7 +408,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken);
+            return await GetAsync(keys, false, cancellationToken); // do not return invisible records in public interface
+        }
+
+        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, CancellationToken cancellationToken)
+        {
+            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken, includeInvisible);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
