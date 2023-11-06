@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             IAccessTokenProvider tokenProvider = new AzureAccessTokenProvider(new NullLogger<AzureAccessTokenProvider>());
             IHttpClientFactory httpClientFactory = Substitute.For<IHttpClientFactory>();
             var httpClient = new HttpClient();
-            httpClientFactory.CreateClient().ReturnsForAnyArgs(httpClient);
+            httpClientFactory.CreateClient(Arg.Any<string>()).ReturnsForAnyArgs(httpClient);
             AzureContainerRegistryAccessTokenProvider acrTokenProvider = new AzureContainerRegistryAccessTokenProvider(tokenProvider, httpClientFactory, Options.Create(_convertDataConfiguration), new NullLogger<AzureContainerRegistryAccessTokenProvider>());
 
             await Assert.ThrowsAsync<AzureContainerRegistryTokenException>(() => acrTokenProvider.GetTokenAsync(RegistryServer, default));
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             tokenProvider.GetAccessTokenForResourceAsync(default, default).ReturnsForAnyArgs("Bearer test");
             IHttpClientFactory httpClientFactory = Substitute.For<IHttpClientFactory>();
             var httpClient = new HttpClient(new MockHttpMessageHandler(content, statusCode));
-            httpClientFactory.CreateClient().ReturnsForAnyArgs(httpClient);
+            httpClientFactory.CreateClient(Arg.Any<string>()).ReturnsForAnyArgs(httpClient);
             return new AzureContainerRegistryAccessTokenProvider(tokenProvider, httpClientFactory, Options.Create(_convertDataConfiguration), new NullLogger<AzureContainerRegistryAccessTokenProvider>());
         }
 

@@ -139,7 +139,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 incrementalImportProperties["SucceededResources"] = "0";
                 incrementalImportProperties["FailedResources"] = "0";
 
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -234,7 +233,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 incrementalImportProperties["SucceededResources"] = "0";
                 incrementalImportProperties["FailedResources"] = "0";
 
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -342,7 +340,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 incrementalImportProperties["SucceededResources"] = "0";
                 incrementalImportProperties["FailedResources"] = "0";
 
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -536,7 +533,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -672,7 +668,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -777,7 +772,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -883,7 +877,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -988,7 +981,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),
@@ -1096,7 +1088,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             if (importMode == ImportMode.IncrementalLoad)
             {
-                auditLogger.Received(1);
                 auditLogger.Received().LogAudit(
                     auditAction: Arg.Any<AuditAction>(),
                     operation: Arg.Any<string>(),

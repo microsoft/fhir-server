@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var httpClient = new HttpClient(_httpMessageHandler);
 
-            _httpClientFactory.CreateClient().Returns(httpClient);
+            _httpClientFactory.CreateClient(Arg.Any<string>()).Returns(httpClient);
 
             _controller = new AadSmartOnFhirProxyController(
                 Options.Create(_securityConfiguration),

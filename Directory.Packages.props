@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup Label="CVE Mitigation">
     <!--Please include the CGA id if possible-->
+    <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.16" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="7.0.1" />
     <!--CVE-2023-29331-->
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />

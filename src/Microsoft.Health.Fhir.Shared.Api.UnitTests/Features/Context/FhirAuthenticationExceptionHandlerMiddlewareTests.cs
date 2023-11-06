@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var ex = new Exception("Invalid audience", new SecurityTokenInvalidAudienceException("Invalid audience"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
             await Assert.ThrowsAsync<SecurityTokenInvalidAudienceException>(() => middleware.Invoke(context));
         }
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var ex = new Exception("Invalid issuer", new SecurityTokenInvalidIssuerException("Invalid issuer"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
             await Assert.ThrowsAsync<SecurityTokenInvalidIssuerException>(() => middleware.Invoke(context));
         }
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var ex = new SecurityTokenInvalidIssuerException("Invalid issuer");
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
             await Assert.ThrowsAsync<SecurityTokenInvalidIssuerException>(() => middleware.Invoke(context));
         }
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                                 "Invalid issuer")))));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
 
             await Assert.ThrowsAsync<SecurityTokenInvalidIssuerException>(() => middleware.Invoke(context));
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var ex = new Exception("Some error", new Exception("Some error"));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
 
             await Assert.ThrowsAsync<Exception>(() => middleware.Invoke(context));
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
             var ex = new InvalidOperationException("Some error without inner exception");
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(context));
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
                                 "Some error...")))));
             var context = new DefaultHttpContext();
             var next = Substitute.For<RequestDelegate>();
-            next.Invoke(context).Throws(ex);
+            next.Invoke(context).ThrowsAsync(ex);
             var middleware = new FhirAuthenticationExceptionHandlerMiddleware(next);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.Invoke(context));
