@@ -203,12 +203,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
-        {
-            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            return await SearchImpl(sqlSearchOptions, SqlSearchType.IncludeHistory | SqlSearchType.IncludeDeleted, null, cancellationToken);
-        }
-
         private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
             Expression searchExpression = sqlSearchOptions.Expression;
@@ -553,7 +547,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId, options.IncludeHistory, options.IncludeDeleted);
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
         }
 
         private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalStartId, long? globalEndId, bool? includeHistory, bool? includeDeleted)

@@ -173,8 +173,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
-                    Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)),
                 };
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
@@ -190,9 +188,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
+                var exportResourceVersionTypes = ResourceVersionType.Latest;
+                exportResourceVersionTypes |= _exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0;
+                exportResourceVersionTypes |= _exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0;
+
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
+                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -342,6 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
@@ -420,7 +423,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
             }
         }
 
@@ -438,7 +441,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, ResourceVersionType.Latest, anonymizer, cancellationToken);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
@@ -450,6 +453,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             string resourceType,
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
@@ -471,7 +475,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 resourceType: resourceType,
                                 queryParametersList,
                                 cancellationToken,
-                                true);
+                                true,
+                                resourceVersionTypes);
                         }
 
                         break;

@@ -412,6 +412,6 @@
     <value>The request "_typeFilter" cannot be used with an export request with historical or soft deleted resources.</value>
   </data>
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
-    <value>The export parameter "includeAssociatedData" contains an invalid parameter.</value>
+    <value>The export parameter "includeAssociatedData" contains an invalid value. Only values "_includeHistory" and "_includeHistory" are supported. </value>
   </data>
 </root>

@@ -44,9 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -174,9 +175,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, ResourceVersionType.Histoy);
 
-            SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
+            SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
 
             // If no results are returned from the _history search
             // determine if the resource actually exists or if the results were just filtered out.
@@ -229,10 +230,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
-            SearchOptions searchOptions,
-            CancellationToken cancellationToken);
-
-        protected abstract Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
