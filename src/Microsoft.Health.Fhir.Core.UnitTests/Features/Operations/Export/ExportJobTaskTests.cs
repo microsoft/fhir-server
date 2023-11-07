@@ -149,7 +149,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken,
-                true)
+                true,
+                ResourceVersionType.Latest)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
             bool capturedSearch = false;
@@ -159,7 +160,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken,
-                true)
+                true,
+                ResourceVersionType.Latest)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -339,7 +341,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient, includeHistory: true, includeDeleted: true)),
                 _cancellationToken,
-                true)
+                true,
+                ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)
                 .Returns(x =>
                 {
                     capturedSearch = true;
@@ -357,9 +360,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return arg => arg != null &&
                 arg.Any(x => x.Item1 == "_count" && x.Item2 == "1") &&
                 arg.Any(x => x.Item1 == "_lastUpdated" && x.Item2 == $"le{_exportJobRecord.Till}") &&
-                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType) &&
-                arg.Any(x => x.Item1 == "_includeHistory" && x.Item2 == includeHistory.ToString()) &&
-                arg.Any(x => x.Item1 == "_includeDeleted" && x.Item2 == includeDeleted.ToString());
+                arg.Any(x => x.Item1 == "_type" && x.Item2 == resourceType);
         }
 
         private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
