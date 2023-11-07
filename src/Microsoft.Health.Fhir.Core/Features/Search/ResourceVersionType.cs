@@ -21,11 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Previous versions of the resource - i.e. historical.
         /// </summary>
-        Histoy = 1 << 1,
+        Histoy = 2,
 
         /// <summary>
         /// Resources that have been deleted but are still in the system (soft-delete).
         /// </summary>
-        SoftDeleted = 1 << 2,
+        SoftDeleted = 4,
     }
 }
