@@ -5,7 +5,7 @@ DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
        ,@Mode varchar(100) = 'RT='+isnull(convert(varchar,@ResourceTypeId),'NULL')
                            +' S='+isnull(convert(varchar,@StartId),'NULL')
                            +' E='+isnull(convert(varchar,@EndId),'NULL')
-                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL') -- Could this just be a boolean for if historical records should be returned? GlobalEndId should equal EndId in all cases I can think of.
+                           +' GE='+isnull(convert(varchar,@GlobalEndId),'NULL')
                            +' HI='+isnull(convert(varchar,@IncludeHistory),'NULL')
                            +' DE'+isnull(convert(varchar,@IncludeDeleted),'NULL')
        ,@st datetime = getUTCdate()
