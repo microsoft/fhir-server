@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Fact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: false);
@@ -159,6 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         [Fact]
         [Trait(Traits.Category, Categories.ExportLongRunning)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: true, history: false, deletes: true);
@@ -172,6 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenFhirServer_WhenDataIsExportedWithHistoryAndSoftDeletesParallel_ThenExportedDataIsSameAsDataInFhirServer()
         {
             await ExportAndSoftDeleteTestHelper(parallel: true, history: true, deletes: true);
@@ -187,12 +190,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
         private async Task ExportAndSoftDeleteTestHelper(bool parallel, bool history, bool deletes)
         {
-            if (_fixture.DataStore == DataStore.CosmosDb && parallel)
-            {
-                // CosmosDB does not have parallel export support yet.
-                return;
-            }
-
             string uniqueFixtureResources = string.Join(',', _fixture.TestResourcesWithHistoryAndDeletes.Keys.Select(x => x.resourceType).Distinct());
             string includeAssociatedDataParam = (history ? "_history" : string.Empty) + (deletes ? (history ? "," : string.Empty) + "_deleted" : string.Empty);
 
@@ -219,7 +216,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(_fixture.TestResourcesWithHistoryAndDeletes, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
         }
     }
 }
