@@ -665,7 +665,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                     Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, g.Key, false)),
                                     Expression.SearchParameter(_resourceIdSearchParameter, Expression.In(FieldName.TokenCode, null, g.Select(x => x.ResourceId))))).ToList())));
 
-                    Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
+                    Expression expression = referenceExpression;
+
+                    // If source type is a not a wildcard, include the sourceTypeExpression in the subquery
+                    if (revIncludeExpression.SourceResourceType != "*")
+                    {
+                        expression = Expression.And(sourceTypeExpression, referenceExpression);
+                    }
 
                     var revIncludeSearchOptions = new SearchOptions
                     {

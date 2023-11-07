@@ -99,3 +99,72 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 name=Jon
+
+# The following queries and updates support testing _revinclude=*.*
+# this still uses the SearchDataBatch.json above
+
+### RevInclude=*.*
+GET {{hostname}}/Patient?_id=searchpatient3&_revinclude=*:*
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Update Good Health Clinic
+PUT {{hostname}}/Organization/good
+Authorization: Bearer {{bearer.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "resourceType": "Organization",
+  "id": "good",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      \n      <p>Good Health Clinic</p>\n    \n    </div>"
+  },
+  "identifier": [
+    {
+      "system": "urn:ietf:rfc:3986",
+      "value": "2.16.840.1.113883.19.5"
+    }
+  ],
+  "name": "Good Health Clinic"
+}
+
+### Update patient 3
+PUT {{hostname}}/Patient/searchpatient3
+Authorization: Bearer {{bearer.response.body.access_token}}
+Content-Type: application/json
+
+{
+  "resourceType": "Patient",
+  "id": "searchpatient3",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2023-11-07T18:23:18.037+00:00"
+  },
+  "active": true,
+  "name": [
+    {
+      "family": "Chalmers",
+      "given": [
+        "jon"
+      ]
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1975-01-12",
+  "address": [
+    {
+      "line": [
+        "Dismal Drive"
+      ]
+    }
+  ],
+  "generalPractitioner": [
+    {
+      "reference": "Practitioner/searchpractitioner3"
+    }
+  ],
+  "managingOrganization" : 
+  { 
+    "reference" : "Organization/good"
+  }
+}

@@ -600,13 +600,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else if (expression is IncludeExpression includeExpression)
             {
-                LogSearchParameterData(includeExpression.ReferenceSearchParameter.Url);
+                LogSearchParameterData(includeExpression.ReferenceSearchParameter?.Url);
             }
         }
 
         private void LogSearchParameterData(Uri url, bool isMissing = false)
         {
-            string logOutput = string.Format("SearchParameters in search. Url: {0}.", url.OriginalString);
+            string logOutput = string.Format("SearchParameters in search. Url: {0}.", url?.OriginalString);
 
             if (isMissing)
             {
