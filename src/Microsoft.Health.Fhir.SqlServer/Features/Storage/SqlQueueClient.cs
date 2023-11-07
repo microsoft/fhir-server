@@ -14,6 +14,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
@@ -207,6 +208,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using var cmd = new SqlCommand();
             PopulateGetJobsCommand(cmd, queueType, jobIds: jobIds, returnDefinition: returnDefinition);
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
+        }
+
+        public async Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken)
+        {
+            using var sqlCommand = new SqlCommand();
+            PopulatePeekCommand(sqlCommand, queueType);
+
+            var jobs = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "PeekAsync failed.");
+            if (jobs.Any())
+            {
+                return jobs[0].Id.ToString();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        private static void PopulatePeekCommand(SqlCommand sqlCommand, byte queueType)
+        {
+            sqlCommand.CommandText = "SELECT TOP 1 JobId FROM [dbo].[JobQueue] WITH (NOLOCK) WHERE QueueType = @QueueType AND Status in (0, 1) ORDER BY JobId DESC";
+            sqlCommand.Parameters.AddWithValue("@QueueType", queueType);
         }
 
         public bool IsInitialized()

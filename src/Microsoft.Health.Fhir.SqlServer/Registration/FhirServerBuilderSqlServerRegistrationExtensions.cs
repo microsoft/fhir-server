@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -118,11 +117,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerSearchParameterValidator>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

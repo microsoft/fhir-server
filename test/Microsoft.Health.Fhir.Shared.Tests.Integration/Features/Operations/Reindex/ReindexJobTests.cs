@@ -35,7 +35,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -76,10 +75,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;
-        private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
 
-        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
@@ -149,18 +146,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _reindexUtilities = new ReindexUtilities(
                 () => _scopedDataStore,
-                _searchIndexer,
-                Deserializers.ResourceDeserializer,
-                _supportedSearchParameterDefinitionManager,
                 _searchParameterStatusManager,
                 wrapperFactory);
 
             _searchService = _fixture.SearchService.CreateMockScope();
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
-
-            _throttleController.GetThrottleBasedDelay().Returns(0);
-            _throttleController.GetThrottleBatchSize().Returns(100U);
 
             // Initialize second FHIR service
             await InitialieSecondFHIRService();
@@ -193,12 +184,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Theory]
         [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency + 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1)]
-        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds + 1)]
-        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage + 1)]
         [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency - 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery - 1)]
-        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds - 1)]
-        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MinTargetDataStoreUsagePercentage - 1)]
         [InlineData("Foo", 4)]
         public async Task GivenOutOfRangeReindexParameter_WhenCreatingAReindexJob_ThenExceptionShouldBeThrown(string jobRecordProperty, int value)
         {
@@ -215,14 +202,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
                         request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
                         errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery);
-                        break;
-                    case JobRecordProperties.QueryDelayIntervalInMilliseconds:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
-                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds);
-                        break;
-                    case JobRecordProperties.TargetDataStoreUsagePercentage:
-                        request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, null, (ushort?)value);
-                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinTargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage);
                         break;
                     default:
                         request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -246,12 +225,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Theory]
         [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery)]
-        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds)]
-        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage)]
         [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery)]
-        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds)]
-        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MinTargetDataStoreUsagePercentage)]
         [InlineData("Patient", 4)]
         public async Task GivenValidReindexParameter_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated(string jobRecordProperty, int value)
         {
@@ -263,12 +238,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     break;
                 case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
                     request = new CreateReindexRequest(new List<string>(), new List<string>(), null, (uint?)value);
-                    break;
-                case JobRecordProperties.QueryDelayIntervalInMilliseconds:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, value);
-                    break;
-                case JobRecordProperties.TargetDataStoreUsagePercentage:
-                    request = new CreateReindexRequest(new List<string>(), new List<string>(), null, null, null, (ushort?)value);
                     break;
                 default:
                     request = new CreateReindexRequest(new List<string>(), new List<string>());
@@ -524,7 +493,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             try
             {
                 var cancelReindexHandler = new CancelReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
-                Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
                 await cancelReindexHandler.Handle(new CancelReindexRequest(response.Job.JobRecord.Id), CancellationToken.None);
                 var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
@@ -851,7 +819,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             const int MaxNumberOfAttempts = 120;
 
-            Task reindexWorkerTask = _reindexJobWorker.ExecuteAsync(cancellationTokenSource.Token);
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
             int delayCount = 0;
@@ -894,15 +861,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
 
-            _reindexJobWorker = new ReindexJobWorker(
-                () => _scopedOperationDataStore,
-                Options.Create(_jobConfiguration),
-                InitializeReindexJobTask,
-                _searchParameterOperations,
-                NullLogger<ReindexJobWorker>.Instance);
-
-            await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
-
             return response;
         }
 
@@ -934,22 +892,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
             return searchParam;
-        }
-
-        private ReindexJobTask InitializeReindexJobTask()
-        {
-            return new ReindexJobTask(
-                () => _scopedOperationDataStore,
-                () => _scopedDataStore,
-                Options.Create(_jobConfiguration),
-                () => _searchService,
-                _supportedSearchParameterDefinitionManager,
-                _reindexUtilities,
-                _contextAccessor,
-                _throttleController,
-                ModelInfoProvider.Instance,
-                NullLogger<ReindexJobTask>.Instance,
-                _searchParameterStatusManager);
         }
 
         private ResourceWrapper CreatePatientResourceWrapper(string patientName, string patientId)
