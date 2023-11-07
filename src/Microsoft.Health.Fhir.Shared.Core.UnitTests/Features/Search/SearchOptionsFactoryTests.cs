@@ -497,13 +497,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
         public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
         {
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), null, resourceVersionTypes);
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
             Assert.NotNull(options);
-
             Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
-            Assert.True(options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy));
-            Assert.True(options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
-
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
