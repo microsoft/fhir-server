@@ -41,27 +41,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private ISearchParameterStatusManager _searchParameterStatusmanager;
-        private Func<ReindexOrchestratorJob> _reindexJobTaskFactory;
         private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IQueueClient _queueClient = new TestQueueClient();
-
-        private ISearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
 
         public ReindexOrchestratorJobTests()
         {
             _cancellationToken = _cancellationTokenSource.Token;
-            _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
         }
 
         [Fact]
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
+            var searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+
             // Get one search parameter and configure it such that it needs to be reindexed
-            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
+            var param = searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
 
             // Get one search parameter and configure it such that it needs to be reindexed
             ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
@@ -80,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
              new ReindexOrchestratorJob(
                  _queueClient,
                  () => _searchService.CreateMockScope(),
-                 _searchDefinitionManager,
+                 searchDefinitionManager,
                  ModelInfoProvider.Instance,
                  searchParameterStatusmanager,
                  _searchParameterOperations,
@@ -202,9 +197,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                  new ReindexOrchestratorJob(
                      _queueClient,
                      () => _searchService.CreateMockScope(),
-                     _searchDefinitionManager,
+                     searchParameterDefinitionManager,
                      ModelInfoProvider.Instance,
-                     _searchParameterStatusmanager,
+                     searchParameterStatusmanager,
                      _searchParameterOperations,
                      NullLoggerFactory.Instance);
 
@@ -219,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Status = JobStatus.Running,
             };
 
-            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await _reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
+            var result = JsonConvert.DeserializeObject<ReindexOrchestratorJobResult>(await reindexJobTaskFactory().ExecuteAsync(jobInfo, Substitute.For<IProgress<string>>(), _cancellationToken));
 
             Assert.Equal("Nothing to process. Reindex complete.", result.Error.First().Diagnostics);
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
