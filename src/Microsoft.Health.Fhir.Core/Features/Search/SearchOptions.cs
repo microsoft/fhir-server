@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Which version types (latest, soft-deleted, history) to include in search.
         /// </summary>
-        public ResourceVersionType ResourceVersionTypes { get; internal set; }
+        public ResourceVersionType ResourceVersionTypes { get; internal set; } = ResourceVersionType.Latest;
 
         /// <summary>
         /// Gets the search expression.
