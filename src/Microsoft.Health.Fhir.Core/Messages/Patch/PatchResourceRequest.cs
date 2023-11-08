@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
@@ -11,19 +10,20 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
     public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, Guid? bundleOperationId, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, BundleResourceContext bundleResourceContext, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
             EnsureArg.IsNotNull(payload, nameof(payload));
 
             ResourceKey = resourceKey;
             Payload = payload;
-            BundleOperationId = bundleOperationId;
+            BundleResourceContext = bundleResourceContext;
             WeakETag = weakETag;
         }
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public ResourceKey ResourceKey { get; }
 
-        public Guid? BundleOperationId { get; }
+        public BundleResourceContext BundleResourceContext { get; }
 
         public WeakETag WeakETag { get; }
 

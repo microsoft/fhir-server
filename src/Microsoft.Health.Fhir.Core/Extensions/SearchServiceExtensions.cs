@@ -62,17 +62,18 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
-            if (!string.IsNullOrEmpty(continuationToken))
-            {
-                filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
-            }
-
             var matchedResults = new List<SearchResultEntry>();
-            string lastContinuationToken = null;
+            string lastContinuationToken = continuationToken;
 
             do
             {
-                SearchResult results = await searchService.SearchAsync(instanceType, filteredParameters.ToImmutableList(), cancellationToken);
+                var searchParameters = new List<Tuple<string, string>>(filteredParameters);
+                if (!string.IsNullOrEmpty(lastContinuationToken))
+                {
+                    searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));
+                }
+
+                SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken);
                 lastContinuationToken = results?.ContinuationToken;
 
                 // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results

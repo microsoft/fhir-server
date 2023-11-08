@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -44,6 +45,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
+        private const int MergeAsyncDegreeOfParallelism = -1; // Max degree of parallelism during merge async. -1 will attempt to use all resources available in the system.
+
         private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
 
         /// <summary>
@@ -130,11 +133,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
+            return await MergeAsync(resources, MergeOptions.Default, cancellationToken);
+        }
+
+        public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
+        {
             if (resources == null || resources.Count == 0)
             {
                 return new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             }
 
+            Stopwatch watch = Stopwatch.StartNew();
             var results = new ConcurrentDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
 
             await MergeInternalAsync(resources, results, null, cancellationToken);
@@ -154,6 +163,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
+            if (resources.Count > 2)
+            {
+                _logger.LogDebug("CosmosDbMergeAsync - Resource: {CountOfResources} - {ElapsedTime}ms", resources.Count, watch.ElapsedMilliseconds);
+            }
+
             return results;
         }
 
@@ -164,6 +178,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (maxParallelism.HasValue)
             {
                 parallelOptions.MaxDegreeOfParallelism = maxParallelism.Value;
+            }
+            else
+            {
+                parallelOptions.MaxDegreeOfParallelism = MergeAsyncDegreeOfParallelism;
             }
 
             await Parallel.ForEachAsync(resources, parallelOptions, async (resource, innerCt) =>
@@ -202,24 +220,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
-            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleOperationId != null;
+            bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
 
             if (isBundleOperation)
             {
-                IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleOperationId.Value);
+                IBundleOrchestratorOperation operation = _bundleOrchestrator.GetOperation(resource.BundleResourceContext.BundleOperationId);
 
                 // Internally Bundle Operation calls "MergeAsync".
                 return await operation.AppendResourceAsync(resource, this, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                return await InternalUpsertAsync(
-                    resource.Wrapper,
-                    resource.WeakETag,
-                    resource.AllowCreate,
-                    resource.KeepHistory,
-                    cancellationToken,
-                    resource.RequireETagOnUpdate);
+                try
+                {
+                    return await InternalUpsertAsync(
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        cancellationToken,
+                        resource.RequireETagOnUpdate);
+                }
+                catch (FhirException fhirException)
+                {
+                    // This block catches only FhirExceptions. FhirException can be thrown by the data store layer
+                    // in different situations, like: Failed pre-conditions, bad requests, resource not found, etc.
+
+                    _logger.LogInformation("Upserting failed. {ExceptionType}: {ExceptionMessage}", fhirException.GetType().ToString(), fhirException.Message);
+
+                    throw;
+                }
             }
         }
 
@@ -244,7 +274,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
-            _logger.LogDebug("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
+            _logger.LogInformation("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {

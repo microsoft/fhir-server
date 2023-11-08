@@ -131,8 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             IOptions<SqlServerDataStoreConfiguration> config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateNoneRetryProvider();
 
-            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, sqlRetryLogicBaseProvider);
+            var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(config, sqlRetryLogicBaseProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlTransactionHandler = new SqlTransactionHandler();
@@ -171,11 +170,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
 
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
-            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProviderFunc = p => sqlConnectionStringProvider;
             Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => defaultSqlConnectionWrapperFactory;
 
             var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionStringProviderFunc);
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaUpgradeRunnerFactory);
             collection.AddScoped(schemaManagerDataStoreFactory);

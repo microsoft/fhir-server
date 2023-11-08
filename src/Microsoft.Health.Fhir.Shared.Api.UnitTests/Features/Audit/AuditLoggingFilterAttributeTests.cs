@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -56,6 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         public void GivenAController_WhenExecutedAction_ThenAuditLogShouldBeLogged()
         {
             var fhirResult = new FhirResult(new Patient() { Name = { new HumanName() { Text = "TestPatient" } } }.ToResourceElement());
+            _httpContext.Items["timer"] = Stopwatch.StartNew();
 
             var resultExecutedContext = new ResultExecutedContext(
                 new ActionContext(_httpContext, new RouteData(), new ControllerActionDescriptor() { DisplayName = "Executed Context Test Descriptor" }),
@@ -65,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _filter.OnResultExecuted(resultExecutedContext);
 
-            _auditHelper.Received(1).LogExecuted(_httpContext, _claimsExtractor);
+            _auditHelper.Received(1).LogExecuted(_httpContext, _claimsExtractor, Arg.Any<bool>(), Arg.Any<long>());
         }
     }
 }

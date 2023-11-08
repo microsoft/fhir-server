@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
@@ -20,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             string resourceType,
             PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            Guid? bundleOperationId,
+            BundleResourceContext bundleResourceContext,
             WeakETag weakETag = null)
-            : base(resourceType, conditionalParameters, bundleOperationId)
+            : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(payload, nameof(payload));
 

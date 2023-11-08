@@ -24,6 +24,10 @@ jobs:
     name: Check Metadata
     runs-on: "ubuntu-latest"
     steps:
+      - uses: actions/checkout@v4 # Uploads repository content to the runner
+        with:
+          repository: "microsoft/fhir-server"
+      - uses: actions/labeler@v4
       - uses: actions/github-script@v6
         with:
           script: |
@@ -56,6 +60,13 @@ jobs:
                labels.includes("Build") == false &&
                labels.includes("Documentation") == false) {
               errors += '- Tag the PR with **Open source only**, **Azure API for FHIR** (CosmosDB or common code) or **Azure Healthcare APIs** (SQL or common code) to specify where this change is intended to be released. ';
+            }
+
+            if(labels.includes("SQL Scripts") == true && 
+               labels.includes("Schema Version backward incompatible") == false &&
+               labels.includes("Schema Version unchanged") == false &&              
+               labels.includes("Schema Version backward compatible") == false) {
+              errors += '- Tag the PR with the type of update: **Schema Version backward incompatible**, **Schema Version backward compatible**. \n';
             }
 
             if(errors != "") {

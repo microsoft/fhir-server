@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Client
 {
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Client
             }
         }
 
-        public string GetActivityId()
+        public string GetRequestId()
         {
             if (Headers != null)
             {
@@ -51,6 +52,18 @@ namespace Microsoft.Health.Fhir.Client
             }
 
             return "NO_FHIR_ACTIVITY_ID_FOR_THIS_TRANSACTION";
+        }
+
+        public string GetFhirResponseDetailsAsJson()
+        {
+            JObject details = JObject.FromObject(new
+            {
+                requestUri = Response.RequestMessage?.RequestUri,
+                requestId = GetRequestId(),
+                statusCode = Response.StatusCode,
+            });
+
+            return details.ToString();
         }
     }
 }

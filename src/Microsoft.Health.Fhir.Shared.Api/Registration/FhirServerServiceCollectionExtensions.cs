@@ -60,8 +60,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
-                })
-                .AddRazorRuntimeCompilation();
+                });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -121,21 +120,22 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <summary>
         /// Adds background worker services.
         /// </summary>
-        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
-        /// <param name="addExportWorker">Whether to add the background worker for export jobs</param>
+        /// <param name="fhirServerBuilder">FHIR server builder.</param>
+        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
         /// <returns>The builder.</returns>
         public static IFhirServerBuilder AddBackgroundWorkers(
             this IFhirServerBuilder fhirServerBuilder,
-            bool addExportWorker)
+            IFhirRuntimeConfiguration runtimeConfiguration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
 
-            if (addExportWorker)
+            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
+
+            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
             {
                 fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
             }
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }

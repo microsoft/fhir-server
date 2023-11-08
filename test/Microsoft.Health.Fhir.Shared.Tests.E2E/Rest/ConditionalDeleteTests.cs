@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             catch (FhirClientException fce)
             {
-                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetActivityId()}. Error: {fce.Message}");
+                Assert.Fail($"A non-expected '{nameof(FhirClientException)}' was raised. Url: {_client.HttpClient.BaseAddress}. Activity Id: {fce.Response.GetRequestId()}. Error: {fce.Message}");
             }
             catch (Exception ex)
             {
