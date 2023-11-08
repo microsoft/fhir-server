@@ -124,6 +124,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             queryParameters: queryParameters);
 
             Assert.NotNull(options);
+            Assert.Equal(10, options.MaxItemCount);
+        }
+
+        [Theory]
+        [InlineData("a")]
+        [InlineData("1.1")]
+        public void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", value),
+            };
+
+            System.FormatException exception = Assert.Throws<System.FormatException>(() => CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters));
+
+            Assert.Equal("Input string was not in a correct format.", exception.Message);
         }
 
         [Fact]
