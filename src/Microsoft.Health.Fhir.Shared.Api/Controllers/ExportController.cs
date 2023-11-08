@@ -379,7 +379,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if ((includeHistory || includeDeleted) && !string.IsNullOrWhiteSpace(typeFilter))
             {
-                throw new RequestNotValidException(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport);
+                throw new RequestNotValidException(string.Format(Resources.TypeFilterNotSupportedWithHistoryOrDeletedExport, "_history and _deleted"));
             }
 
             return (includeHistory, includeDeleted);

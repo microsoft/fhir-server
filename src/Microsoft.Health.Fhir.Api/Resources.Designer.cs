@@ -383,16 +383,16 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidElementsParameter", resourceCulture);
             }
         }
-
+        
         /// <summary>
-        ///   Looks up a localized string similar to invalid parametr given for export associated data.
+        ///   Looks up a localized string similar to The export parameter &quot;includeAssociatedData&quot; contains an invalid value. Supported values are: {0}. .
         /// </summary>
         public static string InvalidExportAssociatedDataParameter {
             get {
                 return ResourceManager.GetString("InvalidExportAssociatedDataParameter", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Invalid launch context parameters..
         /// </summary>
