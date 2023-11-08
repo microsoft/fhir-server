@@ -183,8 +183,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 },
             };
 
-            IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig = Substitute.For<IOptions<ImplementationGuidesConfiguration>>();
-            implementationGuidesConfig.Value.Returns<ImplementationGuidesConfiguration>(implementationGuidesConfiguration);
+            IOptions<ImplementationGuidesConfiguration> implementationGuidesConfig = Options.Create<ImplementationGuidesConfiguration>(implementationGuidesConfiguration);
 
             // Simulating a FHIR Request Context with or without SMART user.
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor = GetRequestContext(isSmartUserRequest);
