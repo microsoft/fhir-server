@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, ResourceVersionType.Histoy);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, ResourceVersionType.Latest | ResourceVersionType.Histoy);
 
             SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
 
