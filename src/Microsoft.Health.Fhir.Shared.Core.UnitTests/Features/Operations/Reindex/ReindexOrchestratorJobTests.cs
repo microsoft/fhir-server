@@ -55,47 +55,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _cancellationToken = _cancellationTokenSource.Token;
             _searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
-
-            var job = CreateReindexJobRecord();
-            List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
-            {
-                new SearchParameterInfo(
-                    "Account",
-                    "status",
-                    ValueSets.SearchParamType.Token,
-                    url: new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
-                    baseResourceTypes: new List<string>()
-                    {
-                        "Account",
-                        "_count",
-                        "_type",
-                    })
-                {
-                    IsSearchable = true,
-                    SearchParameterStatus = SearchParameterStatus.Enabled,
-                },
-            };
-            ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
-            {
-                new ResourceSearchParameterStatus()
-                {
-                    LastUpdated = DateTime.UtcNow,
-                    Uri = new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
-                    Status = SearchParameterStatus.Enabled,
-                },
-            });
-
-            _searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
-            _searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
-            _reindexJobTaskFactory = () =>
-                 new ReindexOrchestratorJob(
-                     _queueClient,
-                     () => _searchService.CreateMockScope(),
-                     _searchDefinitionManager,
-                     ModelInfoProvider.Instance,
-                     _searchParameterStatusmanager,
-                     _searchParameterOperations,
-                     NullLoggerFactory.Instance);
         }
 
         [Fact]
@@ -205,6 +164,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCompletesWithNoWork()
         {
+            List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
+            {
+                new SearchParameterInfo(
+                    "Account",
+                    "status",
+                    ValueSets.SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    baseResourceTypes: new List<string>()
+                    {
+                        "Account",
+                        "_count",
+                        "_type",
+                    })
+                {
+                    IsSearchable = true,
+                    SearchParameterStatus = SearchParameterStatus.Enabled,
+                },
+            };
+            ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
+            {
+                new ResourceSearchParameterStatus()
+                {
+                    LastUpdated = DateTime.UtcNow,
+                    Uri = new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    Status = SearchParameterStatus.Enabled,
+                },
+            });
+
+            var searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+
+            searchParameterStatusmanager.GetAllSearchParameterStatus(_cancellationToken).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
+            searchParameterDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
+
+            var reindexJobTaskFactory = () =>
+                 new ReindexOrchestratorJob(
+                     _queueClient,
+                     () => _searchService.CreateMockScope(),
+                     _searchDefinitionManager,
+                     ModelInfoProvider.Instance,
+                     _searchParameterStatusmanager,
+                     _searchParameterOperations,
+                     NullLoggerFactory.Instance);
+
             var job = CreateReindexJobRecord();
             JobInfo jobInfo = new JobInfo()
             {
