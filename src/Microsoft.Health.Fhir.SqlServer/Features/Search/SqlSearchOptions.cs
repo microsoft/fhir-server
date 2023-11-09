@@ -37,14 +37,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         internal SqlSearchType GetSearchTypeFromOptions()
         {
-            var searchType = SqlSearchType.Default;
+            SqlSearchType searchType = 0;
 
-            if (IncludeHistory)
+            if (ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
+            {
+                searchType |= SqlSearchType.Default;
+            }
+
+            if (ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy))
             {
                 searchType |= SqlSearchType.IncludeHistory;
             }
 
-            if (IncludeDeleted)
+            if (ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted))
             {
                 searchType |= SqlSearchType.IncludeDeleted;
             }

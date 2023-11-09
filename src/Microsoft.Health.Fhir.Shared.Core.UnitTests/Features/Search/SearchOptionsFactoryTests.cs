@@ -339,8 +339,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateMultiaryExpression(
@@ -363,8 +363,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
@@ -382,8 +382,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                invalidCompartmentType,
-                "123"));
+                compartmentType: invalidCompartmentType,
+                compartmentId: "123"));
 
             Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
         }
@@ -398,8 +398,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: ResourceType.Claim.ToString(),
                 queryParameters: null,
-                CompartmentType.Patient.ToString(),
-                invalidCompartmentId));
+                compartmentType: CompartmentType.Patient.ToString(),
+                compartmentId: invalidCompartmentId));
 
             Assert.Equal("Compartment id is null or empty.", exception.Message);
         }
@@ -488,42 +488,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData("false", "false")]
-        [InlineData("true", "false")]
-        [InlineData("false", "true")]
-        [InlineData("true", "true")]
-        [InlineData("TRUE", "TRUE")]
-        [InlineData("bad", "bad")]
-        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(string includeHistory, string includeDeleted)
+        [InlineData(ResourceVersionType.Latest)]
+        [InlineData(ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
         {
-            var queryParameters = new[]
-            {
-                Tuple.Create(KnownQueryParameterNames.IncludeHistory, includeHistory),
-                Tuple.Create(KnownQueryParameterNames.IncludeDeleted, includeDeleted),
-            };
-
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), queryParameters);
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
             Assert.NotNull(options);
-
-            bool includeHistoryBool = false;
-            bool includeDeletedBool = false;
-
-            bool.TryParse(includeHistory, out includeHistoryBool);
-            bool.TryParse(includeDeleted, out includeDeletedBool);
-
-            Assert.Equal(includeHistoryBool, options.IncludeHistory);
-            Assert.Equal(includeDeletedBool, options.IncludeDeleted);
-
+            Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
             string compartmentId = null)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
         }
     }
 }

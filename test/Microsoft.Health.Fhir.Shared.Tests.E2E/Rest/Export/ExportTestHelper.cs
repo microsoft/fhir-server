@@ -81,7 +81,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             catch (Exception ex)
             {
                 outputHelper.WriteLine($"Unable to parse response into bundle: {ex}");
-                return resourceIdToResourceMapping;
             }
 
             return resourceIdToResourceMapping;

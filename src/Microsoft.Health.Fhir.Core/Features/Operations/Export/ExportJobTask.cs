@@ -169,12 +169,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist in the job record.
                 var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
-                List<Tuple<string, string>> queryParametersList = new()
+                var queryParametersList = new List<Tuple<string, string>>()
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
-                    Tuple.Create(KnownQueryParameterNames.IncludeHistory, _exportJobRecord.IncludeHistory.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.IncludeDeleted, _exportJobRecord.IncludeDeleted.ToString(CultureInfo.InvariantCulture)),
                 };
 
                 if (_exportJobRecord.GlobalEndSurrogateId != null) // no need to check individually as they all should have values if anyone does
@@ -190,6 +188,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
+                var exportResourceVersionTypes = ResourceVersionType.Latest |
+                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0) |
+                    (_exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0);
+
                 if (_exportJobRecord.FeedRange is not null)
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.FeedRange, _exportJobRecord.FeedRange));
@@ -197,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
+                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, exportResourceVersionTypes, cancellationToken);
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -347,6 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
@@ -373,7 +376,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
             }
 
             if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
@@ -386,7 +389,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
                     }
                 }
             }
@@ -425,7 +428,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
             }
         }
 
@@ -434,6 +437,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress exportJobProgress,
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
@@ -443,7 +447,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
@@ -455,6 +459,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             string resourceType,
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
@@ -476,7 +481,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 resourceType: resourceType,
                                 queryParametersList,
                                 cancellationToken,
-                                true);
+                                true,
+                                resourceVersionTypes);
                         }
 
                         break;
