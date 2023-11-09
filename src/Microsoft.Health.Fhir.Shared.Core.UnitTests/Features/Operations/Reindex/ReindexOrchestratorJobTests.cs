@@ -54,11 +54,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             var searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-
-            // Get one search parameter and configure it such that it needs to be reindexed
+            List<SearchParameterInfo> searchParameterInfos = new List<SearchParameterInfo>()
+            {
+                new SearchParameterInfo(
+                    "Account",
+                    "status",
+                    ValueSets.SearchParamType.Token,
+                    url: new Uri("http://hl7.org/fhir/SearchParameter/Account-status"),
+                    baseResourceTypes: new List<string>()
+                    {
+                        "Account",
+                        "_count",
+                        "_type",
+                    })
+                {
+                    IsSearchable = true,
+                    SearchParameterStatus = SearchParameterStatus.Enabled,
+                },
+            };
+            searchDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
             var param = searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
 
-            // Get one search parameter and configure it such that it needs to be reindexed
             ReadOnlyCollection<ResourceSearchParameterStatus> status = new ReadOnlyCollection<ResourceSearchParameterStatus>(new List<ResourceSearchParameterStatus>()
             {
                 new ResourceSearchParameterStatus()
