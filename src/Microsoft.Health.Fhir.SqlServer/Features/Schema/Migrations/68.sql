@@ -804,7 +804,7 @@ CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourc
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId
-    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
+    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (

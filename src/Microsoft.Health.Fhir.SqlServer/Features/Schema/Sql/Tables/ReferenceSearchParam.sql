@@ -49,6 +49,7 @@ CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamI
    ,SearchParamId
    ,BaseUri
    ,ResourceSurrogateId
+   ,ResourceTypeId
   )
   WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
