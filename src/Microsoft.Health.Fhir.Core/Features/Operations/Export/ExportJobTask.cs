@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 // As Till is a new property QueuedTime is being used as a backup incase Till doesn't exist in the job record.
                 var tillTime = _exportJobRecord.Till != null ? _exportJobRecord.Till : new PartialDateTime(_exportJobRecord.QueuedTime);
-                List<Tuple<string, string>> queryParametersList = new()
+                var queryParametersList = new List<Tuple<string, string>>()
                 {
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{tillTime}"),
@@ -188,9 +188,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
-                var exportResourceVersionTypes = ResourceVersionType.Latest;
-                exportResourceVersionTypes |= _exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0;
-                exportResourceVersionTypes |= _exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0;
+                var exportResourceVersionTypes = ResourceVersionType.Latest |
+                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0) |
+                    (_exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0);
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
             }
 
             if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, cancellationToken);
+                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
                     }
                 }
             }
@@ -432,6 +432,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress exportJobProgress,
             List<Tuple<string, string>> queryParametersList,
             List<Tuple<string, string>> sharedQueryParametersList,
+            ResourceVersionType resourceVersionTypes,
             IAnonymizer anonymizer,
             CancellationToken cancellationToken)
         {
@@ -441,7 +442,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, ResourceVersionType.Latest, anonymizer, cancellationToken);
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, resourceVersionTypes, anonymizer, cancellationToken);
 
             exportJobProgress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
