@@ -184,6 +184,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, SupportedTotalTypes));
                     }
                 }
+                else if (query.Item1 == KnownQueryParameterNames.Count && Convert.ToInt32(query.Item2) == 0)
+                {
+                    try
+                    {
+                        searchParams.Add(KnownQueryParameterNames.Summary, SummaryType.Count.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new BadRequestException(ex.Message);
+                    }
+                }
                 else
                 {
                     // Parse the search parameters.
