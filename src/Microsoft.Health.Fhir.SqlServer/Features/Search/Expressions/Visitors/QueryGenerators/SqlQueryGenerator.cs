@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography.Xml;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -53,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _searchParamCount = 0;
         private bool previousSqlQueryGeneratorFailure = false;
         private int maxTableExpressionCountLimitForExists = 5;
+        private ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -61,12 +64,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             SqlSearchType searchType,
             SchemaInformation schemaInfo,
             string searchParameterHash,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             SqlException sqlException = null)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             StringBuilder = sb;
             Parameters = parameters;
@@ -74,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _searchType = searchType;
             _schemaInfo = schemaInfo;
             _searchParameterHash = searchParameterHash;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
 
             if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
@@ -891,6 +897,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                         .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
+                }
+                else if (includeExpression.Reversed && includeExpression.SourceResourceType == "*")
+                {
+                    // read all search parameters which have a target type that matches the resource type for this search request
+                    // create a collection of the base resource types for these search parameters
+                    // this will be an exhaustive list of possible resource types which can have a reference to this resource type
+                    var targetSearchParams = _searchParameterDefinitionManager.GetSearchParameters("*").Where(p => p.TargetResourceTypes.Any(tr => includeExpression.ResourceTypes.Contains(tr)));
+                    var baseTypes = new HashSet<short>();
+                    foreach (var targetSearchParam in targetSearchParams)
+                    {
+                        foreach (var baseType in targetSearchParam.BaseResourceTypes)
+                        {
+                            baseTypes.Add(Model.GetResourceTypeId(baseType));
+                        }
+                    }
+
+                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                    .Append(" IN (")
+                    .Append(string.Join(", ", baseTypes))
+                    .Append(")");
                 }
 
                 delimited.BeginDelimitedElement().Append("EXISTS( SELECT * FROM ").Append(fromCte)

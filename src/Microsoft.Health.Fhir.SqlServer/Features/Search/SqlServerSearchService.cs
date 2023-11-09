@@ -22,6 +22,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -87,6 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -99,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(compartmentSearchRewriter, nameof(compartmentSearchRewriter));
             EnsureArg.IsNotNull(smartCompartmentSearchRewriter, nameof(smartCompartmentSearchRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
@@ -112,6 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
@@ -342,6 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 searchType,
                                 _schemaInformation,
                                 currentSearchParameterHash,
+                                _searchParameterDefinitionManager,
                                 sqlException);
 
                             expression.AcceptVisitor(queryGenerator, clonedSearchOptions);

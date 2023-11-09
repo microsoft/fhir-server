@@ -89,6 +89,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
+            if (resourceType == "*")
+            {
+                return UrlLookup.Values;
+            }
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
