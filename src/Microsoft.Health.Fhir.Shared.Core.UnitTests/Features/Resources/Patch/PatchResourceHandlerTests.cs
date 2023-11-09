@@ -42,7 +42,7 @@ public class PatchResourceHandlerTests
         _patchHandler = Mock.TypeWithArguments<PatchResourceHandler>(_mediator, authService, fhirDataStore);
 
         authService
-            .CheckAccess(Arg.Any<DataActions>(), CancellationToken.None)
+            .CheckAccess(Arg.Any<DataActions>(), Arg.Is(CancellationToken.None))
             .Returns(x => ValueTask.FromResult((DataActions)x[0]));
 
         ResourceElement patient = Samples.GetDefaultPatient().UpdateVersion("1");
