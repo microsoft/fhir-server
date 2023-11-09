@@ -80,8 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             var searchService = Substitute.For<ISearchService>();
-            var scopedService = searchService.CreateMockScope();
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => scopedService, NullLogger<SearchParameterDefinitionManager>.Instance);
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
