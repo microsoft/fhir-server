@@ -27,8 +27,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         public SqlServerFhirDataBulkOperationTests(SqlServerFhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
-            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+            var operationsConfiguration = Options.Create(new OperationsConfiguration());
             operationsConfiguration.Value.Import.DisableOptionalIndexesForImport = true;
             _reindexer = new SqlImportReindexer(_fixture.SqlServerFhirDataStore, _fixture.SqlConnectionWrapperFactory, operationsConfiguration, NullLogger<SqlImportReindexer>.Instance);
         }

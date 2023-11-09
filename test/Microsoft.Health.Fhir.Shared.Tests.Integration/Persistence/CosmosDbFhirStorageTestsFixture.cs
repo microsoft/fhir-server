@@ -165,8 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory);
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(bundleConfiguration);
+            var bundleOptions = Options.Create(bundleConfiguration);
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 

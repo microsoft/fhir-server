@@ -86,8 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
             _bundleConfiguration = new BundleConfiguration();
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(_bundleConfiguration);
+            var bundleOptions = Options.Create(_bundleConfiguration);
 
             var logger = Substitute.For<ILogger<BundleOrchestrator>>();
 

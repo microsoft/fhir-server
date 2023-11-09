@@ -72,8 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
         {
             (var helper, var sqlConnectionWrapperFactory, var schemaInformation) = await SetupTestHelperAndCreateDatabase(databaseName, SchemaVersionConstants.Max);
 
-            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration()
+            var operationsConfiguration = Options.Create(new OperationsConfiguration()
             {
                 Import = new ImportTaskConfiguration()
                 {
@@ -197,8 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Import
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = true };
-            var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
-            bundleOptions.Value.Returns(bundleConfiguration);
+            var bundleOptions = Options.Create(bundleConfiguration);
 
             var bundleOrchestrator = new BundleOrchestrator(bundleOptions, NullLogger<BundleOrchestrator>.Instance);
 

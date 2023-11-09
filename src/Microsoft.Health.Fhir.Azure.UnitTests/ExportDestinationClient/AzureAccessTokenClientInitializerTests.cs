@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         public AzureAccessTokenClientInitializerTests()
         {
             _exportJobConfiguration = new ExportJobConfiguration();
-            IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
-            optionsExportConfig.Value.Returns(_exportJobConfiguration);
+            IOptions<ExportJobConfiguration> optionsExportConfig = Options.Create(_exportJobConfiguration);
 
             _logger = Substitute.For<ILogger<AzureAccessTokenClientInitializer>>();
 

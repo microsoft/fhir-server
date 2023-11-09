@@ -132,8 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Reindex = reindexConfig,
             };
 
-            IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            optionsOperationConfiguration.Value.Returns(operationConfig);
+            IOptions<OperationsConfiguration> optionsOperationConfiguration = Options.Create(operationConfig);
 
             return new ReindexController(
                 _mediator,

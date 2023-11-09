@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
-                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
+                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _fhirDataStore = Substitute.For<IFhirDataStore>();

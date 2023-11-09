@@ -258,14 +258,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Export = exportConfig,
             };
 
-            IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            optionsOperationConfiguration.Value.Returns(operationConfig);
+            IOptions<OperationsConfiguration> optionsOperationConfiguration = Options.Create(operationConfig);
 
-            IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
-            optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfig);
+            IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Options.Create(artifactStoreConfig);
 
-            IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
-            optionsFeatures.Value.Returns(features);
+            IOptions<FeatureConfiguration> optionsFeatures = Options.Create(features);
 
             return new ExportController(
                 _mediator,

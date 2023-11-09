@@ -44,8 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
         public ConformanceBuilderTests()
         {
-            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            configuration.Value.Returns(new CoreFeatureConfiguration());
+            IOptions<CoreFeatureConfiguration> configuration = Options.Create(new CoreFeatureConfiguration());
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<ISupportedProfilesStore>();
@@ -91,11 +90,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData("PaTient")]
         public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic(string resourceType)
         {
-            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
             versionConfig.ResourceTypeOverrides.Add(resourceType, "no-version");
-
+            IOptions<CoreFeatureConfiguration> configuration = Options.Create(new CoreFeatureConfiguration() { Versioning = versionConfig });
             configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
@@ -123,12 +121,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesContainsResourcesThatDontMatch_ThenResourceUsesDefaultVersionLogic()
         {
-            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
             versionConfig.ResourceTypeOverrides.Add("blah", "no-version");
-
-            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            IOptions<CoreFeatureConfiguration> configuration = Options.Create(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
@@ -155,11 +151,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenResourceTypeOverridesIsEmpty_ThenResourceUsesDefaultVersionLogic()
         {
-            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             Dictionary<string, string> overrides = new();
             VersioningConfiguration versionConfig = new();
 
-            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            IOptions<CoreFeatureConfiguration> configuration = Options.Create(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,

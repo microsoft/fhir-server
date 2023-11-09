@@ -285,8 +285,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             };
             ReadOnlyDictionary<string, string> customHeaders = new ReadOnlyDictionary<string, string>(headers);
             var securityConfig = new SecurityConfiguration();
-            IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();
-            optionsConfig.Value.Returns(securityConfig);
+            IOptions<SecurityConfiguration> optionsConfig = Options.Create(securityConfig);
             var logger = new TestLogger();
             var auditLogger = new AuditLogger(optionsConfig, logger);
 

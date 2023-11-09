@@ -35,8 +35,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             _logger = Substitute.For<ILogger<AzureExportDestinationClient>>();
 
             _exportJobConfiguration = new ExportJobConfiguration();
-            IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
-            optionsExportConfig.Value.Returns(_exportJobConfiguration);
+            IOptions<ExportJobConfiguration> optionsExportConfig = Options.Create(_exportJobConfiguration);
 
             _exportDestinationClient = new AzureExportDestinationClient(_exportClientInitializer, optionsExportConfig, _logger);
         }

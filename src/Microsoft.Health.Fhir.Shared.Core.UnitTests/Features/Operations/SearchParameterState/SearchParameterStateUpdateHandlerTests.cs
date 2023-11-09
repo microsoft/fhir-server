@@ -287,9 +287,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         private (IAuditLogger auditLogger, TestLogger logger) CreateTestAuditLogger()
         {
-            IOptions<SecurityConfiguration> optionsConfig = Substitute.For<IOptions<SecurityConfiguration>>();
+            IOptions<SecurityConfiguration> optionsConfig;
             var securityConfig = new SecurityConfiguration();
-            optionsConfig.Value.Returns(securityConfig);
+            optionsConfig = Options.Create(securityConfig);
             var logger = new TestLogger();
             var auditLogger = new AuditLogger(optionsConfig, logger);
 

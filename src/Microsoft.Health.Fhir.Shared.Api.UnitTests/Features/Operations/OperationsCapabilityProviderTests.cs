@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
         public class OperationsCapabilityProviderTests
         {
             private readonly IUrlResolver _urlResolver;
-            private readonly IOptions<OperationsConfiguration> _operationsOptions = Substitute.For<IOptions<OperationsConfiguration>>();
-            private readonly IOptions<FeatureConfiguration> _featureOptions = Substitute.For<IOptions<FeatureConfiguration>>();
-            private readonly IOptions<CoreFeatureConfiguration> _coreFeatureOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            private readonly IOptions<OperationsConfiguration> _operationsOptions;
+            private readonly IOptions<FeatureConfiguration> _featureOptions;
+            private readonly IOptions<CoreFeatureConfiguration> _coreFeatureOptions;
             private readonly OperationsConfiguration _operationsConfiguration = new();
             private readonly CoreFeatureConfiguration _coreFeatureConfiguration = new();
             private readonly FeatureConfiguration _featureConfiguration = new();
@@ -37,9 +37,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations
             {
                 _urlResolver = Substitute.For<IUrlResolver>();
                 _urlResolver.ResolveMetadataUrl(Arg.Any<bool>()).Returns(new System.Uri("https://test.com"));
-                _operationsOptions.Value.Returns(_operationsConfiguration);
-                _featureOptions.Value.Returns(_featureConfiguration);
-                _coreFeatureOptions.Value.Returns(_coreFeatureConfiguration);
+                _operationsOptions = Options.Create(_operationsConfiguration);
+                _featureOptions = Options.Create(_featureConfiguration);
+                _coreFeatureOptions = Options.Create(_coreFeatureConfiguration);
             }
 
             [Theory]

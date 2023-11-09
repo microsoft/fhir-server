@@ -62,8 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Format = ExportFormatTags.ResourceName,
             });
 
-            IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
-            optionsExportConfig.Value.Returns(_exportJobConfiguration);
+            IOptions<ExportJobConfiguration> optionsExportConfig = Options.Create(_exportJobConfiguration);
 
             var contextAccess = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 

@@ -105,8 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
 
             _jobConfiguration = new ReindexJobConfiguration();
-            IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
-            optionsReindexConfig.Value.Returns(_jobConfiguration);
+            IOptions<ReindexJobConfiguration> optionsReindexConfig = Options.Create(_jobConfiguration);
 
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
             _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;

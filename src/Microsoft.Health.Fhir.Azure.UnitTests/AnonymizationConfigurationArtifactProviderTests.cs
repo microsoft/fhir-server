@@ -56,8 +56,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests
             // Use basic token here, which can work when there is no Managed Identity for container registry token.
             AcrBasicToken acrTokenProvider = new AcrBasicToken(registry);
             var exportJobConfiguration = new ExportJobConfiguration();
-            IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
-            optionsExportConfig.Value.Returns(exportJobConfiguration);
+            IOptions<ExportJobConfiguration> optionsExportConfig = Options.Create(exportJobConfiguration);
             var logger = Substitute.For<ILogger<AzureConnectionStringClientInitializer>>();
             var azureAccessTokenClientInitializer = new AzureConnectionStringClientInitializer(optionsExportConfig, logger);
             _provider = new AnonymizationConfigurationArtifactProvider(azureAccessTokenClientInitializer, acrTokenProvider, optionsExportConfig, new NullLogger<AnonymizationConfigurationArtifactProvider>());

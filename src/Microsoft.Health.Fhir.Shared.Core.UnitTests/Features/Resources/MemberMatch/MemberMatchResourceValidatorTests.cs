@@ -37,8 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
-            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration());
+            var config = Options.Create(new CoreFeatureConfiguration());
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
@@ -68,8 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
-            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration());
+            var config = Options.Create(new CoreFeatureConfiguration());
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
@@ -109,8 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
-            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
+            var config = Options.Create(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
             var headers = new Dictionary<string, StringValues>();
             if (headerValue != null)
             {

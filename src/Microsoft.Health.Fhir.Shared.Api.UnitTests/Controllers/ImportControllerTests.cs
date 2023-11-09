@@ -87,12 +87,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Import = bulkImportConfig,
             };
 
-            IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            optionsOperationConfiguration.Value.Returns(operationConfig);
+            IOptions<OperationsConfiguration> optionsOperationConfiguration = Options.Create(operationConfig);
 
             var features = new FeatureConfiguration();
-            IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
-            optionsFeatures.Value.Returns(features);
+            IOptions<FeatureConfiguration> optionsFeatures = Options.Create(features);
 
             return new ImportController(
                 _mediator,
