@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         requestUri: record.RequestUri,
                         exportType: record.ExportType,
                         exportFormat: format,
-                        resourceType: record.ResourceType,
+                        resourceType: string.IsNullOrEmpty(resourceType) ? record.ResourceType : resourceType,
                         filters: record.Filters,
                         hash: record.Hash,
                         rollingFileSizeInMB: record.RollingFileSizeInMB,
