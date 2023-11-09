@@ -803,6 +803,10 @@ CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourc
     INCLUDE(ReferenceResourceVersion) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
+CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId
+    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
     ResourceTypeId            SMALLINT      NOT NULL,
     ResourceSurrogateId       BIGINT        NOT NULL,
@@ -3739,12 +3743,15 @@ BEGIN TRY
     IF @GlobalEndId IS NOT NULL
        AND @IncludeHistory = 0
         BEGIN
-            INSERT INTO @ResourceIds
+        INSERT INTO @ResourceIds
             SELECT DISTINCT ResourceId
-            FROM   dbo.Resource
-            WHERE  ResourceTypeId = @ResourceTypeId
-                   AND ResourceSurrogateId BETWEEN @StartId AND @EndId
-                   AND IsHistory = 1
+        FROM   dbo.Resource
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceId IN (SELECT DISTINCT ResourceId
+                                  FROM   dbo.Resource
+                                  WHERE  ResourceTypeId = @ResourceTypeId
+                                         AND ResourceSurrogateId BETWEEN @StartId AND @EndId
+                                         AND IsHistory = 1
                    AND (IsDeleted = 0
                         OR @IncludeDeleted = 1)
             OPTION (MAXDOP 1);
@@ -3757,26 +3764,27 @@ BEGIN TRY
                         FROM   dbo.Resource WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                         WHERE  ResourceTypeId = @ResourceTypeId
                                AND ResourceId IN (SELECT TOP (@DummyTop) ResourceId
-                                                  FROM   @ResourceIds)
+               FROM   @ResourceIds)
                                AND ResourceSurrogateId BETWEEN @StartId AND @GlobalEndId) AS A
-                WHERE  RowId = 1
+                    WHERE  RowId = 1
                        AND ResourceSurrogateId BETWEEN @StartId AND @EndId
                 OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
         END
-    SELECT ResourceTypeId,
-           ResourceId,
-           Version,
-           IsDeleted,
-           ResourceSurrogateId,
-           RequestMethod,
-           CONVERT (BIT, 1) AS IsMatch,
-           CONVERT (BIT, 0) AS IsPartial,
-           IsRawResourceMetaSet,
-           SearchParamHash,
-           RawResource
-    FROM   dbo.Resource
-    WHERE  ResourceTypeId = @ResourceTypeId
-           AND ResourceSurrogateId BETWEEN @StartId AND @EndId
+    ELSE
+        SELECT ResourceTypeId,
+               ResourceId,
+               Version,
+               IsDeleted,
+               ResourceSurrogateId,
+               RequestMethod,
+               CONVERT (BIT, 1) AS IsMatch,
+               CONVERT (BIT, 0) AS IsPartial,
+               IsRawResourceMetaSet,
+               SearchParamHash,
+               RawResource
+        FROM   dbo.Resource
+        WHERE  ResourceTypeId = @ResourceTypeId
+               AND ResourceSurrogateId BETWEEN @StartId AND @EndId
            AND (IsHistory = 0
                 OR @IncludeHistory = 1)
            AND (IsDeleted = 0
