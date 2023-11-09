@@ -41,11 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             _queueClient = queueClient;
             _searchService = searchService;
             _exportJobConfiguration = exportJobConfiguration.Value;
-
-            NumberOfSurrogateIdRanges = _exportJobConfiguration.NumberOfParallelRecordRanges;
         }
-
-        internal int NumberOfSurrogateIdRanges { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -91,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                     while (rows > 0)
                     {
                         var definitions = new List<ExportJobRecord>();
-                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, NumberOfSurrogateIdRanges, true, cancel);
+                        var ranges = await _searchService.GetSurrogateIdRanges(type, startId, globalEndId, surrogateIdRangeSize, _exportJobConfiguration.NumberOfParallelRecordRanges, true, cancel);
                         foreach (var range in ranges)
                         {
                             if (range.EndId > startId)

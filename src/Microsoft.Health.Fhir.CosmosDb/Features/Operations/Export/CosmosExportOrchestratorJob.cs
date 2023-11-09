@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -89,11 +90,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         record.IncludeDeleted,
                         record.SchemaVersion,
                         (int)JobType.ExportProcessing,
-                        record.SmartRequest)
-            {
-                Id = string.Empty,
-                QueuedTime = record.QueuedTime, // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
-            };
+                        record.SmartRequest);
+
+            rec.Id = string.Empty;
+            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
 
             return rec;
         }
