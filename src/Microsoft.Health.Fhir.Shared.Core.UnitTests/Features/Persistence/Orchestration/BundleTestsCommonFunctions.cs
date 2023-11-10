@@ -57,8 +57,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             var bundleConfiguration = new BundleConfiguration() { SupportsBundleOrchestrator = isBundleOrchestratorEnabled };
             var bundleOptions = Options.Create(bundleConfiguration);
 
-            bundleOptions.Value.ReturnsForAnyArgs(bundleConfiguration);
-
             return bundleOptions;
         }
 
