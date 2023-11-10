@@ -94,7 +94,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             VersioningConfiguration versionConfig = new();
             versionConfig.ResourceTypeOverrides.Add(resourceType, "no-version");
             IOptions<CoreFeatureConfiguration> configuration = Options.Create(new CoreFeatureConfiguration() { Versioning = versionConfig });
-            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
             var supportedProfiles = Substitute.For<ISupportedProfilesStore>();
             var builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
