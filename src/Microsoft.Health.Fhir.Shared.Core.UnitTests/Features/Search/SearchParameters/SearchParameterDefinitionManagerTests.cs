@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
         private static readonly string ResourceTest = "http://hl7.org/fhir/SearchParameter/Resource-test";
 
-        private readonly SearchParameterStatusManager _manager;
+        private readonly ISearchParameterStatusManager _manager;
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;

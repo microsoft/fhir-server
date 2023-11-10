@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private Func<IReindexJobTask> _reindexJobTaskFactory;
-        private SearchParameterStatusManager _searchParameterStatusmanager;
+        private ISearchParameterStatusManager _searchParameterStatusmanager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
 

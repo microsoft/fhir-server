@@ -30,12 +30,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
     {
         private const string FailedSearchParameterUpdates = "FailedSearchParameterUpdates";
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private IReadOnlyCollection<ResourceSearchParameterStatus> _resourceSearchParameterStatus = null;
         private readonly ILogger<SearchParameterStateUpdateHandler> _logger;
         private readonly IAuditLogger _auditLogger;
 
-        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IAuditLogger auditLogger)
+        public SearchParameterStateUpdateHandler(IAuthorizationService<DataActions> authorizationService, ISearchParameterStatusManager searchParameterStatusManager, ILogger<SearchParameterStateUpdateHandler> logger, IAuditLogger auditLogger)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));

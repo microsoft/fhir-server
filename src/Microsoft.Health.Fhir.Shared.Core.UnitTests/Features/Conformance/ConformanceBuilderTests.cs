@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly Uri _metadataUrl;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
 
         public ConformanceBuilderTests()
         {
@@ -61,8 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 _supportedProfiles,
-                _metadataUrl,
-                _searchParameterStatusManager);
+                _metadataUrl);
         }
 
         [Fact]
@@ -103,8 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _metadataUrl,
-                _searchParameterStatusManager);
+                _metadataUrl);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -135,8 +133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _metadataUrl,
-                _searchParameterStatusManager);
+                _metadataUrl);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent
@@ -166,8 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 _searchParameterDefinitionManager,
                 configuration,
                 supportedProfiles,
-                _metadataUrl,
-                _searchParameterStatusManager);
+                _metadataUrl);
             ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
             {
                 c.Interaction.Add(new ResourceInteractionComponent

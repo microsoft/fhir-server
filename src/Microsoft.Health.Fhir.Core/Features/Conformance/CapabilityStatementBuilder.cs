@@ -62,8 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<CoreFeatureConfiguration> configuration,
             ISupportedProfilesStore supportedProfiles,
-            Uri metadataUrl,
-            SearchParameterStatusManager searchParameterStatusManager)
+            Uri metadataUrl)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));

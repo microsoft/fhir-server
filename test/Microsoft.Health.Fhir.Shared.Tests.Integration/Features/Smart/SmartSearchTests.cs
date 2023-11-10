@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Smart
         private ISearchIndexer _searchIndexer;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private SearchParameterStatusManager _searchParameterStatusManager;
+        private ISearchParameterStatusManager _searchParameterStatusManager;
 
         private IScoped<ISearchService> _searchService;
 

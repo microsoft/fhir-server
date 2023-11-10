@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class SearchParameterOperations : ISearchParameterOperations
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ILogger _logger;
 
         public SearchParameterOperations(
-            SearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,

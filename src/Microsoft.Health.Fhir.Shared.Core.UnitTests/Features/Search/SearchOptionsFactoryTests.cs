@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly CoreFeatureConfiguration _coreFeatures;
         private DefaultFhirRequestContext _defaultFhirRequestContext;
         private readonly ISortingValidator _sortingValidator;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
 
         public SearchOptionsFactoryTests()
         {
@@ -60,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
             _sortingValidator = Substitute.For<ISortingValidator>();
-
+            _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
             _factory = new SearchOptionsFactory(
                 _expressionParser,
@@ -69,7 +71,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 contextAccessor,
                 _sortingValidator,
                 new ExpressionAccessControl(contextAccessor),
-                NullLogger<SearchOptionsFactory>.Instance);
+                NullLogger<SearchOptionsFactory>.Instance,
+                _searchParameterStatusManager);
         }
 
         [Fact]

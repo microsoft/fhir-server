@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ISearchIndexer _searchIndexer;
         private ResourceDeserializer _deserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         public ReindexUtilities(
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISearchIndexer searchIndexer,
             ResourceDeserializer deserializer,
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            SearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterStatusManager searchParameterStatusManager,
             IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));

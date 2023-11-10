@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState
     {
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
 
-        public SearchParameterStateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterDefinitionManager searchParameterDefinitionManager, SearchParameterStatusManager searchParameterStatusManager)
+        public SearchParameterStateHandler(IAuthorizationService<DataActions> authorizationService, SearchParameterDefinitionManager searchParameterDefinitionManager, ISearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));

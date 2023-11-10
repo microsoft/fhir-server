@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SchemaUpgradeRunner SchemaUpgradeRunner => _fixture.GetRequiredService<SchemaUpgradeRunner>();
 
-        public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
+        public ISearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<ISearchParameterStatusManager>();
 
         public RequestContextAccessor<IFhirRequestContext> FhirRequestContextAccessor => _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
 

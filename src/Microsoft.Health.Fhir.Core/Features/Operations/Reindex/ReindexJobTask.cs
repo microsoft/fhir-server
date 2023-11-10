@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IReindexUtilities _reindexUtilities;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IReindexJobThrottleController _throttleController;
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IReindexJobThrottleController throttleController,
             IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger,
-            SearchParameterStatusManager searchParameterStatusManager)
+            ISearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));

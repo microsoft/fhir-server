@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISearchService _searchService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly SqlQueueClient _sqlQueueClient;
@@ -209,7 +209,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 sqlSortingValidator,
                 new ExpressionAccessControl(_fhirRequestContextAccessor),
-                NullLogger<SearchOptionsFactory>.Instance);
+                NullLogger<SearchOptionsFactory>.Instance,
+                _searchParameterStatusManager);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
             var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);

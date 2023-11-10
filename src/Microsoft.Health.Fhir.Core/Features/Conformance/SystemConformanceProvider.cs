@@ -47,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly ISupportedProfilesStore _supportedProfiles;
         private readonly ILogger _logger;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _backgroundJobCapabilityStatement;
@@ -64,8 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             ISupportedProfilesStore supportedProfiles,
             ILogger<SystemConformanceProvider> logger,
             IUrlResolver urlResolver,
-            RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            SearchParameterStatusManager searchParameterStatusManager)
+            RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -75,7 +73,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
@@ -86,7 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _disposed = false;
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
-            _searchParameterStatusManager = searchParameterStatusManager;
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -127,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             metadataUrl = _urlResolver.ResolveMetadataUrl(false);
                         }
 
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl, _searchParameterStatusManager);
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles, metadataUrl);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {

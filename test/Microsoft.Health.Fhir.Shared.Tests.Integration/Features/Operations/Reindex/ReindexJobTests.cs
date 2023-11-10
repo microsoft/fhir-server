@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ReindexUtilities _reindexUtilities;
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private SearchParameterStatusManager _searchParameterStatusManager;
+        private ISearchParameterStatusManager _searchParameterStatusManager;
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager2;
-        private SearchParameterStatusManager _searchParameterStatusManager2;
+        private ISearchParameterStatusManager _searchParameterStatusManager2;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
 
         private readonly ITestOutputHelper _output;

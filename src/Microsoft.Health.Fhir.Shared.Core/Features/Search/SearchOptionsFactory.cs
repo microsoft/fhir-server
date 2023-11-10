@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -23,8 +25,10 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Access;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -37,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISortingValidator _sortingValidator;
         private readonly ExpressionAccessControl _expressionAccess;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
@@ -49,7 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
             ExpressionAccessControl expressionAccess,
-            ILogger<SearchOptionsFactory> logger)
+            ILogger<SearchOptionsFactory> logger,
+            ISearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
@@ -58,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(expressionAccess, nameof(expressionAccess));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
@@ -66,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
+            _searchParameterStatusManager = searchParameterStatusManager;
 
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
@@ -367,6 +375,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
+            // This task call is temporary until we refactor the search parameter status manager into the search parameter definition manager and use the in memory collection. WI#110409
+            var disabledSearchParameters = Task.Run(() =>
+            {
+                return ValidateSearchParameterStatus(searchOptions.Expression, cancellationToken: default);
+            }).Result;
+
+            unsupportedSearchParameters.AddRange(disabledSearchParameters);
+
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
             var searchSortErrors = new List<string>();
@@ -460,6 +476,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+        }
+
+        private async Task<IEnumerable<Tuple<string, string>>> ValidateSearchParameterStatus(Expression expression, CancellationToken cancellationToken)
+        {
+            var statusList = await _searchParameterStatusManager.GetAllSearchParameterStatus(cancellationToken);
+            List<Tuple<string, string>> unusableSearchParameters = new List<Tuple<string, string>>();
+
+            if (expression.ExtractIncludeAndChainedExpressions(
+                    out _,
+                    out IReadOnlyList<IncludeExpression> includeExpressions,
+                    out IReadOnlyList<IncludeExpression> revIncludeExpressions,
+                    out IReadOnlyList<ChainedExpression> chainedExpressions))
+            {
+                foreach (var includeExpression in includeExpressions)
+                {
+                    var searchParameter = includeExpression.ReferenceSearchParameter;
+                    if (searchParameter != null)
+                    {
+                        var status = statusList.FirstOrDefault(s => s.Uri.Equals(searchParameter.Url));
+                        if (status != null && status.Status != SearchParameterStatus.Enabled)
+                        {
+                            unusableSearchParameters.Add(Tuple.Create(includeExpression.ToString(), searchParameter.Url.OriginalString));
+                        }
+                    }
+                }
+
+                foreach (var revIncludeExpression in revIncludeExpressions)
+                {
+                    var searchParameter = revIncludeExpression.ReferenceSearchParameter;
+                    if (searchParameter != null)
+                    {
+                        var status = statusList.FirstOrDefault(s => s.Uri.Equals(searchParameter.Url));
+                        if (status != null && status.Status != SearchParameterStatus.Enabled)
+                        {
+                            unusableSearchParameters.Add(Tuple.Create(revIncludeExpression.ToString(), searchParameter.Url.OriginalString));
+                        }
+                    }
+                }
+
+                foreach (var chainedExpression in chainedExpressions)
+                {
+                    var searchParameter = chainedExpression.ReferenceSearchParameter;
+                    if (searchParameter != null)
+                    {
+                        var status = statusList.FirstOrDefault(s => s.Uri.Equals(searchParameter.Url));
+                        if (status != null && status.Status != SearchParameterStatus.Enabled)
+                        {
+                            unusableSearchParameters.Add(Tuple.Create(chainedExpression.ToString(), searchParameter.Url.OriginalString));
+                        }
+                    }
+                }
+            }
+
+            return unusableSearchParameters;
         }
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)

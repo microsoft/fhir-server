@@ -19,13 +19,13 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>
+    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>, ISearchParameterStatusManager
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
-        private readonly ILogger<SearchParameterStatusManager> _logger;
+        private readonly ILogger<ISearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
         private readonly List<string> enabledSortIndices = new List<string>() { "http://hl7.org/fhir/SearchParameter/individual-birthdate", "http://hl7.org/fhir/SearchParameter/individual-family", "http://hl7.org/fhir/SearchParameter/individual-given" };
 
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IMediator mediator,
-            ILogger<SearchParameterStatusManager> logger)
+            ILogger<ISearchParameterStatusManager> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _latestSearchParams = DateTimeOffset.MinValue;
         }
 
-        internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
             var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
@@ -171,26 +171,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
+        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
         }
 
-        internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
+        public async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
         {
             var searchParamUris = new List<string>() { url };
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetAllSearchParameterStatus(CancellationToken cancellationToken)
         {
             return await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
         }
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         /// </summary>
         /// <param name="updatedSearchParameterStatus">Collection of updated search parameter statuses</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        public async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
             if (!updatedSearchParameterStatus.Any())
             {
