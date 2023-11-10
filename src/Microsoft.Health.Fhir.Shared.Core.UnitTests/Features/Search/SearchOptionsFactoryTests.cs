@@ -372,8 +372,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateMultiaryExpression(
@@ -396,8 +396,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
@@ -415,8 +415,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                invalidCompartmentType,
-                "123"));
+                compartmentType: invalidCompartmentType,
+                compartmentId: "123"));
 
             Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
         }
@@ -431,8 +431,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = Assert.Throws<InvalidSearchOperationException>(() => CreateSearchOptions(
                 resourceType: ResourceType.Claim.ToString(),
                 queryParameters: null,
-                CompartmentType.Patient.ToString(),
-                invalidCompartmentId));
+                compartmentType: CompartmentType.Patient.ToString(),
+                compartmentId: invalidCompartmentId));
 
             Assert.Equal("Compartment id is null or empty.", exception.Message);
         }
@@ -520,13 +520,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(options.UnsupportedSearchParams);
         }
 
+        [Theory]
+        [InlineData(ResourceVersionType.Latest)]
+        [InlineData(ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
+        {
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
+            Assert.NotNull(options);
+            Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
+            Assert.Empty(options.UnsupportedSearchParams);
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
             string compartmentId = null)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
         }
     }
 }

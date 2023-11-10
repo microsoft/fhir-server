@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -82,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             bool isAsyncOperation = false,
-            bool useSmartCompartmentDefinition = false)
+            bool useSmartCompartmentDefinition = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
             var searchOptions = new SearchOptions();
 
@@ -431,6 +432,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
             }
+
+            searchOptions.ResourceVersionTypes = resourceVersionTypes;
 
             // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
             // depending on the state of the "Prefer" header.

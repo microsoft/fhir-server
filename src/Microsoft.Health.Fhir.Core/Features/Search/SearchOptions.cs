@@ -48,6 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             QueryHints = other.QueryHints;
+
+            ResourceVersionTypes = other.ResourceVersionTypes;
         }
 
         /// <summary>
@@ -110,6 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 _includeCount = value;
             }
         }
+
+        /// <summary>
+        /// Which version types (latest, soft-deleted, history) to include in search.
+        /// </summary>
+        public ResourceVersionType ResourceVersionTypes { get; internal set; } = ResourceVersionType.Latest;
 
         /// <summary>
         /// Gets the search expression.
