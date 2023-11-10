@@ -95,12 +95,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // This will allow for saving intermediate states of the job.
 
                     record.Status = OperationStatus.Completed;
+                    var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
                     var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
 
-                    // Checks that a followup job has not already been made.
-                    if (!existingJobs.Any((job) => job.Id > jobInfo.Id))
+                    // Checks that a follow up job has not already been made.
+                    var newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
+
+                    if (definition.ResourceType is not null || definition.FeedRange is not null)
                     {
-                        var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
+                        newerJobs = newerJobs.Where(job => job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange);
+                    }
+
+                    if (!newerJobs.Any())
+                    {
                         definition.Progress = exportJobRecord.Progress;
                         await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
                     }
