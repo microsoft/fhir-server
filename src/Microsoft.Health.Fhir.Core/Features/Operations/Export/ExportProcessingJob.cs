@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -96,14 +98,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     record.Status = OperationStatus.Completed;
                     var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
-                    var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
+                    IEnumerable<JobInfo> newerJobs = new List<JobInfo>();
 
-                    // Checks that a follow up job has not already been made.
-                    var newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
-
-                    if (definition.ResourceType is not null || definition.FeedRange is not null)
+                    // #TODO - figure out this logic
+                    if (!record.IsParallel)
                     {
-                        newerJobs = newerJobs.Where(job => job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange);
+                        var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
+
+                        // Checks that a follow up job has not already been made.
+                        newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
+
+                        if (definition.ResourceType is not null || definition.FeedRange is not null)
+                        {
+                            newerJobs = newerJobs.Where(job => job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange);
+                        }
                     }
 
                     if (!newerJobs.Any())
