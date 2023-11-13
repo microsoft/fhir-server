@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class CosmosExportOrchestratorJob : IJob
     {
-        private const int DefaultMaxNumberOfFeedRangesPerJob = 100;
+        // #TODO - parallelize Cosmos Queue Client so this can be > 1
+        private const int DefaultMaxNumberOfFeedRangesPerJob = 1;
 
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
