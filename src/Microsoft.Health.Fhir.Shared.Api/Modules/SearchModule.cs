@@ -84,8 +84,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsDelegate<FilebasedSearchParameterStatusDataStore.Resolver>();
 
             services
-                .RemoveServiceTypeExact<ISearchParameterStatusManager, INotificationHandler<SearchParameterDefinitionManagerInitialized>>()
-                .Add<ISearchParameterStatusManager>()
+                .RemoveServiceTypeExact<SearchParameterStatusManager, ISearchParameterStatusManager>()
+                .Add<SearchParameterStatusManager>()
+                .Singleton()
+                .AsSelf()
+                .AsService<ISearchParameterStatusManager>();
+
+            services
+                .RemoveServiceTypeExact<SearchParameterStatusManager, INotificationHandler<SearchParameterDefinitionManagerInitialized>>()
+                .Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
                 .AsService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
