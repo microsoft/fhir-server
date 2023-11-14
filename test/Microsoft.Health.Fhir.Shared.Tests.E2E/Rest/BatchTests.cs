@@ -205,19 +205,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
-        private void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
-        {
-            Assert.Equal(expectedStatusCode, actualStatusCode);
-            Assert.NotNull(operationOutcome);
-            Assert.Single(operationOutcome.Issue);
-
-            var issue = operationOutcome.Issue.First();
-
-            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
-            Assert.Equal(expectedIssueType, issue.Code);
-            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
-        }
-
         [Theory]
         [InlineData(true, FhirBundleProcessingLogic.Parallel)]
         [InlineData(false, FhirBundleProcessingLogic.Parallel)]
@@ -338,6 +325,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[2].Response.Status);
             }
+        }
+
+        internal static void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
+        {
+            Assert.Equal(expectedStatusCode, actualStatusCode);
+            Assert.NotNull(operationOutcome);
+            Assert.Single(operationOutcome.Issue);
+
+            var issue = operationOutcome.Issue.First();
+
+            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
+            Assert.Equal(expectedIssueType, issue.Code);
+            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
         }
     }
 }

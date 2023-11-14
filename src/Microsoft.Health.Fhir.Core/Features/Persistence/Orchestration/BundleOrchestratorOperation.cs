@@ -132,26 +132,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 // Await for the merge async task to complete merging all resources.
                 var ingestedResources = await _mergeAsyncTask;
 
-                if (ingestedResources.TryGetValue(identifier, out DataStoreOperationOutcome dataStoreOperationOutcome))
+                DataStoreOperationOutcome dataStoreOperationOutcome;
+
+                // Attempt 1: Retrieve from the list of merged records, the one with the same identifier from current thread.
+                if (!ingestedResources.TryGetValue(identifier, out dataStoreOperationOutcome))
                 {
-                    if (!dataStoreOperationOutcome.IsOperationSuccessful)
+                    // Attemp 2: Edge case scenario:
+                    // Under racing conditions, it's possible that the same record (<resourceType>/<id>) is present in two bundles running at the same time.
+                    // One record is updated first than the second, increasing the version of the record, and then updated once more by the second bundle.
+                    // As the version is higher than the expected, the local identifier in the current thread does not match, and an alternative search for
+                    // the combination <resourceType>/<id> is required.
+                    var ingestedResourcesById = ingestedResources.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
+
+                    int countOfResourcesFound = ingestedResourcesById.Count;
+                    if (countOfResourcesFound == 0)
                     {
-                        throw dataStoreOperationOutcome.Exception;
+                        _logger.LogWarning(
+                            "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
+                            Id,
+                            nameof(DataStoreOperationOutcome),
+                            _resources.Count,
+                            ingestedResources?.Count);
+
+                        throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
                     }
+                    else if (countOfResourcesFound > 1)
+                    {
+                        _logger.LogWarning(
+                            "Bundle Operation {Id}. More than two instances of '{ClassName}' for the same resource were found. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted. {ResourceFound} outcomes were found for the same resource.",
+                            Id,
+                            nameof(DataStoreOperationOutcome),
+                            _resources.Count,
+                            ingestedResources?.Count,
+                            countOfResourcesFound);
 
-                    return dataStoreOperationOutcome.UpsertOutcome;
+                        throw new BundleOrchestratorException($"More than two instances of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource were found. This is not an expected scenario.");
+                    }
+                    else
+                    {
+                        dataStoreOperationOutcome = ingestedResourcesById[0].Value;
+                    }
                 }
-                else
+
+                if (!dataStoreOperationOutcome.IsOperationSuccessful)
                 {
-                    _logger.LogWarning(
-                        "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
-                        Id,
-                        nameof(DataStoreOperationOutcome),
-                        _resources.Count,
-                        ingestedResources?.Count);
-
-                    throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
+                    throw dataStoreOperationOutcome.Exception;
                 }
+
+                return dataStoreOperationOutcome.UpsertOutcome;
             }
             else
             {
