@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.DeleteAll ? searchCount : request.MaxDeleteCount);
 
             long numDeleted = 0;
+            long numQueuedForDeletion = 0;
 
             var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
 
@@ -130,7 +131,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                 {
                     IReadOnlyCollection<SearchResultEntry> resultsToDelete =
-                        request.DeleteAll ? matchedResults : matchedResults.Take(Math.Max((int)(request.MaxDeleteCount.GetValueOrDefault() - numDeleted), 0)).ToArray();
+                        request.DeleteAll ? matchedResults : matchedResults.Take(Math.Max((int)(request.MaxDeleteCount.GetValueOrDefault() - numQueuedForDeletion), 0)).ToArray();
+
+                    numQueuedForDeletion += resultsToDelete.Count;
 
                     if (request.DeleteOperation == DeleteOperation.SoftDelete)
                     {
@@ -149,13 +152,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
                     deleteTasks = deleteTasks.Where((task) => !task.IsCompletedSuccessfully).ToList();
 
-                    if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numDeleted) > 0))
+                    if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numQueuedForDeletion) > 0))
                     {
                         (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                             request.ResourceType,
                             request.ConditionalParameters,
                             cancellationToken,
-                            request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numDeleted),
+                            request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
                             ct);
                     }
                     else
