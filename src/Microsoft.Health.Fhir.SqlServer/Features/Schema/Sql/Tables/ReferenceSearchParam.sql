@@ -24,24 +24,6 @@ ON dbo.ReferenceSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
-ON dbo.ReferenceSearchParam
-(
-    ResourceTypeId,
-    SearchParamId,
-    ReferenceResourceId,
-    ReferenceResourceTypeId,
-    BaseUri,
-    ResourceSurrogateId
-)
-INCLUDE
-(
-    ReferenceResourceVersion
-)
-WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
 CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
   ( 
     ReferenceResourceId
