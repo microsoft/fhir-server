@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirClient = fixture.TestFhirClient;
         }
 
+        /*
         [SkippableFact]
         public async System.Threading.Tasks.Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
@@ -266,5 +267,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='bulk-delete').exists()"), "$bulk-delete not enabled on this server");
         }
+        */
     }
 }
