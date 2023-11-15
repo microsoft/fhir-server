@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISearchService _searchService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private readonly ISearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterStatusManager _searchParameterStatusManager = Substitute.For<ISearchParameterStatusManager>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly SqlQueueClient _sqlQueueClient;
