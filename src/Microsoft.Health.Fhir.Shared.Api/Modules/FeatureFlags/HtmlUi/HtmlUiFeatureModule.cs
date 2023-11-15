@@ -5,10 +5,13 @@
 
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.HtmlUi
 {
@@ -36,6 +39,12 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.HtmlUi
                     .Singleton()
                     .AsSelf()
                     .AsService<TextOutputFormatter>();
+
+                // Adds provider to serve embedded razor views
+                services.Configure<MvcRazorRuntimeCompilationOptions>(options =>
+                {
+                    options.FileProviders.Add(new EmbeddedFileProvider(typeof(CodePreviewModel).Assembly));
+                }).AddMvc().AddRazorRuntimeCompilation();
             }
         }
     }

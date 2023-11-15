@@ -72,11 +72,12 @@ function Add-AadTestAuthEnvironment {
     while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
         $retryCount += 1
 
-        if ($retryCount -gt 7) {
+        if ($retryCount -gt 20) {
             throw "Could not connect to the vault $KeyVaultName"
         }
 
-        sleep 10
+        Write-Warning "Waiting on keyvault. Retry $retryCount"
+        sleep 30
     }
 
     if ($azContext.Account.Type -eq "User") {

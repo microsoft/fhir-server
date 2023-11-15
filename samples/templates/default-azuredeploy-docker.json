@@ -27,20 +27,15 @@
         "appServicePlanSku": {
             "type": "string",
             "allowedValues": [
-                "F1",
-                "D1",
-                "B1",
-                "B2",
                 "B3",
                 "S1",
                 "S2",
                 "S3",
                 "P1",
                 "P2",
-                "P3",
-                "P4"
+                "P3"
             ],
-            "defaultValue": "S1"
+            "defaultValue": "S2"
         },
         "numberOfInstances": {
             "type": "int",
@@ -173,6 +168,14 @@
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If set to 'tool', sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If set to 'auto', sql schema will be upgraded to the maximum supported version."
             }
         },
+        "sqlDatabaseComputeTier": {
+            "type": "string",
+            "allowedValues": [
+                "Hyperscale",
+                "Standard"
+            ],
+            "defaultValue": "Hyperscale"
+        },
         "fhirVersion": {
             "type": "string",
             "defaultValue": "R4",
@@ -275,7 +278,12 @@
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
         "registryName": "healthplatformregistry.azurecr.io",
         "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
-        "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
+        "isSqlHyperscaleTier": "[equals(parameters('sqlDatabaseComputeTier'),'Hyperscale')]",
+        "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 50)]",
+        "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
+        "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
+        "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]"
     },
     "resources": [
         {
@@ -463,9 +471,10 @@
                         "collation": "SQL_Latin1_General_CP1_CI_AS"
                     },
                     "sku": {
-                        "name": "Standard",
-                        "tier": "Standard",
-                        "capacity": 50
+                        "capacity": "[variables('sqlSkuCapacity')]",
+                        "family": "[variables('sqlSkuFamily')]",
+                        "name": "[variables('sqlSkuName')]",
+                        "tier": "[variables('sqlSkuTier')]"
                     },
                     "type": "databases"
                 },

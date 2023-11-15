@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private bool _hasIdentifier = false;
         private int _searchParamCount = 0;
         private bool previousSqlQueryGeneratorFailure = false;
-        private int maxTableExpressionCountLimitForExists = 8;
+        private int maxTableExpressionCountLimitForExists = 5;
 
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             _schemaInfo = schemaInfo;
             _searchParameterHash = searchParameterHash;
 
-            if (sqlException?.ErrorCode == SqlErrorCodes.QueryProcessorNoQueryPlan)
+            if (sqlException?.Number == SqlErrorCodes.QueryProcessorNoQueryPlan)
             {
                 previousSqlQueryGeneratorFailure = true;
             }
@@ -190,9 +190,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
-                if (_schemaInfo.Current < SchemaVersionConstants.PartitionedTables &&
-                    expression.SearchParamTableExpressions.Count == 0 &&
-                    !_searchType.HasFlag(SqlSearchType.History) &&
+                if (expression.SearchParamTableExpressions.Count == 0 &&
+                    !_searchType.HasFlag(SqlSearchType.IncludeHistory) &&
+                    !_searchType.HasFlag(SqlSearchType.IncludeDeleted) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            if (searchParamTableExpression.QueryGenerator.Table.TableName == VLatest.ReferenceSearchParam.TableName
+            if (CheckAppendWithJoin()
                 && searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context))
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
@@ -499,9 +499,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 AppendHistoryClause(delimited);
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && searchParamTableExpression.QueryGenerator.Table.TableName != VLatest.ReferenceSearchParam.TableName)
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
-                    // if chainLevel > 0 or if in sort mode or if ReferenceSearchParam, the intersection is already handled in a JOIN
+                    // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
 
@@ -716,7 +716,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // since we are in chain table expression, we know the Table is the ReferenceSearchParam table
-            else if (CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
+            else if (CheckAppendWithJoin())
             {
                 AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
             }
@@ -739,7 +739,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin(VLatest.ReferenceSearchParam.TableName))
+                if (searchParamTableExpression.ChainLevel == 1 && !CheckAppendWithJoin())
                 {
                     // if > 1, the intersection is handled by the JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
@@ -1054,7 +1054,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (CheckAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1081,7 +1081,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    if (!CheckAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1103,7 +1103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
-                if (CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                if (CheckAppendWithJoin())
                 {
                     AppendIntersectionWithPredecessorUsingInnerJoin(StringBuilder, searchParamTableExpression);
                 }
@@ -1130,7 +1130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append(" ").Append(sortOperand).Append(" ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
-                    if (!CheckAppendWithJoin(searchParamTableExpression.QueryGenerator.Table.TableName))
+                    if (!CheckAppendWithJoin())
                     {
                         AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                     }
@@ -1216,15 +1216,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             sb.Append(")");
         }
 
-        private bool CheckAppendWithJoin(string tableName)
+        private bool CheckAppendWithJoin()
         {
-            // if this is an inner join on the Reference Search Param table, and either:
+            // if either:
             // 1. the number of table expressions is greater than the limit indicating a complex query
             // 2. the previous query generator failed to generate a query
             // then we will use the EXISTS clause instead of the inner join
-            if (tableName == VLatest.ReferenceSearchParam.TableName &&
-                (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
-                previousSqlQueryGeneratorFailure))
+            if (_rootExpression.SearchParamTableExpressions.Count > maxTableExpressionCountLimitForExists ||
+                previousSqlQueryGeneratorFailure)
             {
                 return true;
             }
@@ -1316,19 +1315,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.History))
+            if (!_searchType.HasFlag(SqlSearchType.IncludeDeleted))
             {
-                delimited.BeginDelimitedElement().Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0");
+                delimited.BeginDelimitedElement();
+
+                StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0 ");
             }
         }
 
         private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.History))
+            if (!_searchType.HasFlag(SqlSearchType.IncludeHistory))
             {
                 delimited.BeginDelimitedElement();
 
-                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
+                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
             }
         }
 
@@ -1483,7 +1484,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private static SearchParameterExpression CheckExpressionOrFirstChildIsSearchParam(Expression expression)
         {
-            if (expression is MultiaryExpression)
+            while (expression is MultiaryExpression)
             {
                 expression = ((MultiaryExpression)expression).Expressions[0];
             }

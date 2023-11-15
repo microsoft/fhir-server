@@ -6,8 +6,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 using EnsureThat;
-using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -15,14 +16,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     public class AzureAccessTokenProvider : IAccessTokenProvider
     {
-        private readonly AzureServiceTokenProvider _azureServiceTokenProvider;
+        private readonly DefaultAzureCredential _azureServiceTokenProvider;
         private readonly ILogger<AzureAccessTokenProvider> _logger;
 
         public AzureAccessTokenProvider(ILogger<AzureAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _azureServiceTokenProvider = new AzureServiceTokenProvider();
+            _azureServiceTokenProvider = new DefaultAzureCredential();
             _logger = logger;
         }
 
@@ -30,18 +31,21 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            string accessToken;
+            // https://learn.microsoft.com/en-us/dotnet/api/overview/azure/app-auth-migration?view=azure-dotnet
+            var accessTokenContext = new TokenRequestContext(scopes: new[] { resourceUri + "/.default" });
+
+            AccessToken accessToken;
             try
             {
-                accessToken = await _azureServiceTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
+                accessToken = await _azureServiceTokenProvider.GetTokenAsync(accessTokenContext, cancellationToken: cancellationToken);
             }
-            catch (AzureServiceTokenProviderException ex)
+            catch (CredentialUnavailableException ex)
             {
                 _logger.LogWarning(ex, "Failed to retrieve access token");
                 throw new AccessTokenProviderException(Resources.CannotGetAccessToken);
             }
 
-            if (accessToken == null)
+            if (string.IsNullOrEmpty(accessToken.Token))
             {
                 _logger.LogWarning("Failed to retrieve access token");
 
@@ -52,7 +56,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 _logger.LogInformation("Successfully retrieved access token");
             }
 
-            return accessToken;
+            return accessToken.Token;
         }
     }
 }

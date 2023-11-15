@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 containerName: null,
                 formatName: null,
                 isParallel: false,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));
@@ -76,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -94,6 +96,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -111,6 +114,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -127,6 +131,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -146,6 +151,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: null,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: null,
@@ -164,6 +170,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: _testAnonymizationConfigEtag,
@@ -182,6 +189,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: _testAnonymizationConfigCollectionReference,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null,
@@ -200,10 +208,46 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: _testAnonymizationConfigCollectionReference,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: _testAnonymizationConfigEtag,
                 typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithHistoryOrDeletedIncluded_WhenHasTypeFilter_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: ResourceType.Patient.ToString(),
+                containerName: null,
+                formatName: null,
+                typeFilter: "Patient%3Factive%3Dtrue",
+                includeAssociatedData: "_history"));
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: ResourceType.Patient.ToString(),
+                containerName: null,
+                formatName: null,
+                typeFilter: "Patient%3Factive%3Dtrue",
+                includeAssociatedData: "_deleted"));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithDataIncluded_WhenKeyIsInvalid_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(
+                since: null,
+                till: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                typeFilter: null,
+                includeAssociatedData: "_test"));
         }
 
         // We can configure OciArtifacts through three fields: LoginServer, ImageName and Digest
@@ -235,6 +279,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 resourceType: null,
                 containerName: _testContainer,
                 formatName: null,
+                maxCount: 0,
                 anonymizationConfigCollectionReference: anonymizationConfigCollectionReference,
                 anonymizationConfigLocation: _testConfig,
                 anonymizationConfigFileETag: null,
