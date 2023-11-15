@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
+                    int numResources = (await _searchService.SearchAsync(resourceType, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
 
                     var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
                     definitions.Add(processingDefinition);
