@@ -71,7 +71,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                 throw new BadRequestException(_contextAccessor.RequestContext.BundleIssues.Select(issue => issue.Diagnostics).ToList());
             }
 
-            var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, request.DeleteOperation, request.ResourceType, searchParameters, _contextAccessor.RequestContext.Uri.ToString(), _contextAccessor.RequestContext.BaseUri.ToString(), _contextAccessor.RequestContext.CorrelationId);
+            var processingDefinition = new BulkDeleteDefinition(
+                JobType.BulkDeleteOrchestrator,
+                request.DeleteOperation,
+                request.ResourceType,
+                searchParameters,
+                _contextAccessor.RequestContext.Uri.ToString(),
+                _contextAccessor.RequestContext.BaseUri.ToString(),
+                _contextAccessor.RequestContext.CorrelationId,
+                versionType: request.IncludeSoftDeleted ? ResourceVersionType.SoftDeleted : ResourceVersionType.Latest);
 
             IReadOnlyList<JobInfo> jobInfo =
                 await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, definitions: processingDefinition);

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDelete([FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(null, hardDelete, purgeHistory);
+            return await SendDeleteRequest(null, hardDelete, purgeHistory, false);
         }
 
         [HttpDelete]
@@ -64,7 +65,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.BulkDelete)]
         public async Task<IActionResult> BulkDeleteByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.HardDelete)] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
         {
-            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory);
+            return await SendDeleteRequest(typeParameter, hardDelete, purgeHistory, false);
+        }
+
+        [HttpDelete]
+        [Route(KnownRoutes.BulkDeleteSoftDeleted)]
+        [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
+        [AuditEventType(AuditEventSubType.BulkDelete)]
+        public async Task<IActionResult> BulkDeleteSoftDeleted([FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
+        {
+            return await SendDeleteRequest(null, true, purgeHistory, true);
+        }
+
+        [HttpDelete]
+        [Route(KnownRoutes.BulkDeleteSoftDeletedResourceType)]
+        [ServiceFilter(typeof(ValidateAsyncRequestFilterAttribute))]
+        [AuditEventType(AuditEventSubType.BulkDelete)]
+        public async Task<IActionResult> BulkDeleteSoftDeletedByResourceType(string typeParameter, [FromQuery(Name = KnownQueryParameterNames.PurgeHistory)] bool purgeHistory)
+        {
+            return await SendDeleteRequest(typeParameter, true, purgeHistory, true);
         }
 
         [HttpGet]
@@ -91,11 +110,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new JobResult(result.StatusCode);
         }
 
-        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory)
+        private async Task<IActionResult> SendDeleteRequest(string typeParameter, bool hardDelete, bool purgeHistory, bool softDeleteCleanup)
         {
             IList<Tuple<string, string>> searchParameters = Request.GetQueriesForSearch().ToList();
 
             searchParameters = searchParameters.Where(param => !_exlcudedParameters.Contains(param.Item1)).ToList();
+
+            if (softDeleteCleanup && searchParameters.Any(param => param.Item1 != KnownQueryParameterNames.LastUpdated))
+            {
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, searchParameters.Where(param => param.Item1 != KnownQueryParameterNames.LastUpdated).Select(param => param.Item1).Aggregate((param, next) => param += ", " + next)));
+            }
 
             DeleteOperation deleteOperation = (hardDelete, purgeHistory) switch
             {
@@ -104,7 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 _ => DeleteOperation.SoftDelete,
             };
 
-            CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, HttpContext.RequestAborted);
+            CreateBulkDeleteResponse result = await _mediator.BulkDeleteAsync(deleteOperation, typeParameter, searchParameters, softDeleteCleanup, HttpContext.RequestAborted);
 
             var response = JobResult.Accepted();
             response.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkDelete, result.Id.ToString());

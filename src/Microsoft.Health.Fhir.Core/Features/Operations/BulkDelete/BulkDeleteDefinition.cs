@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -21,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             string url,
             string baseUrl,
             string parentRequestId,
-            long startingResourceCount = 0)
+            long startingResourceCount = 0,
+            ResourceVersionType versionType = ResourceVersionType.Latest)
         {
             TypeId = (int)jobType;
             DeleteOperation = deleteOperation;
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             BaseUrl = baseUrl;
             ParentRequestId = parentRequestId;
             StartingResourceCount = startingResourceCount;
+            VersionType = versionType;
         }
 
         [JsonConstructor]
@@ -61,5 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.StartingResourceCount)]
         public long StartingResourceCount { get; private set; }
+
+        [JsonProperty(JobRecordProperties.VersionType)]
+        public ResourceVersionType VersionType { get; private set; }
     }
 }

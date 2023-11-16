@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="cancellationToken">The CancellationToken</param>
         /// <param name="count">The search Count.</param>
         /// <param name="continuationToken">An optional ContinuationToken</param>
+        /// <param name="versionType">The versions of a resource to return</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
         internal static async Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken)> ConditionalSearchAsync(
@@ -48,7 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             CancellationToken cancellationToken,
             int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
-            string continuationToken = null)
+            string continuationToken = null,
+            ResourceVersionType versionType = ResourceVersionType.Latest)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
             IList<Tuple<string, string>> filteredParameters = conditionalParameters
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                     searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));
                 }
 
-                SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken);
+                SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken, resourceVersionTypes: versionType);
                 lastContinuationToken = results?.ContinuationToken;
 
                 // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
