@@ -726,9 +726,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
                     .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url), true));
 
-                AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
-                AppendHistoryClause(delimited, referenceSourceTableAlias);
-
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                     .Append(" IN (")
                     .Append(string.Join(", ", chainedExpression.ResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
@@ -819,9 +816,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(")");
                     }
                 }
-
-                AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
-                AppendHistoryClause(delimited, referenceSourceTableAlias);
 
                 AppendDeletedClause(delimited, referenceTargetResourceTableAlias);
 

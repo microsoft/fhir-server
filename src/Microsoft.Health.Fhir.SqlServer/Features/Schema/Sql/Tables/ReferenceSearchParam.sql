@@ -33,6 +33,6 @@ CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamI
    ,ResourceSurrogateId
    ,ResourceTypeId
   )
-  WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
+  WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
