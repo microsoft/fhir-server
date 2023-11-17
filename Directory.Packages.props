@@ -83,7 +83,7 @@
     <PackageVersion Include="Microsoft.Health.Encryption" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageVersion Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.1.0.62" />
+    <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.1.0.90" />
     <PackageVersion Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="3.1.0.62" />
     <PackageVersion Include="Microsoft.Health.Fhir.Liquid.Converter" Version="5.1.0.101" />
     <PackageVersion Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
