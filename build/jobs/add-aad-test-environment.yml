@@ -12,8 +12,8 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
-      Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      $module = Get-Module -Name AzureAD
+      Install-Module -Name Microsoft.Graph -Force -Verbose -Scope CurrentUser
+      $module = Get-Module -Name Microsoft.Graph
       Write-Host $module.version
 
       $tenantId = "$(tenant-id)"
@@ -54,7 +54,7 @@ steps:
       }
 
       Write-Host "Got access token"
-      Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+      Connect-MgGraph -TenantId $tenantId -AccessToken $response.access_token --ClientId $username
 
       Write-Host "Connected to Azure AD"
       Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
