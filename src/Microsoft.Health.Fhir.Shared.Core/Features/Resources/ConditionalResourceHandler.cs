@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchService = searchService;
             _logger = logger;
