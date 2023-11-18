@@ -307,6 +307,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                 {
+                    _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
                     throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                 }
 
@@ -353,6 +354,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         throw new ResourceConflictException(weakETag);
                     }
 
+                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                     throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 
