@@ -9,25 +9,30 @@ namespace Microsoft.Health.Fhir.Core.Logging
 {
     public abstract class BaseOperationStatistics
     {
+        private readonly Stopwatch _stopwatch;
+
         protected BaseOperationStatistics()
         {
-            Stopwatch = new Stopwatch();
+            _stopwatch = new Stopwatch();
         }
 
-        protected Stopwatch Stopwatch { get; private set; }
+        public long ElapsedMilliseconds
+        {
+            get { return _stopwatch.ElapsedMilliseconds; }
+        }
 
         public abstract string GetStatisticsAsJson();
 
         public abstract string GetLoggingCategory();
 
-        public void StartCollectingResults()
+        public virtual void StartCollectingResults()
         {
-            Stopwatch.Start();
+            _stopwatch.Start();
         }
 
-        public void StopCollectingResults()
+        public virtual void StopCollectingResults()
         {
-            Stopwatch.Stop();
+            _stopwatch.Stop();
         }
     }
 }

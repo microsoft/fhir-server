@@ -16,9 +16,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging
     public class LongRunningOperationStatisticsTests
     {
         [Fact]
-        public void GivenAnLongRunningOperation_WhenUsingLooging_ThenCreateStatistics()
+        public void GivenALongRunningOperation_WhenUsingStatistics_ThenComputeOperationsAsExpected()
         {
             const int count = 10;
+            const int sleeptime = 10;
 
             LongRunningOperationStatistics statistics = new LongRunningOperationStatistics("operation");
 
@@ -27,13 +28,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Logging
             for (int i = 0; i < count; i++)
             {
                 statistics.Iterate();
-                Thread.Sleep(10);
+                Thread.Sleep(sleeptime);
             }
 
             statistics.StopCollectingResults();
             string json = statistics.GetStatisticsAsJson();
 
             Assert.Equal(count, statistics.IterationCount);
+            Assert.True(statistics.ElapsedMilliseconds > 0, "Elapsed Milliseconds is not greater than ZERO.");
+            Assert.True(statistics.ElapsedMilliseconds >= (count * sleeptime), "Elapsed Milliseconds is not than the expected time.");
             Assert.Contains(statistics.GetLoggingCategory(), json);
         }
     }

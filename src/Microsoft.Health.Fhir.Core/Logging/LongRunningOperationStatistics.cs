@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Logging
             {
                 label = GetLoggingCategory(),
                 iterationCount = _iterationCount,
-                executionTime = Stopwatch.ElapsedMilliseconds,
+                executionTime = ElapsedMilliseconds,
             });
 
             return serializableEntity.ToString();

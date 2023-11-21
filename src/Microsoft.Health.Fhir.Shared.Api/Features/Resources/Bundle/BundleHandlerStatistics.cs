@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 bundleType = BundleType.ToString(),
                 processingLogic = ProcessingLogic.ToString(),
                 numberOfResources = NumberOfResources,
-                executionTime = Stopwatch.ElapsedMilliseconds,
+                executionTime = ElapsedMilliseconds,
                 success = successedRequests,
                 errors = failedRequests,
                 customerErrors = customerFailedRequests,
