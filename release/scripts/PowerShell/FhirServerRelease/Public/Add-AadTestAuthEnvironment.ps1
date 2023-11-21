@@ -60,7 +60,7 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
+    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
