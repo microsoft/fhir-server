@@ -60,7 +60,7 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName
+    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
@@ -69,7 +69,7 @@ function Add-AadTestAuthEnvironment {
 
     $retryCount = 0
     # Make sure key vault exists and is ready
-    while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
+    while (!(Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName)) {
         $retryCount += 1
 
         if ($retryCount -gt 20) {
