@@ -65,7 +65,6 @@ function Add-AadTestAuthEnvironment {
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
         New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -EnableRbacAuthorization | Out-Null
-        New-AzDedicatedHsm -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -Name $HsmName -SkuName "Standard_B1" -TenantId $TenantId | Out-Null
     }
 
     $retryCount = 0
@@ -80,6 +79,8 @@ function Add-AadTestAuthEnvironment {
         Write-Warning "Waiting on keyvault. Retry $retryCount"
         sleep 30
     }
+
+    $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
 
     Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
@@ -97,7 +98,7 @@ function Add-AadTestAuthEnvironment {
 
     if ($currentObjectId) {
         Write-Host "Adding permission to keyvault for $currentObjectId"
-        New-AzKeyVaultRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -HsmName $HsmName | Out-Null
+        New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId| Out-Null
     }
 
     Write-Host "Ensuring API application exists"
