@@ -42,7 +42,7 @@ function Add-AadTestAuthEnvironment {
 
     # Get current AzureAd context
     try {
-        $tenantInfo = Get-MgContext -ErrorAction Stop
+        $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop
     }
     catch {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
@@ -50,7 +50,7 @@ function Add-AadTestAuthEnvironment {
 
     # Get current Az context
     try {
-        $azContext = Get-MgContext
+        $azContext = Get-AzContext
     }
     catch {
         throw "Please log in to Azure RM with Login-AzAccount cmdlet before proceeding"
@@ -80,6 +80,7 @@ function Add-AadTestAuthEnvironment {
         sleep 30
     }
 
+    Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADUser -UserPrincipalName $azContext.Account.Id).Id
