@@ -96,7 +96,7 @@ function Add-AadTestAuthEnvironment {
 
     if ($currentObjectId) {
         Write-Host "Adding permission to keyvault for $currentObjectId"
-        New-AzKeyVaultRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVault.ResourceId | Out-Null
+        New-AzKeyVaultRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" | Out-Null
     }
 
     Write-Host "Ensuring API application exists"
