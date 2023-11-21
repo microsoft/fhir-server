@@ -44,7 +44,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
       azureSubscription: $(ConnectedServiceName)
