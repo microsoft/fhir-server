@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
-            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, maxParallel: true);
 
             int count = matchedResults.Results.Count;
             if (count == 0)

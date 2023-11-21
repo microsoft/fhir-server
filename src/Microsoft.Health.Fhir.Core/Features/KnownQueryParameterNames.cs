@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Container = "_container";
 
         /// <summary>
+        /// Originally for CosmosDB workloads to hint that this request should run with a max parallel setting.
+        /// </summary>
+        public const string OptimizeConcurrency = "_optimizeConcurrency";
+
+        /// <summary>
         /// The anonymization configuration
         /// </summary>
         /// <remarks>The anonymization configuration location and addition information. </remarks>

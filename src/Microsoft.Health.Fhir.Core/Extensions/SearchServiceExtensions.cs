@@ -48,7 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             CancellationToken cancellationToken,
             int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
-            string continuationToken = null)
+            string continuationToken = null,
+            bool? maxParallel = false)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
             IList<Tuple<string, string>> filteredParameters = conditionalParameters
@@ -68,6 +69,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             do
             {
                 var searchParameters = new List<Tuple<string, string>>(filteredParameters);
+
+                if (maxParallel == true)
+                {
+                    searchParameters.Add(Tuple.Create(KnownQueryParameterNames.OptimizeConcurrency, true.ToString()));
+                }
+
                 if (!string.IsNullOrEmpty(lastContinuationToken))
                 {
                     searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));

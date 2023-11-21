@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
-        private readonly List<string> _timeTravelParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId, KnownQueryParameterNames.OptimizeConcurrency };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -87,10 +87,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var searchOptions = new SearchOptions();
 
-            if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
+            if (queryParameters != null &&
+                queryParameters.Any(x => _queryHintParameterNames.Contains(x.Item1) && x.Item2 != null))
             {
                 var queryHint = new List<(string param, string value)>();
-                foreach (var par in queryParameters.Where(_ => _.Item1 == KnownQueryParameterNames.Type || _timeTravelParameterNames.Contains(_.Item1)))
+
+                foreach (var par in queryParameters.Where(x => x.Item1 == KnownQueryParameterNames.Type || _queryHintParameterNames.Contains(x.Item1)))
                 {
                     queryHint.Add((par.Item1, par.Item2));
                 }
@@ -108,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
-            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_timeTravelParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
+            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
