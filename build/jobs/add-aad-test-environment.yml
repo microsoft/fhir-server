@@ -13,7 +13,6 @@ steps:
     ScriptType: inlineScript
     Inline: |
       Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      Install-Module -Name Az.DedicatedHsm -Force -Verbose -Scope CurrentUser
       $module = Get-Module -Name AzureAD
       Write-Host $module.version
 

@@ -35,10 +35,7 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts",
-
-        [Parameter(Mandatory = $false)]
-        [string]$HsmName = "Hsm$KeyVaultName"
+        [string]$KeyVaultName = "$EnvironmentName-ts"
     )
 
     Set-StrictMode -Version Latest
