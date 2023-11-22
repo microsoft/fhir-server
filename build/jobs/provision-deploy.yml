@@ -90,7 +90,7 @@ jobs:
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
-            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}"
+            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
