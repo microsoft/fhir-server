@@ -113,11 +113,6 @@ jobs:
             New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
           }
         }
-        
-        Write-Host "Setting Key Vault access"
-        $keyVaultResourceId = Get-AzKeyVault -VaultName $webAppName | Select-Object -ExpandProperty ResourceId
-        Write-Host "Key Vault Resource Id: $keyVaultResourceId"
-        New-AzRoleAssignment -ObjectId b542f965-4eec-4682-8999-78dd501df864 -RoleDefinitionName "Key Vault Secrets User" -Scope $keyVaultResourceId
 
   - template: ./provision-healthcheck.yml
     parameters: 
