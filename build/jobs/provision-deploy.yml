@@ -67,6 +67,7 @@ jobs:
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $webAppName = "${{ parameters.webAppName }}".ToLower()
+        Write-Host "Web App Name: $webAppName"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
@@ -114,9 +115,10 @@ jobs:
         }
         
         Write-Host "Setting Key Vault access"
-        $keyVaultResourceId = Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion)| Select-Object -ExpandProperty ResourceId
+        $keyVaultResourceId = Get-AzKeyVault -VaultName $webAppName | Select-Object -ExpandProperty ResourceId
+        Write-Host "Key Vault Resource Id: $keyVaultResourceId"
         New-AzRoleAssignment -ObjectId b542f965-4eec-4682-8999-78dd501df864 -RoleDefinitionName "Key Vault Secrets User" -Scope $keyVaultResourceId
 
   - template: ./provision-healthcheck.yml
     parameters: 
-      webAppName: ${{ parameters.webAppName }}
+      webAppName: ${{ parameters.webAppName }}.ToLower()
