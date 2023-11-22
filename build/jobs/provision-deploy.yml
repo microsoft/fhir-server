@@ -103,8 +103,8 @@ jobs:
         }
 
         Write-Host "Provisioning Resource Group"
-        Write-Host $webAppName
-        Write-Host "${{ parameters.resourceGroup }}"
+        Write-Host "Webapp Name: $webAppName"
+        Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
         try {
         New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
         }catch {
@@ -116,4 +116,4 @@ jobs:
 
   - template: ./provision-healthcheck.yml
     parameters: 
-      webAppName: ${{ parameters.webAppName }}.ToLower()
+      webAppName: $webAppName
