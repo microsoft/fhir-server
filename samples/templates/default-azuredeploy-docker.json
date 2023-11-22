@@ -530,26 +530,28 @@
             ]
         },
         {
-            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
-            "apiVersion": "2018-09-01-preview",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]",
+            "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
             ],
             "properties": {
-                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'abfa0a7c-a6b6-4736-8310-5855508787cd')]", // Role definition ID for "Key Vault Secrets Officer"
+                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
                 "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]"
             }
         },
                 {
-            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
-            "apiVersion": "2018-09-01-preview",
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
+            "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
             ],
             "properties": {
-                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'abfa0a7c-a6b6-4736-8310-5855508787cd')]", // Role definition ID for "Key Vault Secrets Officer"
+                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
                 "principalId": "b542f965-4eec-4682-8999-78dd501df864"
             }
         },
