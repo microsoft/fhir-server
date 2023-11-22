@@ -66,7 +66,7 @@ jobs:
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
-        $webAppName = "${{ parameters.webAppName }}"
+        $webAppName = "${{ parameters.webAppName }}".ToLower()
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
@@ -105,16 +105,16 @@ jobs:
         Write-Host $webAppName
         Write-Host "${{ parameters.resourceGroup }}"
         try {
-        New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}.ToLower()" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
         }catch {
           if("${{ parameters.sql }}" -eq "true"){
             $templateParameters["sqlServerNewOrExisting"] = "new"
-            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}.ToLower()" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
           }
         }
         
         Write-Host "Setting Key Vault access"
-        $keyVaultResourceId = Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState| Select-Object -ExpandProperty ResourceId
+        $keyVaultResourceId = Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion)| Select-Object -ExpandProperty ResourceId
         New-AzRoleAssignment -ObjectId b542f965-4eec-4682-8999-78dd501df864 -RoleDefinitionName "Key Vault Secrets User" -Scope $keyVaultResourceId
 
   - template: ./provision-healthcheck.yml
