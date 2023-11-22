@@ -114,7 +114,7 @@ jobs:
         }
         
         Write-Host "Setting Key Vault access"
-        New-AzRoleAssignment -ObjectId b542f965-4eec-4682-8999-78dd501df864 -RoleDefinitionName "Reader" -Scope "/subscriptions/${{ parameters.subscription }}/resourceGroups/${{ parameters.resourceGroup }}/providers/Microsoft.KeyVault/vaults/${{ parameters.webAppName }}"
+        New-AzRoleAssignment -ObjectId b542f965-4eec-4682-8999-78dd501df864 -RoleDefinitionName "Key Vault Secrets User" -Scope "/subscriptions/${{ parameters.subscription }}/resourceGroups/${{ parameters.resourceGroup }}/providers/Microsoft.KeyVault/vaults/${{ parameters.webAppName }}"
 
   - template: ./provision-healthcheck.yml
     parameters: 
