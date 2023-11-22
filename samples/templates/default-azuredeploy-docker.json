@@ -532,7 +532,7 @@
         {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName')))))]",
+            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
             ],
@@ -544,7 +544,7 @@
                 {
             "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName')))))]",
+            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
             ],
