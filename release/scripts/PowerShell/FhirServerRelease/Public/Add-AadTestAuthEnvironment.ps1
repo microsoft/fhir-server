@@ -35,7 +35,7 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts"
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
     )
 
     Set-StrictMode -Version Latest
