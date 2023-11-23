@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             // 'AuthorizationPermissionMismatch' is raised when a request is not authorized to perform an operation.
             // As 'RequestFailedException' is too generic, a more specific type of exception needs to be used to identify non-actionable scenarios.
-            if (string.Equals(requestFailedException.ErrorCode, "AuthorizationPermissionMismatch", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(requestFailedException.ErrorCode, "AuthorizationPermissionMismatch", StringComparison.OrdinalIgnoreCase) || requestFailedException.Status == (int)HttpStatusCode.Forbidden)
             {
                 finalException = new InsufficientAccessException(string.Format(message, args), requestFailedException);
             }
