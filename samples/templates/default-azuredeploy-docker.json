@@ -530,7 +530,7 @@
             ]
         },
         {
-            "type": "Microsoft.Authorization/roleAssignments",
+            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]",
             "dependsOn": [
@@ -542,7 +542,7 @@
             }
         },
                 {
-            "type": "Microsoft.Authorization/roleAssignments",
+            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
             "apiVersion": "2022-04-01",
             "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
             "dependsOn": [
