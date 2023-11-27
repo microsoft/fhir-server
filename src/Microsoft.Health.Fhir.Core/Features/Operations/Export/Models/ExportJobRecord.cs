@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             uint numberOfPagesPerCommit = 10,
             string storageAccountContainerName = null,
             bool isParallel = true,
+            bool includeHistory = false,
+            bool includeDeleted = false,
             int schemaVersion = 2,
             int typeId = (int)JobType.ExportOrchestrator,
             bool smartRequest = false)
@@ -69,6 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RestartCount = 0;
             TypeId = typeId;
             IsParallel = isParallel;
+            IncludeHistory = includeHistory;
+            IncludeDeleted = includeDeleted;
 
             AnonymizationConfigurationCollectionReference = anonymizationConfigurationCollectionReference;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
@@ -199,6 +203,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.IsParallel)]
         public bool IsParallel { get; private set; }
+
+        [JsonProperty(JobRecordProperties.IncludeHistory)]
+        public bool IncludeHistory { get; private set; }
+
+        [JsonProperty(JobRecordProperties.IncludeDeleted)]
+        public bool IncludeDeleted { get; private set; }
 
         [JsonProperty(JobRecordProperties.SmartRequest)]
         public bool SmartRequest { get; private set; }

@@ -276,6 +276,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithAllResources_WhenSearched_DoesNotIncludeUntypedReferences()
+        {
+            string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=*";
+
+            await SearchAndValidateBundleAsync(
+                ResourceType.Observation,
+                query,
+                Fixture.ObservationWithUntypedReferences);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
         {
             string query = $"_tag={Fixture.Tag}&_include=Patient:organization";

@@ -139,37 +139,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 loaded.AddRange(inputDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
                 await MergeResourcesAsync(loaded, cancellationToken);
             }
-            else
+            else if (importMode == ImportMode.IncrementalLoad)
             {
-                // dedup by last updated
-                var inputDedupped = goodResources.GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).Select(_ => _.First()).ToList();
+                // dedup by last updated - keep all versions when version and lastUpdated exist on record.
+                var inputDedupped = goodResources
+                    .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: !_.KeepVersion || !_.KeepLastUpdated))
+                    .Select(_ => _.First())
+                    .ToList();
 
-                // 2 paths:
-                // 1 - if versions were specified on input then dups need to be checked within input and database
+                await HandleIncrementalVersionedImport(inputDedupped);
+
+                await HandleIncrementalUnversionedImport(inputDedupped);
+            }
+
+            async Task HandleIncrementalVersionedImport(List<ImportResource> inputDedupped)
+            {
+                // Dedup by version via ToResourceKey - only keep first occurance of a version in this batch.
                 var inputDeduppedWithVersions = inputDedupped.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
-                var currentKeys = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
-                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentKeys.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified)); // sorting is used in merge to set isHistory
-                await MergeResourcesAsync(loaded, cancellationToken);
 
-                // 2 - if versions were not specified they have to be assigned as next based on union of input and database.
-                // assume that only one unassigned version is provided for a given resource as we cannot guarantee processing order across parallel file streams anyway
-                var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.First()).ToList();
-                //// check whether record can fit
-                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
+                // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
+                var currentResourceKeysInDb = new HashSet<ResourceKey>((await _store.GetAsync(inputDeduppedWithVersions.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).Select(_ => _.ToResourceKey()));
+
+                // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
+                loaded.AddRange(inputDeduppedWithVersions.Where(i => !currentResourceKeysInDb.TryGetValue(i.ResourceWrapper.ToResourceKey(), out _)).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified));
+                await MergeResourcesAsync(loaded, cancellationToken);
+            }
+
+            async Task HandleIncrementalUnversionedImport(List<ImportResource> inputDedupped)
+            {
+                // Dedup by resource id - only keep first occurance of an unversioned resource. This method is run in many parallel workers - we cannot guarantee processing order across parallel file streams. Taking the first resource avoids conflicts.
+                var inputDeduppedNoVersion = inputDedupped.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).Select(_ => _.First()).ToList();
+
+                // Ensure that the imported resources can "fit" between existing versions in the db. We want to keep versionId sequential along with lastUpdated.
+                // First part is setup.
+                var currentDates = (await _store.GetAsync(inputDeduppedNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(ignoreVersion: true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
                 var inputDeduppedNoVersionForCheck = new List<ImportResource>();
                 foreach (var resource in inputDeduppedNoVersion)
                 {
-                    if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
+                    if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(ignoreVersion: true), out var dateKey)
                         && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
                     {
                         inputDeduppedNoVersionForCheck.Add(resource);
                     }
                 }
 
+                // Second part is testing if the imported resources can "fit" between existing versions in the db.
                 var versionSlots = (await _store.StoreClient.GetResourceVersionsAsync(inputDeduppedNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_model.GetResourceTypeName(_.ResourceTypeId), _.Id, null), _ => _);
                 foreach (var resource in inputDeduppedNoVersionForCheck)
                 {
-                    var resourceKey = resource.ResourceWrapper.ToResourceKey(true);
+                    var resourceKey = resource.ResourceWrapper.ToResourceKey(ignoreVersion: true);
                     versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
 
                     if (versionSlotKey.VersionId == "0") // no version slot available
@@ -183,6 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
 
+                // Finally merge the resources to the db.
                 var inputDeduppedNoVersionNoConflict = inputDeduppedNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
                 await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => _.KeepVersion).ToList(), cancellationToken);
                 await MergeResourcesAsync(inputDeduppedNoVersionNoConflict.Where(_ => !_.KeepVersion).ToList(), cancellationToken);
@@ -193,9 +212,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private async Task MergeResourcesAsync(IList<ImportResource> resources, CancellationToken cancellationToken)
         {
             var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, true, false, cancellationToken);
+            await _store.MergeInternalAsync(input, true, true, false, cancellationToken);
             input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-            await _store.MergeInternalAsync(input, false, false, cancellationToken);
+            await _store.MergeInternalAsync(input, false, true, false, cancellationToken);
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)

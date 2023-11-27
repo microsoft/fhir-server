@@ -143,5 +143,15 @@ namespace Microsoft.Health.Fhir.Core.Features
         {
             return _parameterNames.Contains(parameterName);
         }
+
+        /// <summary>
+        /// Used by $export as a comma-separated list of parameters instructing which initial data should be included.
+        /// </summary>
+        public const string IncludeAssociatedData = "includeAssociatedData";
+
+        /// <summary>
+        /// Used by export to specify the number of resources to be processed by the search engine.
+        /// </summary>
+        public const string MaxCount = "_maxCount";
     }
 }

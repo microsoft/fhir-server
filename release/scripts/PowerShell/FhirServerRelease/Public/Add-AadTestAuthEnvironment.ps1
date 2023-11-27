@@ -35,7 +35,7 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts"
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
     )
 
     Set-StrictMode -Version Latest
@@ -60,25 +60,29 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName
+    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
-        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
+        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -EnableRbacAuthorization | Out-Null
     }
 
     $retryCount = 0
     # Make sure key vault exists and is ready
-    while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
+    while (!(Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName )) {
         $retryCount += 1
 
-        if ($retryCount -gt 7) {
+        if ($retryCount -gt 20) {
             throw "Could not connect to the vault $KeyVaultName"
         }
 
-        sleep 10
+        Write-Warning "Waiting on keyvault. Retry $retryCount"
+        sleep 30
     }
 
+    $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
+
+    Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADUser -UserPrincipalName $azContext.Account.Id).Id
@@ -94,7 +98,7 @@ function Add-AadTestAuthEnvironment {
 
     if ($currentObjectId) {
         Write-Host "Adding permission to keyvault for $currentObjectId"
-        Set-AzKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get,List,Set
+        New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId| Out-Null
     }
 
     Write-Host "Ensuring API application exists"

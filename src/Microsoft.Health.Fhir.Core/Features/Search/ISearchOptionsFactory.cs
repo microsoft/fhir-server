@@ -12,8 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface ISearchOptionsFactory
     {
-        Task<SearchOptions> Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, CancellationToken cancellationToken = default);
+        Task<SearchOptions> Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, CancellationToken cancellationToken = default);
 
-        Task<SearchOptions> Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, bool useSmartCompartmentDefinition = false, CancellationToken cancellationToken = default);
+        Task<SearchOptions> Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, bool useSmartCompartmentDefinition = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, CancellationToken cancellationToken = default);
     }
 }

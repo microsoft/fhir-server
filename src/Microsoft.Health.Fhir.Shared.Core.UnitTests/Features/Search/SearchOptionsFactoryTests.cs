@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SPTYPEURI }.ToInfo();
+            _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String, Url = SearchParameterNames.ResourceTypeUri.AbsoluteUri }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             _patientAddressSearchParameterInfo = new SearchParameter { Name = "address-city", Code = "address-city", Type = SearchParamType.String, Url = SPURI }.ToInfo();
             _accountNameSearchParameterInfo = new SearchParameter { Name = "name", Code = "name", Type = SearchParamType.String, Url = ACCOUNTURI }.ToInfo();
@@ -149,7 +149,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public async void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", "0"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.True(options.CountOnly);
+        }
+
+        [Theory]
+        [InlineData("a")]
+        [InlineData("1.1")]
+        public void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
+        {
+            const ResourceType resourceType = ResourceType.Encounter;
+            var queryParameters = new[]
+            {
+               Tuple.Create("_count", value),
+            };
+
+            Assert.Throws<System.FormatException>(() => CreateSearchOptions(
+            resourceType: resourceType.ToString(),
+            queryParameters: queryParameters));
+        }
+
+        [Fact]
+        public void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName1 = "address-city";
@@ -377,8 +410,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = await CreateSearchOptions(
                 resourceType: resourceType.ToString(),
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateMultiaryExpression(
@@ -401,8 +434,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions options = await CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                compartmentType.ToString(),
-                compartmentId);
+                compartmentType: compartmentType.ToString(),
+                compartmentId: compartmentId);
 
             Assert.NotNull(options);
             ValidateCompartmentSearchExpression(options.Expression, compartmentType.ToString(), compartmentId);
@@ -420,8 +453,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await CreateSearchOptions(
                 resourceType: null,
                 queryParameters: null,
-                invalidCompartmentType,
-                "123"));
+                compartmentType: invalidCompartmentType,
+                compartmentId: "123"));
 
             Assert.Equal(exception.Message, $"Compartment type {invalidCompartmentType} is invalid.");
         }
@@ -436,8 +469,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             InvalidSearchOperationException exception = await Assert.ThrowsAsync<InvalidSearchOperationException>(async () => await CreateSearchOptions(
                 resourceType: ResourceType.Claim.ToString(),
                 queryParameters: null,
-                CompartmentType.Patient.ToString(),
-                invalidCompartmentId));
+                compartmentType: CompartmentType.Patient.ToString(),
+                compartmentId: invalidCompartmentId));
 
             Assert.Equal("Compartment id is null or empty.", exception.Message);
         }
@@ -567,14 +600,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters, options.UnsupportedSearchParams);
         }
 
-        private async Task<SearchOptions> CreateSearchOptions(
+        [Theory]
+        [InlineData(ResourceVersionType.Latest)]
+        [InlineData(ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
+        {
+            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
+            Assert.NotNull(options);
+            Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
+            Assert.Empty(options.UnsupportedSearchParams);
+        }
+
+        private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
             string compartmentType = null,
             string compartmentId = null,
             CancellationToken cancellationToken = default)
         {
-            return await _factory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
         }
     }
 }

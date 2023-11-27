@@ -131,12 +131,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
             }
 
-            // validate that the url does not correspond to a search param from the spec
-            // TODO: still need a method to determine spec defined search params
-
-            // validation of the fhir path
-            // TODO: separate user story for this validation
-
             if (validationFailures.Any())
             {
                 throw new ResourceNotValidException(validationFailures);
