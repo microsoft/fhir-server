@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchService = searchService;
             _logger = logger;
@@ -54,13 +55,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
-            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(
+                request.ResourceType,
+                request.ConditionalParameters,
+                cancellationToken,
+                logger: _logger);
 
             int count = matchedResults.Results.Count;
             if (count == 0)
             {
                 _logger.LogInformation("Conditional handler: Not Match. ResourceType={ResourceType}", request.ResourceType);
-                return await HandleNoMatch(request,  cancellationToken);
+                return await HandleNoMatch(request, cancellationToken);
             }
             else if (count == 1)
             {

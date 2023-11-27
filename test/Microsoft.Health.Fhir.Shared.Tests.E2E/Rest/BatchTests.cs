@@ -93,9 +93,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal("204", resource.Entry[4].Response.Status);
             Assert.Equal("204", resource.Entry[5].Response.Status);
 
-            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[7].Response.Status);
-            ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Fact]
@@ -124,9 +124,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resource.Entry[4].Response.Status);
             Assert.Equal("204", resource.Entry[5].Response.Status);
             Assert.Equal("204", resource.Entry[6].Response.Status);
-            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[8].Response.Status);
-            ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
 
             // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
             using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(
@@ -147,10 +147,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resourceAfterPostingSameBundle.Entry[4].Response.Status);
             Assert.Equal("204", resourceAfterPostingSameBundle.Entry[5].Response.Status);
             Assert.Equal("204", resourceAfterPostingSameBundle.Entry[6].Response.Status);
-            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[7].Response.Status, resourceAfterPostingSameBundle.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[7].Response.Status, resourceAfterPostingSameBundle.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resourceAfterPostingSameBundle.Entry[8].Response.Status);
             Assert.Equal(resource.Entry[8].Resource.VersionId, resourceAfterPostingSameBundle.Entry[8].Resource.VersionId);
-            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Theory]
@@ -172,16 +172,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 var entry = fhirResponse.Resource.Entry[i];
                 var operationOutcome = entry.Response.Outcome as OperationOutcome;
-                ValidateOperationOutcome(entry.Response.Status, operationOutcome, _statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
+                BatchTestsUtil.ValidateOperationOutcome(entry.Response.Status, operationOutcome, _statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
             }
 
             var resourceEntry = fhirResponse.Resource.Entry[7];
-            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             resourceEntry = fhirResponse.Resource.Entry[8];
             Assert.Equal("200", resourceEntry.Response.Status);
             Assert.Null(resourceEntry.Response.Outcome);
             resourceEntry = fhirResponse.Resource.Entry[9];
-            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BatchTestsUtil.ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Theory]
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned(FhirBundleProcessingLogic processingLogic)
         {
             using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(), processingLogic));
-            ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
+            BatchTestsUtil.ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
         [Theory]
@@ -325,19 +325,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[2].Response.Status);
             }
-        }
-
-        internal static void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
-        {
-            Assert.Equal(expectedStatusCode, actualStatusCode);
-            Assert.NotNull(operationOutcome);
-            Assert.Single(operationOutcome.Issue);
-
-            var issue = operationOutcome.Issue.First();
-
-            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
-            Assert.Equal(expectedIssueType, issue.Code);
-            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
         }
     }
 }

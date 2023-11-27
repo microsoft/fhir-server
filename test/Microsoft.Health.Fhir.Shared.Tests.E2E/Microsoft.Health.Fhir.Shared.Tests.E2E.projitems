@@ -14,6 +14,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\AzureStorageBlobHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchAdvancedTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchTestsUtil.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
