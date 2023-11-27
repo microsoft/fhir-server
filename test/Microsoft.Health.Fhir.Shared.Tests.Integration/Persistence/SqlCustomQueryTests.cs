@@ -49,16 +49,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
 
-            // Create a query with a known hash
             var queryParameters = new[]
             {
-                Tuple.Create("participating-organization.identifier", $"TAB%7C910000290"),
-                Tuple.Create(SearchParameterNames.Include, $"OrganizationAffiliation:location"),
-                Tuple.Create("participating-organization.type", $"practice"),
+               Tuple.Create("_count", "5"),
             };
 
             // Query before adding an sproc to the database
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
 
             var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
 
@@ -75,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
             {
                 await Task.Delay(300);
-                await _fixture.SearchService.SearchAsync(KnownResourceTypes.OrganizationAffiliation, queryParameters, CancellationToken.None);
+                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
                 Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
                 if (await CheckIfSprocUsed(hash))
                 {
@@ -120,7 +117,7 @@ SELECT TOP 1 O.name
         {
             _fixture.SqlHelper.ExecuteSqlCmd(
                 "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_" + hash + "]\r\n" +
-                "(@p0 SmallInt, @p1 SmallInt, @p2 SmallInt, @p3 SmallInt, @p4 NVarChar(256), @p5 SmallInt, @p6 VarChar(256), @p7 Int, @p8 SmallInt, @p9 Int)\r\n" +
+                "(@p0 SmallInt=1, @p1 SmallInt=1, @p2 SmallInt=1, @p3 SmallInt=1, @p4 NVarChar(256)='code', @p5 SmallInt=1, @p6 VarChar(256)='code', @p7 Int=1, @p8 SmallInt=1, @p9 Int=1)\r\n" +
                 "AS\r\n" +
                 "BEGIN\r\n" +
                 "WITH cte0 AS\r\n(\r\n" +

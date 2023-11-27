@@ -343,21 +343,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                 Expression.In(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
         }
 
-        protected override async Task<SearchResult> SearchHistoryInternalAsync(
-            SearchOptions searchOptions,
-            CancellationToken cancellationToken)
-        {
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, _) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                _queryBuilder.GenerateHistorySql(searchOptions),
-                searchOptions,
-                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
-                null,
-                null,
-                cancellationToken);
-
-            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
-        }
-
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,

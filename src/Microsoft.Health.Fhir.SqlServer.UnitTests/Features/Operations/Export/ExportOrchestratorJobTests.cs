@@ -8,6 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -29,6 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
     {
         private ISearchService _mockSearchService = Substitute.For<ISearchService>();
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
+        private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
         [Theory]
         [InlineData(ExportJobType.Patient)]
@@ -41,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, exportJobType: exportJobType)[0];
-            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
 
@@ -57,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: false).First();
-            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -74,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId);
 
             var orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true).First();
-            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -91,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId);
 
             JobInfo orchestratorJob = GetJobInfoArray(0, orchestratorJobId, false, orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation").First();
-            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new SqlExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             string result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>(_ => { }), CancellationToken.None);
             ExportJobRecord jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);

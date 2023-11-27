@@ -35,12 +35,12 @@ using Xunit;
 using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.AnonymizedExport)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class AnonymizedExportUsingAcrTests : IClassFixture<ExportTestFixture>
+    public class AnonymizedExportUsingAcrTests : IClassFixture<ExportDataTestFixture>
     {
         private const string TestRepositoryName = "testanonymizationconfigs";
         private const string TestConfigName = "testconfigname.json";
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     ]
 }";
 
-        public AnonymizedExportUsingAcrTests(ExportTestFixture fixture)
+        public AnonymizedExportUsingAcrTests(ExportDataTestFixture fixture)
         {
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;

@@ -18,7 +18,7 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
