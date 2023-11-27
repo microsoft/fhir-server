@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -1213,33 +1215,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenARevIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParametersWithOneSPDisabled_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenAnRevIncludeSearchExpressionWithDisabledSearchParameter_WhenSearched_DoesnotIncludeDisabledSearchParameter()
         {
-            var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
-                new DiagnosticReport
-                {
-                    Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
-                    Status = DiagnosticReport.DiagnosticReportStatus.Final,
-                    Code = new CodeableConcept("http://snomed.info/sct", "429858000"),
-                    Subject = new ResourceReference($"Patient/{Fixture.TrumanPatient.Id}"),
-                    Result = new List<ResourceReference> { new ResourceReference($"Observation/{Fixture.TrumanSnomedObservation.Id}") },
-                });
+            string query = $"_revinclude:iterate=MedicationRequest:*&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
-            string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_lastUpdated=lt{lastUpdated}";
-
-            Bundle bundle = await SearchAndValidateBundleAsync(
-                ResourceType.Observation,
+            // http://hl7.org/fhir/SearchParameter/Patient-organization
+            await SearchAndValidateBundleAsync(
+                ResourceType.Patient,
                 query,
-                Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanSnomedObservation,
-                newDiagnosticReportResponse.Resource);
-
-            // delete the extra entry added
-            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+                Fixture.PatiPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.PatientWithDeletedOrganization);
         }
 
         // This will not work for circular reference
@@ -1294,5 +1282,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             return bundle;
         }
+
+        /*
+        private async Task UpdateSearchParameterStatus(string searchParameterUri, SearchParameterStatus status)
+        {
+            SearchParameterStateResponse searchParameter = await Client.ReadAsync<SearchParameterStateResponse>($"/SearchParameter/$status?url={searchParameterUri}");
+            searchParameter. = status;
+            await Client.UpdateAsync(searchParameter);
+        }
+        */
     }
 }
