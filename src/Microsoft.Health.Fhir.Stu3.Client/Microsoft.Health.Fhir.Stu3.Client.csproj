@@ -8,5 +8,8 @@
     <PackageReference Include="Hl7.Fhir.STU3" />
     <PackageReference Include="Microsoft.Health.Client" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems" Label="Shared" />
 </Project>
