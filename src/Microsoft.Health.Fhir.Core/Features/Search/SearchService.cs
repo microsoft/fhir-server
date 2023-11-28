@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false)
         {
-            SearchOptions searchOptions = await _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition, cancellationToken);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, isAsyncOperation, useSmartCompartmentDefinition, cancellationToken: cancellationToken);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken,
             bool isAsyncOperation = false)
         {
-            SearchOptions searchOptions = await _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation, cancellationToken);
+            SearchOptions searchOptions = await _searchOptionsFactory.Create(null, queryParameters, isAsyncOperation, cancellationToken: cancellationToken);
 
             if (countOnly)
             {

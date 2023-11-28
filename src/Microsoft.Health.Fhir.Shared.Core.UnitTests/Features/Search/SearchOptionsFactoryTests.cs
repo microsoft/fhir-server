@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
+        public async void GivenACountWithValueZero_WhenCreated_ThenCorrectMaxItemCountShouldBeSet()
         {
             const ResourceType resourceType = ResourceType.Encounter;
             var queryParameters = new[]
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                Tuple.Create("_count", "0"),
             };
 
-            SearchOptions options = CreateSearchOptions(
+            SearchOptions options = await CreateSearchOptions(
             resourceType: resourceType.ToString(),
             queryParameters: queryParameters);
 
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Theory]
         [InlineData("a")]
         [InlineData("1.1")]
-        public void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
+        public async void GivenACountWithInvalidValue_WhenCreated_ThenExceptionShouldBeThrown(string value)
         {
             const ResourceType resourceType = ResourceType.Encounter;
             var queryParameters = new[]
@@ -176,13 +176,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                Tuple.Create("_count", value),
             };
 
-            Assert.Throws<System.FormatException>(() => CreateSearchOptions(
+            await Assert.ThrowsAsync<System.FormatException>(async () => await CreateSearchOptions(
             resourceType: resourceType.ToString(),
             queryParameters: queryParameters));
         }
 
         [Fact]
-        public void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
+        public async void GivenNoneOfTheSearchParamIsSupported_WhenCreated_ThenCorrectExpressionShouldBeGenerated()
         {
             const ResourceType resourceType = ResourceType.Patient;
             const string paramName1 = "address-city";
@@ -608,15 +608,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
         [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
         [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
-        public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
+        public async void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
         {
-            SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
+            SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);
             Assert.NotNull(options);
             Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
             Assert.Empty(options.UnsupportedSearchParams);
         }
 
-        private SearchOptions CreateSearchOptions(
+        private async Task<SearchOptions> CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
             ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
@@ -624,7 +624,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string compartmentId = null,
             CancellationToken cancellationToken = default)
         {
-            return _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes);
+            return await _factory.Create(compartmentType, compartmentId, resourceType, queryParameters, resourceVersionTypes: resourceVersionTypes, cancellationToken: cancellationToken);
         }
     }
 }

@@ -139,11 +139,6 @@ namespace Microsoft.Health.Fhir.Core.Features
             PurgeHistory,
         };
 
-        public static bool IsKnownParameter(string parameterName)
-        {
-            return _parameterNames.Contains(parameterName);
-        }
-
         /// <summary>
         /// Used by $export as a comma-separated list of parameters instructing which initial data should be included.
         /// </summary>
@@ -153,5 +148,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         /// Used by export to specify the number of resources to be processed by the search engine.
         /// </summary>
         public const string MaxCount = "_maxCount";
+
+        public static bool IsKnownParameter(string parameterName)
+        {
+            return _parameterNames.Contains(parameterName);
+        }
     }
 }
