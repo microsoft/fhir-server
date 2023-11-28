@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
 
 namespace Microsoft.Health.Fhir.Client
 {
@@ -83,5 +85,9 @@ namespace Microsoft.Health.Fhir.Client
             where T : Resource;
 
         Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default);
+
+        Task<SearchParameterStateResponse> GetSearchParameterStateAsync(string uri, CancellationToken cancellationToken);
+
+        Task<SearchParameterStateResponse> UpdateSearchParameterStateAsync(string uri, SearchParameterStatus spStatus, CancellationToken cancellationToken);
     }
 }

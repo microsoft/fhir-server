@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -16,6 +17,11 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Features.Operations.SearchParameterState;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.SearchParameterState;
+using Newtonsoft.Json;
+using static Hl7.Fhir.Model.Parameters;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -639,6 +645,57 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<OperationOutcome>(response);
+        }
+
+        public async Task<SearchParameterStateResponse> GetSearchParameterStateAsync(string uri, CancellationToken cancellationToken)
+        {
+            var url = $"SearchParameter/$status?uri={uri}";
+            using var message = new HttpRequestMessage(HttpMethod.Get, url);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken);
+            return JsonConvert.DeserializeObject<SearchParameterStateResponse>(content);
+        }
+
+        public async Task<SearchParameterStateResponse> UpdateSearchParameterStateAsync(string uri, SearchParameterStatus spStatus, CancellationToken cancellationToken)
+        {
+            var url = $"SearchParameter/$status?uri={uri}";
+            using var message = new StringContent(CreateValidRequestBody(uri));
+
+            using HttpResponseMessage response = await HttpClient.PostAsync(new Uri(url), message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken);
+            return JsonConvert.DeserializeObject<SearchParameterStateResponse>(content);
+        }
+
+        private static string CreateValidRequestBody(string url)
+        {
+            Parameters parameters = new Parameters();
+            List<ParameterComponent> parts = new List<ParameterComponent>
+                {
+                    new ParameterComponent()
+                    {
+                        Name = SearchParameterStateProperties.Url,
+                        Value = new FhirUrl(new Uri(url)),
+                    },
+                    new ParameterComponent()
+                    {
+                        Name = SearchParameterStateProperties.Status,
+                        Value = new FhirString(SearchParameterStatus.Disabled.ToString()),
+                    },
+                };
+            parameters.Parameter.Add(new ParameterComponent()
+            {
+                Name = SearchParameterStateProperties.Name,
+                Part = parts,
+            });
+
+            return JsonConvert.SerializeObject(parameters);
         }
 
         private StringContent CreateStringContent(Resource resource)

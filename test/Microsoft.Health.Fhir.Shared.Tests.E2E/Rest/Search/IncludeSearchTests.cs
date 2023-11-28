@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
@@ -1230,7 +1231,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             string query = $"_revinclude:iterate=MedicationRequest:*&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
-            // http://hl7.org/fhir/SearchParameter/Patient-organization
+            await UpdateSearchParameterStatusAsync("http://hl7.org/fhir/SearchParameter/Patient-organization", SearchParameterStatus.Disabled, default);
+
             await SearchAndValidateBundleAsync(
                 ResourceType.Patient,
                 query,
@@ -1239,6 +1241,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.AdamsPatient,
                 Fixture.PatientWithDeletedOrganization);
+
+            await UpdateSearchParameterStatusAsync("http://hl7.org/fhir/SearchParameter/Patient-organization", SearchParameterStatus.Enabled, default);
         }
 
         // This will not work for circular reference
@@ -1294,13 +1298,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return bundle;
         }
 
-        /*
-        private async Task UpdateSearchParameterStatus(string searchParameterUri, SearchParameterStatus status)
+        private async Task UpdateSearchParameterStatusAsync(string searchParameterUri, SearchParameterStatus status, CancellationToken cancellationToken = default)
         {
-            SearchParameterStateResponse searchParameter = await Client.ReadAsync<SearchParameterStateResponse>($"/SearchParameter/$status?url={searchParameterUri}");
-            searchParameter. = status;
-            await Client.UpdateAsync(searchParameter);
+            await Client.UpdateSearchParameterStateAsync(searchParameterUri, status, cancellationToken);
         }
-        */
     }
 }
