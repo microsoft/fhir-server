@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     public class PrincipalClaimsExtractor : IClaimsExtractor
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-        private readonly SecurityConfiguration _securityConfiguration;
+        private readonly ISecurityConfiguration _securityConfiguration;
 
-        public PrincipalClaimsExtractor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
+        public PrincipalClaimsExtractor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<ISecurityConfiguration> securityConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));

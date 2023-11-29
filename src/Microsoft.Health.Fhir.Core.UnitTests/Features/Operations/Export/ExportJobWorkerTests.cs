@@ -70,8 +70,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency);
 
             await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
-
-            _exportJobTaskFactory().ReceivedCalls().Any();
         }
 
         [Fact]
@@ -86,8 +84,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 2);
 
             await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
-
-            _exportJobTaskFactory.ReceivedCalls().Any();
         }
 
         [Fact]

@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class SecurityConfiguration
+    public class SecurityConfiguration : ISecurityConfiguration
     {
         public delegate void AddAuthenticationLibraryMethod(IServiceCollection services, SecurityConfiguration securityConfiguration);
 

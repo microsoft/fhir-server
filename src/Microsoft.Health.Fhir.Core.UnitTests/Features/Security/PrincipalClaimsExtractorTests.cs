@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
     public class PrincipalClaimsExtractorTests
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-        private readonly IOptions<SecurityConfiguration> _securityOptions;
-        private readonly SecurityConfiguration _securityConfiguration = new SecurityConfiguration();
+        private readonly IOptions<ISecurityConfiguration> _securityOptions;
+        private readonly ISecurityConfiguration _securityConfiguration = Substitute.For<ISecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = new ClaimsPrincipal();
         private readonly PrincipalClaimsExtractor _claimsIndexer;
 
