@@ -114,8 +114,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (RequestFailedException ex) when (ex.Status == 403)
                 {
-                    _logger.LogInformation(ex, "Due to unauthorized request import processing operation is failed.");
-                    var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request import processing operation is failed." };
+                    _logger.LogInformation(ex, "Due to unauthorized request, the import processing operation failed.");
+                    var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, the import processing operation failed." };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
