@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var searchParameterStatusmanager = Substitute.For<ISearchParameterStatusManager>();
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
-            searchParameterStatusmanager.GetAllSearchParameterStatus(Arg.Is(_cancellationToken)).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
+            searchParameterStatusmanager.GetAllSearchParameterStatus(Arg.Any<CancellationToken>()).Returns<IReadOnlyCollection<ResourceSearchParameterStatus>>(status);
             searchParameterDefinitionManager.AllSearchParameters.Returns(searchParameterInfos);
 
             var reindexJobTaskFactory = () =>
