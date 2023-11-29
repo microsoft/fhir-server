@@ -51,10 +51,11 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            bool enableEndpointRouting = configurationRoot != null ? bool.TryParse(configurationRoot["EnableEndpointRouting"], out enableEndpointRouting) : false;
             services.AddOptions();
             services.AddMvc(options =>
                 {
-                    options.EnableEndpointRouting = false;
+                    options.EnableEndpointRouting = enableEndpointRouting;
                     options.RespectBrowserAcceptHeader = true;
                 })
                 .AddNewtonsoftJson(options =>
