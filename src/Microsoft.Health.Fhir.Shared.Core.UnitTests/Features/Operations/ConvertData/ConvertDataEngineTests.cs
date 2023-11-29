@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
         {
             var templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
-            var templateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
+            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
             return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());

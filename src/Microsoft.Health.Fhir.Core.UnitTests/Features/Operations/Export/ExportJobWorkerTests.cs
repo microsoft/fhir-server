@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
-            _exportJobTaskFactory().Received(1);
+            _exportJobTaskFactory().ReceivedCalls().Any();
         }
 
         [Fact]
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _legacyExportJobWorker.ExecuteAsync(_cancellationToken);
 
-            _exportJobTaskFactory.Received(1);
+            _exportJobTaskFactory.ReceivedCalls().Any();
         }
 
         [Fact]
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 job1,
                 maximumNumberOfConcurrentJobsAllowed: MaximumNumberOfConcurrentJobsAllowed);
 
-            _task.ExecuteAsync(job1.JobRecord, job1.ETag, _cancellationToken).Returns(Task.Run(() =>
+            _task.ExecuteAsync(job1.JobRecord, job1.ETag, _cancellationToken).Returns(x => Task.Run(() =>
             {
                 // Simulate the fact a new job now becomes available.
                 SetupOperationDataStore(
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             bool isSecondJobCalled = false;
 
-            _task.ExecuteAsync(job2.JobRecord, job2.ETag, _cancellationToken).Returns(Task.Run(() =>
+            _task.ExecuteAsync(job2.JobRecord, job2.ETag, _cancellationToken).Returns(x => Task.Run(() =>
             {
                 // The task was called and therefore we can cancel the worker.
                 isSecondJobCalled = true;

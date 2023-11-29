@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Search
 
         public SearchParameterStateUpdateHandlerTests()
         {
-            _searchParameterDefinitionManager = Substitute.For<SearchParameterDefinitionManager>(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator, _logger);
             _searchParameterStateUpdateHandler = new SearchParameterStateUpdateHandler(_authorizationService, _searchParameterStatusManager, _logger2, _queueClient, _auditLogger);
             _cancellationToken = CancellationToken.None;
