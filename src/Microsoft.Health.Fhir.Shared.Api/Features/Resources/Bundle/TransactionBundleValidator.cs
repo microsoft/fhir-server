@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -22,12 +24,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public class TransactionBundleValidator
     {
         private readonly ResourceReferenceResolver _referenceResolver;
+        private readonly ILogger<TransactionBundleValidator> _logger;
 
-        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver)
+        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver, ILogger<TransactionBundleValidator> logger)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _referenceResolver = referenceResolver;
+            _logger = logger;
         }
 
         /// <summary>
@@ -99,6 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (matchedResults?.Count > 1)
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enought
+                _logger.LogInformation("PreconditionFailed: ConditionalOperationInBundleNotSelectiveEnough");
                 throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
             }
             else if (matchedResults?.Count == 1)

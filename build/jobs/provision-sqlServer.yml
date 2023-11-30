@@ -23,7 +23,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
       azureSubscription: $(ConnectedServiceName)
@@ -34,10 +34,11 @@ jobs:
      
         $templateParameters = @{
             sqlAdminPassword = "${{parameters.sqlServerAdminPassword}}"
-            sqlServerName = "${{parameters.sqlServerName}}"
+            sqlServerName = "${{parameters.sqlServerName}}".ToLower()
             sqlSchemaAutomaticUpdatesEnabled = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 
         Write-Host "Provisioning Sql server"
-        Write-Host "${{ parameters.resourceGroup }}"
+        Write-Host "Resource Group: ${{ parameters.resourceGroup }}"
+        Write-Host "SqlServerName: ${{ parameters.sqlServerName }}"
         New-AzResourceGroupDeployment -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-sqlServer.json -TemplateParameterObject $templateParameters -Verbose

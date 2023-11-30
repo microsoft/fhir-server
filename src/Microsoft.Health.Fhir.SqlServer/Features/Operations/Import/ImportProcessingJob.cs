@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Azure;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -110,6 +111,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 catch (OperationCanceledException)
                 {
                     throw;
+                }
+                catch (RequestFailedException ex) when (ex.Status == 403)
+                {
+                    _logger.LogInformation(ex, "Due to unauthorized request, import processing operation failed.");
+                    var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
+                    throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
                 {
