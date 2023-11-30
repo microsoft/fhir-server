@@ -28,6 +28,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// <summary>
         /// Gets or sets a value indicating whether to enable Asp.Net Core endpoint routing.
         /// </summary>
-        public bool EnableEndpointRouting { get; }
+        public bool EnableEndpointRouting { get; set; }
     }
 }
