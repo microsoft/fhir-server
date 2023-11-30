@@ -9,7 +9,7 @@ CREATE TABLE dbo.IdentifierSearchParam
    ,CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
 )
 GO
-IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE object_id = object_id('IdentifierSearchParam') AND name = 'CHK_IdentifierSearchParam_CodeOverflow')
+IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE parent_object_id = object_id('IdentifierSearchParam') AND name = 'CHK_IdentifierSearchParam_CodeOverflow')
 ALTER TABLE dbo.IdentifierSearchParam ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 GO
 ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO)
