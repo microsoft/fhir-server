@@ -31,7 +31,7 @@ namespace Microsoft.AspNetCore.Builder
             app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck), predicate);
 
             var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
-
+            var enableEndpointRouting = config.Value?.Features?.EnableEndpointRouting ?? false;
             var pathBase = config.Value.PathBase?.TrimEnd('/');
             if (!string.IsNullOrWhiteSpace(pathBase))
             {
@@ -40,7 +40,18 @@ namespace Microsoft.AspNetCore.Builder
             }
 
             app.UseStaticFiles();
-            app.UseMvc();
+            if (!enableEndpointRouting)
+            {
+                app.UseMvc();
+            }
+            else
+            {
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapControllers();
+                });
+            }
 
             return app;
         }

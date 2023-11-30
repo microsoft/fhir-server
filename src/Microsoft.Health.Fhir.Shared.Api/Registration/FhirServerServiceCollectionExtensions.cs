@@ -51,23 +51,21 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            bool enableEndpointRouting = configurationRoot != null ? bool.TryParse(configurationRoot["EnableEndpointRouting"], out enableEndpointRouting) : false;
+            var fhirServerConfiguration = new FhirServerConfiguration();
+            string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
+            configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
+            configureAction?.Invoke(fhirServerConfiguration);
+
             services.AddOptions();
             services.AddMvc(options =>
                 {
-                    options.EnableEndpointRouting = enableEndpointRouting;
+                    options.EnableEndpointRouting = fhirServerConfiguration.Features.EnableEndpointRouting;
                     options.RespectBrowserAcceptHeader = true;
                 })
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
                 });
-
-            var fhirServerConfiguration = new FhirServerConfiguration();
-
-            string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
-            configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
-            configureAction?.Invoke(fhirServerConfiguration);
 
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));

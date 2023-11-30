@@ -24,5 +24,10 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// Gets or sets a value indicating whether anonymized export is enabled or not.
         /// </summary>
         public bool SupportsAnonymizedExport { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to enable Asp.Net Core endpoint routing.
+        /// </summary>
+        public bool EnableEndpointRouting { get; }
     }
 }
