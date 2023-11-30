@@ -6,9 +6,9 @@
    ,SystemId                    int                     NULL
    ,Code                        varchar(256)            COLLATE Latin1_General_100_CS_AS NOT NULL
    ,CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
-
-    CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 )
+
+ALTER TABLE dbo.IdentifierSearchParam ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 
 ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO)
 

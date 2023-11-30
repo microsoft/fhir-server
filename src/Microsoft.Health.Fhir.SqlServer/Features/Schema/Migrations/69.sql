@@ -623,9 +623,12 @@ CREATE TABLE dbo.IdentifierSearchParam (
     SearchParamId       SMALLINT      NOT NULL,
     SystemId            INT           NULL,
     Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256
-                                                                                                                                     OR CodeOverflow IS NULL)
+    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
+
+ALTER TABLE dbo.IdentifierSearchParam
+    ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256
+                                                                 OR CodeOverflow IS NULL);
 
 ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO);
 
