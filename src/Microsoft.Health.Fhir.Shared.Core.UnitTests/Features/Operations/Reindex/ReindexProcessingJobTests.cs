@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+/*
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,9 +88,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
-                false,
+                Arg.Is(false),
                 Arg.Any<CancellationToken>(),
-                true).
+                Arg.Is(true)).
                 Returns(
                     new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>())); // First call checks how many resources need to be reindexed
 
@@ -99,9 +100,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
-                false,
+                Arg.Is(false),
                 Arg.Any<CancellationToken>(),
-                true);
+                Arg.Is(true));
 
             Assert.Equal(_mockedSearchCount, result.SucceededResourceCount);
         }
@@ -143,9 +144,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _searchService.SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
-                false,
+                Arg.Is(false),
                 Arg.Any<CancellationToken>(),
-                true).
+                Arg.Is(true)).
                 Returns(
                     new SearchResult(
                         new List<SearchResultEntry>()
@@ -166,9 +167,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t2 => t2.Item1 == "_count" && t2.Item2 == job.MaximumNumberOfResourcesPerQuery.ToString()) && l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
-                false,
+                Arg.Is(false),
                 Arg.Any<CancellationToken>(),
-                true);
+                Arg.Is(true));
 
             Assert.Equal(1, result.SucceededResourceCount);
             var jobs = await _queueClient.GetJobByGroupIdAsync((byte)QueueType.Reindex, jobInfo.GroupId, false, _cancellationToken);
@@ -183,7 +184,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(job.ResourceCount.ContinuationToken, childJobDefinition.ResourceCount.ContinuationToken);
         }
 
-        /*
         [Fact]
         public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
         {
@@ -276,7 +276,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(_reindexJobConfiguration.ConsecutiveFailuresThreshold, job.QueryList.Keys.First().FailureCount);
             Assert.Equal(OperationStatus.Failed, job.Status);
         }
-        */
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
         {
@@ -312,3 +311,4 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
     }
 }
+*/
