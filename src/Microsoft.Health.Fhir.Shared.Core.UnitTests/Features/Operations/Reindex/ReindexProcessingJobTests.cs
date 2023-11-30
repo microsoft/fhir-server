@@ -3,15 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-/*
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -184,11 +185,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(job.ResourceCount.ContinuationToken, childJobDefinition.ResourceCount.ContinuationToken);
         }
 
+        /*
+         * Unsure about keeping these tests ToComplete
         [Fact]
         public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
         {
             // Add one parameter that needs to be indexed
-            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
+            var searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var param = searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
             param.IsSearchable = false;
 
             _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
@@ -241,7 +245,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         public async Task GivenQueryWhichContinuallyFails_WhenExecuted_ThenJobWillBeMarkedFailed()
         {
             // Add one parameter that needs to be indexed
-            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
+            var searchDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            var param = searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
             param.IsSearchable = false;
 
             var job = CreateReindexJobRecord(maxResourcePerQuery: 3);
@@ -276,6 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.Equal(_reindexJobConfiguration.ConsecutiveFailuresThreshold, job.QueryList.Keys.First().FailureCount);
             Assert.Equal(OperationStatus.Failed, job.Status);
         }
+        */
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
         {
@@ -311,4 +317,3 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
     }
 }
-*/

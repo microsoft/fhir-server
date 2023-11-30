@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-/*
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -36,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     [CollectionDefinition("ReindexOrchestratorJobTests")]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
-    public class ReindexOrchestratorJobTests : IClassFixture<SearchParameterFixtureData>
+    public class ReindexOrchestratorJobTests
     {
         private const int _mockedSearchCount = 5;
 
@@ -252,4 +251,3 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         }
     }
 }
-*/
