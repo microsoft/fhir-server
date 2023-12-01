@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -29,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         private readonly ISearchService _searchService;
         private readonly IDeletionService _deleter;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirContext;
+        private readonly ILogger<ConditionalDeleteResourceHandler> _logger;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -39,16 +42,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
             IDeletionService deleter,
-            RequestContextAccessor<IFhirRequestContext> fhirContext)
+            RequestContextAccessor<IFhirRequestContext> fhirContext,
+            ILogger<ConditionalDeleteResourceHandler> logger)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(deleter, nameof(deleter));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchService = searchService;
             _deleter = deleter;
             _fhirContext = fhirContext;
+            _logger = logger;
         }
 
         public async Task<DeleteResourceResponse> Handle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
@@ -80,7 +86,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteSingleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(
+                request.ResourceType,
+                request.ConditionalParameters,
+                cancellationToken,
+                logger: _logger);
 
             int count = matchedResults.Results.Count;
             if (count == 0)
@@ -107,6 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
+                _logger.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
                 throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
         }
