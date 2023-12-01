@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
@@ -31,13 +32,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         private IDeletionService _deleter;
         private IProgress<string> _progress;
         private BulkDeleteProcessingJob _processingJob;
+        private ISearchService _searchService;
 
         public BulkDeleteProcessingJobTests()
         {
+            _searchService = Substitute.For<ISearchService>();
             _deleter = Substitute.For<IDeletionService>();
             var deleter = Substitute.For<IScoped<IDeletionService>>();
             deleter.Value.Returns(_deleter);
-            _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>());
+            _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService, Substitute.For<IQueueClient>());
 
             _progress = new Progress<string>((result) => { });
         }

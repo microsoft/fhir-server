@@ -55,22 +55,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             {
                 IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
-                foreach (var resourceType in resourceTypes)
-                {
-                    int numResources = (await _searchService.SearchAsync(resourceType, searchParameters.AsReadOnly(), cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
+                int numResources = (await _searchService.SearchAsync(resourceTypes[0], searchParameters.AsReadOnly(), cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
+                string resourceType = resourceTypes.JoinByOrSeparator();
 
-                    var processingDefinition = new BulkDeleteDefinition(
-                        JobType.BulkDeleteProcessing,
-                        definition.DeleteOperation,
-                        resourceType,
-                        definition.SearchParameters,
-                        definition.Url,
-                        definition.BaseUrl,
-                        definition.ParentRequestId,
-                        numResources,
-                        definition.VersionType);
-                    definitions.Add(processingDefinition);
-                }
+                var processingDefinition = new BulkDeleteDefinition(
+                    JobType.BulkDeleteProcessing,
+                    definition.DeleteOperation,
+                    resourceType,
+                    definition.SearchParameters,
+                    definition.Url,
+                    definition.BaseUrl,
+                    definition.ParentRequestId,
+                    numResources,
+                    definition.VersionType);
+                definitions.Add(processingDefinition);
             }
             else
             {

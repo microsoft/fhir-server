@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        private const int MaxParallelThreads = 64;
 
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
@@ -156,6 +157,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
                     deleteTasks = deleteTasks.Where((task) => !task.IsCompletedSuccessfully).ToList();
+
+                    if (deleteTasks.Count >= MaxParallelThreads)
+                    {
+                        await deleteTasks[0];
+                    }
 
                     if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numQueuedForDeletion) > 0))
                     {
