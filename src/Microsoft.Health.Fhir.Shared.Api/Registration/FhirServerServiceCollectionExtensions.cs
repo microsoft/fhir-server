@@ -9,8 +9,10 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
@@ -29,6 +31,7 @@ using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Registration;
+using Newtonsoft.Json.Serialization;
 using Polly;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -52,15 +55,21 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
-            services.AddMvc(options =>
-                {
-                    options.EnableEndpointRouting = false;
-                    options.RespectBrowserAcceptHeader = true;
-                })
-                .AddNewtonsoftJson(options =>
-                {
-                    options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
-                });
+
+            /* services.AddControllers(mvcOptions =>
+             {
+                 var policy = new AuthorizationPolicyBuilder()
+                     .RequireAuthenticatedUser()
+                     .Build();
+
+                 mvcOptions.Filters.Add(new AuthorizeFilter(policy));
+             })
+                 .AddNewtonsoftJson(options =>
+                 options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset);*/
+
+            services.AddControllers()
+               .AddNewtonsoftJson(options =>
+               options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset);
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 

@@ -40,7 +40,15 @@ namespace Microsoft.AspNetCore.Builder
             }
 
             app.UseStaticFiles();
-            app.UseMvc();
+            app.UseRouting();
+
+            ////app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
 
             return app;
         }
