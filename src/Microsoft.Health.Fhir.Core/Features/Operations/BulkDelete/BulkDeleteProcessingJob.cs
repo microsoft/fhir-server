@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, numDeleted);
+                result.ResourcesDeleted.Add(types[0], numDeleted);
 
                 await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
 
@@ -113,9 +113,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 {
                     types.RemoveAt(0);
                     BulkDeleteDefinition processingDefinition = null;
+                    var searchParameters = new List<Tuple<string, string>>()
+                    {
+                        new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                    };
+
+                    if (definition.SearchParameters != null)
+                    {
+                        searchParameters.AddRange(definition.SearchParameters);
+                    }
+
                     while (types.Count > 0)
                     {
-                        int numResources = (await _searchService.SearchAsync(types[0], (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters, cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
+                        int numResources = (await _searchService.SearchAsync(types[0], searchParameters, cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
 
                         if (numResources == 0)
                         {

@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, true);
+            var request = new CreateBulkDeleteRequest(deleteOperation, resourceType, searchParameters, includeSoftDeleted);
 
             CreateBulkDeleteResponse response = await mediator.Send(request, cancellationToken);
             return response;
