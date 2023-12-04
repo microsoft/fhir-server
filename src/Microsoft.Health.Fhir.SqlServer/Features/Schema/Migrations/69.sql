@@ -4551,19 +4551,30 @@ BEGIN TRY
                    ReferenceResourceVersion
             FROM   @ReferenceSearchParams;
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
-            SELECT ResourceTypeId,
-                   ResourceSurrogateId,
-                   SearchParamId,
-                   SystemId,
-                   Code,
-                   CodeOverflow
-            FROM   @TokenSearchParams
-            WHERE  SearchParamId IN (SELECT SearchParamId
-                                     FROM   dbo.SearchParam
-                                     WHERE  Uri LIKE '%identifier'
-                                            OR Uri LIKE '%phone'
-                                            OR Uri LIKE '%telecom');
+            IF EXISTS (SELECT *
+                       FROM   @TokenSearchParamHighCards)
+                INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+                SELECT ResourceTypeId,
+                       ResourceSurrogateId,
+                       SearchParamId,
+                       SystemId,
+                       Code,
+                       CodeOverflow
+                FROM   @TokenSearchParamHighCards;
+            ELSE
+                INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+                SELECT ResourceTypeId,
+                       ResourceSurrogateId,
+                       SearchParamId,
+                       SystemId,
+                       Code,
+                       CodeOverflow
+                FROM   @TokenSearchParams
+                WHERE  SearchParamId IN (SELECT SearchParamId
+                                         FROM   dbo.SearchParam
+                                         WHERE  Uri LIKE '%identifier'
+                                                OR Uri LIKE '%phone'
+                                                OR Uri LIKE '%telecom');
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
@@ -4744,29 +4755,50 @@ BEGIN TRY
                                           AND C.ResourceSurrogateId = A.ResourceSurrogateId)
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
-            SELECT ResourceTypeId,
-                   ResourceSurrogateId,
-                   SearchParamId,
-                   SystemId,
-                   Code,
-                   CodeOverflow
-            FROM   (SELECT TOP (@DummyTop) *
-                    FROM   @TokenSearchParams
-                    WHERE  SearchParamId IN (SELECT SearchParamId
-                                             FROM   dbo.SearchParam
-                                             WHERE  Uri LIKE '%identifier'
-                                                    OR Uri LIKE '%phone'
-                                                    OR Uri LIKE '%telecom')) AS A
-            WHERE  EXISTS (SELECT *
-                           FROM   @Existing AS B
-                           WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                  AND B.SurrogateId = A.ResourceSurrogateId)
-                   AND NOT EXISTS (SELECT *
-                                   FROM   dbo.TokenSearchParamHighCard AS C
-                                   WHERE  C.ResourceTypeId = A.ResourceTypeId
-                                          AND C.ResourceSurrogateId = A.ResourceSurrogateId)
-            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            IF EXISTS (SELECT *
+                       FROM   @TokenSearchParamHighCards)
+                INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+                SELECT ResourceTypeId,
+                       ResourceSurrogateId,
+                       SearchParamId,
+                       SystemId,
+                       Code,
+                       CodeOverflow
+                FROM   (SELECT TOP (@DummyTop) *
+                        FROM   @TokenSearchParamHighCards) AS A
+                WHERE  EXISTS (SELECT *
+                               FROM   @Existing AS B
+                               WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                      AND B.SurrogateId = A.ResourceSurrogateId)
+                       AND NOT EXISTS (SELECT *
+                                       FROM   dbo.TokenSearchParamHighCard AS C
+                                       WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                              AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+                OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
+            ELSE
+                INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+                SELECT ResourceTypeId,
+                       ResourceSurrogateId,
+                       SearchParamId,
+                       SystemId,
+                       Code,
+                       CodeOverflow
+                FROM   (SELECT TOP (@DummyTop) *
+                        FROM   @TokenSearchParams
+                        WHERE  SearchParamId IN (SELECT SearchParamId
+                                                 FROM   dbo.SearchParam
+                                                 WHERE  Uri LIKE '%identifier'
+                                                        OR Uri LIKE '%phone'
+                                                        OR Uri LIKE '%telecom')) AS A
+                WHERE  EXISTS (SELECT *
+                               FROM   @Existing AS B
+                               WHERE  B.ResourceTypeId = A.ResourceTypeId
+                                      AND B.SurrogateId = A.ResourceSurrogateId)
+                       AND NOT EXISTS (SELECT *
+                                       FROM   dbo.TokenSearchParamHighCard AS C
+                                       WHERE  C.ResourceTypeId = A.ResourceTypeId
+                                              AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+                OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
@@ -6333,19 +6365,30 @@ BEGIN TRY
            ReferenceResourceId,
            ReferenceResourceVersion
     FROM   @ReferenceSearchParams;
-    INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
-    SELECT ResourceTypeId,
-           ResourceSurrogateId,
-           SearchParamId,
-           SystemId,
-           Code,
-           CodeOverflow
-    FROM   @TokenSearchParams
-    WHERE  SearchParamId IN (SELECT SearchParamId
-                             FROM   dbo.SearchParam
-                             WHERE  Uri LIKE '%identifier'
-                                    OR Uri LIKE '%phone'
-                                    OR Uri LIKE '%telecom');
+    IF EXISTS (SELECT *
+               FROM   @TokenSearchParamHighCards)
+        INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+        SELECT ResourceTypeId,
+               ResourceSurrogateId,
+               SearchParamId,
+               SystemId,
+               Code,
+               CodeOverflow
+        FROM   @TokenSearchParamHighCards;
+    ELSE
+        INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+        SELECT ResourceTypeId,
+               ResourceSurrogateId,
+               SearchParamId,
+               SystemId,
+               Code,
+               CodeOverflow
+        FROM   @TokenSearchParams
+        WHERE  SearchParamId IN (SELECT SearchParamId
+                                 FROM   dbo.SearchParam
+                                 WHERE  Uri LIKE '%identifier'
+                                        OR Uri LIKE '%phone'
+                                        OR Uri LIKE '%telecom');
     INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
     SELECT ResourceTypeId,
            ResourceSurrogateId,

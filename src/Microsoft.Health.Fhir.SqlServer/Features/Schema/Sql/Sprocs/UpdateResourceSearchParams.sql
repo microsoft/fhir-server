@@ -66,11 +66,17 @@ BEGIN TRY
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
       FROM @ReferenceSearchParams
 
-  INSERT INTO dbo.TokenSearchParamHighCard 
-         ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
-    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
-      FROM @TokenSearchParams
-      WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
+  IF EXISTS (SELECT * FROM @TokenSearchParamHighCards)
+    INSERT INTO dbo.TokenSearchParamHighCard 
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
+        FROM @TokenSearchParamHighCards
+  ELSE
+    INSERT INTO dbo.TokenSearchParamHighCard 
+           ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
+      SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
+        FROM @TokenSearchParams
+        WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
 
   INSERT INTO dbo.TokenSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
