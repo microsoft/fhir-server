@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId, includeHistory, includeDeleted);
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
             List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
