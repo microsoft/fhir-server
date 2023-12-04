@@ -547,29 +547,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
         }
 
-        private void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalStartId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
+        private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
         {
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
             command.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             command.Parameters.AddWithValue("@StartId", startId);
             command.Parameters.AddWithValue("@EndId", endId);
-
-            if (_schemaInformation.Current < SchemaVersionConstants.ExportHistorySoftDelete)
-            {
-                command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
-            }
-
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.ExportHistorySoftDelete)
-            {
-                command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
-                command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
-            }
+            command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
+            command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
         }
 
         /// <summary>
