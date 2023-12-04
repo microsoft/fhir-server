@@ -5,7 +5,7 @@ steps:
     azureSubscription: $(ConnectedServiceName)
     KeyVaultName: 'resolute-oss-tenant-info'
 
-- task: AzurePowerShell@4
+- task: AzurePowerShell@5
   displayName: Setup AAD Test Environment
   inputs:
     azureSubscription: $(ConnectedServiceName)
@@ -36,7 +36,7 @@ steps:
       }
 
       # If a deleted keyvault exists, remove it first
-      $environmentName = "$(DeploymentEnvironmentName)" -replace "\.", "" 
+      $environmentName = "$(DeploymentEnvironmentName)".ToLower() -replace "\.", "" 
       Write-Host "Installed module and set variables"
       if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
       {

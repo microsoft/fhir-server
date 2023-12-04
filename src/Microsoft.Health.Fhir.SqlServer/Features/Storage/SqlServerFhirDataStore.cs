@@ -194,6 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             continue;
                         }
 
+                        _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                         results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
                         continue;
                     }
@@ -242,6 +243,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
+                            _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
                             results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                             continue;
                         }

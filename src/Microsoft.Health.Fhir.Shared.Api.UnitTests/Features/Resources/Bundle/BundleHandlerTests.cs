@@ -81,7 +81,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             ISearchService searchService = Substitute.For<ISearchService>();
             var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser());
-            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver);
+
+            var transactionBundleValidatorLogger = Substitute.For<ILogger<TransactionBundleValidator>>();
+            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver, transactionBundleValidatorLogger);
 
             var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
@@ -89,9 +91,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(_bundleConfiguration);
 
-            var logger = Substitute.For<ILogger<BundleOrchestrator>>();
-
-            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, logger);
+            var bundleOrchestratorLogger = Substitute.For<ILogger<BundleOrchestrator>>();
+            var bundleOrchestrator = new BundleOrchestrator(bundleOptions, bundleOrchestratorLogger);
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
