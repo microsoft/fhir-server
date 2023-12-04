@@ -630,10 +630,17 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+IF object_id('tempdb..#SearchParams') IS NOT NULL DROP TABLE #SearchParams
+GO
 set nocount on
 
 INSERT INTO dbo.Parameters (Id, Char) SELECT 'TokenSearchParamHighCardPopulation', 'LogEvent'
 EXECUTE dbo.LogEvent @Process='TokenSearchParamHighCardPopulation',@Status='Start'
+
+SELECT SearchParamId 
+  INTO #SearchParams
+  FROM dbo.SearchParam 
+  WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom'
 
 DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
 DECLARE @MaxSurrogateId bigint = 0
@@ -693,8 +700,8 @@ BEGIN TRY
     SET @CurrentMaxSurrogateId = 0
     IF NOT EXISTS 
         (SELECT * 
-           FROM (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom') A
-           INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId
+           FROM #SearchParams A
+                INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId
         )
     BEGIN
       SET @CurrentMaxSurrogateId = NULL
@@ -720,14 +727,15 @@ BEGIN TRY
         SET @st = getUTCdate()
         INSERT INTO dbo.TokenSearchParamHighCard 
                ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
-          SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
+          SELECT TOP (@DummyTop) 
+                 ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
             FROM dbo.TokenSearchParam A
             WHERE ResourceTypeId = @ResourceTypeId
               AND ResourceSurrogateId > @SurrogateId
               AND ResourceSurrogateId <= @CurrentMaxSurrogateId
-              AND SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
+              AND SearchParamId IN (SELECT SearchParamId FROM #SearchParams)
               AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParamHighCard B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
-            OPTION (MAXDOP 1)
+            OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
         EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='TokenSearchParamHighCard',@Action='Insert',@Rows=@@rowcount,@Text=@RowsToProcess,@Start=@st
 
         UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
