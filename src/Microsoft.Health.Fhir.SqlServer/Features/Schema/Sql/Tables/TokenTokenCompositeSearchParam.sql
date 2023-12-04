@@ -27,23 +27,19 @@ ON dbo.TokenTokenCompositeSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
+CREATE INDEX IX_SearchParamId_Code1_Code2_INCLUDE_SystemId1_SystemId2
 ON dbo.TokenTokenCompositeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     Code1,
-    Code2,
-    ResourceSurrogateId
+    Code2
 )
 INCLUDE
 (
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)

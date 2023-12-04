@@ -19,17 +19,14 @@ ON dbo.UriSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
+CREATE INDEX IX_SearchParamId_Uri
 ON dbo.UriSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
-    Uri,
-    ResourceSurrogateId
+    Uri
 )
-WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
