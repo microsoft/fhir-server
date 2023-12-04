@@ -617,30 +617,6 @@ CREATE TABLE dbo.ExportJob (
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime
     ON dbo.ExportJob(Hash, Status, HeartbeatDateTime);
 
-CREATE TABLE dbo.IdentifierSearchParam (
-    ResourceTypeId      SMALLINT      NOT NULL,
-    ResourceSurrogateId BIGINT        NOT NULL,
-    SearchParamId       SMALLINT      NOT NULL,
-    SystemId            INT           NULL,
-    Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
-);
-
-ALTER TABLE dbo.IdentifierSearchParam
-    ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256
-                                                                 OR CodeOverflow IS NULL);
-
-ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO);
-
-CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId
-    ON dbo.IdentifierSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId
-    ON dbo.IdentifierSearchParam(SearchParamId, Code)
-    INCLUDE(SystemId) WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
 CREATE TABLE dbo.IndexProperties (
     TableName     VARCHAR (100) NOT NULL,
     IndexName     VARCHAR (200) NOT NULL,
@@ -1221,6 +1197,30 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE TABLE dbo.TokenSearchParamHighCard (
+    ResourceTypeId      SMALLINT      NOT NULL,
+    ResourceSurrogateId BIGINT        NOT NULL,
+    SearchParamId       SMALLINT      NOT NULL,
+    SystemId            INT           NULL,
+    Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
+);
+
+ALTER TABLE dbo.TokenSearchParamHighCard
+    ADD CONSTRAINT CHK_TokenSearchParamHighCard_CodeOverflow CHECK (LEN(Code) = 256
+                                                                    OR CodeOverflow IS NULL);
+
+ALTER TABLE dbo.TokenSearchParamHighCard SET (LOCK_ESCALATION = AUTO);
+
+CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId
+    ON dbo.TokenSearchParamHighCard(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
+
+CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId
+    ON dbo.TokenSearchParamHighCard(SearchParamId, Code)
+    INCLUDE(SystemId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (
@@ -4302,7 +4302,7 @@ VALUES                                  (@message);
 
 GO
 CREATE PROCEDURE dbo.MergeResources
-@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @IdentifierSearchParams dbo.TokenSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@AffectedRows INT=0 OUTPUT, @RaiseExceptionOnConflict BIT=1, @IsResourceChangeCaptureEnabled BIT=0, @TransactionId BIGINT=NULL, @SingleTransaction BIT=1, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParamHighCards dbo.TokenSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParms dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
@@ -4436,7 +4436,7 @@ BEGIN TRY
                                    WHERE  TypeId = ResourceTypeId
                                           AND SurrogateId = ResourceSurrogateId);
                     SET @AffectedRows += @@rowcount;
-                    DELETE dbo.IdentifierSearchParam
+                    DELETE dbo.TokenSearchParamHighCard
                     WHERE  EXISTS (SELECT *
                                    FROM   @PreviousSurrogateIds
                                    WHERE  TypeId = ResourceTypeId
@@ -4551,7 +4551,7 @@ BEGIN TRY
                    ReferenceResourceVersion
             FROM   @ReferenceSearchParams;
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.IdentifierSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+            INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
@@ -4561,7 +4561,9 @@ BEGIN TRY
             FROM   @TokenSearchParams
             WHERE  SearchParamId IN (SELECT SearchParamId
                                      FROM   dbo.SearchParam
-                                     WHERE  Uri LIKE '%identifier');
+                                     WHERE  Uri LIKE '%identifier'
+                                            OR Uri LIKE '%phone'
+                                            OR Uri LIKE '%telecom');
             SET @AffectedRows += @@rowcount;
             INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
@@ -4742,7 +4744,7 @@ BEGIN TRY
                                           AND C.ResourceSurrogateId = A.ResourceSurrogateId)
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
             SET @AffectedRows += @@rowcount;
-            INSERT INTO dbo.IdentifierSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+            INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
             SELECT ResourceTypeId,
                    ResourceSurrogateId,
                    SearchParamId,
@@ -4753,13 +4755,15 @@ BEGIN TRY
                     FROM   @TokenSearchParams
                     WHERE  SearchParamId IN (SELECT SearchParamId
                                              FROM   dbo.SearchParam
-                                             WHERE  Uri LIKE '%identifier')) AS A
+                                             WHERE  Uri LIKE '%identifier'
+                                                    OR Uri LIKE '%phone'
+                                                    OR Uri LIKE '%telecom')) AS A
             WHERE  EXISTS (SELECT *
                            FROM   @Existing AS B
                            WHERE  B.ResourceTypeId = A.ResourceTypeId
                                   AND B.SurrogateId = A.ResourceSurrogateId)
                    AND NOT EXISTS (SELECT *
-                                   FROM   dbo.IdentifierSearchParam AS C
+                                   FROM   dbo.TokenSearchParamHighCard AS C
                                    WHERE  C.ResourceTypeId = A.ResourceTypeId
                                           AND C.ResourceSurrogateId = A.ResourceSurrogateId)
             OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
@@ -6200,7 +6204,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpdateResourceSearchParams
-@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @IdentifierSearchParams dbo.TokenSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
+@FailedResources INT=0 OUTPUT, @Resources dbo.ResourceList READONLY, @ResourceWriteClaims dbo.ResourceWriteClaimList READONLY, @ReferenceSearchParams dbo.ReferenceSearchParamList READONLY, @TokenSearchParamHighCards dbo.TokenSearchParamList READONLY, @TokenSearchParams dbo.TokenSearchParamList READONLY, @TokenTexts dbo.TokenTextList READONLY, @StringSearchParams dbo.StringSearchParamList READONLY, @UriSearchParams dbo.UriSearchParamList READONLY, @NumberSearchParams dbo.NumberSearchParamList READONLY, @QuantitySearchParams dbo.QuantitySearchParamList READONLY, @DateTimeSearchParams dbo.DateTimeSearchParamList READONLY, @ReferenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamList READONLY, @TokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamList READONLY, @TokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamList READONLY, @TokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamList READONLY, @TokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamList READONLY, @TokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamList READONLY
 AS
 SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
@@ -6234,7 +6238,7 @@ BEGIN TRY
     DELETE B
     FROM   @Ids AS A
            INNER JOIN
-           dbo.IdentifierSearchParam AS B
+           dbo.TokenSearchParamHighCard AS B
            ON B.ResourceTypeId = A.ResourceTypeId
               AND B.ResourceSurrogateId = A.ResourceSurrogateId;
     DELETE B
@@ -6329,7 +6333,7 @@ BEGIN TRY
            ReferenceResourceId,
            ReferenceResourceVersion
     FROM   @ReferenceSearchParams;
-    INSERT INTO dbo.IdentifierSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
+    INSERT INTO dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
     SELECT ResourceTypeId,
            ResourceSurrogateId,
            SearchParamId,
@@ -6339,7 +6343,9 @@ BEGIN TRY
     FROM   @TokenSearchParams
     WHERE  SearchParamId IN (SELECT SearchParamId
                              FROM   dbo.SearchParam
-                             WHERE  Uri LIKE '%identifier');
+                             WHERE  Uri LIKE '%identifier'
+                                    OR Uri LIKE '%phone'
+                                    OR Uri LIKE '%telecom');
     INSERT INTO dbo.TokenSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow)
     SELECT ResourceTypeId,
            ResourceSurrogateId,

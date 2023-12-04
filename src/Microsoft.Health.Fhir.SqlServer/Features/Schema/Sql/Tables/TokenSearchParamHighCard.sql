@@ -1,4 +1,4 @@
-﻿CREATE TABLE dbo.IdentifierSearchParam
+﻿CREATE TABLE dbo.TokenSearchParamHighCard
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
@@ -8,14 +8,14 @@
    ,CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
 )
 
-ALTER TABLE dbo.IdentifierSearchParam ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
+ALTER TABLE dbo.TokenSearchParamHighCard ADD CONSTRAINT CHK_TokenSearchParamHighCard_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 
-ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO)
+ALTER TABLE dbo.TokenSearchParamHighCard SET (LOCK_ESCALATION = AUTO)
 
-CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.IdentifierSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId)
+CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId)
   WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.IdentifierSearchParam (SearchParamId, Code) INCLUDE (SystemId)
+CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.TokenSearchParamHighCard (SearchParamId, Code) INCLUDE (SystemId)
   WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)

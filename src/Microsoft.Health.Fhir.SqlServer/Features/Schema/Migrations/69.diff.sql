@@ -1,5 +1,5 @@
-IF object_id('IdentifierSearchParam') IS NULL
-CREATE TABLE dbo.IdentifierSearchParam
+IF object_id('TokenSearchParamHighCard') IS NULL
+CREATE TABLE dbo.TokenSearchParamHighCard
 (
     ResourceTypeId              smallint                NOT NULL
    ,ResourceSurrogateId         bigint                  NOT NULL
@@ -9,18 +9,18 @@ CREATE TABLE dbo.IdentifierSearchParam
    ,CodeOverflow                varchar(max)            COLLATE Latin1_General_100_CS_AS NULL
 )
 GO
-IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE parent_object_id = object_id('IdentifierSearchParam') AND name = 'CHK_IdentifierSearchParam_CodeOverflow')
-ALTER TABLE dbo.IdentifierSearchParam ADD CONSTRAINT CHK_IdentifierSearchParam_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
+IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE parent_object_id = object_id('TokenSearchParamHighCard') AND name = 'CHK_TokenSearchParamHighCard_CodeOverflow')
+ALTER TABLE dbo.TokenSearchParamHighCard ADD CONSTRAINT CHK_TokenSearchParamHighCard_CodeOverflow CHECK (LEN(Code) = 256 OR CodeOverflow IS NULL)
 GO
-ALTER TABLE dbo.IdentifierSearchParam SET (LOCK_ESCALATION = AUTO)
+ALTER TABLE dbo.TokenSearchParamHighCard SET (LOCK_ESCALATION = AUTO)
 GO
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('IdentifierSearchParam') AND name = 'IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId')
-CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.IdentifierSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('TokenSearchParamHighCard') AND name = 'IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId')
+CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.TokenSearchParamHighCard (ResourceTypeId, ResourceSurrogateId, SearchParamId)
   WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('IdentifierSearchParam') AND name = 'IX_SearchParamId_Code_INCLUDE_SystemId')
-CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.IdentifierSearchParam (SearchParamId, Code) INCLUDE (SystemId)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('TokenSearchParamHighCard') AND name = 'IX_SearchParamId_Code_INCLUDE_SystemId')
+CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.TokenSearchParamHighCard (SearchParamId, Code) INCLUDE (SystemId)
   WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 GO
@@ -37,7 +37,7 @@ ALTER PROCEDURE dbo.MergeResources
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
-   ,@IdentifierSearchParams dbo.TokenSearchParamList READONLY
+   ,@TokenSearchParamHighCards dbo.TokenSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
    ,@TokenTexts dbo.TokenTextList READONLY
    ,@StringSearchParams dbo.StringSearchParamList READONLY
@@ -154,7 +154,7 @@ BEGIN TRY
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.ReferenceSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
-      DELETE FROM dbo.IdentifierSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
+      DELETE FROM dbo.TokenSearchParamHighCard WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
       DELETE FROM dbo.TokenSearchParam WHERE EXISTS (SELECT * FROM @PreviousSurrogateIds WHERE TypeId = ResourceTypeId AND SurrogateId = ResourceSurrogateId)
       SET @AffectedRows += @@rowcount
@@ -204,11 +204,11 @@ BEGIN TRY
         FROM @ReferenceSearchParams
     SET @AffectedRows += @@rowcount
 
-    INSERT INTO dbo.IdentifierSearchParam 
+    INSERT INTO dbo.TokenSearchParamHighCard 
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
         FROM @TokenSearchParams
-        WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier')
+        WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
     SET @AffectedRows += @@rowcount
 
     INSERT INTO dbo.TokenSearchParam 
@@ -309,12 +309,12 @@ BEGIN TRY
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
 
-    INSERT INTO dbo.IdentifierSearchParam 
+    INSERT INTO dbo.TokenSearchParamHighCard 
            ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
       SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
-        FROM (SELECT TOP (@DummyTop) * FROM @TokenSearchParams WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier')) A
+        FROM (SELECT TOP (@DummyTop) * FROM @TokenSearchParams WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')) A
         WHERE EXISTS (SELECT * FROM @Existing B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.SurrogateId = A.ResourceSurrogateId)
-          AND NOT EXISTS (SELECT * FROM dbo.IdentifierSearchParam C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
+          AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParamHighCard C WHERE C.ResourceTypeId = A.ResourceTypeId AND C.ResourceSurrogateId = A.ResourceSurrogateId)
         OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     SET @AffectedRows += @@rowcount
 
@@ -463,7 +463,7 @@ ALTER PROCEDURE dbo.UpdateResourceSearchParams
    ,@Resources dbo.ResourceList READONLY
    ,@ResourceWriteClaims dbo.ResourceWriteClaimList READONLY
    ,@ReferenceSearchParams dbo.ReferenceSearchParamList READONLY
-   ,@IdentifierSearchParams dbo.TokenSearchParamList READONLY
+   ,@TokenSearchParamHighCards dbo.TokenSearchParamList READONLY
    ,@TokenSearchParams dbo.TokenSearchParamList READONLY
    ,@TokenTexts dbo.TokenTextList READONLY
    ,@StringSearchParams dbo.StringSearchParamList READONLY
@@ -500,7 +500,7 @@ BEGIN TRY
   -- First, delete all the search params of the resources to reindex.
   DELETE FROM B FROM @Ids A JOIN dbo.ResourceWriteClaim B ON B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.ReferenceSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
-  DELETE FROM B FROM @Ids A JOIN dbo.IdentifierSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+  DELETE FROM B FROM @Ids A JOIN dbo.TokenSearchParamHighCard B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.TokenText B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
   DELETE FROM B FROM @Ids A JOIN dbo.StringSearchParam B ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
@@ -526,11 +526,11 @@ BEGIN TRY
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion
       FROM @ReferenceSearchParams
 
-  INSERT INTO dbo.IdentifierSearchParam 
+  INSERT INTO dbo.TokenSearchParamHighCard 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
       FROM @TokenSearchParams
-      WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier')
+      WHERE SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
 
   INSERT INTO dbo.TokenSearchParam 
          ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
