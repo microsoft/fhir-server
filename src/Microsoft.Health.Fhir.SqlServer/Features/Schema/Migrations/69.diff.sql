@@ -630,3 +630,144 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+set nocount on
+
+INSERT INTO dbo.Parameters (Id, Char) SELECT 'TokenSearchParamHighCardPopulation', 'LogEvent'
+EXECUTE dbo.LogEvent @Process='TokenSearchParamHighCardPopulation',@Status='Start'
+
+DECLARE @Types TABLE (ResourceTypeId smallint PRIMARY KEY, Name varchar(100))
+DECLARE @MaxSurrogateId bigint = 0
+       ,@ResourceTypeId smallint
+IF NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = 'TokenSearchParamHighCardPopulation.MaxSurrogateId') -- DELETE FROM dbo.Parameters WHERE Id = 'TokenSearchParamHighCardPopulation.MaxSurrogateId'
+BEGIN
+  DECLARE @MaxSurrogateIdTmp bigint
+
+  INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+  WHILE EXISTS (SELECT * FROM @Types)
+  BEGIN
+    SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @Types)
+    SET @MaxSurrogateIdTmp = (SELECT max(ResourceSurrogateId) FROM Resource WHERE ResourceTypeId = @ResourceTypeId)
+    IF @MaxSurrogateIdTmp > @MaxSurrogateId SET @MaxSurrogateId = @MaxSurrogateIdTmp
+    DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+  END
+  INSERT INTO dbo.Parameters (Id, Bigint) SELECT 'TokenSearchParamHighCardPopulation.MaxSurrogateId', @MaxSurrogateId
+END
+
+SET @MaxSurrogateId = (SELECT Bigint FROM dbo.Parameters WHERE Id = 'TokenSearchParamHighCardPopulation.MaxSurrogateId')
+EXECUTE dbo.LogEvent @Process='TokenSearchParamHighCardPopulation',@Status='Run',@Target='@MaxSurrogateId',@Action='Select',@Text=@MaxSurrogateId
+
+DECLARE @Process varchar(100) = 'TokenSearchParamHighCardPopulation'
+       ,@Id varchar(100) = 'TokenSearchParamHighCardPopulation.LastProcessed.TypeId.SurrogateId'
+       ,@SurrogateId bigint
+       ,@RowsToProcess int
+       ,@ProcessedResources int
+       ,@ReportDate datetime = getUTCdate()
+       ,@DummyTop bigint = 9223372036854775807
+       ,@Rows int
+       ,@CurrentMaxSurrogateId bigint
+       ,@LastProcessed varchar(100)
+       ,@st datetime
+
+BEGIN TRY
+  INSERT INTO dbo.Parameters (Id, Char) SELECT @Process, 'LogEvent'
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Start'
+
+  INSERT INTO dbo.Parameters (Id, Char) SELECT @Id, '0.0' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @Id)
+
+  SET @LastProcessed = (SELECT Char FROM dbo.Parameters WHERE Id = @Id)
+
+  INSERT INTO @Types EXECUTE dbo.GetUsedResourceTypes
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='@Types',@Action='Insert',@Rows=@@rowcount
+
+  SET @ResourceTypeId = substring(@LastProcessed, 1, charindex('.', @LastProcessed) - 1) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 1)
+  SET @SurrogateId = substring(@LastProcessed, charindex('.', @LastProcessed) + 1, 255) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 2)
+
+  DELETE FROM @Types WHERE ResourceTypeId < @ResourceTypeId
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='@Types',@Action='Delete',@Rows=@@rowcount
+
+  WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
+  BEGIN
+    SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @Types ORDER BY ResourceTypeId)
+
+    SET @ProcessedResources = 0
+    SET @CurrentMaxSurrogateId = 0
+    IF NOT EXISTS 
+        (SELECT * 
+           FROM (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom') A
+           INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId
+        )
+    BEGIN
+      SET @CurrentMaxSurrogateId = NULL
+      EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@ResourceTypeId,@Target='TokenSearchParam',@Action='Select',@Rows=0,@Text='Check high card values'
+    END
+
+    WHILE @CurrentMaxSurrogateId IS NOT NULL
+    BEGIN
+      BEGIN TRANSACTION
+
+      SET @CurrentMaxSurrogateId = NULL
+      SELECT @CurrentMaxSurrogateId = max(ResourceSurrogateId), @RowsToProcess = count(*)
+        FROM (SELECT TOP 5000 ResourceSurrogateId -- 5000 is max to avoid lock escalation
+                FROM dbo.Resource (HOLDLOCK) -- Hold locks so other write transactions cannot change data
+                WHERE ResourceTypeId = @ResourceTypeId AND ResourceSurrogateId > @SurrogateId AND ResourceSurrogateId <= @MaxSurrogateId 
+                ORDER BY ResourceSurrogateId
+             ) A
+
+      IF @CurrentMaxSurrogateId IS NOT NULL
+      BEGIN
+        SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@CurrentMaxSurrogateId)
+
+        SET @st = getUTCdate()
+        INSERT INTO dbo.TokenSearchParamHighCard 
+               ( ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow )
+          SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, CodeOverflow
+            FROM dbo.TokenSearchParam A
+            WHERE ResourceTypeId = @ResourceTypeId
+              AND ResourceSurrogateId > @SurrogateId
+              AND ResourceSurrogateId <= @CurrentMaxSurrogateId
+              AND SearchParamId IN (SELECT SearchParamId FROM dbo.SearchParam WHERE Uri LIKE '%identifier' OR Uri LIKE '%phone' OR Uri LIKE '%telecom')
+              AND NOT EXISTS (SELECT * FROM dbo.TokenSearchParamHighCard B WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId)
+            OPTION (MAXDOP 1)
+        EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='TokenSearchParamHighCard',@Action='Insert',@Rows=@@rowcount,@Text=@RowsToProcess,@Start=@st
+
+        UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
+
+        COMMIT TRANSACTION
+
+        SET @SurrogateId = @CurrentMaxSurrogateId
+
+        SET @ProcessedResources += @RowsToProcess
+
+        IF datediff(second, @ReportDate, getUTCdate()) > 60
+        BEGIN
+          EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='Resource',@Action='Select',@Rows=@ProcessedResources
+          SET @ReportDate = getUTCdate()
+          SET @ProcessedResources = 0
+        END
+      END
+      ELSE
+      BEGIN
+        COMMIT TRANSACTION
+        SET @LastProcessed = convert(varchar,@ResourceTypeId)+'.'+convert(varchar,@MaxSurrogateId)
+        UPDATE dbo.Parameters SET Char = @LastProcessed WHERE Id = @Id
+      END
+    END
+
+    IF @ProcessedResources > 0
+      EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Mode=@LastProcessed,@Target='Resource',@Action='Select',@Rows=@ProcessedResources
+
+    DELETE FROM @Types WHERE ResourceTypeId = @ResourceTypeId
+
+    SET @SurrogateId = 0
+  END
+
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='End'
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@Process,@Status='Error';
+  THROW
+END CATCH
+
+EXECUTE dbo.LogEvent @Process='TokenSearchParamHighCardPopulation',@Status='End'
