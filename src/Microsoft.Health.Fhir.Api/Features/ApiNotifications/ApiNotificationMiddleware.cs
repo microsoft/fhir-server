@@ -57,37 +57,35 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
         {
             var apiNotification = new ApiResponseNotification();
 
-            using (var timer = _logger.BeginTimedScope(nameof(ApiNotificationMiddleware)) as ActionTimer)
+            using ActionTimer timer = _logger.BeginTimedScope(nameof(ApiNotificationMiddleware));
+            try
             {
+                await next(context);
+            }
+            finally
+            {
+                apiNotification.Latency = timer.ElapsedTime;
+
                 try
                 {
-                    await next(context);
+                    IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+
+                    // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
+                    if (fhirRequestContext?.AuditEventType != null)
+                    {
+                        apiNotification.Authentication = fhirRequestContext.Principal?.Identity.AuthenticationType;
+                        apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
+                        apiNotification.Protocol = context.Request.Scheme;
+                        apiNotification.ResourceType = fhirRequestContext.ResourceType;
+                        apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
+
+                        await _mediator.Publish(apiNotification, CancellationToken.None);
+                    }
                 }
-                finally
+                catch (Exception e)
                 {
-                    apiNotification.Latency = timer.ElapsedTime;
-
-                    try
-                    {
-                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-
-                        // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
-                        if (fhirRequestContext?.AuditEventType != null)
-                        {
-                            apiNotification.Authentication = fhirRequestContext.Principal?.Identity.AuthenticationType;
-                            apiNotification.FhirOperation = fhirRequestContext.AuditEventType;
-                            apiNotification.Protocol = context.Request.Scheme;
-                            apiNotification.ResourceType = fhirRequestContext.ResourceType;
-                            apiNotification.StatusCode = (HttpStatusCode)context.Response.StatusCode;
-
-                            await _mediator.Publish(apiNotification, CancellationToken.None);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        // Failures in publishing API notifications should not cause the API to return an error.
-                        _logger.LogCritical(e, "Failure while publishing API notification.");
-                    }
+                    // Failures in publishing API notifications should not cause the API to return an error.
+                    _logger.LogCritical(e, "Failure while publishing API notification.");
                 }
             }
         }

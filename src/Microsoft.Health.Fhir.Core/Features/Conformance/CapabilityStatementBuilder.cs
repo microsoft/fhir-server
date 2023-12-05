@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private ICapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
+        private CapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
         {
             ApplyToResource(resourceType, c =>
             {
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private ICapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
+        private CapabilityStatementBuilder SyncSearchParamsAsync(string resourceType)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private ICapabilityStatementBuilder SyncProfile(string resourceType, bool disableCacheRefresh)
+        private CapabilityStatementBuilder SyncProfile(string resourceType, bool disableCacheRefresh)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));

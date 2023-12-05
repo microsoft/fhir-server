@@ -195,7 +195,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Debug.Assert(buffer.Length >= elementLength, "Initial buffer size is not large enough for the datatypes we are trying to write to it");
             }
 
+#pragma warning disable CS9191 // The 'ref' modifier for an argument corresponding to 'in' parameter is equivalent to 'in'. Consider using 'in' instead. Justification = Required for .NET6 compat.
             MemoryMarshal.Write(buffer[currentIndex..], ref element);
+#pragma warning restore CS9191 // The 'ref' modifier for an argument corresponding to 'in' parameter is equivalent to 'in'. Consider using 'in' instead.
             currentIndex += elementLength;
         }
 

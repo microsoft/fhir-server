@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Web
                     string instanceKey = KnownHeaders.InstanceId;
                     if (!context.Response.Headers.ContainsKey(instanceKey))
                     {
-                        context.Response.Headers.Add(instanceKey, new StringValues(instanceId));
+                        context.Response.Headers[instanceKey] = new StringValues(instanceId);
                     }
                 }
 

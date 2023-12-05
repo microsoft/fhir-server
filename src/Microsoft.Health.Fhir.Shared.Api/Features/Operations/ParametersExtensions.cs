@@ -33,14 +33,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
         public static bool TryGetBooleanValue(this Parameters.ParameterComponent paramComponent, out bool boolValue)
         {
-            Element booleanElement = paramComponent?.Value;
+            DataType booleanElement = paramComponent?.Value;
 
             return bool.TryParse(booleanElement?.ToString(), out boolValue);
         }
 
         public static bool TryGetUriValue(this Parameters.ParameterComponent paramComponent, out Uri uriValue)
         {
-            Element uriElement = paramComponent?.Value;
+            DataType uriElement = paramComponent?.Value;
 
             return Uri.TryCreate(uriElement?.ToString(), UriKind.RelativeOrAbsolute, out uriValue);
         }

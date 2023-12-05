@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             return _fhirJsonSerializer.SerializeToString(_fhirJsonParser.Parse(wrapper.RawResource.ToITypedElement(_modelInfoProvider)));
         }
 
-        private static IEnumerable<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ICodeSystemResolver codeSystemResolver)
+        private static List<ITypedElementToSearchValueConverter> MakeConverters(RequestContextAccessor<IFhirRequestContext> requestContextAccessor, ICodeSystemResolver codeSystemResolver)
         {
             var fhirTypedElementConverters = new List<ITypedElementToSearchValueConverter>();
             var referenceSearchValueParser = new ReferenceSearchValueParser(requestContextAccessor);

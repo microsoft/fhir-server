@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class HttpContextExtensions
     {
+        private static readonly char[] Separator = new char[1] { ',' };
+
         public static SummaryType GetSummaryTypeOrDefault(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
@@ -46,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             if (!string.IsNullOrWhiteSpace(query) &&
                 (context.Response.StatusCode == (int)HttpStatusCode.OK || context.Response.StatusCode == (int)HttpStatusCode.Created))
             {
-                var elements = query.Split(new char[1] { ',' });
+                var elements = query.Split(Separator);
                 return elements;
             }
 

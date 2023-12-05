@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
