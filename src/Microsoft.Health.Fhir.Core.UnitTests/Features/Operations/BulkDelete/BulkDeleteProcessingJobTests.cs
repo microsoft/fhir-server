@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -33,14 +34,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         private IProgress<string> _progress;
         private BulkDeleteProcessingJob _processingJob;
         private ISearchService _searchService;
+        private IQueueClient _queueClient;
 
         public BulkDeleteProcessingJobTests()
         {
             _searchService = Substitute.For<ISearchService>();
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>())
+                .Returns(Task.FromResult(new SearchResult(5, new List<Tuple<string, string>>())));
+            _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
             var deleter = Substitute.For<IScoped<IDeletionService>>();
             deleter.Value.Returns(_deleter);
-            _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService, Substitute.For<IQueueClient>());
+            _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService, _queueClient);
 
             _progress = new Progress<string>((result) => { });
         }
@@ -65,6 +70,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             Assert.Equal(3, result.ResourcesDeleted["Patient"]);
 
             await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenProcessingJob_WhenJobIsRunWithMultipleResourceTypes_ThenFollowupJobIsCreated()
+        {
+            _deleter.ClearReceivedCalls();
+
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, DeleteOperation.HardDelete, "Patient,Observation,Device", new List<Tuple<string, string>>(), "https:\\\\test.com", "https:\\\\test.com", "test");
+            var jobInfo = new JobInfo()
+            {
+                Id = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            _deleter.DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>())
+                .Returns(args => 3);
+
+            var result = JsonConvert.DeserializeObject<BulkDeleteResult>(await _processingJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None));
+            Assert.Single(result.ResourcesDeleted);
+            Assert.Equal(3, result.ResourcesDeleted["Patient"]);
+
+            await _deleter.ReceivedWithAnyArgs(1).DeleteMultipleAsync(Arg.Any<ConditionalDeleteResourceRequest>(), Arg.Any<CancellationToken>());
+
+            // Checks that one processing job was queued
+            var calls = _queueClient.ReceivedCalls();
+            var definitions = (string[])calls.First().GetArguments()[1];
+            Assert.Single(definitions);
+
+            // Checks that the processing job removed the resource type that was processed and lists the remaining two resource types
+            var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
+            Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
         }
     }
 }

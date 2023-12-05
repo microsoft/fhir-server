@@ -77,10 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
 #pragma warning restore CA2016
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException();
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     if (offset > 0 && skipFirstLine) // skip first line
                     {

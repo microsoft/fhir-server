@@ -67,9 +67,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
             await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
-            // Checks that two processing jobs were queued
+            // Checks that one processing job was queued
             var calls = _queueClient.ReceivedCalls();
-            Assert.Equal(2, ((string[])calls.First().GetArguments()[1]).Length);
+            var definitions = (string[])calls.First().GetArguments()[1];
+            Assert.Single(definitions);
+
+            // Checks that the processing job lists both resource types
+            var actualDefinition = JsonConvert.DeserializeObject<BulkDeleteDefinition>(definitions[0]);
+            Assert.Equal(2, actualDefinition.Type.SplitByOrSeparator().Count());
         }
 
         [Fact]

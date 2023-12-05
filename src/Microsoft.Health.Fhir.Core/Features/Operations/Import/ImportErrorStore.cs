@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Failed to upload import error log.", ex);
+                _logger.LogWarning(ex, "Failed to upload import error log.");
                 throw new RetriableJobException(ex.Message, ex);
             }
         }

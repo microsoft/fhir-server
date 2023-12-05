@@ -312,7 +312,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, id: {Id}.", _reindexJobRecord.FailureCount);
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, id: {Id}.", _reindexJobRecord.FailureCount, _reindexJobRecord.Id);
 
                 if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
