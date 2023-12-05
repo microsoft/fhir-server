@@ -59,11 +59,11 @@ SELECT count(*)
             var cnt = await command.ExecuteScalarAsync(CancellationToken.None);
             if (isDisabled)
             {
-                Assert.Equal(27, cnt);
+                Assert.Equal(27, cnt); // count of all disabled indexes
             }
             else
             {
-                Assert.Equal(31, cnt);
+                Assert.Equal(31, cnt); // count of all qualified indexes
             }
         }
     }
