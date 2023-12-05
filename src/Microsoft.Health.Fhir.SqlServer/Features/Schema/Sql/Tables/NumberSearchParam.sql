@@ -20,40 +20,32 @@ ON dbo.NumberSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
+CREATE INDEX IX_SearchParamId_SingleValue_WHERE_SingleValue_NOT_NULL
 ON dbo.NumberSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
-    SingleValue,
-    ResourceSurrogateId
+    SingleValue
 )
-WHERE IsHistory = 0 AND SingleValue IS NOT NULL
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+WHERE SingleValue IS NOT NULL
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
+CREATE INDEX IX_SearchParamId_LowValue_HighValue
 ON dbo.NumberSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     LowValue,
-    HighValue,
-    ResourceSurrogateId
+    HighValue
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
+CREATE INDEX IX_SearchParamId_HighValue_LowValue
 ON dbo.NumberSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     HighValue,
-    LowValue,
-    ResourceSurrogateId
+    LowValue
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
