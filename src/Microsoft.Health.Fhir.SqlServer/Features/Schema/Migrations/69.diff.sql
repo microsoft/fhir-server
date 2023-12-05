@@ -676,9 +676,6 @@ DECLARE @Process varchar(100) = 'TokenSearchParamHighCardPopulation'
        ,@st datetime
 
 BEGIN TRY
-  INSERT INTO dbo.Parameters (Id, Char) SELECT @Process, 'LogEvent'
-  EXECUTE dbo.LogEvent @Process=@Process,@Status='Start'
-
   INSERT INTO dbo.Parameters (Id, Char) SELECT @Id, '0.0' WHERE NOT EXISTS (SELECT * FROM dbo.Parameters WHERE Id = @Id)
 
   SET @LastProcessed = (SELECT Char FROM dbo.Parameters WHERE Id = @Id)
@@ -768,8 +765,6 @@ BEGIN TRY
 
     SET @SurrogateId = 0
   END
-
-  EXECUTE dbo.LogEvent @Process=@Process,@Status='End'
 END TRY
 BEGIN CATCH
   IF @@trancount > 0 ROLLBACK TRANSACTION
