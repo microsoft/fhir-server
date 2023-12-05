@@ -541,26 +541,24 @@ CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
     ON dbo.DateTimeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
-    ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, StartDateTime, EndDateTime, ResourceSurrogateId)
-    INCLUDE(IsLongerThanADay, IsMin, IsMax) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
+    ON dbo.DateTimeSearchParam(SearchParamId, StartDateTime, EndDateTime)
+    INCLUDE(IsLongerThanADay, IsMin, IsMax)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
-    ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, EndDateTime, StartDateTime, ResourceSurrogateId)
-    INCLUDE(IsLongerThanADay, IsMin, IsMax) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
+    ON dbo.DateTimeSearchParam(SearchParamId, EndDateTime, StartDateTime)
+    INCLUDE(IsLongerThanADay, IsMin, IsMax)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
-    ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, StartDateTime, EndDateTime, ResourceSurrogateId)
-    INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
-                                AND IsLongerThanADay = 1
+CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
+    ON dbo.DateTimeSearchParam(SearchParamId, StartDateTime, EndDateTime)
+    INCLUDE(IsMin, IsMax) WHERE IsLongerThanADay = 1
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
-    ON dbo.DateTimeSearchParam(ResourceTypeId, SearchParamId, EndDateTime, StartDateTime, ResourceSurrogateId)
-    INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
-                                AND IsLongerThanADay = 1
+CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
+    ON dbo.DateTimeSearchParam(SearchParamId, EndDateTime, StartDateTime)
+    INCLUDE(IsMin, IsMax) WHERE IsLongerThanADay = 1
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 IF NOT EXISTS (SELECT 1
@@ -696,17 +694,16 @@ CREATE CLUSTERED INDEX IXC_NumberSearchParam
     ON dbo.NumberSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
-    ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, SingleValue, ResourceSurrogateId) WHERE IsHistory = 0
-                                                                                                    AND SingleValue IS NOT NULL
+CREATE INDEX IX_SearchParamId_SingleValue_WHERE_SingleValue_NOT_NULL
+    ON dbo.NumberSearchParam(SearchParamId, SingleValue) WHERE SingleValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
-    ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_LowValue_HighValue
+    ON dbo.NumberSearchParam(SearchParamId, LowValue, HighValue)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
-    ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_HighValue_LowValue
+    ON dbo.NumberSearchParam(SearchParamId, HighValue, LowValue)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.Parameters (
@@ -762,20 +759,19 @@ CREATE CLUSTERED INDEX IXC_QuantitySearchParam
     ON dbo.QuantitySearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
-    ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, SingleValue, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0
-                            AND SingleValue IS NOT NULL
+CREATE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
+    ON dbo.QuantitySearchParam(SearchParamId, QuantityCodeId, SingleValue)
+    INCLUDE(SystemId) WHERE SingleValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
-    ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_QuantityCodeId_LowValue_HighValue_INCLUDE_SystemId
+    ON dbo.QuantitySearchParam(SearchParamId, QuantityCodeId, LowValue, HighValue)
+    INCLUDE(SystemId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
-    ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0
+CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
+    ON dbo.QuantitySearchParam(SearchParamId, QuantityCodeId, HighValue, LowValue)
+    INCLUDE(SystemId)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceSearchParam (
@@ -799,7 +795,7 @@ CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId
-    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE, ONLINE = ON)
+    ON dbo.ReferenceSearchParam(ReferenceResourceId, ReferenceResourceTypeId, SearchParamId, BaseUri, ResourceSurrogateId, ResourceTypeId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam (
@@ -829,9 +825,9 @@ CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
     ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
-    ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
-    INCLUDE(ReferenceResourceTypeId1, BaseUri1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_ReferenceResourceId1_Code2_INCLUDE_ReferenceResourceTypeId1_BaseUri1_SystemId2
+    ON dbo.ReferenceTokenCompositeSearchParam(SearchParamId, ReferenceResourceId1, Code2)
+    INCLUDE(ReferenceResourceTypeId1, BaseUri1, SystemId2) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReindexJob (
@@ -984,15 +980,14 @@ CREATE CLUSTERED INDEX IXC_StringSearchParam
     ON dbo.StringSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
-    ON dbo.StringSearchParam(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    INCLUDE(TextOverflow, IsMin, IsMax) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_StringSearchParam_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax
+    ON dbo.StringSearchParam(SearchParamId, Text)
+    INCLUDE(TextOverflow, IsMin, IsMax) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
-    ON dbo.StringSearchParam(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    INCLUDE(IsMin, IsMax) WHERE IsHistory = 0
-                                AND TextOverflow IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Text_INCLUDE_IsMin_IsMax_WHERE_TextOverflow_NOT_NULL
+    ON dbo.StringSearchParam(SearchParamId, Text)
+    INCLUDE(IsMin, IsMax) WHERE TextOverflow IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.System (
@@ -1060,26 +1055,24 @@ CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
     ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
-    ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, StartDateTime2, EndDateTime2, ResourceSurrogateId)
-    INCLUDE(SystemId1, IsLongerThanADay2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
+    ON dbo.TokenDateTimeCompositeSearchParam(SearchParamId, Code1, StartDateTime2, EndDateTime2)
+    INCLUDE(SystemId1, IsLongerThanADay2) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
-    ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
-    INCLUDE(SystemId1, IsLongerThanADay2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
+    ON dbo.TokenDateTimeCompositeSearchParam(SearchParamId, Code1, EndDateTime2, StartDateTime2)
+    INCLUDE(SystemId1, IsLongerThanADay2) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
-    ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, StartDateTime2, EndDateTime2, ResourceSurrogateId)
-    INCLUDE(SystemId1) WHERE IsHistory = 0
-                             AND IsLongerThanADay2 = 1 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
+    ON dbo.TokenDateTimeCompositeSearchParam(SearchParamId, Code1, StartDateTime2, EndDateTime2)
+    INCLUDE(SystemId1) WHERE IsLongerThanADay2 = 1 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
-    ON dbo.TokenDateTimeCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
-    INCLUDE(SystemId1) WHERE IsHistory = 0
-                             AND IsLongerThanADay2 = 1 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
+    ON dbo.TokenDateTimeCompositeSearchParam(SearchParamId, Code1, EndDateTime2, StartDateTime2)
+    INCLUDE(SystemId1) WHERE IsLongerThanADay2 = 1 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam (
@@ -1112,16 +1105,14 @@ CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
     ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
-    ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, SingleValue3, ResourceSurrogateId)
-    INCLUDE(SystemId1) WHERE IsHistory = 0
-                             AND HasRange = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_SingleValue2_SingleValue3_INCLUDE_SystemId1_WHERE_HasRange_0
+    ON dbo.TokenNumberNumberCompositeSearchParam(SearchParamId, Code1, SingleValue2, SingleValue3)
+    INCLUDE(SystemId1) WHERE HasRange = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
-    ON dbo.TokenNumberNumberCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, LowValue3, HighValue3, ResourceSurrogateId)
-    INCLUDE(SystemId1) WHERE IsHistory = 0
-                             AND HasRange = 1 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3_INCLUDE_SystemId1_WHERE_HasRange_1
+    ON dbo.TokenNumberNumberCompositeSearchParam(SearchParamId, Code1, LowValue2, HighValue2, LowValue3, HighValue3)
+    INCLUDE(SystemId1) WHERE HasRange = 1 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam (
@@ -1152,22 +1143,19 @@ CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
-    ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, SingleValue2, ResourceSurrogateId)
-    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                         AND SingleValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_SingleValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_SingleValue2_NOT_NULL
+    ON dbo.TokenQuantityCompositeSearchParam(SearchParamId, Code1, SingleValue2)
+    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE SingleValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
-    ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, ResourceSurrogateId)
-    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                         AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
+    ON dbo.TokenQuantityCompositeSearchParam(SearchParamId, Code1, LowValue2, HighValue2)
+    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
-    ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, HighValue2, LowValue2, ResourceSurrogateId)
-    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                         AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_HighValue2_LowValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
+    ON dbo.TokenQuantityCompositeSearchParam(SearchParamId, Code1, HighValue2, LowValue2)
+    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenSearchParam (
@@ -1193,9 +1181,9 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
     ON dbo.TokenSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
-    ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
-    INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId
+    ON dbo.TokenSearchParam(SearchParamId, Code)
+    INCLUDE(SystemId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (
@@ -1223,15 +1211,14 @@ CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
     ON dbo.TokenStringCompositeSearchParam(ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
-    ON dbo.TokenStringCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
-    INCLUDE(SystemId1, TextOverflow2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_Text2_INCLUDE_SystemId1_TextOverflow2
+    ON dbo.TokenStringCompositeSearchParam(SearchParamId, Code1, Text2)
+    INCLUDE(SystemId1, TextOverflow2) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
-    ON dbo.TokenStringCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
-    INCLUDE(SystemId1) WHERE IsHistory = 0
-                             AND TextOverflow2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_Text2_INCLUDE_SystemId1_WHERE_TextOverflow2_NOT_NULL
+    ON dbo.TokenStringCompositeSearchParam(SearchParamId, Code1, Text2)
+    INCLUDE(SystemId1) WHERE TextOverflow2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenText (
@@ -1285,9 +1272,9 @@ CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
     ON dbo.TokenTokenCompositeSearchParam(ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
-    ON dbo.TokenTokenCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, Code2, ResourceSurrogateId)
-    INCLUDE(SystemId1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Code1_Code2_INCLUDE_SystemId1_SystemId2
+    ON dbo.TokenTokenCompositeSearchParam(SearchParamId, Code1, Code2)
+    INCLUDE(SystemId1, SystemId2) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.Transactions (
@@ -1328,8 +1315,8 @@ CREATE CLUSTERED INDEX IXC_UriSearchParam
     ON dbo.UriSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
-    ON dbo.UriSearchParam(ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
+CREATE INDEX IX_SearchParamId_Uri
+    ON dbo.UriSearchParam(SearchParamId, Uri) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.WatchdogLeases (
