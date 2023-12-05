@@ -525,9 +525,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes);
+    if (HasTypeReference(searchParamTableExpression))
+    {
+     AppendHistoryClause(delimited, context.ResourceVersionTypes);
+    }
 
-                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
+
+    if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
                     // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -1433,6 +1437,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     _hasIdentifier = true;
                 }
             }
+        }
+
+        private static bool HasTypeReference(SearchParamTableExpression searchParamTableExpression)
+        {
+            return searchParamTableExpression?.Predicate?.ToString()?.Contains(KnownQueryParameterNames.Type, StringComparison.Ordinal) ?? true;
         }
 
         private static SortContext GetSortRelatedDetails(SearchOptions context)
