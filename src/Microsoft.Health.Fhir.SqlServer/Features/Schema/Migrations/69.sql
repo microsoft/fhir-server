@@ -3751,7 +3751,7 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
-@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @GlobalEndId BIGINT=NULL, @IncludeHistory BIT=0, @IncludeDeleted BIT=0
+@ResourceTypeId SMALLINT, @StartId BIGINT, @EndId BIGINT, @GlobalStartId BIGINT=NULL, @GlobalEndId BIGINT=NULL, @IncludeHistory BIT=0, @IncludeDeleted BIT=0
 AS
 SET NOCOUNT ON;
 DECLARE @SP AS VARCHAR (100) = 'GetResourcesByTypeAndSurrogateIdRange', @Mode AS VARCHAR (100) = 'RT=' + isnull(CONVERT (VARCHAR, @ResourceTypeId), 'NULL') + ' S=' + isnull(CONVERT (VARCHAR, @StartId), 'NULL') + ' E=' + isnull(CONVERT (VARCHAR, @EndId), 'NULL') + ' GE=' + isnull(CONVERT (VARCHAR, @GlobalEndId), 'NULL') + ' HI=' + isnull(CONVERT (VARCHAR, @IncludeHistory), 'NULL') + ' DE' + isnull(CONVERT (VARCHAR, @IncludeDeleted), 'NULL'), @st AS DATETIME = getUTCdate(), @DummyTop AS BIGINT = 9223372036854775807;
