@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
     public class SecurityModule : IStartupModule
     {
         private readonly SecurityConfiguration _securityConfiguration;
-        ////private static readonly string _requireAuthenticatedUserPolicy = "RequireAuthenticatedUserPolicy";
 
         public SecurityModule(FhirServerConfiguration fhirServerConfiguration)
         {
@@ -43,26 +42,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
             {
                 _securityConfiguration.AddAuthenticationLibrary(services, _securityConfiguration);
 
-                /*services.AddControllers(mvcOptions =>
+                services.AddControllers(mvcOptions =>
                 {
                     var policy = new AuthorizationPolicyBuilder()
                         .RequireAuthenticatedUser()
                         .Build();
 
                     mvcOptions.Filters.Add(new AuthorizeFilter(policy));
-                });*/
-
-                ////services.AddControllers();
-                services.AddAuthorization(options =>
-                {
-                    options.DefaultPolicy = new AuthorizationPolicyBuilder()
-                      .RequireAuthenticatedUser()
-                      .Build();
                 });
-
-                /*services.AddAuthorization(o => o.AddPolicy(
-                    _requireAuthenticatedUserPolicy,
-                    builder => builder.RequireAuthenticatedUser()));*/
 
                 if (_securityConfiguration.Authorization.Enabled)
                 {
