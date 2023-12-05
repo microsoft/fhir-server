@@ -4044,7 +4044,7 @@ BEGIN TRY
             DELETE B
             FROM   @SurrogateIds AS A
                    INNER LOOP JOIN
-                   dbo.TokenSearchParamHardCard AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
+                   dbo.TokenSearchParamHighCard AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
                    ON B.ResourceTypeId = @ResourceTypeId
                       AND B.ResourceSurrogateId = A.ResourceSurrogateId
             OPTION (MAXDOP 1);
