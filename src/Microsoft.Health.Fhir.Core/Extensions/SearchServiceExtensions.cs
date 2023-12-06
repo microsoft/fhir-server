@@ -10,10 +10,11 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DotLiquid.Tags;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -49,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             CancellationToken cancellationToken,
             int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
             string continuationToken = null,
+            Microsoft.Extensions.Logging.ILogger logger = null,
             bool? maxParallel = false)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
@@ -65,40 +67,63 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var matchedResults = new List<SearchResultEntry>();
             string lastContinuationToken = continuationToken;
-
-            do
+            LongRunningOperationStatistics statistics = new LongRunningOperationStatistics(operationName: "conditionalSearchAsync");
+            try
             {
-                var searchParameters = new List<Tuple<string, string>>(filteredParameters);
+                statistics.StartCollectingResults();
+                do
+                {
+                    var searchParameters = new List<Tuple<string, string>>(filteredParameters);
 
                 if (maxParallel == true)
                 {
                     searchParameters.Add(Tuple.Create(KnownQueryParameterNames.OptimizeConcurrency, true.ToString()));
                 }
 
-                if (!string.IsNullOrEmpty(lastContinuationToken))
-                {
-                    searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));
+                    if (!string.IsNullOrEmpty(lastContinuationToken))
+                    {
+                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));
+                    }
+
+                    statistics.Iterate();
+
+                    SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken);
+                    lastContinuationToken = results?.ContinuationToken;
+
+                    // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
+                    int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
+                    if (totalUnusedParameters == userProvidedParameterCount)
+                    {
+                        logger?.LogInformation("PreconditionFailed: ConditionalOperationNotSelectiveEnough");
+                        throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
+                    }
+
+                    if (results?.Results.Any() == true)
+                    {
+                        matchedResults.AddRange(
+                            results?.Results
+                                .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
+                                .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+                    }
                 }
+                while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));
+            }
+            finally
+            {
+                statistics.StopCollectingResults();
 
-                SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken);
-                lastContinuationToken = results?.ContinuationToken;
-
-                // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
-                int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
-                if (totalUnusedParameters == userProvidedParameterCount)
+                if (statistics.IterationCount > 1 && logger != null)
                 {
-                    throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, instanceType));
-                }
-
-                if (results?.Results.Any() == true)
-                {
-                    matchedResults.AddRange(
-                        results?.Results
-                            .Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match)
-                            .Take(Math.Max(count.HasValue ? 0 : results.Results.Count(), count.GetValueOrDefault() - matchedResults.Count)));
+                    try
+                    {
+                        logger.LogInformation(statistics.GetStatisticsAsJson());
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Error computing operation statistics. This error will not block the operation processing.");
+                    }
                 }
             }
-            while (count.HasValue && matchedResults.Count < count && !string.IsNullOrEmpty(lastContinuationToken));
 
             return (matchedResults, lastContinuationToken);
         }

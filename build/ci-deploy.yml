@@ -41,7 +41,7 @@ stages:
   - job: provision
     dependsOn: DeleteResourceGroup 
     steps:
-    - task: AzurePowerShell@4
+    - task: AzurePowerShell@5
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)

@@ -35,7 +35,7 @@ function Add-AadTestAuthEnvironment {
         [string]$ResourceGroupName = $EnvironmentName,
 
         [parameter(Mandatory = $false)]
-        [string]$KeyVaultName = "$EnvironmentName-ts"
+        [string]$KeyVaultName = "$EnvironmentName-ts".ToLower()
     )
 
     Set-StrictMode -Version Latest
@@ -60,16 +60,16 @@ function Add-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName
+    $keyVault = Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
-        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
+        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation -EnableRbacAuthorization | Out-Null
     }
 
     $retryCount = 0
     # Make sure key vault exists and is ready
-    while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
+    while (!(Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName )) {
         $retryCount += 1
 
         if ($retryCount -gt 20) {
@@ -80,6 +80,9 @@ function Add-AadTestAuthEnvironment {
         sleep 30
     }
 
+    $keyVaultResourceId = (Get-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName).ResourceId
+
+    Write-Host "Setting permissions on keyvault for current context"
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADUser -UserPrincipalName $azContext.Account.Id).Id
@@ -93,9 +96,19 @@ function Add-AadTestAuthEnvironment {
         throw "Running as an unsupported account type. Please use either a 'User' or 'Service Principal' to run this command"
     }
 
+    # Check if the role assignment already exists
     if ($currentObjectId) {
-        Write-Host "Adding permission to keyvault for $currentObjectId"
-        Set-AzKeyVaultAccessPolicy -VaultName $KeyVaultName -ObjectId $currentObjectId -PermissionsToSecrets Get,List,Set
+        $existingRoleAssignments = Get-AzRoleAssignment -ObjectId $currentObjectId -Scope $keyVaultResourceId
+        $roleExists = $existingRoleAssignments | Where-Object { $_.RoleDefinitionName -eq "Key Vault Secrets Officer" }
+
+        # Create the role assignment if it does not exist
+        if (-not $roleExists) {
+            Write-Host "Adding permission to keyvault for $currentObjectId"
+            New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId | Out-Null
+        }
+        else {
+            Write-Host "Role assignment already exists for $currentObjectId"
+        }
     }
 
     Write-Host "Ensuring API application exists"

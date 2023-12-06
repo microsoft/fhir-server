@@ -44,7 +44,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
       azureSubscription: $(ConnectedServiceName)
@@ -66,7 +66,8 @@ jobs:
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
-        $webAppName = "${{ parameters.webAppName }}"
+        $webAppName = "${{ parameters.webAppName }}".ToLower()
+        Write-Host "Web App Name: $webAppName"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
@@ -89,7 +90,7 @@ jobs:
             # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlAdminPassword"] = "${{parameters.sqlServerAdminPassword}}"
-            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}"
+            $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
@@ -102,19 +103,34 @@ jobs:
         }
 
         Write-Host "Provisioning Resource Group"
-        Write-Host $webAppName
-        Write-Host "${{ parameters.resourceGroup }}"
-        try {
-        New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
-        }catch {
-          if("${{ parameters.sql }}" -eq "true"){
-            $templateParameters["sqlServerNewOrExisting"] = "new"
-            New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        Write-Host "ResourceGroupName: ${{ parameters.resourceGroup }}"
+
+        $deploymentName = $webAppName
+        $resourceGroupName = "${{ parameters.resourceGroup }}"
+
+        # Check if a deployment with the specified name already exists
+        $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
+
+        # If the deployment exists and is ongoing, wait for it to complete
+        if ($existingDeployment -and ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")) {
+            Write-Host "Waiting for existing deployment '$deploymentName' to complete..."
+            do {
+                Start-Sleep -Seconds 10
+                $existingDeployment = Get-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName
+            } while ($existingDeployment.ProvisioningState -eq "Running" -or $existingDeployment.ProvisioningState -eq "Accepted")
+            Write-Host "Existing deployment completed."
+        }
+        else
+        {
+          try {
+            New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+          } catch {
+            if ("${{ parameters.sql }}" -eq "true") {
+              $templateParameters["sqlServerNewOrExisting"] = "new"
+              New-AzResourceGroupDeployment -Name $deploymentName -ResourceGroupName $resourceGroupName -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+            }
           }
         }
-        
-        Write-Host "Setting Key Vault access"
-        Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId b542f965-4eec-4682-8999-78dd501df864 -PermissionsToSecrets list,get
 
   - template: ./provision-healthcheck.yml
     parameters: 
