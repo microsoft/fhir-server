@@ -52,9 +52,9 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
-            services.AddMvc(options =>
+            services.AddControllers(options =>
                 {
-                    options.EnableEndpointRouting = false;
+                    options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;
                 })
                 .AddNewtonsoftJson(options =>
@@ -176,8 +176,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
-
-                    app.UseCors(Constants.DefaultCorsPolicy);
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.

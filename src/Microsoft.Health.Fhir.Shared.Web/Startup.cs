@@ -201,8 +201,9 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             app.UsePrometheusHttpMetrics();
-            app.UseFhirServer();
-            app.UseDevelopmentIdentityProviderIfConfigured();
+            app.UseFhirServer(
+                DevelopmentIdentityProviderRegistrationExtensions.UseDevelopmentIdentityProviderIfConfigured,
+                null);
         }
 
         /// <summary>

@@ -4,8 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using System.Net.Mime;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -13,6 +16,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Registration;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Cors;
+using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
 {
@@ -41,6 +46,65 @@ namespace Microsoft.AspNetCore.Builder
 
             app.UseStaticFiles();
             app.UseMvc();
+
+            return app;
+        }
+
+        public static IApplicationBuilder UseFhirServer(
+            this IApplicationBuilder app,
+            Func<IApplicationBuilder, IApplicationBuilder> configureDevelopmentIdentityProvider,
+            Func<HealthCheckRegistration, bool> healthCheckOptionsPredicate = null)
+        {
+            EnsureArg.IsNotNull(app, nameof(app));
+
+            var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
+
+            var pathBase = config.Value.PathBase?.TrimEnd('/');
+            if (!string.IsNullOrWhiteSpace(pathBase))
+            {
+                var pathString = new PathString(pathBase);
+                app.UseMiddleware<PathBaseMiddleware>(pathString);
+            }
+
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
+
+            app.UseRouting();
+            configureDevelopmentIdentityProvider?.Invoke(app);
+
+            app.UseCors(Constants.DefaultCorsPolicy);
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.UseEndpoints(
+                endpoints =>
+                {
+                    endpoints.MapControllers().RequireAuthorization();
+                    endpoints.MapHealthChecks(
+                        new PathString(KnownRoutes.HealthCheck),
+                        new HealthCheckOptions
+                        {
+                            Predicate = healthCheckOptionsPredicate,
+                            ResponseWriter = async (httpContext, healthReport) =>
+                            {
+                                var response = JsonConvert.SerializeObject(
+                                    new
+                                    {
+                                        overallStatus = healthReport.Status.ToString(),
+                                        details = healthReport.Entries.Select(entry => new
+                                        {
+                                            name = entry.Key,
+                                            status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                                            description = entry.Value.Description,
+                                            data = entry.Value.Data,
+                                        }),
+                                    });
+
+                                httpContext.Response.ContentType = MediaTypeNames.Application.Json;
+                                await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
+                            },
+                        });
+                });
 
             return app;
         }
