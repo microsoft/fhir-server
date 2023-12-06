@@ -75,10 +75,10 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 {
                     var searchParameters = new List<Tuple<string, string>>(filteredParameters);
 
-                if (maxParallel == true)
-                {
-                    searchParameters.Add(Tuple.Create(KnownQueryParameterNames.OptimizeConcurrency, true.ToString()));
-                }
+                    if (maxParallel == true)
+                    {
+                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.OptimizeConcurrency, true.ToString()));
+                    }
 
                     if (!string.IsNullOrEmpty(lastContinuationToken))
                     {
