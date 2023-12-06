@@ -10,6 +10,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -23,21 +25,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     [JobTypeId((int)JobType.ExportOrchestrator)]
     public class CosmosExportOrchestratorJob : IJob
     {
-        // #TODO - parallelize Cosmos Queue Client so this can be > 1
-        private const int DefaultMaxNumberOfFeedRangesPerJob = 1;
-
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService)
+            ISearchService searchService,
+            IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _exportJobConfiguration = exportJobConfiguration.Value;
+
+            MaxNumberOfFeedRangesPerJob = _exportJobConfiguration.NumberOfParallelRecordRanges;
         }
 
-        internal int MaxNumberOfFeedRangesPerJob { get; set; } = DefaultMaxNumberOfFeedRangesPerJob;
+        internal int MaxNumberOfFeedRangesPerJob { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {

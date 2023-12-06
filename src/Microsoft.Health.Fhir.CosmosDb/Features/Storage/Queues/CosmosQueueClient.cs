@@ -366,19 +366,26 @@ public class CosmosQueueClient : IQueueClient
 
             foreach (JobGroupWrapper job in jobs)
             {
+                bool saveRequired = false;
+
                 foreach (JobDefinitionWrapper item in job.Definitions)
                 {
                     if (item.Status == (byte)JobStatus.Running)
                     {
                         item.CancelRequested = true;
+                        saveRequired = true;
                     }
                     else if (item.Status == (byte)JobStatus.Created)
                     {
                         item.Status = (byte)JobStatus.Cancelled;
+                        saveRequired = true;
                     }
                 }
 
-                await SaveJobGroupAsync(job, cancellationToken);
+                if (saveRequired)
+                {
+                    await SaveJobGroupAsync(job, cancellationToken);
+                }
             }
         });
     }

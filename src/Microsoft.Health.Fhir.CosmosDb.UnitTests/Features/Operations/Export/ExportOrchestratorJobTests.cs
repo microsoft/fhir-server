@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -29,6 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
     {
         private ISearchService _mockSearchService = Substitute.For<ISearchService>();
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
+        private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration());
 
         [Theory]
         [InlineData(ExportJobType.Patient)]
@@ -43,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId, initialJobList);
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
 
@@ -61,7 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobs, orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -81,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -101,7 +104,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
@@ -122,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(maxNumberOfDefinitionsPerJob, orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             exportOrchestratorJob.MaxNumberOfFeedRangesPerJob = maxNumberOfDefinitionsPerJob;
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
@@ -144,7 +147,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
-            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
+            var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService, _exportJobConfiguration);
             var result = await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
