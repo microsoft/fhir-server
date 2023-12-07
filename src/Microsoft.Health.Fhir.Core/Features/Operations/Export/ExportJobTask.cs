@@ -280,6 +280,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(ex, "The job was canceled.");
+                await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.

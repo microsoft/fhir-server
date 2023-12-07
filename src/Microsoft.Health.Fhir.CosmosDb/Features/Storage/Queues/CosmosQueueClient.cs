@@ -222,8 +222,17 @@ public class CosmosQueueClient : IQueueClient
             return Array.Empty<JobInfo>();
         }
 
+        foreach (var job in scan.Where(x => x.CancelRequested))
+        {
+            job.Status = (byte)JobStatus.Cancelled;
+            job.HeartbeatDateTime = Clock.UtcNow;
+            job.Worker = worker;
+            job.StartDate ??= Clock.UtcNow;
+            job.Version = GenerateVersion();
+        }
+
         var toReturn = new List<JobDefinitionWrapper>();
-        foreach (JobDefinitionWrapper job in scan.Take(numberOfJobsToDequeue))
+        foreach (JobDefinitionWrapper job in scan.Where(x => !x.CancelRequested).Take(numberOfJobsToDequeue))
         {
             if (!string.IsNullOrEmpty(job.Worker))
             {
@@ -368,7 +377,7 @@ public class CosmosQueueClient : IQueueClient
             {
                 bool saveRequired = false;
 
-                foreach (JobDefinitionWrapper item in job.Definitions)
+                foreach (JobDefinitionWrapper item in job.Definitions.OrderByDescending(x => x.Status))
                 {
                     if (item.Status == (byte)JobStatus.Running)
                     {

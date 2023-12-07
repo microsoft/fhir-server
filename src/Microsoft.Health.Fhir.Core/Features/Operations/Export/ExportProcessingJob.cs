@@ -100,18 +100,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
                     IEnumerable<JobInfo> newerJobs = new List<JobInfo>();
 
-                    // #TODO - figure out this logic
-                    if (!record.IsParallel)
+                    var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
+
+                    // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs.
+                    newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
+
+                    if (definition.ResourceType is not null || definition.FeedRange is not null)
                     {
-                        var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
-
-                        // Checks that a follow up job has not already been made.
-                        newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
-
-                        if (definition.ResourceType is not null || definition.FeedRange is not null)
+                        newerJobs = newerJobs.Where(job =>
                         {
-                            newerJobs = newerJobs.Where(job => job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange);
-                        }
+                            var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
+                            return deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
+                        });
                     }
 
                     if (!newerJobs.Any())

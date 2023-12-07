@@ -172,6 +172,22 @@ namespace Microsoft.Health.JobManagement
 
                 return;
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && jobCancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                jobInfo.Status = JobStatus.Cancelled;
+
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                return;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
