@@ -522,21 +522,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing, bool keepVersion) // call is not symmetrical, it assumes version = 1 on input.
+        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing, bool keepVersion)
         {
             if (!_rawResourceDeduping.IsEnabled())
             {
                 return false;
             }
 
-            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
-            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
-            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
             if (keepVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data;
             }
-            else if (existingVersion == InitialVersion)
+
+            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
+            var inputVersion = GetJsonValue(input.RawResource.Data, "versionId", true);
+            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
+            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
+            if (inputVersion == existingVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
@@ -544,7 +546,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 return input.RawResource.Data
                             == existing.RawResource.Data
-                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{InitialVersion}\"", StringComparison.Ordinal)
+                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
                                     .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
         }
