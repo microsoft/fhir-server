@@ -369,34 +369,47 @@ public class CosmosQueueClient : IQueueClient
     /// <inheritdoc />
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
+        IReadOnlyList<JobGroupWrapper> jobs = default;
+        var cancelTasks = new List<Task>();
+
         await _retryPolicy.ExecuteAsync(async () =>
         {
-            IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
+            jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
+        });
 
-            foreach (JobGroupWrapper job in jobs)
+        foreach (JobGroupWrapper job in jobs)
+        {
+            bool saveRequired = false;
+
+            foreach (JobDefinitionWrapper item in job.Definitions)
             {
-                bool saveRequired = false;
-
-                foreach (JobDefinitionWrapper item in job.Definitions.OrderByDescending(x => x.Status))
+                if (item.Status == (byte)JobStatus.Running)
                 {
-                    if (item.Status == (byte)JobStatus.Running)
-                    {
-                        item.CancelRequested = true;
-                        saveRequired = true;
-                    }
-                    else if (item.Status == (byte)JobStatus.Created)
-                    {
-                        item.Status = (byte)JobStatus.Cancelled;
-                        saveRequired = true;
-                    }
+                    item.CancelRequested = true;
+                    saveRequired = true;
                 }
-
-                if (saveRequired)
+                else if (item.Status == (byte)JobStatus.Created)
                 {
-                    await SaveJobGroupAsync(job, cancellationToken);
+                    item.Status = (byte)JobStatus.Cancelled;
+                    saveRequired = true;
                 }
             }
-        });
+
+            if (saveRequired)
+            {
+                cancelTasks.Add(Task.Run(
+                    async () =>
+                    {
+                        await _retryPolicy.ExecuteAsync(async () =>
+                        {
+                            await SaveJobGroupAsync(job, cancellationToken);
+                        });
+                    },
+                    cancellationToken));
+            }
+        }
+
+        await Task.WhenAll(cancelTasks);
     }
 
     /// <inheritdoc />

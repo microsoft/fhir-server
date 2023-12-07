@@ -100,27 +100,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
                     IEnumerable<JobInfo> newerJobs = new List<JobInfo>();
 
-                    var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, cancellationToken);
+                    var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
-                    // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs.
-                    newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
-
-                    if (definition.ResourceType is not null || definition.FeedRange is not null)
+                    // Only queue new jobs if orchestrator is still running. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
+                    if (existingJobs.SingleOrDefault(x => x.Id == jobInfo.GroupId).Status == JobStatus.Running)
                     {
-                        newerJobs = newerJobs.Where(job =>
+                        // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs.
+                        newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
+
+                        if (definition.ResourceType is not null || definition.FeedRange is not null)
                         {
-                            var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
-                            return deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
-                        });
+                            newerJobs = newerJobs.Where(job =>
+                            {
+                                var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
+                                return deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
+                            });
+                        }
+
+                        if (!newerJobs.Any())
+                        {
+                            definition.Progress = exportJobRecord.Progress;
+                            await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
+                        }
                     }
 
-                    if (!newerJobs.Any())
-                    {
-                        definition.Progress = exportJobRecord.Progress;
-                        await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);
-                    }
-
-                    // TODO: When legacy export support is removed from Cosmos remove this exception and refactor ExportJobTask to expect only one page of results will be processed.
                     throw new JobSegmentCompletedException();
                 }
 

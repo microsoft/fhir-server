@@ -41,8 +41,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
         private readonly byte _queueType = (byte)QueueType.Export;
 
-        private IOptions<ExportJobConfiguration> _exportJobConfiguration = Options.Create(new ExportJobConfiguration() { NumberOfParallelRecordRanges = 5 });
-
         public CosmosDbExportTests(CosmosDbFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
@@ -60,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await PrepareData(3333); // 1111 patients + 1111 observations + 1111 claims. !!! RawResource is invalid.
 
-                var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService, _exportJobConfiguration);
+                var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
 
                 await RunExportWithCancel("Patient", coordJob, 2, null); // 2=coord+1 resource type
 

@@ -27,21 +27,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     {
         private readonly IQueueClient _queueClient;
         private ISearchService _searchService;
-        private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService,
-            IOptions<ExportJobConfiguration> exportJobConfiguration)
+            ISearchService searchService)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
-            _exportJobConfiguration = exportJobConfiguration.Value;
-
-            MaxNumberOfFeedRangesPerJob = _exportJobConfiguration.NumberOfParallelRecordRanges;
         }
-
-        internal int MaxNumberOfFeedRangesPerJob { get; set; }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
@@ -69,8 +62,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                 foreach (var resourceType in resourceTypes)
                 {
-                    var definitions = new List<string>();
-
                     // Skip any feed range/resource type combos that have already been queued.
                     // This scenario is when the coordinator is killed during queueing of export jobs.
                     var notEnqueued = enqueuedRangesByResourceType.TryGetValue(resourceType, out var enqueuedRangesThisResourceType) ?
@@ -85,18 +76,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                 resourceType: resourceType,
                                 feedRange: partitionRange);
 
-                        definitions.Add(JsonConvert.SerializeObject(processingRecord));
+                        var definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
 
-                        if (definitions.Count >= MaxNumberOfFeedRangesPerJob)
-                        {
-                            await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
-                            definitions.Clear();
-                        }
-                    }
-
-                    if (definitions.Count > 0)
-                    {
-                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions.ToArray(), jobInfo.GroupId, false, false, cancellationToken);
+                        await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
                     }
                 }
             }
