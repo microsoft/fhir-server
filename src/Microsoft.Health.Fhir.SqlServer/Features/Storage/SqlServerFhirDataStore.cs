@@ -532,7 +532,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
-            if (existingVersion != InitialVersion)
+            if (existingVersion == InitialVersion)
             {
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
