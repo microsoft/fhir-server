@@ -106,16 +106,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     if (existingJobs.SingleOrDefault(x => x.Id == jobInfo.GroupId).Status == JobStatus.Running)
                     {
                         // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs.
-                        newerJobs = existingJobs.Where(job => job.Id > jobInfo.Id);
-
-                        if (definition.ResourceType is not null || definition.FeedRange is not null)
-                        {
-                            newerJobs = newerJobs.Where(job =>
-                            {
-                                var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
-                                return deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
-                            });
-                        }
+                        newerJobs = existingJobs.Where(job =>
+                                        job.Id > jobInfo.Id
+                                        && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange
+                                        && job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType);
 
                         if (!newerJobs.Any())
                         {
