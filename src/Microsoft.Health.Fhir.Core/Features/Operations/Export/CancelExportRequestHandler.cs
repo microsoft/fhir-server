@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.JobManagement;
 using Polly;
 using Polly.Retry;
 
@@ -49,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
 
             _retryPolicy = Policy.Handle<JobConflictException>()
+                .Or<RetriableJobException>()
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
@@ -64,17 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             CancelExportResponse cancelResponse;
             try
             {
+                bool isRetry = false;
+
                 cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
                     ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
                     // If the job is already completed for any reason, return conflict status.
-                    if (outcome.JobRecord.Status.IsFinished())
+                    if (outcome.JobRecord.Status.IsFinished() && !isRetry)
                     {
                         return new CancelExportResponse(HttpStatusCode.Conflict);
                     }
 
                     // Try to cancel the job.
+                    isRetry = true;
                     outcome.JobRecord.Status = OperationStatus.Canceled;
                     outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
