@@ -112,42 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 if (types.Count > 1)
                 {
                     types.RemoveAt(0);
-                    BulkDeleteDefinition processingDefinition = null;
-                    var searchParameters = new List<Tuple<string, string>>()
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, _searchService, types, cancellationToken);
+
+                    if (processingDefinition != null)
                     {
-                        new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
-                    };
-
-                    if (definition.SearchParameters != null)
-                    {
-                        searchParameters.AddRange(definition.SearchParameters);
-                    }
-
-                    while (types.Count > 0)
-                    {
-                        int numResources = (await _searchService.SearchAsync(types[0], searchParameters, cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
-
-                        if (numResources == 0)
-                        {
-                            types.RemoveAt(0);
-                            continue;
-                        }
-
-                        string resourceType = types.JoinByOrSeparator();
-
-                        processingDefinition = new BulkDeleteDefinition(
-                            JobType.BulkDeleteProcessing,
-                            definition.DeleteOperation,
-                            resourceType,
-                            definition.SearchParameters,
-                            definition.Url,
-                            definition.BaseUrl,
-                            definition.ParentRequestId,
-                            numResources,
-                            definition.VersionType);
-
                         await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
-                        break;
                     }
                 }
 

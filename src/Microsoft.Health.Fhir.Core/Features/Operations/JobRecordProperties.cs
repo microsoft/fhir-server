@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ParentRequestId = "parentRequestId";
 
-        public const string StartingResourceCount = "startingResourceCount";
+        public const string ExpectedResourceCount = "expectedResourceCount";
 
         public const string VersionType = "versionType";
     }

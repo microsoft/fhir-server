@@ -124,11 +124,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
                     if (job.Status == JobStatus.Completed)
                     {
                         var definition = job.DeserializeDefinition<BulkDeleteDefinition>();
-                        if (jobTotal < definition.StartingResourceCount)
+                        if (jobTotal < definition.ExpectedResourceCount)
                         {
                             addBadCountWarning = true;
                         }
-                        else if (jobTotal > definition.StartingResourceCount)
+                        else if (jobTotal > definition.ExpectedResourceCount)
                         {
                             // I have no clue how this could happen and it imiplies more data was deleted than existed when the job started.
                             failed = true;
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Handlers
             {
                 Tuple<string, DataType>[] tuples = resourcesDeleted
                     .Where(x => x.Value > 0)
-                    .Select(x => Tuple.Create(x.Key, (DataType)new FhirDecimal(x.Value)))
+                    .Select(x => Tuple.Create(x.Key, (DataType)new Integer64(x.Value)))
                     .ToArray();
 
                 if (tuples.Any())

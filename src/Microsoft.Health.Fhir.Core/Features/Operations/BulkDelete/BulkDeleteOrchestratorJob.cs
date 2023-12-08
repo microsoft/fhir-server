@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             return OperationCompleted;
         }
 
+        // Creates a bulk delete processing job.
+        // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
         internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
         {
             var searchParameters = new List<Tuple<string, string>>()
