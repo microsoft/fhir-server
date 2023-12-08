@@ -41,14 +41,7 @@ namespace Microsoft.AspNetCore.Builder
 
             app.UseStaticFiles();
             app.UseRouting();
-
-            ////app.UseAuthentication();
-            ////app.UseAuthorization();
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
+            app.UseCors("DefaultCorsPolicy");
 
             return app;
         }

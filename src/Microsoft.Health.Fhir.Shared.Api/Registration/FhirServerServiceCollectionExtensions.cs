@@ -186,8 +186,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
 
-                    app.UseCors(Constants.DefaultCorsPolicy);
-
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();

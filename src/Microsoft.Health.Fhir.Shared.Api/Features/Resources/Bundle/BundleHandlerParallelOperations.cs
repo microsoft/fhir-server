@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -105,6 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             throttledEntryComponent,
                             _bundleType,
                             bundleOperation,
+                            resourceExecutionContext.RouteEndpoint,
                             resourceExecutionContext.Context,
                             resourceExecutionContext.Index,
                             resourceExecutionContext.PersistedId,
@@ -244,7 +246,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EntryComponent throttledEntryComponent,
             BundleType? bundleType,
             IBundleOrchestratorOperation bundleOperation,
-            RouteContext request,
+            RouteEndpoint routeEndpoint,
+            HttpContext context,
             int entryIndex,
             string persistedId,
             int requestCount,
@@ -259,7 +262,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EntryComponent entryComponent;
 
-            if (request.Handler != null)
+            if (routeEndpoint.RequestDelegate != null)
             {
                 if (throttledEntryComponent != null)
                 {
@@ -270,17 +273,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else
                 {
-                    HttpContext httpContext = request.HttpContext;
+                    HttpContext httpContext = context;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))
                     {
                         resourceIdProvider.Create = () => persistedId;
                     }
 
-                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(routeEndpoint, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
 
                     // Attempt 1.
-                    await request.Handler.Invoke(httpContext);
+                    await routeEndpoint.RequestDelegate.Invoke(httpContext);
 
                     // Should we continue retrying HTTP 429s?
                     // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
@@ -299,7 +302,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
 
                         // Attempt 2.
-                        await request.Handler.Invoke(httpContext);
+                        await routeEndpoint.RequestDelegate.Invoke(httpContext);
                     }
 
                     resourceIdProvider.Create = originalResourceIdProvider;
@@ -333,14 +336,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Outcome = CreateOperationOutcome(
                             OperationOutcome.IssueSeverity.Error,
                             OperationOutcome.IssueType.NotFound,
-                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                            string.Format(Api.Resources.BundleNotFound, $"{context.Request.Path}{context.Request.QueryString}")),
                     },
                 };
             }
 
             if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
             {
-                var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+                var errorMessage = string.Format(Api.Resources.TransactionFailed, context.Request.Method, context.Request.Path);
 
                 if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                 {
@@ -356,7 +359,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         }
 
         private static void SetupContexts(
-            RouteContext request,
+            RouteEndpoint routeEndpoint,
             HTTPVerb httpVerb,
             HttpContext httpContext,
             IBundleOrchestratorOperation bundleOperation,
@@ -365,9 +368,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor)
         {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+            var controllerActionDescriptor = routeEndpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
+            var controllerName = controllerActionDescriptor.ControllerName;
+            var actionName = controllerActionDescriptor.ActionName;
+            var resourceType = routeEndpoint.RoutePattern;
 
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
@@ -406,9 +410,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CS0168:Collection properties should be read only", Justification = "This is a configuration class")]
+            public ResourceExecutionContext(HTTPVerb httpVerb, RouteEndpoint routeEndpoint, HttpContext context, int index, string persistedId)
             {
                 HttpVerb = httpVerb;
+                RouteEndpoint = routeEndpoint;
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
@@ -416,7 +422,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             public HTTPVerb HttpVerb { get; private set; }
 
-            public RouteContext Context { get; private set; }
+            public RouteEndpoint RouteEndpoint { get; set; }
+
+            public HttpContext Context { get; set; }
 
             public int Index { get; private set; }
 

@@ -19,9 +19,14 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Razor.Language.Intermediate;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -49,7 +54,9 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Namotion.Reflection;
 using static Hl7.Fhir.Model.Bundle;
+using Endpoint = Microsoft.AspNetCore.Http.Endpoint;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -66,7 +73,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
-        private readonly IRouter _router;
+        ////private readonly IRouter _router;
+        private readonly RouteEndpoint _routeEndpoint;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
@@ -83,6 +91,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
+        private readonly EndpointDataSource _endpointDataSource;
+        private readonly LinkParser _linkParser;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
 
         private int _requestCount;
@@ -111,6 +121,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
+            EndpointDataSource endpointDataSource,
+            LinkParser linkParser,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -143,6 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
             _mediator = mediator;
+            _endpointDataSource = endpointDataSource;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -150,7 +163,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             HttpContext outerHttpContext = httpContextAccessor.HttpContext;
             _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
-            _router = outerHttpContext.GetRouteData().Routers.First();
+
+            _routeEndpoint = outerHttpContext.GetEndpoint() as RouteEndpoint;
+            _linkParser = linkParser;
+            ////_router = outerHttpContext.GetRouteData().Routers.First();
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
@@ -558,17 +574,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
+            var routeEndpoints = _endpointDataSource?.Endpoints.Cast<RouteEndpoint>();
+            var routeValues = new RouteValueDictionary();
 
-            var routeContext = new RouteContext(httpContext);
-
-            await _router.RouteAsync(routeContext);
-
-            httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
+            RouteEndpoint matchedEndpoint = null;
+            foreach (var endpoint in routeEndpoints)
             {
-                RouteData = routeContext.RouteData,
-            };
+                if (IsEndpointMatch(endpoint, httpContext, routeValues))
+                {
+                    matchedEndpoint = endpoint;
+                    break;
+                }
+            }
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
+                /*var matchedEndpoint = routeEndpoints.Where(e => new TemplateMatcher(
+                                                                            TemplateParser.Parse(e.RoutePattern.RawText),
+                                                                            new RouteValueDictionary())
+                                                                    .TryMatch(requestUri.LocalPath, routeValues))
+                                                    .OrderBy(c => c.Order)
+                                                    .FirstOrDefault();*/
+
+                ////var routeContext = new RouteContext(httpContext);
+                ////var routeData = _routeEndpoint.Metadata.GetMetadata<RouteData>();
+                ////var routeData = httpContext.Features.Get<IEndpointFeature>()?.Endpoint?.Metadata.GetMetadata<RouteData>();
+
+                // await _router.RouteAsync(routeContext);
+
+                /*httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
+                {
+                    RouteData = routeData,
+                };*/
+
+            httpContext.SetEndpoint(matchedEndpoint);
+
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, matchedEndpoint, httpContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -577,6 +616,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
             }
+        }
+
+        private static bool IsEndpointMatch(RouteEndpoint routeEndpoint, HttpContext context, RouteValueDictionary routeValues)
+        {
+            var template = TemplateParser.Parse(routeEndpoint.RoutePattern.RawText);
+
+            var matcher = new TemplateMatcher(template, GetDefaults(template));
+
+            bool matchedPath = matcher.TryMatch(context.Request.Path, routeValues);
+            var httpMethodMetadata = routeEndpoint.Metadata.GetMetadata<HttpMethodMetadata>();
+
+            if (matchedPath)
+            {
+                var requestMethod = context.Request.Method;
+                if (httpMethodMetadata != null && httpMethodMetadata.HttpMethods.Contains(requestMethod))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // This method extracts the default argument values from the template.
+        private static RouteValueDictionary GetDefaults(RouteTemplate parsedTemplate)
+        {
+            var result = new RouteValueDictionary();
+
+            foreach (var parameter in parsedTemplate.Parameters)
+            {
+                if (parameter.DefaultValue != null)
+                {
+                    result.Add(parameter.Name, parameter.DefaultValue);
+                }
+            }
+
+            return result;
         }
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
@@ -593,7 +669,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
-                if (resourceContext.Context.Handler != null)
+                if (resourceContext.RouteEndpoint.RequestDelegate != null)
                 {
                     if (throttledEntryComponent != null)
                     {
@@ -603,9 +679,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     else
                     {
-                        HttpContext httpContext = resourceContext.Context.HttpContext;
+                        HttpContext httpContext = resourceContext.Context;
 
-                        SetupContexts(resourceContext.Context, httpContext);
+                        SetupContexts(resourceContext.RouteEndpoint, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -614,7 +690,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _resourceIdProvider.Create = () => resourceContext.PersistedId;
                         }
 
-                        await resourceContext.Context.Handler.Invoke(httpContext);
+                        await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
 
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
@@ -628,7 +704,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             }
 
                             await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
-                            await resourceContext.Context.Handler.Invoke(httpContext);
+                            await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
                         }
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
@@ -662,7 +738,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Error,
                                 OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.HttpContext.Request.Path}{resourceContext.Context.HttpContext.Request.QueryString}")),
+                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.Request.Path}{resourceContext.Context.Request.QueryString}")),
                         },
                     };
                 }
@@ -671,7 +747,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.Request.Method, resourceContext.Context.Request.Path);
 
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
@@ -733,11 +809,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteContext request, HttpContext httpContext)
+        private void SetupContexts(RouteEndpoint routeEndpoint, HttpContext httpContext)
         {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+            var controllerActionDescriptor = routeEndpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
+            var controllerName = controllerActionDescriptor.ControllerName;
+            var actionName = controllerActionDescriptor.ActionName;
+            var resourceType = "Patient";
+
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
                 httpContext.Request.GetDisplayUrl(),
