@@ -540,14 +540,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
             if (inputVersion == existingVersion)
             {
+                if (inputDate == existingDate)
+                {
+                    return input.RawResource.Data == existing.RawResource.Data;
+                }
+
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
             else
             {
+                if (inputDate == existingDate)
+                {
+                    return input.RawResource.Data == existing.RawResource.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
+                }
+
                 return input.RawResource.Data
                             == existing.RawResource.Data
-                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                                .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
+                                .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
         }
 
