@@ -222,17 +222,8 @@ public class CosmosQueueClient : IQueueClient
             return Array.Empty<JobInfo>();
         }
 
-        foreach (var job in scan.Where(x => x.CancelRequested))
-        {
-            job.Status = (byte)JobStatus.Cancelled;
-            job.HeartbeatDateTime = Clock.UtcNow;
-            job.Worker = worker;
-            job.StartDate ??= Clock.UtcNow;
-            job.Version = GenerateVersion();
-        }
-
         var toReturn = new List<JobDefinitionWrapper>();
-        foreach (JobDefinitionWrapper job in scan.Where(x => !x.CancelRequested).Take(numberOfJobsToDequeue))
+        foreach (JobDefinitionWrapper job in scan.Take(numberOfJobsToDequeue))
         {
             if (!string.IsNullOrEmpty(job.Worker))
             {
@@ -264,7 +255,7 @@ public class CosmosQueueClient : IQueueClient
             }
         }
 
-        await SaveJobGroupAsync(item, cancellationToken);
+        await SaveJobGroupAsync(item, false, cancellationToken);
 
         return item.ToJobInfo(toReturn).ToList();
     }
@@ -340,6 +331,11 @@ public class CosmosQueueClient : IQueueClient
             var job = jobs.Single();
             JobDefinitionWrapper item = job.MatchingJob.Single();
 
+            if (item.CancelRequested)
+            {
+                return true;
+            }
+
             if (item.Version != jobInfo.Version)
             {
                 throw new JobConflictException("Job version mismatch.");
@@ -359,7 +355,7 @@ public class CosmosQueueClient : IQueueClient
                     item.Result = jobInfo.Result;
                 }
 
-                await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                await SaveJobGroupAsync(job.JobGroup, false, cancellationToken);
             }
 
             return item.CancelRequested;
@@ -402,7 +398,7 @@ public class CosmosQueueClient : IQueueClient
                     {
                         await _retryPolicy.ExecuteAsync(async () =>
                         {
-                            await SaveJobGroupAsync(job, cancellationToken);
+                            await SaveJobGroupAsync(job, true, cancellationToken);
                         });
                     },
                     cancellationToken));
@@ -428,7 +424,7 @@ public class CosmosQueueClient : IQueueClient
                 {
                     CancelJobDefinition(item);
 
-                    await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                    await SaveJobGroupAsync(job.JobGroup, true, cancellationToken);
                 }
             }
         });
@@ -469,7 +465,7 @@ public class CosmosQueueClient : IQueueClient
             item.EndDate = Clock.UtcNow;
             item.Result = jobInfo.Result;
 
-            await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
+            await SaveJobGroupAsync(definitionTuple.JobGroup, false, cancellationToken);
         });
     }
 
@@ -553,7 +549,7 @@ public class CosmosQueueClient : IQueueClient
         return items;
     }
 
-    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken)
+    private async Task SaveJobGroupAsync(JobGroupWrapper definition, bool ignoreEtag, CancellationToken cancellationToken)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
@@ -562,7 +558,7 @@ public class CosmosQueueClient : IQueueClient
             await container.Value.UpsertItemAsync(
                 definition,
                 new PartitionKey(definition.PartitionKey),
-                new ItemRequestOptions { IfMatchEtag = definition.ETag },
+                ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
                 cancellationToken: cancellationToken);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
