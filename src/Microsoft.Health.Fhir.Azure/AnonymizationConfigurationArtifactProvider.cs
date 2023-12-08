@@ -116,19 +116,20 @@ namespace Microsoft.Health.Fhir.Azure
                     using (var str = new MemoryStream(acrImage.Blobs[i].Content))
                     {
                         var blobsDict = StreamUtility.DecompressFromTarGz(str);
-                        if (!blobsDict.ContainsKey(configName))
+                        byte[] configValue;
+                        if (!blobsDict.TryGetValue(configName, out configValue))
                         {
                             continue;
                         }
                         else
                         {
                             configFound = true;
-                            if (CheckConfigurationIsTooLarge(blobsDict[configName].LongLength))
+                            if (CheckConfigurationIsTooLarge(configValue.LongLength))
                             {
                                 throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                             }
 
-                            using (var config = new MemoryStream(blobsDict[configName]))
+                            using (var config = new MemoryStream(configValue))
                             {
                                 await config.CopyToAsync(targetStream, cancellationToken);
                                 break;

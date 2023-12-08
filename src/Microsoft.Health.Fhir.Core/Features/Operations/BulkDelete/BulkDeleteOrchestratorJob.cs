@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -39,47 +40,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
-            var definitions = new List<BulkDeleteDefinition>();
-
-            var searchParameters = new List<Tuple<string, string>>()
-            {
-                new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
-            };
-
-            if (definition.SearchParameters != null)
-            {
-                searchParameters.AddRange(definition.SearchParameters);
-            }
+            BulkDeleteDefinition processingDefinition = null;
 
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
-                int numResources = (await _searchService.SearchAsync(resourceTypes[0], searchParameters.AsReadOnly(), cancellationToken, resourceVersionTypes: definition.VersionType)).TotalCount.GetValueOrDefault();
-                string resourceType = resourceTypes.JoinByOrSeparator();
-
-                var processingDefinition = new BulkDeleteDefinition(
-                    JobType.BulkDeleteProcessing,
-                    definition.DeleteOperation,
-                    resourceType,
-                    definition.SearchParameters,
-                    definition.Url,
-                    definition.BaseUrl,
-                    definition.ParentRequestId,
-                    numResources,
-                    definition.VersionType);
-                definitions.Add(processingDefinition);
+                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>(resourceTypes), cancellationToken);
             }
             else
             {
-                int numResources = (await _searchService.SearchAsync(definition.Type, searchParameters.AsReadOnly(), cancellationToken)).TotalCount.GetValueOrDefault();
-
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId, numResources);
-                definitions.Add(processingDefinition);
+                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>() { definition.Type }, cancellationToken);
             }
 
-            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: definitions.ToArray());
+            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
             return OperationCompleted;
+        }
+
+        internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
+        {
+            var searchParameters = new List<Tuple<string, string>>()
+                {
+                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                };
+
+            if (baseDefinition.SearchParameters != null)
+            {
+                searchParameters.AddRange(baseDefinition.SearchParameters);
+            }
+
+            while (resourceTypes.Count > 0)
+            {
+                int numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
+
+                if (numResources == 0)
+                {
+                    resourceTypes.RemoveAt(0);
+                    continue;
+                }
+
+                string resourceType = resourceTypes.JoinByOrSeparator();
+
+                return new BulkDeleteDefinition(
+                    JobType.BulkDeleteProcessing,
+                    baseDefinition.DeleteOperation,
+                    resourceType,
+                    baseDefinition.SearchParameters,
+                    baseDefinition.Url,
+                    baseDefinition.BaseUrl,
+                    baseDefinition.ParentRequestId,
+                    numResources,
+                    baseDefinition.VersionType);
+            }
+
+            return null;
         }
     }
 }

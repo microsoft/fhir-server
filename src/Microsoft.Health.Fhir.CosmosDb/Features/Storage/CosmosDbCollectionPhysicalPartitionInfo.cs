@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError("Unable to get physical partition count.", e);
+                    _logger.LogError(e, "Unable to get physical partition count.");
                 }
             }
         }

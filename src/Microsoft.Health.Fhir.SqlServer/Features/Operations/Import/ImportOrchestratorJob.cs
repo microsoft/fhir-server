@@ -105,10 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             try
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (currentResult.Progress == ImportOrchestratorJobProgress.Initialized)
                 {
