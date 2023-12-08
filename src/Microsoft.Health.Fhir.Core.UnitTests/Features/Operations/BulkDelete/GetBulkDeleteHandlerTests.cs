@@ -57,8 +57,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>
             {
-                new(KnownResourceTypes.Patient, new FhirDecimal(22)),
-                new(KnownResourceTypes.Observation, new FhirDecimal(5)),
+                new(KnownResourceTypes.Patient, new Integer64(22)),
+                new(KnownResourceTypes.Observation, new Integer64(5)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -104,8 +104,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
-                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
-                new(KnownResourceTypes.Observation, new FhirDecimal(5)),
+                new(KnownResourceTypes.Patient, new Integer64(15)),
+                new(KnownResourceTypes.Observation, new Integer64(5)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>
             {
-                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Patient, new Integer64(15)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>()
             {
-                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Patient, new Integer64(15)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
 
             var resourcesDeleted = new List<Tuple<string, Base>>
             {
-                new(KnownResourceTypes.Patient, new FhirDecimal(15)),
+                new(KnownResourceTypes.Patient, new Integer64(15)),
             };
 
             var resultsDictionary = new Dictionary<string, ICollection<Tuple<string, Base>>>()

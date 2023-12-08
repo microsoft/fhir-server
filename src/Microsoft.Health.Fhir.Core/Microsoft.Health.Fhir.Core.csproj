@@ -1,8 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <None Remove="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
     <None Remove="Data\OperationDefinition\member-match.json" />
     <None Remove="Data\OperationDefinition\search-parameter-status.json" />
     <None Remove="Features\Security\roles.schema.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Data\OperationDefinition\bulk-delete-soft-deleted.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\OperationDefinition\convert-data.json" />

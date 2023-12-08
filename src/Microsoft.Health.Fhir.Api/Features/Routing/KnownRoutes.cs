@@ -92,5 +92,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string BulkDeleteJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkDelete + "/" + IdRouteSegment;
         public const string BulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDelete;
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
+        public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
     }
 }
