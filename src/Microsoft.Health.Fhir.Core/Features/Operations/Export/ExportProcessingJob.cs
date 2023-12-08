@@ -102,14 +102,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
-                    // Only queue new jobs if orchestrator is still running. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
-                    if (existingJobs.SingleOrDefault(x => x.Id == jobInfo.GroupId).Status == JobStatus.Running)
+                    // Only queue new jobs if group has no canceled jobs. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
+                    if (existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
                     {
-                        // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs.
+                        // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
                         newerJobs = existingJobs.Where(job =>
-                                        job.Id > jobInfo.Id
-                                        && job.DeserializeDefinition<ExportJobRecord>().FeedRange == definition.FeedRange
-                                        && job.DeserializeDefinition<ExportJobRecord>().ResourceType == definition.ResourceType);
+                        {
+                            var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
+                            return job.Id > jobInfo.Id && deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
+                        });
 
                         if (!newerJobs.Any())
                         {
