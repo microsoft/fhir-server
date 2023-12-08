@@ -34,6 +34,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
@@ -437,6 +438,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
+        }
+
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(TaskCanceledException))]
+        public async Task GivenSearchCanceled_WhenExecuted_ThenJobStatusShouldBeUpdatedToCanceled(Type exceptionType)
+        {
+            // var cancellationTokenSource = new CancellationTokenSource();
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken,
+                true)
+                .Returns<SearchResult>(x =>
+                {
+                    _cancellationTokenSource.Cancel();
+                    throw (Exception)Activator.CreateInstance(exceptionType);
+                });
+
+            // Canceled requests are saved without the origional cancellation token.
+            _fhirOperationDataStore.ClearSubstitute();
+            SetupExportJobRecordAndOperationDataStore(_exportJobRecord, CancellationToken.None);
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            {
+                await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Canceled, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Fact]
@@ -2204,7 +2239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 null));
         }
 
-        private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null)
+        private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null, CancellationToken? token = null)
         {
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
@@ -2219,7 +2254,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
 
-            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, token is null ? _cancellationToken : token.Value).Returns(x =>
             {
                 _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
 
