@@ -663,9 +663,12 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<SearchParameterStateResponse> UpdateSearchParameterStateAsync(string uri, SearchParameterStatus spStatus, CancellationToken cancellationToken)
         {
             var url = $"SearchParameter/$status?uri={uri}";
-            using var message = new StringContent(CreateValidRequestBody(uri));
+            using var message = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(CreateValidRequestBody(uri), Encoding.UTF8, ContentType.JSON_CONTENT_HEADER),
+            };
 
-            using HttpResponseMessage response = await HttpClient.PostAsync(new Uri(url), message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
