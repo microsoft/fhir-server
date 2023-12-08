@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
                     // Only queue new jobs if group has no canceled jobs. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
-                    if (existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
+                    if (!existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
                     {
                         // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
                         newerJobs = existingJobs.Where(job =>
