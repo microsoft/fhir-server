@@ -11,6 +11,7 @@ using System.Net;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -101,13 +102,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         EntryComponent entry = await HandleRequestAsync(
                             responseBundle,
-                            resourceExecutionContext.HttpVerb,
+                            resourceExecutionContext,
                             throttledEntryComponent,
                             _bundleType,
                             bundleOperation,
-                            resourceExecutionContext.Context,
-                            resourceExecutionContext.Index,
-                            resourceExecutionContext.PersistedId,
                             _requestCount,
                             auditEventTypeMapping,
                             originalFhirRequestContext,
@@ -240,13 +238,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static async Task<EntryComponent> HandleRequestAsync(
             Hl7.Fhir.Model.Bundle responseBundle,
-            HTTPVerb httpVerb,
+            ResourceExecutionContext executionContext,
             EntryComponent throttledEntryComponent,
             BundleType? bundleType,
             IBundleOrchestratorOperation bundleOperation,
-            RouteContext request,
-            int entryIndex,
-            string persistedId,
             int requestCount,
             IAuditEventTypeMapping auditEventTypeMapping,
             IFhirRequestContext originalFhirRequestContext,
@@ -259,38 +254,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EntryComponent entryComponent;
 
-            if (request.Handler != null)
+            if (executionContext.RouteEndpoint.RequestDelegate != null)
             {
                 if (throttledEntryComponent != null)
                 {
                     // A previous action was throttled.
                     // Skip executing subsequent actions and include the 429 response.
-                    logger.LogInformation("BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", httpVerb, requestCount, entryIndex);
+                    logger.LogInformation("BundleHandler was throttled, subsequent actions will be skipped and HTTP 429 will be added as a result. HttpVerb:{HttpVerb} BundleSize: {RequestCount} EntryIndex: {EntryIndex}", executionContext.HttpVerb, requestCount, executionContext.Index);
                     entryComponent = throttledEntryComponent;
                 }
                 else
                 {
-                    HttpContext httpContext = request.HttpContext;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
-                    if (!string.IsNullOrWhiteSpace(persistedId))
+                    if (!string.IsNullOrWhiteSpace(executionContext.PersistedId))
                     {
-                        resourceIdProvider.Create = () => persistedId;
+                        resourceIdProvider.Create = () => executionContext.PersistedId;
                     }
 
-                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(executionContext.RouteValues, executionContext.HttpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
 
                     // Attempt 1.
-                    await request.Handler.Invoke(httpContext);
+                    await executionContext.RouteEndpoint.RequestDelegate.Invoke(executionContext.HttpContext);
 
                     // Should we continue retrying HTTP 429s?
                     // As we'll start running more requests in parallel, the risk of raising more HTTP 429s is hight.
                     // -----------
                     // We will retry a 429 one time per request in the bundle
-                    if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
+                    if (executionContext.HttpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
                     {
-                        logger.LogInformation("BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+                        logger.LogInformation("BundleHandler received HTTP 429 response, attempting retry.  HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", executionContext.HttpVerb, requestCount, executionContext.Index);
                         int retryDelay = 2;
-                        var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
+                        var retryAfterValues = executionContext.HttpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
                         if (retryAfterValues != StringValues.Empty && int.TryParse(retryAfterValues[0], out var retryHeaderValue))
                         {
                             retryDelay = retryHeaderValue;
@@ -299,16 +293,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
 
                         // Attempt 2.
-                        await request.Handler.Invoke(httpContext);
+                        await executionContext.RouteEndpoint.RequestDelegate.Invoke(executionContext.HttpContext);
                     }
 
                     resourceIdProvider.Create = originalResourceIdProvider;
 
-                    entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
+                    entryComponent = CreateEntryComponent(fhirJsonParser, executionContext.HttpContext);
 
                     foreach (string headerName in HeadersToAccumulate)
                     {
-                        if (httpContext.Response.Headers.TryGetValue(headerName, out var values))
+                        if (executionContext.HttpContext.Response.Headers.TryGetValue(headerName, out var values))
                         {
                             originalFhirRequestContext.ResponseHeaders[headerName] = values;
                         }
@@ -316,7 +310,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                     {
-                        logger.LogInformation("BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", httpVerb, requestCount, entryIndex);
+                        logger.LogInformation("BundleHandler received HTTP 429 response after retry, now aborting remainder of bundle. HttpVerb:{HttpVerb} BundleSize:{RequestCount} EntryIndex:{EntryIndex}", executionContext.HttpVerb, requestCount, executionContext.Index);
 
                         // this action was throttled. Capture the entry and reuse it for subsequent actions.
                         throttledEntryComponent = entryComponent;
@@ -333,14 +327,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Outcome = CreateOperationOutcome(
                             OperationOutcome.IssueSeverity.Error,
                             OperationOutcome.IssueType.NotFound,
-                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                            string.Format(Api.Resources.BundleNotFound, $"{executionContext.HttpContext.Request.Path}{executionContext.HttpContext.Request.QueryString}")),
                     },
                 };
             }
 
             if (bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
             {
-                var errorMessage = string.Format(Api.Resources.TransactionFailed, request.HttpContext.Request.Method, request.HttpContext.Request.Path);
+                var errorMessage = string.Format(Api.Resources.TransactionFailed, executionContext.HttpContext.Request.Method, executionContext.HttpContext.Request.Path);
 
                 if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                 {
@@ -350,14 +344,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
             }
 
-            responseBundle.Entry[entryIndex] = entryComponent;
+            responseBundle.Entry[executionContext.Index] = entryComponent;
 
             return entryComponent;
         }
 
         private static void SetupContexts(
-            RouteContext request,
-            HTTPVerb httpVerb,
+            RouteValueDictionary routeValues,
             HttpContext httpContext,
             IBundleOrchestratorOperation bundleOperation,
             IFhirRequestContext requestContext,
@@ -365,9 +358,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor)
         {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+            routeValues.TryGetValue("controller", out object controllerName);
+            routeValues.TryGetValue("action", out object actionName);
+            routeValues.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
 
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
@@ -389,7 +382,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
 
             // Assign the HTTP Verb operation associated with the request as part of the downstream request.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
+            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpContext.Request.Method);
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
 
@@ -406,17 +399,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, HttpContext httpContext, RouteEndpoint routeEndpoint, RouteValueDictionary routeValues, int index, string persistedId)
             {
+                EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+                EnsureArg.IsNotNull(routeEndpoint, nameof(routeEndpoint));
+                EnsureArg.IsNotNull(routeValues, nameof(routeValues));
+
                 HttpVerb = httpVerb;
-                Context = context;
+                HttpContext = httpContext;
+                RouteEndpoint = routeEndpoint;
+                RouteValues = routeValues;
                 Index = index;
                 PersistedId = persistedId;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
 
-            public RouteContext Context { get; private set; }
+            public HttpContext HttpContext { get; private set; }
+
+            public RouteEndpoint RouteEndpoint { get; private set; }
+
+            public RouteValueDictionary RouteValues { get; private set; }
 
             public int Index { get; private set; }
 
