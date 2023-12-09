@@ -108,14 +108,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("WITH ");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
-                    if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRenainingExpressions))
+                    if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
                     {
                         AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
 
-                        if (allOtherRenainingExpressions != null)
+                        if (allOtherRemainingExpressions != null)
                         {
                             StringBuilder.AppendLine(", ");
-                            AppendNewTableExpression(sb, allOtherRenainingExpressions, ++_tableExpressionCounter, context);
+                            AppendNewTableExpression(sb, allOtherRemainingExpressions, ++_tableExpressionCounter, context);
                         }
                     }
                     else
