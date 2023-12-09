@@ -662,7 +662,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<SearchParameterStateResponse> UpdateSearchParameterStateAsync(string uri, SearchParameterStatus spStatus, CancellationToken cancellationToken)
         {
-            var url = $"SearchParameter/$status?uri={uri}";
+            var url = $"SearchParameter/$status?url={uri}";
             using var message = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = new StringContent(CreateValidRequestBody(uri), Encoding.UTF8, ContentType.JSON_CONTENT_HEADER),
