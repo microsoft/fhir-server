@@ -288,6 +288,43 @@ namespace Microsoft.Health.JobManagement.UnitTests
             Assert.Equal(1, executeCount0);
         }
 
+        [Theory]
+        [InlineData(typeof(OperationCanceledException))]
+        [InlineData(typeof(TaskCanceledException))]
+        public async Task GivenJobWithCanceledException_WhenJobHostingStart_ThenJobShouldBeCanceled(Type exceptionType)
+        {
+            int executeCount0 = 0;
+            TestJobFactory factory = new TestJobFactory(t =>
+            {
+                return new TestJob(
+                    (progress, token) =>
+                    {
+                        Interlocked.Increment(ref executeCount0);
+                        if (executeCount0 <= 1)
+                        {
+                            throw (Exception)Activator.CreateInstance(exceptionType, "test");
+                        }
+
+                        return Task.FromResult(t.Result);
+                    });
+            });
+
+            TestQueueClient queueClient = new TestQueueClient();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
+
+            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
+            jobHosting.PollingFrequencyInSeconds = 0;
+            jobHosting.MaxRunningJobCount = 1;
+            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 15;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+            await jobHosting.ExecuteAsync(0, "test", tokenSource);
+
+            Assert.Equal(JobStatus.Cancelled, job1.Status);
+            Assert.Equal(1, executeCount0);
+        }
+
         [Fact]
         public async Task GivenJobRunning_WhenCancel_ThenJobShouldBeCancelled()
         {

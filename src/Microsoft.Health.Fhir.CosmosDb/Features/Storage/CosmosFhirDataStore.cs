@@ -606,8 +606,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);
             });
 
-            // Using totalDesiredCount since the Cosmos query can update feedOptions.MaxItemCount
-            if (!cosmosQuery.HasMoreResults || totalDesiredCount == 0 || page.Count >= totalDesiredCount)
+            if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count >= feedOptions.MaxItemCount)
             {
                 if (page.Count == 0)
                 {

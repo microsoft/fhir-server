@@ -12,7 +12,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
@@ -88,6 +87,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     smartCompartmentSearchRewriter,
                     DateTimeEqualityRewriter.Instance,
                 });
+        }
+
+        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        {
+            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT VALUE r.resourceTypeName	
+                FROM root r	
+                WHERE r.isSystem = false");
+
+            var requestOptions = new QueryRequestOptions();
+
+            return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
+        }
+
+        public override async Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            var ranges = await _fhirDataStore.GetFeedRanges(cancellationToken);
+            return ranges.Select(x => x.ToJsonString());
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -193,27 +209,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return searchResult;
-        }
-
-        /// <inheritdoc/>
-        public override async Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
-        {
-            var sqlQuerySpec = new QueryDefinition(@"SELECT DISTINCT r.resourceTypeName FROM root r WHERE r.isSystem = false");
-
-            var results = await _fhirDataStore.ExecutePagedQueryAsync<Dictionary<string, string>>(sqlQuerySpec, new QueryRequestOptions(), cancellationToken: cancellationToken);
-
-            return results.Select(x => x["resourceTypeName"]).ToList();
-        }
-
-        /// <summary>
-        /// Returns a list of CosmosDB implementation specific feed ranges. Useful for parallelization.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>A list of JSON serialized feed range objects as strings.</returns>
-        public override async Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
-        {
-            var ranges = await _fhirDataStore.GetFeedRanges(cancellationToken);
-            return ranges.Select(x => x.ToJsonString());
         }
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
@@ -403,12 +398,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                   MaxItemCount = searchOptions.MaxItemCount,
                               };
 
-            FeedRange queryRange = null;
-            if (searchOptions.FeedRange is not null)
-            {
-                queryRange = FeedRange.FromJsonString(searchOptions.FeedRange);
-            }
-
             // If the database has many physical physical partitions, and this query is selective, we will want to instruct
             // the Cosmos DB SDK to query the partitions in parallel. If the query is not selective, we want to stick to
             // sequential querying, so that we do not waste RUs and time on results that will be discarded.
@@ -475,7 +464,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
                         sqlQuerySpec: sqlQuerySpec,
                         feedOptions: feedOptions,
-                        feedRange: queryRange,
                         mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
                         searchEnumerationTimeoutOverride: searchEnumerationTimeoutOverrideIfSequential,
                         cancellationToken: cancellationToken);
@@ -485,32 +473,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
                         (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
-                                                                                    sqlQuerySpec: sqlQuerySpec,
-                                                                                    feedOptions: feedOptions,
-                                                                                    feedRange: queryRange,
-                                                                                    mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
-                                                                                    cancellationToken: cancellationToken);
+                            sqlQuerySpec: sqlQuerySpec,
+                            feedOptions: feedOptions,
+                            mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
+                            cancellationToken: cancellationToken);
                     }
                 }
                 else
                 {
-                    // Large async operations (like export) want all results returned that are made available.
-                    var mustNotExceedMaxItemCount = searchOptions.IsLargeAsyncOperation ? false : searchOptions.MaxItemCountSpecifiedByClient;
+                    var mustNotExceedMaxItemCount = searchOptions.MaxItemCountSpecifiedByClient;
+                    FeedRange queryFeedRange = null;
 
                     // Large async operations also need the full result set. Accounting for the till factor to achieve that.
                     if (searchOptions.IsLargeAsyncOperation)
                     {
+                        mustNotExceedMaxItemCount = false;
                         feedOptions.MaxItemCount = (int)(feedOptions.MaxItemCount / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
+
+                        try
+                        {
+                            queryFeedRange = searchOptions.FeedRange is not null ? FeedRange.FromJsonString(searchOptions.FeedRange) : queryFeedRange;
+                        }
+                        catch (ArgumentException)
+                        {
+                            throw new BadRequestException(Resources.InvalidFeedRange);
+                        }
                     }
 
                     (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
-                                                                                sqlQuerySpec: sqlQuerySpec,
-                                                                                feedOptions: feedOptions,
-                                                                                feedRange: queryRange,
-                                                                                continuationToken: continuationToken,
-                                                                                mustNotExceedMaxItemCount: mustNotExceedMaxItemCount,
-                                                                                searchEnumerationTimeoutOverride: feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null,
-                                                                                cancellationToken: cancellationToken);
+                        sqlQuerySpec: sqlQuerySpec,
+                        feedOptions: feedOptions,
+                        feedRange: queryFeedRange,
+                        continuationToken: continuationToken,
+                        mustNotExceedMaxItemCount: mustNotExceedMaxItemCount,
+                        searchEnumerationTimeoutOverride: feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null,
+                        cancellationToken: cancellationToken);
                 }
 
                 if (queryPartitionStatistics != null && messagesList != null)

@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public string ContinuationToken { get; internal set; }
 
         /// <summary>
-        /// Gets the optional feed range.
+        /// Gets the optional feed range used by CosmosDb queries.
         /// </summary>
         public string FeedRange { get; internal set; }
 
@@ -140,6 +140,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
 
+        /// <summary>
+        /// Flag for async operations that want to return a large number of results.
+        /// </summary>
         public bool IsLargeAsyncOperation { get; internal set; }
 
         /// <summary>

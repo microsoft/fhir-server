@@ -255,7 +255,7 @@ public class CosmosQueueClient : IQueueClient
             }
         }
 
-        await SaveJobGroupAsync(item, false, cancellationToken);
+        await SaveJobGroupAsync(item, cancellationToken);
 
         return item.ToJobInfo(toReturn).ToList();
     }
@@ -333,7 +333,7 @@ public class CosmosQueueClient : IQueueClient
 
             if (item.CancelRequested)
             {
-                return true;
+                return true; // If the job is cancelled, the job data doesn't need to be updated.
             }
 
             if (item.Version != jobInfo.Version)
@@ -355,7 +355,7 @@ public class CosmosQueueClient : IQueueClient
                     item.Result = jobInfo.Result;
                 }
 
-                await SaveJobGroupAsync(job.JobGroup, false, cancellationToken);
+                await SaveJobGroupAsync(job.JobGroup, cancellationToken);
             }
 
             return item.CancelRequested;
@@ -398,7 +398,7 @@ public class CosmosQueueClient : IQueueClient
                     {
                         await _retryPolicy.ExecuteAsync(async () =>
                         {
-                            await SaveJobGroupAsync(job, true, cancellationToken);
+                            await SaveJobGroupAsync(job, cancellationToken, ignoreEtag: true);
                         });
                     },
                     cancellationToken));
@@ -424,7 +424,7 @@ public class CosmosQueueClient : IQueueClient
                 {
                     CancelJobDefinition(item);
 
-                    await SaveJobGroupAsync(job.JobGroup, true, cancellationToken);
+                    await SaveJobGroupAsync(job.JobGroup, cancellationToken, ignoreEtag: true);
                 }
             }
         });
@@ -465,7 +465,7 @@ public class CosmosQueueClient : IQueueClient
             item.EndDate = Clock.UtcNow;
             item.Result = jobInfo.Result;
 
-            await SaveJobGroupAsync(definitionTuple.JobGroup, false, cancellationToken);
+            await SaveJobGroupAsync(definitionTuple.JobGroup, cancellationToken);
         });
     }
 
@@ -549,7 +549,7 @@ public class CosmosQueueClient : IQueueClient
         return items;
     }
 
-    private async Task SaveJobGroupAsync(JobGroupWrapper definition, bool ignoreEtag, CancellationToken cancellationToken)
+    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 

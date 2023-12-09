@@ -102,11 +102,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool up,
             CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Returns a list of FHIR resource types currently in use.
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>A list of resource types in use as strings.</returns>
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
