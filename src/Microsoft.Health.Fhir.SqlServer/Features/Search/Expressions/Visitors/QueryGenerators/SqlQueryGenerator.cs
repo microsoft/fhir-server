@@ -186,6 +186,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
+            if (Parameters.HasParametersToHash)
+            {
+                // Add a hash of (most of the) parameter values as a comment.
+                // We do this to avoid re-using query plans unless two queries have
+                // the same parameter values. We currently exclude from the hash parameters
+                // that are related to TOP clauses or continuation tokens.
+                // We can exclude more in the future.
+
+                StringBuilder.Append("/* HASH ");
+                Parameters.AppendHash(StringBuilder);
+                StringBuilder.AppendLine(" */");
+            }
+
             if (selectingFromResourceTable)
             {
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
@@ -280,19 +293,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 // this is selecting only from the last CTE (for a count)
                 StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
-            }
-
-            if (Parameters.HasParametersToHash)
-            {
-                // Add a hash of (most of the) parameter values as a comment.
-                // We do this to avoid re-using query plans unless two queries have
-                // the same parameter values. We currently exclude from the hash parameters
-                // that are related to TOP clauses or continuation tokens.
-                // We can exclude more in the future.
-
-                StringBuilder.Append("/* HASH ");
-                Parameters.AppendHash(StringBuilder);
-                StringBuilder.AppendLine(" */");
             }
 
             return null;
