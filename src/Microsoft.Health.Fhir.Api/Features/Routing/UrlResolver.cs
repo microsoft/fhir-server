@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
+        private readonly LinkGenerator _linkGenerator;
 
         // If we update the search implementation to not use these, we should remove
         // the registration since enabling these accessors has performance implications.
@@ -49,12 +50,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
+        /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            LinkGenerator linkGenerator)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
@@ -67,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _linkGenerator = linkGenerator;
         }
 
         private HttpRequest Request
@@ -134,13 +138,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
-            var uriString = UrlHelper.RouteUrl(
-                routeName,
-                routeValues,
-                Request.Scheme,
-                Request.Host.Value);
+            try
+            {
+                var uriString = UrlHelper.RouteUrl(
+                    routeName,
+                    routeValues,
+                    Request.Scheme,
+                    Request.Host.Value);
 
-            return new Uri(uriString);
+                return new Uri(uriString);
+            }
+            catch
+            {
+                var uriString = _linkGenerator.GetUriByRouteValues(
+                    ActionContext.HttpContext,
+                    routeName,
+                    routeValues);
+                return new Uri(uriString);
+            }
         }
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)

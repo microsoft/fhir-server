@@ -92,7 +92,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly EndpointDataSource _endpointDataSource;
-        private readonly LinkParser _linkParser;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
 
         private int _requestCount;
@@ -122,7 +121,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
             EndpointDataSource endpointDataSource,
-            LinkParser linkParser,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -165,7 +163,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
 
             _routeEndpoint = outerHttpContext.GetEndpoint() as RouteEndpoint;
-            _linkParser = linkParser;
             ////_router = outerHttpContext.GetRouteData().Routers.First();
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
@@ -580,34 +577,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             RouteEndpoint matchedEndpoint = null;
             foreach (var endpoint in routeEndpoints)
             {
-                if (IsEndpointMatch(endpoint, httpContext, routeValues))
+                routeValues = new RouteValueDictionary();
+                routeValues = GetRouteValuesForMatchedEndpoint(endpoint, httpContext, routeValues);
+                if (routeValues != null)
                 {
                     matchedEndpoint = endpoint;
                     break;
                 }
             }
 
-                /*var matchedEndpoint = routeEndpoints.Where(e => new TemplateMatcher(
-                                                                            TemplateParser.Parse(e.RoutePattern.RawText),
-                                                                            new RouteValueDictionary())
-                                                                    .TryMatch(requestUri.LocalPath, routeValues))
-                                                    .OrderBy(c => c.Order)
-                                                    .FirstOrDefault();*/
+            // await _router.RouteAsync(routeContext);
+            var routeContext = new RouteContext(httpContext);
+            routeContext.Handler = matchedEndpoint.RequestDelegate;
+            routeContext.RouteData = new RouteData(routeValues);
 
-                ////var routeContext = new RouteContext(httpContext);
-                ////var routeData = _routeEndpoint.Metadata.GetMetadata<RouteData>();
-                ////var routeData = httpContext.Features.Get<IEndpointFeature>()?.Endpoint?.Metadata.GetMetadata<RouteData>();
+            httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
+            {
+                RouteData = routeContext.RouteData,
+            };
 
-                // await _router.RouteAsync(routeContext);
+            ////httpContext.Features[typeof(IEndpointFeature)] = matchedEndpoint;
 
-                /*httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
-                {
-                    RouteData = routeData,
-                };*/
-
-            httpContext.SetEndpoint(matchedEndpoint);
-
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, matchedEndpoint, httpContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -618,7 +609,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static bool IsEndpointMatch(RouteEndpoint routeEndpoint, HttpContext context, RouteValueDictionary routeValues)
+        private static RouteValueDictionary GetRouteValuesForMatchedEndpoint(RouteEndpoint routeEndpoint, HttpContext context, RouteValueDictionary routeValues)
         {
             var template = TemplateParser.Parse(routeEndpoint.RoutePattern.RawText);
 
@@ -632,11 +623,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var requestMethod = context.Request.Method;
                 if (httpMethodMetadata != null && httpMethodMetadata.HttpMethods.Contains(requestMethod))
                 {
-                    return true;
+                    if (routeEndpoint.RoutePattern?.RequiredValues != null)
+                    {
+                        foreach (var requiredValue in routeEndpoint.RoutePattern.RequiredValues)
+                        {
+                            routeValues.Add(requiredValue.Key, requiredValue.Value);
+                        }
+                    }
+
+                    return routeValues;
                 }
             }
 
-            return false;
+            return null;
         }
 
         // This method extracts the default argument values from the template.
@@ -669,7 +668,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
-                if (resourceContext.RouteEndpoint.RequestDelegate != null)
+                if (resourceContext.Context.Handler != null)
                 {
                     if (throttledEntryComponent != null)
                     {
@@ -679,9 +678,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     else
                     {
-                        HttpContext httpContext = resourceContext.Context;
+                        HttpContext httpContext = resourceContext.Context.HttpContext;
 
-                        SetupContexts(resourceContext.RouteEndpoint, httpContext);
+                        SetupContexts(resourceContext.Context);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -690,7 +689,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _resourceIdProvider.Create = () => resourceContext.PersistedId;
                         }
 
-                        await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
+                        await resourceContext.Context.Handler.Invoke(httpContext);
 
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
@@ -704,7 +703,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             }
 
                             await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
-                            await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
+                            await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
@@ -738,7 +737,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Error,
                                 OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.Request.Path}{resourceContext.Context.Request.QueryString}")),
+                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.HttpContext.Request.Path}{resourceContext.Context.HttpContext.Request.QueryString}")),
                         },
                     };
                 }
@@ -747,7 +746,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.Request.Method, resourceContext.Context.Request.Path);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
@@ -758,7 +757,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
-           }
+            }
 
             return throttledEntryComponent;
         }
@@ -809,13 +808,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteEndpoint routeEndpoint, HttpContext httpContext)
+        private void SetupContexts(RouteContext request)
         {
-            var controllerActionDescriptor = routeEndpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
-            var controllerName = controllerActionDescriptor.ControllerName;
-            var actionName = controllerActionDescriptor.ActionName;
-            var resourceType = "Patient";
-
+            var httpContext = request.HttpContext;
+            request.RouteData.Values.TryGetValue("controller", out object controllerName);
+            request.RouteData.Values.TryGetValue("action", out object actionName);
+            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
                 httpContext.Request.GetDisplayUrl(),
