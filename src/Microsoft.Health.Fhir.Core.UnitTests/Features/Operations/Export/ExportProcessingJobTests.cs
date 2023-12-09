@@ -133,16 +133,79 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(followUpJob, queueClient.JobInfos[0]);
         }
 
-        private string GenerateJobRecord(OperationStatus status, string failureReason = null)
+        [Theory]
+        [InlineData("Patient", "Observation", null, null)]
+        [InlineData(null, null, "range1", "range2")]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string resourceType1, string resourceType2, string feedRange1, string feedRange2)
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+
+            var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: resourceType1, feedRange: feedRange1));
+
+            var followUpJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: resourceType2, feedRange: feedRange2));
+            followUpJob.Id = runningJob.Id + 1;
+            queueClient.JobInfos.Add(followUpJob);
+
+            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+
+            Assert.True(queueClient.JobInfos.Count == 2);
+            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
+            Assert.Equal(followUpJob, queueClient.JobInfos[0]);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledJobInQueue_ThenANewProgressJobIsNotQueued()
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+
+            var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+
+            var existingCanceledJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+            existingCanceledJob.Id = runningJob.Id - 2;
+            existingCanceledJob.Status = JobStatus.Cancelled;
+            queueClient.JobInfos.Add(existingCanceledJob);
+
+            var existingCanceledPendingJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+            existingCanceledPendingJob.Id = runningJob.Id - 1;
+            existingCanceledPendingJob.CancelRequested = true;
+            queueClient.JobInfos.Add(existingCanceledPendingJob);
+
+            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+
+            Assert.True(queueClient.JobInfos.Count == 2);
+            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
+            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[1].Definition);
+            Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
+            Assert.Equal(existingCanceledPendingJob, queueClient.JobInfos[1]);
+        }
+
+        private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)
         {
             var record = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                ExportFormatTags.ResourceName,
-                null,
-                null,
-                "hash",
-                0);
+                requestUri: new Uri("https://localhost/ExportJob/"),
+                exportType: ExportJobType.All,
+                exportFormat: ExportFormatTags.ResourceName,
+                resourceType: resourceType,
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: 0,
+                feedRange: feedRange);
             record.Status = status;
             if (failureReason != null)
             {
