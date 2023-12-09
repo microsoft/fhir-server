@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
 using AngleSharp.Io;
+using DotLiquid.Tags;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -587,6 +588,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             // await _router.RouteAsync(routeContext);
+            httpContext.Request.RouteValues = routeValues;
+
             var routeContext = new RouteContext(httpContext);
             routeContext.Handler = matchedEndpoint.RequestDelegate;
             routeContext.RouteData = new RouteData(routeValues);
@@ -623,6 +626,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var requestMethod = context.Request.Method;
                 if (httpMethodMetadata != null && httpMethodMetadata.HttpMethods.Contains(requestMethod))
                 {
+                    bool isConditionalHeader = context.Request.Headers.TryGetValue(KnownHeaders.IfNoneExist, out var value);
+                    if (isConditionalHeader && !routeEndpoint.DisplayName.Contains("Conditional", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return null;
+                    }
+
                     if (routeEndpoint.RoutePattern?.RequiredValues != null)
                     {
                         foreach (var requiredValue in routeEndpoint.RoutePattern.RequiredValues)

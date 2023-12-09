@@ -228,13 +228,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
-            string uriString = UrlHelper.RouteUrl(
-                routeName,
-                routeValues,
-                Request.Scheme,
-                Request.Host.Value);
+            try
+            {
+                var uriString = UrlHelper.RouteUrl(
+                    routeName,
+                    routeValues,
+                    Request.Scheme,
+                    Request.Host.Value);
 
-            return new Uri(uriString);
+                return new Uri(uriString);
+            }
+            catch
+            {
+                var uriString = _linkGenerator.GetUriByRouteValues(
+                    ActionContext.HttpContext,
+                    routeName,
+                    routeValues);
+                return new Uri(uriString);
+            }
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
