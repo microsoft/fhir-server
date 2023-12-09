@@ -52,7 +52,8 @@ namespace Microsoft.AspNetCore.Builder
 
         public static IApplicationBuilder UseFhirServer(
             this IApplicationBuilder app,
-            Func<IApplicationBuilder, IApplicationBuilder> configureDevelopmentIdentityProvider,
+            Func<IApplicationBuilder, IApplicationBuilder> useDevelopmentIdentityProvider = null,
+            Func<IApplicationBuilder, IApplicationBuilder> useHttpLoggingMiddleware = null,
             Func<HealthCheckRegistration, bool> healthCheckOptionsPredicate = null)
         {
             EnsureArg.IsNotNull(app, nameof(app));
@@ -70,7 +71,8 @@ namespace Microsoft.AspNetCore.Builder
             app.UseStaticFiles();
 
             app.UseRouting();
-            configureDevelopmentIdentityProvider?.Invoke(app);
+            useDevelopmentIdentityProvider?.Invoke(app);
+            useHttpLoggingMiddleware?.Invoke(app);
 
             app.UseCors(Constants.DefaultCorsPolicy);
             app.UseAuthentication();
@@ -79,7 +81,7 @@ namespace Microsoft.AspNetCore.Builder
             app.UseEndpoints(
                 endpoints =>
                 {
-                    endpoints.MapControllers().RequireAuthorization();
+                    endpoints.MapControllers();
                     endpoints.MapHealthChecks(
                         new PathString(KnownRoutes.HealthCheck),
                         new HealthCheckOptions

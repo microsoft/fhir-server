@@ -563,15 +563,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
-
-            var routeValues = new RouteValueDictionary();
-            var routeEndpoint = GetRouteEndpoint(httpContext, routeValues);
+            var routeContext = CreateRouteContext(httpContext);
             httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
             {
-                RouteData = new RouteData(routeValues),
+                RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, httpContext, routeEndpoint, routeValues, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -596,7 +594,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
-                if (resourceContext.RouteEndpoint.RequestDelegate != null)
+                if (resourceContext.Context.Handler != null)
                 {
                     if (throttledEntryComponent != null)
                     {
@@ -606,9 +604,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     else
                     {
-                        HttpContext httpContext = resourceContext.HttpContext;
+                        HttpContext httpContext = resourceContext.Context.HttpContext;
 
-                        SetupContexts(resourceContext.RouteValues, httpContext);
+                        SetupContexts(resourceContext.Context, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -617,7 +615,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             _resourceIdProvider.Create = () => resourceContext.PersistedId;
                         }
 
-                        await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
+                        await resourceContext.Context.Handler.Invoke(httpContext);
 
                         // we will retry a 429 one time per request in the bundle
                         if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests)
@@ -631,7 +629,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             }
 
                             await Task.Delay(retryDelay * 1000, cancellationToken); // multiply by 1000 as retry-header specifies delay in seconds
-                            await resourceContext.RouteEndpoint.RequestDelegate.Invoke(httpContext);
+                            await resourceContext.Context.Handler.Invoke(httpContext);
                         }
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
@@ -665,7 +663,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             Outcome = CreateOperationOutcome(
                                 OperationOutcome.IssueSeverity.Error,
                                 OperationOutcome.IssueType.NotFound,
-                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.HttpContext.Request.Path}{resourceContext.HttpContext.Request.QueryString}")),
+                                string.Format(Api.Resources.BundleNotFound, $"{resourceContext.Context.HttpContext.Request.Path}{resourceContext.Context.HttpContext.Request.QueryString}")),
                         },
                     };
                 }
@@ -674,7 +672,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
                 {
-                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.HttpContext.Request.Method, resourceContext.HttpContext.Request.Path);
+                    var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
                     if (!Enum.TryParse(entryComponent.Response.Status, out HttpStatusCode httpStatusCode))
                     {
@@ -685,7 +683,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
-           }
+            }
 
             return throttledEntryComponent;
         }
@@ -736,11 +734,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteValueDictionary routeValues, HttpContext httpContext)
+        private void SetupContexts(RouteContext request, HttpContext httpContext)
         {
-            routeValues.TryGetValue("controller", out object controllerName);
-            routeValues.TryGetValue("action", out object actionName);
-            routeValues.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+            request.RouteData.Values.TryGetValue("controller", out object controllerName);
+            request.RouteData.Values.TryGetValue("action", out object actionName);
+            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
                 httpContext.Request.GetDisplayUrl(),
@@ -862,10 +860,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private RouteEndpoint GetRouteEndpoint(HttpContext httpContext, RouteValueDictionary routeValues)
+        private RouteContext CreateRouteContext(HttpContext httpContext)
         {
             try
             {
+                var routeValues = new RouteValueDictionary();
                 var endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
                 var path = httpContext.Request.Path;
                 var method = httpContext.Request.Method;
@@ -892,9 +891,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                     }
 
-                    return endpoint;
+                    httpContext.Request.RouteValues = routeValues;
+                    RouteContext routeContext = new RouteContext(httpContext)
+                    {
+                        Handler = endpoint.RequestDelegate,
+                        RouteData = new RouteData(routeValues),
+                    };
+
+                    return routeContext;
                 }
 
+                // TODO: Don't return null. Check how IRouter.RouteAsync handles.
                 return null;
             }
             catch
