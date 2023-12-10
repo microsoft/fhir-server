@@ -127,6 +127,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
+            if (Parameters.HasParametersToHash) // hash cannot be last comment as it will not be stored in query store
+            {
+                // Add a hash of (most of the) parameter values as a comment.
+                // We do this to avoid re-using query plans unless two queries have
+                // the same parameter values. We currently exclude from the hash parameters
+                // that are related to TOP clauses or continuation tokens.
+                // We can exclude more in the future.
+
+                StringBuilder.Append("/* HASH ");
+                Parameters.AppendHash(StringBuilder);
+                StringBuilder.AppendLine(" */");
+            }
+
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
 
@@ -184,19 +197,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine();
-            }
-
-            if (Parameters.HasParametersToHash)
-            {
-                // Add a hash of (most of the) parameter values as a comment.
-                // We do this to avoid re-using query plans unless two queries have
-                // the same parameter values. We currently exclude from the hash parameters
-                // that are related to TOP clauses or continuation tokens.
-                // We can exclude more in the future.
-
-                StringBuilder.Append("/* HASH ");
-                Parameters.AppendHash(StringBuilder);
-                StringBuilder.AppendLine(" */");
             }
 
             if (selectingFromResourceTable)
