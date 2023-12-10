@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 context.StringBuilder.Append(')');
             }
 
-            context.StringBuilder.AppendLine();
+            context.StringBuilder.Append(" "); // I don't know why it is needed at all, so leave space for "protection", which is better than full empty line.
 
             return context;
         }
