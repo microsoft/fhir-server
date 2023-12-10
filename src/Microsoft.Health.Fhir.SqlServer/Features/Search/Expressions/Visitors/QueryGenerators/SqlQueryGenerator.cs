@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     // If this is a simple search over a resource type (like GET /Observation)
                     // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
-                    StringBuilder.Append(" WITH(INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
+                    StringBuilder.Append(" WITH (INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
                 }
                 else
                 {
@@ -220,9 +220,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (expression.SearchParamTableExpressions.Count > 0)
                 {
-                    StringBuilder.AppendLine().Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
-                    StringBuilder.Append("ON ")
-                        .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".T1 AND ")
+                    StringBuilder.Append("     JOIN ").Append(TableExpressionName(_tableExpressionCounter));
+                    StringBuilder.Append(" ON ")
+                        .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).Append(".T1 AND ")
                         .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
                 }
 
@@ -234,9 +234,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         denormalizedPredicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
                     }
 
+                    AppendHistoryClause(delimitedClause); // This does not hurt today, but will be neded with resource history separation
+
                     if (expression.SearchParamTableExpressions.Count == 0)
                     {
-                        AppendHistoryClause(delimitedClause);
                         AppendDeletedClause(delimitedClause);
                         AppendSearchParameterHashClause(delimitedClause);
                     }
@@ -285,7 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
                     if (AddOptimizeForUnknownClause())
                     {
-                        StringBuilder.AppendLine(" OPTION (OPTIMIZE FOR UNKNOWN)");
+                        StringBuilder.AppendLine("  OPTION (OPTIMIZE FOR UNKNOWN)"); // TODO: Remove when TokemSearchParamHighCard is used
                     }
                 }
             }
