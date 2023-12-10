@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append("SELECT T1, Sid1, ")
-                    .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(tableName)
                     .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
@@ -526,7 +526,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 var cte = TableExpressionName(predecessorIndex);
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1 ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1") // SELECT and FROM can be on same line only for singe line statements
                     .Append("FROM ").AppendLine(VLatest.Resource)
                     .Append("INNER JOIN ").AppendLine(cte);
 
@@ -534,7 +534,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, null).Append(" = ").Append(cte).Append(".T1");
                     delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).Append(".Sid1");
+                }
 
+                using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                {
                     AppendHistoryClause(delimited);
                     AppendDeletedClause(delimited);
                     if (searchParamTableExpression.Predicate != null)
