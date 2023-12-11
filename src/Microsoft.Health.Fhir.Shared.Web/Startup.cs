@@ -234,6 +234,8 @@ namespace Microsoft.Health.Fhir.Web
                 {
                     options.Authority = securityConfiguration.Authentication.Authority;
                     options.Audience = securityConfiguration.Authentication.Audience;
+                    options.TokenValidationParameters.RoleClaimType = securityConfiguration.Authorization.RolesClaim;
+                    options.MapInboundClaims = false;
                     options.RequireHttpsMetadata = true;
                     options.Challenge = $"Bearer authorization_uri=\"{securityConfiguration.Authentication.Authority}\", resource_id=\"{securityConfiguration.Authentication.Audience}\", realm=\"{securityConfiguration.Authentication.Audience}\"";
                 });
