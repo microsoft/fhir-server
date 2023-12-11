@@ -438,7 +438,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
                         .Append(cte).AppendLine(".SortValue")
                         .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                        .Append("INNER JOIN ").AppendLine(cte);
+                        .Append("JOIN ").AppendLine(cte);
 
                     using (var delimited = StringBuilder.BeginDelimitedOnClause())
                     {
@@ -463,7 +463,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(tableName)
-                    .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
+                    .Append("JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
@@ -481,7 +481,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
-                    .Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
+                    .Append("JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
@@ -528,7 +528,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1") // SELECT and FROM can be on same line only for singe line statements
                     .Append("FROM ").AppendLine(VLatest.Resource)
-                    .Append("INNER JOIN ").AppendLine(cte);
+                    .Append("JOIN ").AppendLine(cte);
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
@@ -677,7 +677,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "T1, " : "T2, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
                 .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
-                .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
+                .Append("JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
 
             using (var delimited = StringBuilder.BeginDelimitedOnClause())
             {
@@ -696,7 +696,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 const string referenceSourceResourceTableAlias = "refSourceResource";
 
-                StringBuilder.Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceSourceResourceTableAlias);
+                StringBuilder.Append("JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceSourceResourceTableAlias);
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
@@ -710,7 +710,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (searchParamTableExpression.ChainLevel > 1)
             {
-                StringBuilder.Append("INNER JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
+                StringBuilder.Append("JOIN ").AppendLine(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()));
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
@@ -791,7 +791,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .AppendLine(" AS Sid1, 0 AS IsMatch ");
 
             StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
-                .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
+                .Append("JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
 
             using (var delimited = StringBuilder.BeginDelimitedOnClause())
             {
@@ -1266,7 +1266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // rather than an EXISTS clause.  We have see that this significanlty reduces the query plan generation time for
                 // complex queries
 
-                sb.AppendLine("INNER JOIN " + TableExpressionName(predecessorIndex - 0));
+                sb.AppendLine("JOIN " + TableExpressionName(predecessorIndex - 0));
                 using (sb.BeginDelimitedOnClause())
                 {
                     sb.Append(" ON ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
