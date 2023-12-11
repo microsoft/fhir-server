@@ -833,11 +833,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     sb.Append("DECLARE ")
                         .Append(p)
                         .Append(' ')
-                        .Append(p.SqlDbType)
-                        .Append(p.Value is string ? (p.Size <= 0 ? "(MAX)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
+                        .Append(p.SqlDbType.ToString().ToLowerInvariant())
+                        .Append(p.Value is string ? (p.Size <= 0 ? "(max)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                         .Append(" = ")
                         .Append(p.SqlDbType == SqlDbType.NChar || p.SqlDbType == SqlDbType.NText || p.SqlDbType == SqlDbType.NVarChar ? "N" : null)
-                        .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : p.Value.ToString()))
+                        .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : p.Value.ToString()))
                         .AppendLine(";");
                 }
 
@@ -852,7 +852,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.Append(sqlCommandWrapper.CommandText + string.Empty);
                 foreach (SqlParameter p in sqlCommandWrapper.Parameters)
                 {
-                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : $"'{p.Value.ToString()}'"));
+                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : $"'{p.Value}'"));
                     if (!(sqlCommandWrapper.Parameters.IndexOf(p) == sqlCommandWrapper.Parameters.Count - 1))
                     {
                         sb.Append(", ");
