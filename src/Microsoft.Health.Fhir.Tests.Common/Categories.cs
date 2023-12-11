@@ -79,6 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string SearchParameterStatus = nameof(SearchParameterStatus);
 
+        public const string SelectableSearchParameters = nameof(SelectableSearchParameters);
+
         /// <summary>
         /// Set of tests validating serialization and deserialization logic.
         /// </summary>

@@ -99,6 +99,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\DateSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\EscapeCharactersSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchSelectableSearchParametersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IncludeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\IdSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\NotExpressionTests.cs" />

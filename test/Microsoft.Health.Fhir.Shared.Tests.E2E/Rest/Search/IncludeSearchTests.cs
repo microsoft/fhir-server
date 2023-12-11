@@ -1226,25 +1226,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
-        [Fact]
-        public async Task GivenAnRevIncludeSearchExpressionWithDisabledSearchParameter_WhenSearched_DoesnotIncludeDisabledSearchParameter()
-        {
-            string query = $"_revinclude:iterate=MedicationRequest:*&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
-
-            await UpdateSearchParameterStatusAsync("http://hl7.org/fhir/SearchParameter/Patient-organization", SearchParameterStatus.Disabled, default);
-
-            await SearchAndValidateBundleAsync(
-                ResourceType.Patient,
-                query,
-                Fixture.PatiPatient,
-                Fixture.SmithPatient,
-                Fixture.TrumanPatient,
-                Fixture.AdamsPatient,
-                Fixture.PatientWithDeletedOrganization);
-
-            await UpdateSearchParameterStatusAsync("http://hl7.org/fhir/SearchParameter/Patient-organization", SearchParameterStatus.Enabled, default);
-        }
-
         // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {

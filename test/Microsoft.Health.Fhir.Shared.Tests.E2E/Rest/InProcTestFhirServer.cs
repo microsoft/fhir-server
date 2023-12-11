@@ -71,6 +71,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             configuration["TaskHosting:Enabled"] = "true";
             configuration["TaskHosting:MaxRunningTaskCount"] = "2";
 
+            // Enable status endpoint for search parameters.
+            configuration["FhirServer:CoreFeatures:SupportsSelectableSearchParameters"] = "true";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.
