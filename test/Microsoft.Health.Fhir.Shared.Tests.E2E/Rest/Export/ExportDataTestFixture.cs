@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             var typeFilterPart = string.Join(',', uniqueResourceTypes.Select(rt => $"{rt}%3F_tag%3D{FixtureTag}"));
 
-            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime}";
+            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime:O}";
         }
 
         protected override async Task OnInitializedAsync()
