@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             .Where(x => x.Key.resourceType != "Observation" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Observation).Subject.Reference.Split("/")[1]))
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        internal string FixtureTag { get; } = Guid.NewGuid().ToString();
+        internal string FixtureTag { get; } = Guid.NewGuid().ToString(); // Set once at class creation time
 
-        internal DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
+        internal DateTime TestDataInsertionTime { get; } = DateTime.UtcNow; // Set once at class creation time
 
         internal string ExportTestFilterQueryParameters(params string[] uniqueResourceTypes)
         {
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             var typeFilterPart = string.Join(',', uniqueResourceTypes.Select(rt => $"{rt}%3F_tag%3D{FixtureTag}"));
 
-            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}";
+            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime}";
         }
 
         protected override async Task OnInitializedAsync()
