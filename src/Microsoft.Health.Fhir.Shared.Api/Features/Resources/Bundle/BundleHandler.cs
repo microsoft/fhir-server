@@ -556,7 +556,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
-            var routeContext = _bundleRouteContext.CreateRouteContext(httpContext);
+            var routeContext = new RouteContext(httpContext);
+            _bundleRouteContext.CreateRouteContext(routeContext);
 
             // await _router.RouteAsync(routeContext);
             httpContext.Request.RouteValues = routeContext.RouteData.Values;
