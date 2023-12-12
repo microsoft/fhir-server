@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 context.StringBuilder.Append(')');
             }
 
-            context.StringBuilder.AppendLine();
+            context.StringBuilder.Append(" "); // Replaced CR by space keeping code "protection".
 
             return context;
         }
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            context.StringBuilder.AppendLine(")");
+            context.StringBuilder.Append(") "); // Replaced CR by space keeping code "protection".
 
             return context;
         }

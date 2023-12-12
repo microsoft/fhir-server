@@ -547,29 +547,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(_ => _.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalStartId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
         }
 
-        private void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalStartId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
+        private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
         {
             command.CommandType = CommandType.StoredProcedure;
             command.CommandText = "dbo.GetResourcesByTypeAndSurrogateIdRange";
             command.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
             command.Parameters.AddWithValue("@StartId", startId);
             command.Parameters.AddWithValue("@EndId", endId);
-
-            if (_schemaInformation.Current < SchemaVersionConstants.ExportHistorySoftDelete)
-            {
-                command.Parameters.AddWithValue("@GlobalStartId", globalStartId);
-            }
-
             command.Parameters.AddWithValue("@GlobalEndId", globalEndId);
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.ExportHistorySoftDelete)
-            {
-                command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
-                command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
-            }
+            command.Parameters.AddWithValue("@IncludeHistory", includeHistory);
+            command.Parameters.AddWithValue("@IncludeDeleted", includeDeleted);
         }
 
         /// <summary>
@@ -590,7 +580,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var resourceTypeId = _model.GetResourceTypeId(resourceType);
             using var sqlCommand = new SqlCommand();
             sqlCommand.CommandTimeout = GetReindexCommandTimeout();
-            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowStartId, windowEndId, includeHistory, includeDeleted);
+            PopulateSqlCommandFromQueryHints(sqlCommand, resourceTypeId, startId, endId, windowEndId, includeHistory, includeDeleted);
             LogSqlCommand(sqlCommand);
             List<SearchResultEntry> resources = null;
             await _sqlRetryService.ExecuteSql(
@@ -843,11 +833,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     sb.Append("DECLARE ")
                         .Append(p)
                         .Append(' ')
-                        .Append(p.SqlDbType)
-                        .Append(p.Value is string ? (p.Size <= 0 ? "(MAX)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
+                        .Append(p.SqlDbType.ToString().ToLowerInvariant())
+                        .Append(p.Value is string ? (p.Size <= 0 ? "(max)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                         .Append(" = ")
                         .Append(p.SqlDbType == SqlDbType.NChar || p.SqlDbType == SqlDbType.NText || p.SqlDbType == SqlDbType.NVarChar ? "N" : null)
-                        .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : p.Value.ToString()))
+                        .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : p.Value.ToString()))
                         .AppendLine(";");
                 }
 
@@ -862,7 +852,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.Append(sqlCommandWrapper.CommandText + string.Empty);
                 foreach (SqlParameter p in sqlCommandWrapper.Parameters)
                 {
-                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : $"'{p.Value.ToString()}'"));
+                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : $"'{p.Value}'"));
                     if (!(sqlCommandWrapper.Parameters.IndexOf(p) == sqlCommandWrapper.Parameters.Count - 1))
                     {
                         sb.Append(", ");

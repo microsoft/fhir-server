@@ -246,6 +246,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateUpdateResponse(updateResponseAfterVersionIdAndLastUpdatedTimeChanged, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged, false, HttpStatusCode.OK);
             Assert.Contains(ContentUpdated, updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged.Resource.Text.Div);
 
+            // Try to update the resource with no changes
+            // Check no new version is created. versionId and lastUpdated remains same
+            using FhirResponse<Observation> updateSecondTime = await _client.UpdateAsync(updateResponse.Resource, null);
+            ValidateUpdateResponse(updateResponseAfterVersionIdAndLastUpdatedTimeAndTextChanged, updateSecondTime, true, HttpStatusCode.OK);
+            Assert.Contains(ContentUpdated, updateSecondTime.Resource.Text.Div);
+
             // Try to update the resource with some changes in meta.Profile/Tag/Security
             // Check new version is created. versionId and lastUpdated are updated
             updateResponse.Resource.Meta = new Meta
