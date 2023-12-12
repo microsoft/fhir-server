@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
-        private readonly EndpointDataSource _endpointDataSource;
+        private readonly IRouteContext _bundleRouteContext;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
 
         private int _requestCount;
@@ -121,41 +121,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
-            EndpointDataSource endpointDataSource,
+            IRouteContext bundleRouteContext,
             ILogger<BundleHandler> logger)
             : this()
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
-            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
-            EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
-            EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
-            EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
-            EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
-            EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
-            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
-            EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
-            EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
-            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _fhirJsonSerializer = fhirJsonSerializer;
-            _fhirJsonParser = fhirJsonParser;
-            _transactionHandler = transactionHandler;
-            _bundleHttpContextAccessor = bundleHttpContextAccessor;
-            _bundleOrchestrator = bundleOrchestrator;
-            _resourceIdProvider = resourceIdProvider;
-            _transactionBundleValidator = transactionBundleValidator;
-            _referenceResolver = referenceResolver;
-            _auditEventTypeMapping = auditEventTypeMapping;
-            _authorizationService = authorizationService;
-            _bundleConfiguration = bundleConfiguration.Value;
-            _mediator = mediator;
-            _endpointDataSource = endpointDataSource;
-            _logger = logger;
+            _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            _fhirJsonSerializer = EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
+            _fhirJsonParser = EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            _transactionHandler = EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
+            _bundleHttpContextAccessor = EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
+            _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
+            _transactionBundleValidator = EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
+            _referenceResolver = EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+            _auditEventTypeMapping = EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
+            _bundleConfiguration = EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _bundleRouteContext = EnsureArg.IsNotNull(bundleRouteContext, nameof(bundleRouteContext));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<ResourceExecutionContext>());
@@ -164,7 +149,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
 
             _routeEndpoint = outerHttpContext.GetEndpoint() as RouteEndpoint;
-            ////_router = outerHttpContext.GetRouteData().Routers.First();
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
@@ -572,34 +556,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
-            var routeEndpoints = _endpointDataSource?.Endpoints.Cast<RouteEndpoint>();
-            var routeValues = new RouteValueDictionary();
-
-            RouteEndpoint matchedEndpoint = null;
-            foreach (var endpoint in routeEndpoints)
-            {
-                routeValues = new RouteValueDictionary();
-                routeValues = GetRouteValuesForMatchedEndpoint(endpoint, httpContext, routeValues);
-                if (routeValues != null)
-                {
-                    matchedEndpoint = endpoint;
-                    break;
-                }
-            }
+            var routeContext = _bundleRouteContext.CreateRouteContext(httpContext);
 
             // await _router.RouteAsync(routeContext);
-            httpContext.Request.RouteValues = routeValues;
-
-            var routeContext = new RouteContext(httpContext);
-            routeContext.Handler = matchedEndpoint.RequestDelegate;
-            routeContext.RouteData = new RouteData(routeValues);
+            httpContext.Request.RouteValues = routeContext.RouteData.Values;
 
             httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
             {
                 RouteData = routeContext.RouteData,
             };
-
-            ////httpContext.Features[typeof(IEndpointFeature)] = matchedEndpoint;
 
             _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
         }

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -55,6 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         private static readonly ParserSettings _parserSettings = new ParserSettings() { AcceptUnknownMembers = true, PermissiveParsing = true };
         private static readonly FhirJsonParser _jsonParser = new FhirJsonParser(_parserSettings);
         private static readonly FhirXmlParser _xmlParser = new FhirXmlParser(_parserSettings);
+        private static readonly LinkGenerator _linkGenerator = Substitute.For<LinkGenerator>();
 
         public static SearchResult GetSearchResult(string fileName)
         {
@@ -255,7 +257,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 urlHelperFactory,
                 httpContextAccessor,
                 actionContextAccessor,
-                bundleHttpContextAccessor);
+                bundleHttpContextAccessor,
+                _linkGenerator);
         }
     }
 }

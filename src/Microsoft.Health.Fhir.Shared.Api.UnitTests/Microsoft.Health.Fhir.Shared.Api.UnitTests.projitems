@@ -63,6 +63,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\CompartmentTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\ResourceTypesRouteConstraintTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\TestLinkGenerator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\SMART\SmartClinicalScopesMiddlewareTests.cs" />
