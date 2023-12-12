@@ -312,7 +312,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        // TODO: Remove when code starts using TokemSearchParamHighCard table
+        // TODO: Remove when code starts using TokenSearchParamHighCard table
         private void AddOptionClause()
         {
             // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
