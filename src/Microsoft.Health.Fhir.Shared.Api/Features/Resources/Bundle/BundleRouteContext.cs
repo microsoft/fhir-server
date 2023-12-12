@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (matchedPath && MatchedHttpMethod(requestMethod, httpMethodMetadata) && SatisfyConditionalCheck(context, displayName))
             {
-                if (CheckContentTypeIfPresent(context, routeEndpoint))
+                if (CheckConsumesAttribueIfPresent(context, routeEndpoint))
                 {
                     return true;
                 }
@@ -99,15 +99,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return true;
         }
 
-        private static bool CheckContentTypeIfPresent(HttpContext context, RouteEndpoint endpoint)
+        private static bool CheckConsumesAttribueIfPresent(HttpContext context, RouteEndpoint endpoint)
         {
             // Request content-type
             var requestContentType = context.Request.Headers["Content-Type"].FirstOrDefault();
 
             var consumesAttributes = endpoint.Metadata.OfType<ConsumesAttribute>();
+            var consumesAttributeContentTypes = consumesAttributes.SelectMany(attr => attr.ContentTypes).ToList();
+            if (consumesAttributeContentTypes.Count > 0)
+            {
+                return consumesAttributeContentTypes.Contains(requestContentType);
+            }
 
-            var contentTypes = consumesAttributes.SelectMany(attr => attr.ContentTypes).ToList();
-            return contentTypes.Contains(requestContentType);
+            return true;
         }
 
         // This method extracts the default argument values from the template.
