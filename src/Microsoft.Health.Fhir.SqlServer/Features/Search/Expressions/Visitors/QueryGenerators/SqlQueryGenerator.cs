@@ -107,7 +107,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
-                StringBuilder.Append("WITH ");
+                // If include, split SQL into 2 parts: filtering one to preserve filtered data and include one to use persisted in table variable filter data.
+                StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
+                var visitedInclude = false;
+                var sortContext = GetSortRelatedDetails(context);
+                if (sortContext.SortColumnName != null)
+                {
+                    var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
+                    var typeStr = dbType.ToString().ToLowerInvariant();
+                    StringBuilder.Append($", SortValue {typeStr}");
+                    if (dbType != System.Data.SqlDbType.DateTime2 && dbType != System.Data.SqlDbType.DateTime) // we support only date time and short string
+                    {
+                        StringBuilder.Append($"({sortContext.SortColumnName.Metadata.MaxLength})");
+                    }
+                }
+
+                StringBuilder.AppendLine(")");
+                StringBuilder.AppendLine(";WITH");
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
@@ -122,6 +138,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                     else
                     {
+                        // Look for include kind. Before going to include itself, add filtered data persistence logic.
+                        if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
+                        {
+                            sb.Remove(sb.Length - 1, 1); // remove last comma
+                            AddHash(); // hash is required in upper SQL
+                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{((sortContext.SortColumnName != null) ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
+                            AddOptionClause();
+                            sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
+                            sb.Append(","); // add comma back
+                            visitedInclude = true;
+                        }
+
                         AppendNewTableExpression(sb, tableExpression, ++_tableExpressionCounter, context);
                     }
                 });
@@ -129,18 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
-            if (Parameters.HasParametersToHash) // hash cannot be last comment as it will not be stored in query store
-            {
-                // Add a hash of (most of the) parameter values as a comment.
-                // We do this to avoid re-using query plans unless two queries have
-                // the same parameter values. We currently exclude from the hash parameters
-                // that are related to TOP clauses or continuation tokens.
-                // We can exclude more in the future.
-
-                StringBuilder.Append("/* HASH ");
-                Parameters.AppendHash(StringBuilder);
-                StringBuilder.AppendLine(" */");
-            }
+            AddHash();
 
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
@@ -283,13 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                     }
 
-                    // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
-                    // then we will tell SQL to ignore the parameter values and base the query plan one the
-                    // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
-                    if (AddOptimizeForUnknownClause())
-                    {
-                        StringBuilder.AppendLine("  OPTION (OPTIMIZE FOR UNKNOWN)"); // TODO: Remove when TokemSearchParamHighCard is used
-                    }
+                    AddOptionClause();
                 }
             }
             else
@@ -299,6 +310,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return null;
+        }
+
+        // TODO: Remove when code starts using TokemSearchParamHighCard table
+        private void AddOptionClause()
+        {
+            // if we have a complex query more than one SearchParemter, one of the parameters is "identifier", and we have an include
+            // then we will tell SQL to ignore the parameter values and base the query plan one the
+            // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
+            if (AddOptimizeForUnknownClause())
+            {
+                StringBuilder.AppendLine("  OPTION (OPTIMIZE FOR UNKNOWN)");
+            }
+        }
+
+        private void AddHash()
+        {
+            if (Parameters.HasParametersToHash) // hash cannot be last comment as it will not be stored in query store
+            {
+                // Add a hash of (most of the) parameter values as a comment.
+                // We do this to avoid re-using query plans unless two queries have
+                // the same parameter values. We currently exclude from the hash parameters
+                // that are related to TOP clauses or continuation tokens.
+                // We can exclude more in the future.
+
+                StringBuilder.Append("/* HASH ");
+                Parameters.AppendHash(StringBuilder);
+                StringBuilder.AppendLine(" */");
+            }
         }
 
         private static string TableExpressionName(int id) => "cte" + id;
@@ -1172,6 +1211,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
         {
             sb.Append(TableExpressionName(cteId)).AppendLine(" AS").AppendLine("(");
+
+            if (cteId == 2)
+            {
+                Console.WriteLine();
+            }
 
             using (sb.Indent())
             {
