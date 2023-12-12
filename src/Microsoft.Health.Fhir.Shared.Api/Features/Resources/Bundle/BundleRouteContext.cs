@@ -9,12 +9,15 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Azure.Core;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Template;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
@@ -65,24 +68,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             bool matchedPath = matcher.TryMatch(context.Request.Path, routeValues);
             var httpMethodMetadata = routeEndpoint.Metadata.GetMetadata<HttpMethodMetadata>();
 
-            if (matchedPath)
+            var requestMethod = context.Request.Method;
+            var displayName = routeEndpoint.DisplayName;
+
+            if (matchedPath && MatchedHttpMethod(requestMethod, httpMethodMetadata) && SatisfyConditionalCheck(context, displayName))
             {
-                var requestMethod = context.Request.Method;
-                if (httpMethodMetadata != null && httpMethodMetadata.HttpMethods.Contains(requestMethod))
+                if (CheckContentTypeIfPresent(context, routeEndpoint))
                 {
-                    bool isConditionalHeader = context.Request.Headers.TryGetValue(KnownHeaders.IfNoneExist, out var value);
-                    if (!isConditionalHeader)
-                    {
-                        return true;
-                    }
-                    else if (routeEndpoint.DisplayName.Contains("Conditional", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
             return false;
+        }
+
+        private static bool MatchedHttpMethod(string requestMethod, HttpMethodMetadata methodMetadata)
+        {
+            return methodMetadata != null && methodMetadata.HttpMethods.Contains(requestMethod);
+        }
+
+        private static bool SatisfyConditionalCheck(HttpContext context, string endpointName)
+        {
+            bool isConditionalHeader = context.Request.Headers.TryGetValue(KnownHeaders.IfNoneExist, out var value);
+
+            if (isConditionalHeader && !endpointName.Contains("Conditional", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool CheckContentTypeIfPresent(HttpContext context, RouteEndpoint endpoint)
+        {
+            // Request content-type
+            var requestContentType = context.Request.Headers["Content-Type"].FirstOrDefault();
+
+            var consumesAttributes = endpoint.Metadata.OfType<ConsumesAttribute>();
+
+            var contentTypes = consumesAttributes.SelectMany(attr => attr.ContentTypes).ToList();
+            return contentTypes.Contains(requestContentType);
         }
 
         // This method extracts the default argument values from the template.
