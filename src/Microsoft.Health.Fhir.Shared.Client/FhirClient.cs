@@ -662,10 +662,10 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<SearchParameterStateResponse> UpdateSearchParameterStateAsync(string uri, SearchParameterStatus spStatus, CancellationToken cancellationToken)
         {
-            var url = $"SearchParameter/$status?url={uri}";
+            var url = $"SearchParameter/$status";
             using var message = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                Content = new StringContent(CreateValidRequestBody(uri), Encoding.UTF8, ContentType.JSON_CONTENT_HEADER),
+                Content = new StringContent(CreateValidRequestBody(uri, spStatus), Encoding.UTF8, ContentType.JSON_CONTENT_HEADER),
             };
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -676,7 +676,7 @@ namespace Microsoft.Health.Fhir.Client
             return JsonConvert.DeserializeObject<SearchParameterStateResponse>(content);
         }
 
-        private static string CreateValidRequestBody(string url)
+        private static string CreateValidRequestBody(string url, SearchParameterStatus spStatus)
         {
             Parameters parameters = new Parameters();
             List<ParameterComponent> parts = new List<ParameterComponent>
@@ -689,7 +689,7 @@ namespace Microsoft.Health.Fhir.Client
                     new ParameterComponent()
                     {
                         Name = SearchParameterStateProperties.Status,
-                        Value = new FhirString(SearchParameterStatus.Disabled.ToString()),
+                        Value = new FhirString(spStatus.ToString()),
                     },
                 };
             parameters.Parameter.Add(new ParameterComponent()
