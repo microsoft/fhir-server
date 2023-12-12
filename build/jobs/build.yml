@@ -42,7 +42,7 @@ steps:
     condition: succeededOrFailed()
     inputs:
         testResultsFormat: 'vstest'
-        testResultsFiles: '**/*.trx'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
         searchFolder: ''
         failTaskOnFailedTests: True
         testRunTitle: Unit Tests
@@ -60,7 +60,7 @@ steps:
     condition: succeededOrFailed()
     inputs:
         testResultsFormat: 'vstest'
-        testResultsFiles: '**/*.trx'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
         searchFolder: ''
         failTaskOnFailedTests: True
         testRunTitle: Unit Tests

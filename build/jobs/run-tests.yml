@@ -57,7 +57,7 @@ jobs:
     condition: succeededOrFailed()
     inputs:
         testResultsFormat: 'vstest'
-        testResultsFiles: '**/*.trx'
+        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
         searchFolder: ''
         failTaskOnFailedTests: True
         testRunTitle: '${{ parameters.version }} Integration'
