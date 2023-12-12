@@ -44,13 +44,23 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m --logger trx'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
       'CosmosDb:Key': $(CosmosDb--Key)
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish ${{ parameters.version }} Integration Results'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: '${{ parameters.version }} Integration'
 
 - job: 'cosmosE2eTests'
   dependsOn: []

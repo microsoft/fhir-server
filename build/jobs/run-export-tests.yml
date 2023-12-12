@@ -76,9 +76,9 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning" --logger trx'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
+      testRunTitle: '${{ parameters.version }} CosmosDB Export'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -105,6 +105,16 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish ${{ parameters.version }} CosmosDB Export'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: '${{ parameters.version }} CosmosDB Export'
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -177,9 +187,9 @@ jobs:
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning" --logger trx'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: 'Export ${{ parameters.version }} SQL'
+      testRunTitle: '${{ parameters.version }} SQL Export'
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
@@ -206,4 +216,13 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-      
+
+  - task: PublishTestResults@2
+    displayName: 'Publish ${{ parameters.version }} SQL Export'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: '${{ parameters.version }} SQL Export'

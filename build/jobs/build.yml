@@ -35,8 +35,17 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}}'
+      arguments: '--configuration $(buildConfiguration) --no-build -f ${{parameters.targetBuildFramework}} --logger trx'
       testRunTitle: 'Unit Tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish Unit Test Results'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: Unit Tests
 
 - ${{ if eq(parameters.codeCoverage, 'true') }}:
   - task: DotNetCoreCLI@2
@@ -44,8 +53,17 @@ steps:
     inputs:
       command: test
       projects: '**/*UnitTests/*.csproj'
-      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}}'
+      arguments: '--configuration $(buildConfiguration) --no-build --collect "XPlat Code Coverage" -s "$(build.sourcesDirectory)/CodeCoverage.runsettings" -v normal -f ${{parameters.targetBuildFramework}} --logger trx'
       testRunTitle: 'Unit Tests'
+  - task: PublishTestResults@2
+    displayName: 'Publish Unit Test Results'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: Unit Tests
   - task: reportgenerator@5
     displayName: 'aggregate code coverage'
     condition: succeededOrFailed()

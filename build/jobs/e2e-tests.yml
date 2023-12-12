@@ -98,9 +98,9 @@ steps:
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --logger trx'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -137,3 +137,13 @@ steps:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+
+  - task: PublishTestResults@2
+    displayName: 'Publish E2E ${{ parameters.version }} ${{parameters.appServiceType}} Results'
+    condition: succeededOrFailed()
+    inputs:
+        testResultsFormat: 'vstest'
+        testResultsFiles: '**/*.trx'
+        searchFolder: ''
+        failTaskOnFailedTests: True
+        testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
