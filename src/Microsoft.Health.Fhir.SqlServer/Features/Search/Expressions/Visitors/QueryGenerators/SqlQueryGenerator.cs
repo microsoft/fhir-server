@@ -107,12 +107,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
-                // If include, split SQL into 2 parts: filtering one to preserve filtered data and include one to use persisted in table variable filter data.
+                // If include, split SQL into 2 parts: 1st filter and preserve data in filtered data table variable, and 2nd - use persisted data
                 StringBuilder.Append("DECLARE @FilteredData AS TABLE (T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int");
-                var visitedInclude = false;
-                var sortContext = GetSortRelatedDetails(context);
-                if (sortContext.SortColumnName != null)
+                var isSortValueNeeded = IsSortValueNeeded(context);
+                if (isSortValueNeeded)
                 {
+                    var sortContext = GetSortRelatedDetails(context);
                     var dbType = sortContext.SortColumnName.Metadata.SqlDbType;
                     var typeStr = dbType.ToString().ToLowerInvariant();
                     StringBuilder.Append($", SortValue {typeStr}");
@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.AppendLine(")");
                 StringBuilder.AppendLine(";WITH");
+                var visitedInclude = false;
                 StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
                     if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
@@ -138,12 +139,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                     else
                     {
-                        // Look for include kind. Before going to include itself, add filtered data persistence logic.
+                        // Look for include kind. Before going to include itself, add filtered data persistence.
                         if (!visitedInclude && tableExpression.Kind == SearchParamTableExpressionKind.Include)
                         {
                             sb.Remove(sb.Length - 1, 1); // remove last comma
                             AddHash(); // hash is required in upper SQL
-                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{((sortContext.SortColumnName != null) ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
+                            sb.AppendLine($"INSERT INTO @FilteredData SELECT T1, Sid1, IsMatch, IsPartial, Row{(isSortValueNeeded ? ", SortValue " : " ")}FROM cte{_tableExpressionCounter}");
                             AddOptionClause();
                             sb.AppendLine($";WITH cte{_tableExpressionCounter} AS (SELECT * FROM @FilteredData)");
                             sb.Append(","); // add comma back
@@ -1211,11 +1212,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void AppendNewTableExpression(IndentedStringBuilder sb, SearchParamTableExpression tableExpression, int cteId, SearchOptions context)
         {
             sb.Append(TableExpressionName(cteId)).AppendLine(" AS").AppendLine("(");
-
-            if (cteId == 2)
-            {
-                Console.WriteLine();
-            }
 
             using (sb.Indent())
             {
