@@ -29,6 +29,31 @@ stages:
     parameters:
       environmentName: $(DeploymentEnvironmentName)
 
+- stage: cleanupIntegrationTestDatabases
+  displayName: 'Cleanup Integration Test DBs'
+  dependsOn: []
+  jobs:
+  - job: provisionEnvironment
+    pool:
+      name: '$(SharedLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: AzurePowerShell@5
+      displayName: 'Azure PowerShell script: InlineScript'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")
+          foreach ($pattern in $testNamePatterns) {
+            $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
+            foreach ($resource in $resources) {
+              Write-Host "Cleaning up $($resource.ResourceName)"
+              Remove-AzResource -ResourceId $resource.ResourceId
+            }
+          }
+          
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   dependsOn:
