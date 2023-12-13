@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (expression.SearchParamTableExpressions.Count > 0)
                 {
-                    StringBuilder.Append("     JOIN ").Append(TableExpressionName(_tableExpressionCounter));
+                    StringBuilder.Append(_joinShift).Append("JOIN ").Append(TableExpressionName(_tableExpressionCounter));
                     StringBuilder.Append(" ON ")
                         .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).Append(".T1 AND ")
                         .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
