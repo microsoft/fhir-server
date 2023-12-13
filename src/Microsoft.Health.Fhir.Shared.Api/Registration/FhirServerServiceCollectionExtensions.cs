@@ -56,20 +56,11 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
 
-            /* services.AddControllers(mvcOptions =>
-             {
-                 var policy = new AuthorizationPolicyBuilder()
-                     .RequireAuthenticatedUser()
-                     .Build();
-
-                 mvcOptions.Filters.Add(new AuthorizeFilter(policy));
-             })
-                 .AddNewtonsoftJson(options =>
-                 options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset);*/
-
             services.AddControllers()
-               .AddNewtonsoftJson(options =>
-               options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset);
+                .AddNewtonsoftJson(options =>
+                {
+                    options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
+                });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
