@@ -96,9 +96,19 @@ function Add-AadTestAuthEnvironment {
         throw "Running as an unsupported account type. Please use either a 'User' or 'Service Principal' to run this command"
     }
 
+    # Check if the role assignment already exists
     if ($currentObjectId) {
-        Write-Host "Adding permission to keyvault for $currentObjectId"
-        New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId| Out-Null
+        $existingRoleAssignments = Get-AzRoleAssignment -ObjectId $currentObjectId -Scope $keyVaultResourceId
+        $roleExists = $existingRoleAssignments | Where-Object { $_.RoleDefinitionName -eq "Key Vault Secrets Officer" }
+
+        # Create the role assignment if it does not exist
+        if (-not $roleExists) {
+            Write-Host "Adding permission to keyvault for $currentObjectId"
+            New-AzRoleAssignment -ObjectId $currentObjectId -RoleDefinitionName "Key Vault Secrets Officer" -Scope $keyVaultResourceId | Out-Null
+        }
+        else {
+            Write-Host "Role assignment already exists for $currentObjectId"
+        }
     }
 
     Write-Host "Ensuring API application exists"

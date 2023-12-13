@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource, existingResource))
+                        if (ExistingRawResourceIsEqualToInput(resource, existingResource, resourceExt.KeepVersion))
                         {
                             // Send the existing resource in the response
                             results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -522,26 +522,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing) // call is not symmetrical, it assumes version = 1 on input.
+        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing, bool keepVersion)
         {
             if (!_rawResourceDeduping.IsEnabled())
             {
                 return false;
             }
 
+            if (keepVersion)
+            {
+                return input.RawResource.Data == existing.RawResource.Data;
+            }
+
             var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
+            var inputVersion = GetJsonValue(input.RawResource.Data, "versionId", true);
             var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
             var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
-            if (existingVersion != InitialVersion)
+            if (inputVersion == existingVersion)
             {
+                if (inputDate == existingDate)
+                {
+                    return input.RawResource.Data == existing.RawResource.Data;
+                }
+
                 return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
             else
             {
+                if (inputDate == existingDate)
+                {
+                    return input.RawResource.Data == existing.RawResource.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
+                }
+
                 return input.RawResource.Data
                             == existing.RawResource.Data
-                                    .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{InitialVersion}\"", StringComparison.Ordinal)
-                                    .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                                .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
+                                .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
         }
 

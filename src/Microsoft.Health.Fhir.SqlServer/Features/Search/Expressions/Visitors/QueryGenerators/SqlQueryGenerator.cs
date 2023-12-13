@@ -106,16 +106,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // Union expressions must be executed first than all other expressions. The overral idea is that Union All expressions will
                 // filter the highest group of records, and the following expressions will be executed on top of this group of records.
                 StringBuilder.Append("WITH ");
-                StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
+                StringBuilder.AppendDelimited($"{Environment.NewLine},", expression.SearchParamTableExpressions.SortExpressionsByQueryLogic(), (sb, tableExpression) =>
                 {
-                    if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRenainingExpressions))
+                    if (tableExpression.SplitExpressions(out UnionExpression unionExpression, out SearchParamTableExpression allOtherRemainingExpressions))
                     {
                         AppendNewSetOfUnionAllTableExpressions(context, unionExpression, tableExpression.QueryGenerator);
 
-                        if (allOtherRenainingExpressions != null)
+                        if (allOtherRemainingExpressions != null)
                         {
                             StringBuilder.AppendLine(", ");
-                            AppendNewTableExpression(sb, allOtherRenainingExpressions, ++_tableExpressionCounter, context);
+                            AppendNewTableExpression(sb, allOtherRemainingExpressions, ++_tableExpressionCounter, context);
                         }
                     }
                     else
@@ -184,6 +184,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.AppendLine();
+            }
+
+            if (Parameters.HasParametersToHash)
+            {
+                // Add a hash of (most of the) parameter values as a comment.
+                // We do this to avoid re-using query plans unless two queries have
+                // the same parameter values. We currently exclude from the hash parameters
+                // that are related to TOP clauses or continuation tokens.
+                // We can exclude more in the future.
+
+                StringBuilder.Append("/* HASH ");
+                Parameters.AppendHash(StringBuilder);
+                StringBuilder.AppendLine(" */");
             }
 
             if (selectingFromResourceTable)
@@ -280,19 +293,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 // this is selecting only from the last CTE (for a count)
                 StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
-            }
-
-            if (Parameters.HasParametersToHash)
-            {
-                // Add a hash of (most of the) parameter values as a comment.
-                // We do this to avoid re-using query plans unless two queries have
-                // the same parameter values. We currently exclude from the hash parameters
-                // that are related to TOP clauses or continuation tokens.
-                // We can exclude more in the future.
-
-                StringBuilder.Append("/* HASH ");
-                Parameters.AppendHash(StringBuilder);
-                StringBuilder.AppendLine(" */");
             }
 
             return null;
