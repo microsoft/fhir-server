@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             try
             {
-                await PrepareData(3333); // 1111 patients + 1111 observations + 1111 claims. !!! RawResource is invalid.
+                await PrepareData(3333); // 1111 patients + 1111 observations + 1111 claims.
 
                 var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
 
@@ -144,12 +145,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        // #TODO - add variable for job partition key
         private async Task CleanupTestResourceDocuments()
         {
+            var partitionKey = JobGroupWrapper.GetJobInfoPartitionKey((byte)QueueType.Export);
             List<QueryDefinition> queries = new()
             {
-                new(@"SELECT c.id FROM root c WHERE c.partitionKey = '__jobs__'"),
+                new(@"SELECT c.id FROM root c WHERE c.partitionKey = '" + partitionKey + @"'"),
                 new(@"SELECT c.id FROM root c WHERE IS_DEFINED(c.resourceTypeName) AND c.isSystem = false"),
             };
             var queryOptions = new QueryRequestOptions { MaxItemCount = -1 }; // Set the max item count to -1 to fetch all items
