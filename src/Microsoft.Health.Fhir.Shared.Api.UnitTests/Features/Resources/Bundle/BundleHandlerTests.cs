@@ -54,13 +54,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class BundleHandlerTests
     {
         private readonly BundleHandler _bundleHandler;
+        private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly IMediator _mediator;
         private DefaultFhirRequestContext _fhirRequestContext;
-        private readonly IRouteContext _routeContext;
 
         public BundleHandlerTests()
         {
+            _router = Substitute.For<IRouter>();
+
             _fhirRequestContext = new DefaultFhirRequestContext
             {
                 BaseUri = new Uri("https://localhost/"),
@@ -111,7 +113,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
             _mediator = Substitute.For<IMediator>();
-            _routeContext = Substitute.For<IRouteContext>();
 
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
                 _mediator,
-                _routeContext,
+                _router,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -168,8 +169,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteContextFunction);
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
@@ -230,8 +231,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteContextFunction);
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
@@ -264,8 +265,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteContextFunction);
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
@@ -287,7 +288,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             string headerName = "x-ms-request-charge";
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             int callCount = 0;
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -356,7 +357,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             int callCount = 0;
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -452,8 +453,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteContextFunction);
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
 
             BundleMetricsNotification notification = null;
             await _mediator.Publish(Arg.Do<BundleMetricsNotification>(note => notification = note), Arg.Any<CancellationToken>());
@@ -512,8 +513,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteContextFunction);
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
@@ -521,7 +522,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _mediator.DidNotReceive().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
-        private void RouteContextFunction(CallInfo callInfo)
+        private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
             routeContext.Handler = context =>
@@ -551,6 +552,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var routingFeature = Substitute.For<IRoutingFeature>();
             var routeData = new RouteData();
+            routeData.Routers.Add(_router);
             routingFeature.RouteData.Returns(routeData);
 
             featureCollection.Get<IHttpAuthenticationFeature>().Returns(httpAuthenticationFeature);

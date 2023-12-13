@@ -13,20 +13,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
 using AngleSharp.Io;
-using DotLiquid.Tags;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Razor.Language.Intermediate;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -55,9 +52,8 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Namotion.Reflection;
+using SharpCompress.Common;
 using static Hl7.Fhir.Model.Bundle;
-using Endpoint = Microsoft.AspNetCore.Http.Endpoint;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -74,8 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
-        ////private readonly IRouter _router;
-        private readonly RouteEndpoint _routeEndpoint;
+        private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
@@ -92,7 +87,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
-        private readonly IRouteContext _bundleRouteContext;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
 
         private int _requestCount;
@@ -121,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
-            IRouteContext bundleRouteContext,
+            IRouter router,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -139,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleConfiguration = EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
-            _bundleRouteContext = EnsureArg.IsNotNull(bundleRouteContext, nameof(bundleRouteContext));
+            _router = EnsureArg.IsNotNull(router, nameof(router));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -147,8 +141,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             HttpContext outerHttpContext = httpContextAccessor.HttpContext;
             _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
-
-            _routeEndpoint = outerHttpContext.GetEndpoint() as RouteEndpoint;
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
@@ -556,10 +548,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
-            var routeContext = new RouteContext(httpContext);
-            _bundleRouteContext.UpdateRouteContext(routeContext);
 
-            httpContext.Request.RouteValues = routeContext.RouteData.Values;
+            var routeContext = new RouteContext(httpContext);
+
+            await _router.RouteAsync(routeContext);
 
             httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
             {
@@ -575,57 +567,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
             }
-        }
-
-        private static RouteValueDictionary GetRouteValuesForMatchedEndpoint(RouteEndpoint routeEndpoint, HttpContext context, RouteValueDictionary routeValues)
-        {
-            var template = TemplateParser.Parse(routeEndpoint.RoutePattern.RawText);
-
-            var matcher = new TemplateMatcher(template, GetDefaults(template));
-
-            bool matchedPath = matcher.TryMatch(context.Request.Path, routeValues);
-            var httpMethodMetadata = routeEndpoint.Metadata.GetMetadata<HttpMethodMetadata>();
-
-            if (matchedPath)
-            {
-                var requestMethod = context.Request.Method;
-                if (httpMethodMetadata != null && httpMethodMetadata.HttpMethods.Contains(requestMethod))
-                {
-                    bool isConditionalHeader = context.Request.Headers.TryGetValue(KnownHeaders.IfNoneExist, out var value);
-                    if (isConditionalHeader && !routeEndpoint.DisplayName.Contains("Conditional", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return null;
-                    }
-
-                    if (routeEndpoint.RoutePattern?.RequiredValues != null)
-                    {
-                        foreach (var requiredValue in routeEndpoint.RoutePattern.RequiredValues)
-                        {
-                            routeValues.Add(requiredValue.Key, requiredValue.Value);
-                        }
-                    }
-
-                    return routeValues;
-                }
-            }
-
-            return null;
-        }
-
-        // This method extracts the default argument values from the template.
-        private static RouteValueDictionary GetDefaults(RouteTemplate parsedTemplate)
-        {
-            var result = new RouteValueDictionary();
-
-            foreach (var parameter in parsedTemplate.Parameters)
-            {
-                if (parameter.DefaultValue != null)
-                {
-                    result.Add(parameter.Name, parameter.DefaultValue);
-                }
-            }
-
-            return result;
         }
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
@@ -654,7 +595,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
 
-                        SetupContexts(resourceContext.Context);
+                        SetupContexts(resourceContext.Context, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -782,9 +723,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteContext request)
+        private void SetupContexts(RouteContext request, HttpContext httpContext)
         {
-            var httpContext = request.HttpContext;
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
             request.RouteData.Values.TryGetValue("action", out object actionName);
             request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);

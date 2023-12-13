@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IUrlResolver, UrlResolver>();
             services.AddSingleton<IBundleFactory, BundleFactory>();
-            services.AddSingleton<IRouteContext, BundleRouteContext>();
 
             services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
