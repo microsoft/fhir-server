@@ -11,6 +11,7 @@ using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
@@ -24,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
@@ -148,6 +150,7 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
+            fhirServerBuilder.Services.AddSingleton<IRouter, BundleRouter>();
 
             return fhirServerBuilder;
         }

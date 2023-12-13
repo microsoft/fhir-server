@@ -36,6 +36,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerStatistics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleProcessingLogic.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleRouter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\IProvenanceHeaderState.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviour.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProvenanceHeaderBehavior.cs" />

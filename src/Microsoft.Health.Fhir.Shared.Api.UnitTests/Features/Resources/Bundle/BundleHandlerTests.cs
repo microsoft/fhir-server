@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     [Trait(Traits.Category, Categories.Bundle)]
     public class BundleHandlerTests
     {
-#if false
         private readonly BundleHandler _bundleHandler;
         private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
@@ -130,6 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
                 _mediator,
+                _router,
                 NullLogger<BundleHandler>.Instance);
         }
 
@@ -570,6 +570,5 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             featureCollection.GetEnumerator().Returns(features.GetEnumerator());
             return featureCollection;
         }
-#endif
     }
 }

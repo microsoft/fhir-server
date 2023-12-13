@@ -100,13 +100,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add("system", true);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 RouteNames.Metadata,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
@@ -138,24 +137,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
-            try
-            {
-                var uriString = UrlHelper.RouteUrl(
-                    routeName,
-                    routeValues,
-                    Request.Scheme,
-                    Request.Host.Value);
-
-                return new Uri(uriString);
-            }
-            catch
-            {
-                var uriString = _linkGenerator.GetUriByRouteValues(
-                    ActionContext.HttpContext,
-                    routeName,
-                    routeValues);
-                return new Uri(uriString);
-            }
+            return GetRouteUri(
+                ActionContext.HttpContext,
+                routeName,
+                routeValues,
+                Request.Scheme,
+                Request.Host.Value);
         }
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
@@ -228,26 +215,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
         {
             var routeValueDictionary = new RouteValueDictionary(routeValues);
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValueDictionary,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationResultUrl(string operationName, string id)
@@ -283,13 +268,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 { KnownActionParameterNames.Id, id },
             };
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationDefinitionUrl(string operationName)
@@ -336,13 +320,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
-                values: null,
+                null,
                 Request.Scheme,
                 Request.Host.Value);
+        }
 
-            return new Uri(uriString);
+        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
+        {
+            try
+            {
+                var uriString = UrlHelper.RouteUrl(
+                    routeName,
+                    routeValues,
+                    scheme,
+                    host);
+
+                return new Uri(uriString);
+            }
+            catch
+            {
+                var uriString = _linkGenerator.GetUriByRouteValues(
+                    httpContext,
+                    routeName,
+                    routeValues,
+                    scheme,
+                    new HostString(host));
+                return new Uri(uriString);
+            }
         }
     }
 }

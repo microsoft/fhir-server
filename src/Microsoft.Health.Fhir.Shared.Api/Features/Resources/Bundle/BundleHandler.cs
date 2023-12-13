@@ -52,6 +52,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using SharpCompress.Common;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<ResourceExecutionContext>> _requests;
         private readonly IHttpAuthenticationFeature _httpAuthenticationFeature;
+        private readonly IRouter _router;
         private readonly IServiceProvider _requestServices;
         private readonly ITransactionHandler _transactionHandler;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
@@ -86,7 +88,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
-        private readonly EndpointDataSource _endpointDataSource;
 
         private int _requestCount;
         private BundleType? _bundleType;
@@ -114,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
-            EndpointDataSource endpointDataSource,
+            IRouter router,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(endpointDataSource, nameof(endpointDataSource));
+            EnsureArg.IsNotNull(router, nameof(router));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -148,7 +149,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
             _mediator = mediator;
-            _endpointDataSource = endpointDataSource;
+            _router = router;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -563,7 +564,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.Body = memoryStream;
             }
 #endif
-            var routeContext = CreateRouteContext(httpContext);
+
+            var routeContext = new RouteContext(httpContext);
+
+            await _router.RouteAsync(routeContext);
+
             httpContext.Features[typeof(IRoutingFeature)] = new RoutingFeature
             {
                 RouteData = routeContext.RouteData,
@@ -857,56 +862,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error computing bundle statistics. This error will not block the bundle processing.");
-            }
-        }
-
-        private RouteContext CreateRouteContext(HttpContext httpContext)
-        {
-            try
-            {
-                var routeValues = new RouteValueDictionary();
-                var endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
-                var path = httpContext.Request.Path;
-                var method = httpContext.Request.Method;
-
-                foreach (var endpoint in endpoints)
-                {
-                    var templateMatcher = new TemplateMatcher(TemplateParser.Parse(endpoint.RoutePattern.RawText), new RouteValueDictionary());
-                    if (!templateMatcher.TryMatch(path, routeValues))
-                    {
-                        continue;
-                    }
-
-                    var httpMethodAttribute = endpoint.Metadata.GetMetadata<HttpMethodAttribute>();
-                    if (httpMethodAttribute != null && !httpMethodAttribute.HttpMethods.Any(x => x.Equals(method, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        continue;
-                    }
-
-                    if (endpoint.RoutePattern?.RequiredValues != null)
-                    {
-                        foreach (var requiredValue in endpoint.RoutePattern.RequiredValues)
-                        {
-                            routeValues.Add(requiredValue.Key, requiredValue.Value);
-                        }
-                    }
-
-                    httpContext.Request.RouteValues = routeValues;
-                    RouteContext routeContext = new RouteContext(httpContext)
-                    {
-                        Handler = endpoint.RequestDelegate,
-                        RouteData = new RouteData(routeValues),
-                    };
-
-                    return routeContext;
-                }
-
-                // TODO: Don't return null. Check how IRouter.RouteAsync handles.
-                return null;
-            }
-            catch
-            {
-                throw;
             }
         }
     }

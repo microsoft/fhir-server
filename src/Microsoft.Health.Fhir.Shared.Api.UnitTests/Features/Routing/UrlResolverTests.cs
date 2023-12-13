@@ -48,17 +48,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private readonly ActionContext _actionContext = new ActionContext();
 
         private readonly UrlResolver _urlResolver;
+        private readonly LinkGenerator _linkGenerator;
 
         private UrlRouteContext _capturedUrlRouteContext;
 
         public UrlResolverTests()
         {
+            _linkGenerator = Substitute.For<LinkGenerator>();
             _urlResolver = new UrlResolver(
                 _fhirRequestContextAccessor,
                 _urlHelperFactory,
                 _httpContextAccessor,
                 _actionContextAccessor,
-                _bundleHttpContextAccessor);
+                _bundleHttpContextAccessor,
+                _linkGenerator);
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 
