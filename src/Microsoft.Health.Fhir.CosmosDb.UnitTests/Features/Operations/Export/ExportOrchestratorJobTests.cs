@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: true, exportJobType: exportJobType).ToList();
-            SetupMockQueue(numExpectedJobs, orchestratorJobId, initialJobList);
+            SetupMockQueue(orchestratorJobId, initialJobList);
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: false);
-            SetupMockQueue(numExpectedJobs, orchestratorJobId, initialJobList.ToList());
+            SetupMockQueue(orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: true);
-            SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
+            SetupMockQueue(orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
-            CheckJobsQueued(numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
+            CheckJobsQueued(numExpectedJobsPerResourceType * numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
         }
 
         [Fact]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: true, typeFilter: "Patient,Observation");
-            SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
+            SetupMockQueue(orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             var jobResult = JsonConvert.DeserializeObject<ExportJobRecord>(result);
             Assert.Equal(OperationStatus.Completed, jobResult.Status);
 
-            CheckJobsQueued(numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
+            CheckJobsQueued(numExpectedJobsPerResourceType * numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
         }
 
         [Fact]
@@ -115,11 +115,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             // We have three feed ranges mocked to return below.
             int numExpectedJobsPerResourceType = 3;
             int numExpectedResourceTypes = 3;
-            int maxNumberOfDefinitionsPerJob = 1;
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: true);
-            SetupMockQueue(maxNumberOfDefinitionsPerJob, orchestratorJobId, initialJobList.ToList());
+            SetupMockQueue(orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -140,7 +139,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             long orchestratorJobId = 10000;
 
             var initialJobList = CreateOrchestratorJobList(orchestratorJobId, isParallel: true);
-            SetupMockQueue(numExpectedJobsPerResourceType, orchestratorJobId, initialJobList.ToList());
+            SetupMockQueue(orchestratorJobId, initialJobList.ToList());
             var orchestratorJob = initialJobList.First();
 
             var exportOrchestratorJob = new CosmosExportOrchestratorJob(_mockQueueClient, _mockSearchService);
@@ -151,7 +150,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             // Run the same job again - it should skip adding these to the queue.
             await exportOrchestratorJob.ExecuteAsync(orchestratorJob, new Progress<string>((result) => { }), CancellationToken.None);
 
-            CheckJobsQueued(numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
+            CheckJobsQueued(numExpectedJobsPerResourceType * numExpectedResourceTypes, numExpectedJobsPerResourceType * numExpectedResourceTypes);
         }
 
         private IReadOnlyList<JobInfo> CreateOrchestratorJobList(
@@ -215,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             return jobInfoArray;
         }
 
-        private void SetupMockQueue(int numExpectedJobsPerResourceType, long orchestratorJobId, List<JobInfo> defaultJobs = null)
+        private void SetupMockQueue(long orchestratorJobId, List<JobInfo> defaultJobs = null)
         {
             List<JobInfo> enqueuedJobs = defaultJobs ?? new List<JobInfo>();
 
@@ -244,7 +243,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
             _mockQueueClient.EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), orchestratorJobId, false, false, Arg.Any<CancellationToken>()).Returns(x =>
             {
                 string[] definitions = x.ArgAt<string[]>(1);
-                Assert.Equal(numExpectedJobsPerResourceType, definitions.Length);
+                Assert.Single(definitions); // CosmosDB export jobs always have a single definition.
                 var jobInfoArray = CreateWorkerJobList(orchestratorJobId, definitions);
                 enqueuedJobs.AddRange(jobInfoArray);
 
