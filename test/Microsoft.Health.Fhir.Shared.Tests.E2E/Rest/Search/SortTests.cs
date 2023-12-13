@@ -195,6 +195,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithTextSortAndInclude_ThenPatientsAreReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+            Assert.True(patients.Count() > 3);
+
+            // this tests pagination too
+            var results = await GetResultsFromAllPagesAsync($"Patient?_count=2&_tag={tag}&_sort=family&_include=Observation:performer");
+            SortTestsAssert.AssertNumberOfResources(patients, results);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithFamilySortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
         {
             // For COSMOS DB - If sort indices are not stored then the sorting order will be incorrect and test will fail
