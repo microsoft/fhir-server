@@ -1056,7 +1056,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                    .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
+                    .Append(sortContext.SortColumnName, null).AppendLine(" AS SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
                 if (CheckAppendWithJoin())
@@ -1105,7 +1105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                    .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
+                    .Append(sortContext.SortColumnName, null).AppendLine(" AS SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
                 if (CheckAppendWithJoin())
