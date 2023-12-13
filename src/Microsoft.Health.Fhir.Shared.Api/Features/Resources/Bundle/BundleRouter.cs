@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AngleSharp.Io;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Template;
@@ -78,6 +79,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         continue;
                     }
 
+                    if (!CheckConsumesAttribueIfPresent(context.HttpContext, endpoint))
+                    {
+                        continue;
+                    }
+
                     routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
                 }
 
@@ -135,6 +141,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 throw;
             }
+        }
+
+        private static bool CheckConsumesAttribueIfPresent(HttpContext context, RouteEndpoint endpoint)
+        {
+            // Request content-type
+            var requestContentType = context.Request.Headers["Content-Type"].FirstOrDefault();
+
+            var consumesAttributes = endpoint.Metadata.OfType<ConsumesAttribute>();
+            var consumesAttributeContentTypes = consumesAttributes.SelectMany(attr => attr.ContentTypes).ToList();
+            if (consumesAttributeContentTypes.Count > 0)
+            {
+                return consumesAttributeContentTypes.Contains(requestContentType);
+            }
+
+            return true;
         }
     }
 }
