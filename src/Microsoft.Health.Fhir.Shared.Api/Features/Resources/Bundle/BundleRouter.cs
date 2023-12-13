@@ -106,7 +106,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                         else
                         {
-                            _logger.LogWarning("Multiple endpoint candidates {Count} found for {HttpMethod}.", routeCandidates.Count, method);
+                            _logger.LogWarning(
+                                "Multiple endpoint candidates {Count} found for {HttpMethod}.",
+                                routeCandidates.Count,
+                                method.Replace(Environment.NewLine, string.Empty, StringComparison.Ordinal));
                         }
                     }
 
