@@ -72,13 +72,17 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: DotNetCoreCLI@2
+  - task: VSTest@2
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning" --logger trx'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} CosmosDB Export'
+      testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
+      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"' # Required when testSelector = testAssemblies. Test files.
+      searchFolder: "$(System.ArtifactsDirectory)" # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
+      testFiltercriteria: "FullyQualifiedName~CosmosDb&Category=ExportLongRunning" # Optional. Use when testSelector = testAssemblies. Test filter criteria.
+      testRunTitle: '${{ parameters.version }} CosmosDB Export' # Optional. Test run title.
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: 10
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -105,16 +109,6 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish ${{ parameters.version }} CosmosDB Export'
-    condition: succeededOrFailed()
-    inputs:
-        testResultsFormat: 'vstest'
-        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
-        searchFolder: ''
-        failTaskOnFailedTests: True
-        testRunTitle: '${{ parameters.version }} CosmosDB Export'
 
 - job: 'sqlE2eTests'
   dependsOn: []
