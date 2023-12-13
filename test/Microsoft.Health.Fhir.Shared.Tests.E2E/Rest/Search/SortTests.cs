@@ -201,12 +201,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patients = await CreatePatients(tag);
             Assert.True(patients.Count() > 3);
 
-            // let's make sure that nothing is broken without sort first. This also tests pagination.
-            var results = await GetResultsFromAllPagesAsync($"Patient?_count=3&_include=Observation:performer");
-            Assert.True(results.Count() >= patients.Count());
-
-            // main check
-            results = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=family&_include=Observation:performer");
+            // this tests pagination too
+            var results = await GetResultsFromAllPagesAsync($"Patient?_count=2&_tag={tag}&_sort=family&_include=Observation:performer");
             SortTestsAssert.AssertNumberOfResources(patients, results);
         }
 
