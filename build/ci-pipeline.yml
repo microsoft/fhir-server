@@ -393,10 +393,10 @@ stages:
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
-  - testStu3
-  - testR4
-  - testR4B
-  - testR5
+  - testStu3Rollback
+  - testR4Rollback
+  - testR4BRollback
+  - testR5Rollback
   jobs:
   - template: ./jobs/docker-add-tag.yml
     parameters:
