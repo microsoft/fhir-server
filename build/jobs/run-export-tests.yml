@@ -183,13 +183,17 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: DotNetCoreCLI@2
+  - task: VSTest@2
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning" --logger trx'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} SQL Export'
+      testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
+      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"' # Required when testSelector = testAssemblies. Test files.
+      searchFolder: "$(System.ArtifactsDirectory)" # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
+      testFiltercriteria: "FullyQualifiedName~SqlServer&Category=ExportLongRunning" # Optional. Use when testSelector = testAssemblies. Test filter criteria.
+      testRunTitle: '${{ parameters.version }} SQL Export' # Optional. Test run title.
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: 10
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
@@ -216,13 +220,3 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish ${{ parameters.version }} SQL Export'
-    condition: succeededOrFailed()
-    inputs:
-        testResultsFormat: 'vstest'
-        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
-        searchFolder: ''
-        failTaskOnFailedTests: True
-        testRunTitle: '${{ parameters.version }} SQL Export'
