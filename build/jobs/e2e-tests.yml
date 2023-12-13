@@ -94,13 +94,17 @@ steps:
 
         dotnet dev-certs https
 
-  - task: DotNetCoreCLI@2
+  - task: VSTest@2
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
-      command: test
-      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning" --logger trx'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"'
+      searchFolder: "$(System.ArtifactsDirectory)"
+      testFiltercriteria: "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: 10
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -137,13 +141,3 @@ steps:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish E2E ${{ parameters.version }} ${{parameters.appServiceType}} Results'
-    condition: succeededOrFailed()
-    inputs:
-        testResultsFormat: 'vstest'
-        testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
-        searchFolder: ''
-        failTaskOnFailedTests: True
-        testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}} E2E'
