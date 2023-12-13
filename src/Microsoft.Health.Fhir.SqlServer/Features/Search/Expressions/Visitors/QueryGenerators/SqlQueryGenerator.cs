@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // statistics only.  We have seen SQL make poor choices in this instance, so we are making a special case here
             if (AddOptimizeForUnknownClause())
             {
-                StringBuilder.AppendLine("  OPTION (OPTIMIZE FOR UNKNOWN)");
+                StringBuilder.AppendLine("OPTION (OPTIMIZE FOR UNKNOWN)");
             }
         }
 
