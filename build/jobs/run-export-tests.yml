@@ -8,8 +8,7 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    vmImage: '$(WindowsVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -113,8 +112,7 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
+    vmImage: '$(WindowsVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
