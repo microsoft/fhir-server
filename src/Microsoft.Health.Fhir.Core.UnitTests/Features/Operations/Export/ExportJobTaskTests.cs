@@ -445,8 +445,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(typeof(TaskCanceledException))]
         public async Task GivenSearchCanceled_WhenExecuted_ThenJobStatusShouldBeUpdatedToCanceled(Type exceptionType)
         {
-            // var cancellationTokenSource = new CancellationTokenSource();
-
             _searchService.SearchAsync(
                 Arg.Any<string>(),
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),

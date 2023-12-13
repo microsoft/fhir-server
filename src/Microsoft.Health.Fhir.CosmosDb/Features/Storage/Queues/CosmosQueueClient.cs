@@ -387,6 +387,7 @@ public class CosmosQueueClient : IQueueClient
                 else if (item.Status == (byte)JobStatus.Created)
                 {
                     item.Status = (byte)JobStatus.Cancelled;
+                    item.CancelRequested = true;
                     saveRequired = true;
                 }
             }

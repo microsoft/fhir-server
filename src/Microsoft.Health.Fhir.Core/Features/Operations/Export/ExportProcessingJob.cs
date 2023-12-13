@@ -97,19 +97,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     // This will allow for saving intermediate states of the job.
 
                     record.Status = OperationStatus.Completed;
-                    var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
-                    IEnumerable<JobInfo> newerJobs = new List<JobInfo>();
-
                     var existingJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, false, innerCancellationToken);
 
                     // Only queue new jobs if group has no canceled jobs. This ensures canceled jobs won't continue to queue new jobs (Cosmos cancel is not 100% reliable).
                     if (!existingJobs.Any(job => job.Status == JobStatus.Cancelled || job.CancelRequested))
                     {
+                        var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
+
                         // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
-                        newerJobs = existingJobs.Where(job =>
+                        var newerJobs = existingJobs.Where(existingJob =>
                         {
-                            var deserializedJob = job.DeserializeDefinition<ExportJobRecord>();
-                            return job.Id > jobInfo.Id && deserializedJob.ResourceType == definition.ResourceType && deserializedJob.FeedRange == definition.FeedRange;
+                            var existingDefinition = existingJob.DeserializeDefinition<ExportJobRecord>();
+                            return existingJob.Id > jobInfo.Id && existingDefinition.ResourceType == definition.ResourceType && existingDefinition.FeedRange == definition.FeedRange;
                         });
 
                         if (!newerJobs.Any())

@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledJobInQueue_ThenANewProgressJobIsNotQueued()
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued()
         {
             string progressResult = string.Empty;
 
