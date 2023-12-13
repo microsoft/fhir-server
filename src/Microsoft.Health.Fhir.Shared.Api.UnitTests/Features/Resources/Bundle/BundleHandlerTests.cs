@@ -168,8 +168,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteAsyncFunction);
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+                .Do(RouteContextFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
@@ -230,8 +230,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteAsyncFunction);
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+                .Do(RouteContextFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
@@ -264,8 +264,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteAsyncFunction);
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+                .Do(RouteContextFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
 
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             string headerName = "x-ms-request-charge";
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -320,7 +320,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             int callCount = 0;
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -356,7 +356,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             int callCount = 0;
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
                 .Do(info =>
                 {
                     info.Arg<RouteContext>().Handler = context =>
@@ -452,8 +452,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteAsyncFunction);
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+                .Do(RouteContextFunction);
 
             BundleMetricsNotification notification = null;
             await _mediator.Publish(Arg.Do<BundleMetricsNotification>(note => notification = note), Arg.Any<CancellationToken>());
@@ -512,8 +512,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 },
             };
 
-            _routeContext.When(r => r.CreateRouteContext(Arg.Any<RouteContext>()))
-                .Do(RouteAsyncFunction);
+            _routeContext.When(r => r.UpdateRouteContext(Arg.Any<RouteContext>()))
+                .Do(RouteContextFunction);
 
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             await Assert.ThrowsAsync<FhirTransactionFailedException>(() => _bundleHandler.Handle(bundleRequest, default));
@@ -521,7 +521,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _mediator.DidNotReceive().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
         }
 
-        private void RouteAsyncFunction(CallInfo callInfo)
+        private void RouteContextFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
             routeContext.Handler = context =>

@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public bool Match(HttpContext httpContext, IRouter route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
-            ////EnsureArg.IsNotNull(httpContext, nameof(httpContext));
             EnsureArg.IsNotNull(route, nameof(route));
             EnsureArg.IsNotNullOrEmpty(routeKey, nameof(routeKey));
             EnsureArg.IsNotNull(values, nameof(values));

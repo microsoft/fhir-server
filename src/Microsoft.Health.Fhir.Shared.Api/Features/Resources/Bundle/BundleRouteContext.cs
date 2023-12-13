@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _endpointDataSource = EnsureArg.IsNotNull(endpointDataSource, nameof(endpointDataSource));
         }
 
-        public void CreateRouteContext(RouteContext routeContext)
+        public void UpdateRouteContext(RouteContext routeContext)
         {
             var routeValues = new RouteValueDictionary();
             var httpContext = routeContext.HttpContext;

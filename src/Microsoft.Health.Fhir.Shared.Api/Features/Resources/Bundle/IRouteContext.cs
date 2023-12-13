@@ -11,9 +11,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public interface IRouteContext
     {
         /// <summary>
-        /// Gets the routeContext for the matched RouteEndpoint.
+        /// Updates the routeContext for the matched RouteEndpoint.
         /// </summary>
         /// <param name="routeContext">HttpContext of the current request.</param>
-        void CreateRouteContext(RouteContext routeContext);
+        void UpdateRouteContext(RouteContext routeContext);
     }
 }
