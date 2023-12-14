@@ -117,6 +117,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return (routeCandidates[0].Key, routeCandidates[0].Value);
             }
 
+            // Note: When there are more than one route endpoint candidates, we need to find the best match
+            //       by looking at the request method, path, and headers. The logic of finding the best match
+            //       as of now is based on the implementation of FhirController actions and attributes.
+            // TODO: Find a more generic way of implementing the logic.
+
             var method = context.Request.Method;
             if (method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase))
             {
