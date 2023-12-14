@@ -38,19 +38,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             ILogger<ContainerRegistryTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
-            EnsureArg.IsNotNull(convertDataConfig, nameof(convertDataConfig));
+            EnsureArg.IsNotNull(convertDataConfig?.Value, nameof(convertDataConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            ConvertDataConfiguration convertDataConfig1 = convertDataConfig.Value;
             _logger = logger;
 
             // Initialize cache and template collection provider factory
             _cache = new MemoryCache(new MemoryCacheOptions
             {
-                SizeLimit = convertDataConfig1.CacheSizeLimit,
+                SizeLimit = convertDataConfig.Value.CacheSizeLimit,
             });
-            _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(convertDataConfig1.TemplateCollectionOptions));
+            _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(convertDataConfig.Value.TemplateCollectionOptions));
 
             _templateProviderCache = new MemoryCache(new MemoryCacheOptions());
             _templateProviderFactorySemaphore = new SemaphoreSlim(1, 1);
