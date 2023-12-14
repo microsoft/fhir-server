@@ -54,7 +54,7 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
-            services.AddControllers(options =>
+            services.AddControllersWithViews(options =>
                 {
                     options.EnableEndpointRouting = true;
                     options.RespectBrowserAcceptHeader = true;

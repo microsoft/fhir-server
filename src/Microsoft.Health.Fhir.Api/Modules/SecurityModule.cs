@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             {
                 _securityConfiguration.AddAuthenticationLibrary(services, _securityConfiguration);
 
-                services.AddControllers(mvcOptions =>
+                services.AddControllersWithViews(mvcOptions =>
                 {
                     var policy = new AuthorizationPolicyBuilder()
                         .RequireAuthenticatedUser()
