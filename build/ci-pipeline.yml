@@ -33,7 +33,7 @@ stages:
   displayName: 'Cleanup Integration Test DBs'
   dependsOn: []
   jobs:
-  - job: provisionEnvironment
+  - job: cleanup
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
@@ -238,7 +238,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -250,7 +250,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4
-      webAppName: $(DeploymentEnvironmentNameSql)
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -263,8 +263,8 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
 
 # *********************** R4B ***********************
 - stage: redeployR4B
@@ -312,7 +312,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4B
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameR4B)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -324,7 +324,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4B
-      webAppName: $(DeploymentEnvironmentNameSql)
+      webAppName: $(DeploymentEnvironmentNameR4BSql)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -337,8 +337,8 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4B
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(DeploymentEnvironmentNameR4B)
+      appServiceName: $(DeploymentEnvironmentNameR4B)
 
 # *********************** R5 ***********************
 - stage: redeployR5
@@ -386,7 +386,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R5
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameR5)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -398,7 +398,7 @@ stages:
   - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R5
-      webAppName: $(DeploymentEnvironmentNameSql)
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
       subscription: $(ConnectedServiceName)
       imageTag: release
 
@@ -411,8 +411,8 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R5
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
+      keyVaultName: $(DeploymentEnvironmentNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
 
 # *********************** Finalize ***********************
 - stage: DockerAddTag
