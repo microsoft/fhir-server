@@ -87,6 +87,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            // Following code block will log same information multiple times due to Mediatr bug.
+            // Link for Mediatr bug https://github.com/jbogard/MediatR.Extensions.Microsoft.DependencyInjection/issues/34
+            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default))
+            {
+                _logger.LogInformation($"Default version is:{_configuration.Value.Versioning.Default}.");
+
+                foreach (var resourcetype in _configuration.Value.Versioning.ResourceTypeOverrides)
+                {
+                    _logger.LogInformation($"{resourcetype.Key} version overridden to:{resourcetype.Value}.");
+                }
+            }
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
