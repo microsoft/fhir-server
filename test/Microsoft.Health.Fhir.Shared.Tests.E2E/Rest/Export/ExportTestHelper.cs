@@ -250,12 +250,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
         internal static bool ValidateDataFromBothSources(
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromServer,
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromStorageAccount,
-            ITestOutputHelper outputHelper,
-            bool allowDataFromServerToBeSubsetOfExportData = false)
+            ITestOutputHelper outputHelper)
         {
             bool result = true;
 
-            if (dataFromStorageAccount.Count != dataFromServer.Count && !(allowDataFromServerToBeSubsetOfExportData && dataFromServer.Count < dataFromStorageAccount.Count))
+            if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
                 outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 result = false;

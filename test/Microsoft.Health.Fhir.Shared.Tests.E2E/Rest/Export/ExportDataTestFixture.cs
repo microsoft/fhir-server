@@ -37,32 +37,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         internal DataStore DataStore { get; private set; }
 
+        // ALL versions of generated tests resources by this fixture (including soft deleted ones). Resource generation methods below add to this dictionary.
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistoryAndDeletes { get; } = new();
 
+        // TestResourcesWithHistoryAndDeletes filtered to exclude soft deleted resources (only historical and current version resources).
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithHistory => TestResourcesWithHistoryAndDeletes
             .Where(entry => !entry.Value.Meta.Extension.Any(extension =>
                 extension.Url == "http://azurehealthcareapis.com/data-extensions/deleted-state"
                 && ((FhirString)extension.Value).Value == "soft-deleted"))
             .ToDictionary(entry => entry.Key, entry => entry.Value);
 
+        // TestResourcesWithHistoryAndDeletes filtered to exclude historical resources (only soft deleted and current version resources).
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResourcesWithDeletes => TestResourcesWithHistoryAndDeletes
             .GroupBy(entry => entry.Key.resourceId)
             .Select(group => group.OrderByDescending(entry => entry.Value.Meta.LastUpdated).First())
             .ToDictionary(entry => entry.Key, entry => entry.Value);
 
+        // TestResourcesWithHistoryAndDeletes filtered to exclude soft deleted and historical resources (only current version resources).
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestResources =>
             TestResourcesWithHistory.Where(pair => TestResourcesWithDeletes.ContainsKey(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        // If the patient is deleted but the child resources are not, they should not be returned in patient centric exports.
+        // TestResourcesWithHistoryAndDeletes filtered for patient compartment tests - if the patient is deleted but the child resources are not, child resources should not be returned in patient centric exports.
         internal Dictionary<(string resourceType, string resourceId, string versionId), Resource> TestPatientCompartmentResources => TestResources
             .Where(x => x.Key.resourceType != "Encounter" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Encounter).Subject.Reference.Split("/")[1]))
             .Where(x => x.Key.resourceType != "Observation" || TestResources.Keys.Any(pat => pat.resourceType == "Patient" && pat.resourceId == (x.Value as Observation).Subject.Reference.Split("/")[1]))
             .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-        internal string FixtureTag { get; } = Guid.NewGuid().ToString();
+        internal string FixtureTag { get; } = Guid.NewGuid().ToString(); // Set once at class creation time
 
-        internal DateTime TestDataInsertionTime { get; } = DateTime.UtcNow;
+        internal DateTime TestDataInsertionTime { get; } = DateTime.UtcNow; // Set once at class creation time
 
+        // Common query parameter used by tests (tag, type, and typeFilter) to improve test performance.
         internal string ExportTestFilterQueryParameters(params string[] uniqueResourceTypes)
         {
             if (uniqueResourceTypes.Length == 0)
@@ -72,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
             var typeFilterPart = string.Join(',', uniqueResourceTypes.Select(rt => $"{rt}%3F_tag%3D{FixtureTag}"));
 
-            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}";
+            return $"_type={string.Join(',', uniqueResourceTypes)}&_typeFilter={typeFilterPart}&_since={TestDataInsertionTime:O}";
         }
 
         protected override async Task OnInitializedAsync()
@@ -80,6 +85,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await SaveTestResourcesToServer();
         }
 
+        // Generates and saves test resources to the server. ALL of these resources will be created after TestDataInsertionTime and will have the FixtureTag.
+        // NOTE: Soft-deleted resources will not have the fixture tag since soft deleted resources don't export with the resource body.
         private async Task SaveTestResourcesToServer()
         {
             void AddResourceToTestResources(Resource resource) =>
@@ -207,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             return rtn;
         }
 
-        // 27 patients, 54 encounters, and, 108 observations.
+        // Generates test patients. Current parameters will generate 27 patients, 54 encounters, and, 108 observations.
         private List<Resource> GenerateTestResources(int numberOfPatients = 27, int numberOfEncountersPerPatient = 2, int numberOfObservationsPerEncounter = 2)
         {
             var resources = new List<Resource>();

@@ -833,12 +833,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     sb.Append("DECLARE ")
                         .Append(p)
                         .Append(' ')
-                        .Append(p.SqlDbType)
-                        .Append(p.Value is string ? (p.Size <= 0 ? "(MAX)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
+                        .Append(p.SqlDbType.ToString().ToLowerInvariant())
+                        .Append(p.Value is string ? (p.Size <= 0 ? "(max)" : $"({p.Size})") : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                         .Append(" = ")
                         .Append(p.SqlDbType == SqlDbType.NChar || p.SqlDbType == SqlDbType.NText || p.SqlDbType == SqlDbType.NVarChar ? "N" : null)
-                        .Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : p.Value.ToString()))
-                        .AppendLine(";");
+                        .AppendLine(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : p.Value.ToString()));
                 }
 
                 sb.AppendLine();
@@ -852,7 +851,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.Append(sqlCommandWrapper.CommandText + string.Empty);
                 foreach (SqlParameter p in sqlCommandWrapper.Parameters)
                 {
-                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "null" : $"'{p.Value.ToString()}'"));
+                    sb.Append(p.Value is string || p.Value is DateTime ? $"'{p.Value:O}'" : (p.Value == null ? "NULL" : $"'{p.Value}'"));
                     if (!(sqlCommandWrapper.Parameters.IndexOf(p) == sqlCommandWrapper.Parameters.Count - 1))
                     {
                         sb.Append(", ");
@@ -950,17 +949,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand.Parameters.AddWithValue("@p2", tmpStartResourceSurrogateId);
                 sqlCommand.Parameters.AddWithValue("@p3", rowCount);
                 sqlCommand.CommandText = @"
-                    SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(*)
-                    FROM (SELECT TOP (@p3) ResourceSurrogateId
-                    FROM dbo.Resource
-                    WHERE ResourceTypeId = @p1
-                    AND IsHistory = 0
-                    AND IsDeleted = 0
-                    AND ResourceSurrogateId > @p2
-                    AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
-                    ORDER BY
-                    ResourceSurrogateId
-                    ) A";
+SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*)
+  FROM (SELECT TOP (@p3) ResourceSurrogateId
+          FROM dbo.Resource
+          WHERE ResourceTypeId = @p1
+            AND IsHistory = 0
+            AND IsDeleted = 0
+            AND ResourceSurrogateId > @p2
+            AND (SearchParamHash != @p0 OR SearchParamHash IS NULL)
+          ORDER BY
+               ResourceSurrogateId
+       ) A";
                 LogSqlCommand(sqlCommand);
 
                 IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
@@ -1022,7 +1021,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             using var sqlCommand = new SqlCommand();
             sqlCommand.CommandTimeout = Math.Max((int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds, 180);
             sqlCommand.Parameters.AddWithValue("@p0", resourceTypeId);
-            sqlCommand.CommandText = "SELECT ISNULL(MIN(ResourceSurrogateId), 0), ISNULL(MAX(ResourceSurrogateId), 0), COUNT(ResourceSurrogateId) FROM dbo.Resource WHERE ResourceTypeId = @p0 AND IsHistory = 0 AND IsDeleted = 0";
+            sqlCommand.CommandText = "SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0), count(*) FROM dbo.Resource WHERE ResourceTypeId = @p0 AND IsHistory = 0 AND IsDeleted = 0";
             LogSqlCommand(sqlCommand);
 
             IReadOnlyList<(long StartResourceSurrogateId, long EndResourceSurrogateId, int Count)> results = await sqlCommand.ExecuteReaderAsync(_sqlRetryService, ReaderGetSurrogateIdsAndCountForResourceType, _logger, cancellationToken);
