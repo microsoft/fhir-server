@@ -67,6 +67,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return $"{TestFhirServer.BaseAddress}{relativeUrl}";
         }
 
+        public Uri GenerateUri(string uriString)
+        {
+            if (Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri result))
+            {
+                return result;
+            }
+
+            return null;
+        }
+
         protected virtual Task OnInitializedAsync() => Task.CompletedTask;
 
         protected virtual Task OnDisposedAsync() => Task.CompletedTask;
