@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Binders;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
@@ -41,6 +42,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             });
 
             services.AddHttpContextAccessor();
+
+            services.AddSingleton<IRouter, BundleRouter>();
 
             // These are needed for IUrlResolver used by search.
             // If we update the search implementation to not use these, we should remove

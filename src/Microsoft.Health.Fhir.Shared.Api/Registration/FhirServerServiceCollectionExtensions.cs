@@ -154,7 +154,6 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
-            fhirServerBuilder.Services.AddSingleton<IRouter, BundleRouter>();
 
             return fhirServerBuilder;
         }
