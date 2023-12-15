@@ -61,11 +61,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
 
-                await RunExportWithCancel("Patient", coordJob, 2, null); // 2=coord+1 resource type
+                await RunExportWithCancel("Patient", coordJob, 2); // 2=coord+1 resource type
 
-                await RunExport("Patient,Observation", coordJob, 3, null); // 3=coord+2 resource type
+                await RunExport("Patient,Observation", coordJob, 3); // 3=coord+2 resource type
 
-                await RunExport(null, coordJob, 4, null); // 3=coord+3 resource type
+                await RunExport(null, coordJob, 4); // 4=coord+3 resource type
             }
             finally
             {
@@ -73,9 +73,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private async Task RunExportWithCancel(string resourceType, CosmosExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunExportWithCancel(string resourceType, CosmosExportOrchestratorJob coordJob, int totalJobs)
         {
-            var coorId = await RunExport(resourceType, coordJob, totalJobs, totalJobsAfterFailure);
+            var coorId = await RunExport(resourceType, coordJob, totalJobs);
             var record = (await _operationDataStore.GetExportJobByIdAsync(coorId, CancellationToken.None)).JobRecord;
             Assert.Equal(OperationStatus.Running, record.Status);
             record.Status = OperationStatus.Canceled;
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(OperationStatus.Canceled, result.JobRecord.Status);
         }
 
-        private async Task<string> RunExport(string resourceType, CosmosExportOrchestratorJob coordJob, int totalJobs, int? totalJobsAfterFailure)
+        private async Task<string> RunExport(string resourceType, CosmosExportOrchestratorJob coordJob, int totalJobs)
         {
             var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, maximumNumberOfResourcesPerQuery: 100);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
@@ -93,11 +93,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var coordId = long.Parse(result.JobRecord.Id);
             var groupId = (await _queueClient.GetJobByIdAsync(_queueType, coordId, false, CancellationToken.None)).GroupId;
 
-            await RunCoordinator(coordJob, coordId, groupId, totalJobs, totalJobsAfterFailure);
+            await RunCoordinator(coordJob, coordId, groupId, totalJobs);
             return coordId.ToString();
         }
 
-        private async Task RunCoordinator(CosmosExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs, int? totalJobsAfterFailure)
+        private async Task RunCoordinator(CosmosExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs)
         {
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(300));
