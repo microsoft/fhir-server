@@ -134,8 +134,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var contentType = context.Request.Headers.ContentType;
                 foreach (var candidate in routeCandidates)
                 {
-                    var consumes = candidate.Key.Metadata.GetMetadata<ConsumesAttribute>();
-                    if (consumes != null && consumes.ContentTypes.Any(t => string.Equals(t, contentType, StringComparison.OrdinalIgnoreCase)))
+                    var consumes = candidate.Key.Metadata.OfType<ConsumesAttribute>();
+                    if (consumes.Any(c => c.ContentTypes.Any(t => t.Equals(contentType, StringComparison.OrdinalIgnoreCase))))
                     {
                         return (candidate.Key, candidate.Value);
                     }
