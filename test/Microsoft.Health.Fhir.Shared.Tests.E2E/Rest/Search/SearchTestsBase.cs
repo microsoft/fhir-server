@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
 
-                Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+                Assert.Equal(Fixture.GenerateUri(Fixture.GenerateFullUrl(selfLink)), Fixture.GenerateUri(actualUrl));
             }
             else
             {
