@@ -13,6 +13,8 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -22,7 +24,6 @@ namespace Microsoft.Health.Fhir.Importer
 {
     internal static class Importer
     {
-        private static readonly HttpClient HttpClient = new HttpClient();
         private static readonly string Endpoints = ConfigurationManager.AppSettings["FhirEndpoints"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
@@ -35,6 +36,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
+        private static readonly bool UseAuth = bool.Parse(ConfigurationManager.AppSettings["UseAuth"]);
+        private static readonly string Audience = ConfigurationManager.AppSettings["Audience"];
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -44,6 +47,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static long epCalls = 0L;
         private static long waits = 0L;
         private static List<string> endpoints;
+        private static TokenCredential credential;
+        private static Dictionary<string, HttpClient> endpointClients = new();
 
         internal static void Run()
         {
@@ -53,6 +58,37 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             endpoints = Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            if (UseAuth)
+            {
+                var audiences = Audience.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+                if (audiences.Count == 0)
+                {
+                    audiences = endpoints;
+                }
+
+                if (audiences.Count != endpoints.Count)
+                {
+                    throw new ArgumentException("When using a custom audience, Audiences and FhirEndpoints must have the same number of values.");
+                }
+
+                credential = new DefaultAzureCredential();
+
+                for (int i = 0; i < audiences.Count; i++)
+                {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                    var handler = new BearerTokenHandler(credential, new Uri(endpoints[i]), new string[] { $"{audiences[i]}/.default" });
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                    endpointClients[endpoints[i]] = new HttpClient(handler);
+                }
+            }
+            else
+            {
+                foreach (var endpoint in endpoints)
+                {
+                    endpointClients[endpoint] = new HttpClient();
+                }
+            }
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
@@ -108,6 +144,11 @@ namespace Microsoft.Health.Fhir.Importer
                 Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
             });
             Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
+
+#pragma warning disable CA1303 // Do not pass literals as localized parameters
+            Console.WriteLine("Finishing and disposing clients");
+#pragma warning restore CA1303 // Do not pass literals as localized parameters
+            endpointClients.Clear();
         }
 
         private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
@@ -122,7 +163,7 @@ namespace Microsoft.Health.Fhir.Importer
             {
                 var retries = 0;
                 List<string> resInt;
-            retry:
+retry:
                 try
                 {
                     resInt = new List<string>();
@@ -199,7 +240,7 @@ namespace Microsoft.Health.Fhir.Importer
                 try
                 {
                     Thread.Sleep(40);
-                    var response = HttpClient.PutAsync(uri, content).Result;
+                    var response = endpointClients[endpoint].PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
                         case HttpStatusCode.OK:
