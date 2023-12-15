@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Web;
 using AngleSharp.Io;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
@@ -112,7 +113,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
                         else
                         {
-                            _logger.LogWarning("Multiple endpoint candidates {Count} found for {HttpMethod}.", routeCandidates.Count, method);
+                            var sanitizedMethod = HttpUtility.HtmlEncode(method?.Trim());
+                            _logger.LogWarning("Multiple endpoint candidates {Count} found for {HttpMethod}.", routeCandidates.Count, sanitizedMethod);
                         }
                     }
 
