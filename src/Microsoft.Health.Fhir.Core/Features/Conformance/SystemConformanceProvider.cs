@@ -92,11 +92,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             // Link for Mediatr bug https://github.com/jbogard/MediatR.Extensions.Microsoft.DependencyInjection/issues/34
             if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default))
             {
-                _logger.LogInformation("Default version is: {VersioningDefault}.", _configuration.Value.Versioning.Default);
+                _logger.LogInformation("Default version is:{VersioningDefault}.", _configuration.Value.Versioning.Default);
 
                 foreach (var resourcetype in _configuration.Value.Versioning.ResourceTypeOverrides)
                 {
-                    _logger.LogInformation($"{resourcetype.Key} version overridden to:{resourcetype.Value}.");
+                    _logger.LogInformation("{ResourceTypeKey} version overridden to:{ResourceTypeValue}.", resourcetype.Key, resourcetype.Value);
                 }
             }
         }
