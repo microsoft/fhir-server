@@ -105,13 +105,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
 
                         // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
-                        var newerJobs = existingJobs.Where(existingJob =>
+                        bool newerJobsExist = existingJobs.Any(existingJob =>
                         {
                             var existingDefinition = existingJob.DeserializeDefinition<ExportJobRecord>();
                             return existingJob.Id > jobInfo.Id && existingDefinition.ResourceType == definition.ResourceType && existingDefinition.FeedRange == definition.FeedRange;
                         });
 
-                        if (!newerJobs.Any())
+                        if (!newerJobsExist)
                         {
                             definition.Progress = exportJobRecord.Progress;
                             await _queueClient.EnqueueAsync(QueueType.Export, innerCancellationToken, jobInfo.GroupId, definitions: definition);

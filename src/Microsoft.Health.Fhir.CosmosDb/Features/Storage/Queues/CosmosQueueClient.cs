@@ -331,11 +331,6 @@ public class CosmosQueueClient : IQueueClient
             var job = jobs.Single();
             JobDefinitionWrapper item = job.MatchingJob.Single();
 
-            if (item.CancelRequested)
-            {
-                return true; // If the job is cancelled, the job data doesn't need to be updated.
-            }
-
             if (item.Version != jobInfo.Version)
             {
                 throw new JobConflictException("Job version mismatch.");

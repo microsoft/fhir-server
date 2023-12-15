@@ -492,7 +492,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                         try
                         {
-                            queryFeedRange = searchOptions.FeedRange is not null ? FeedRange.FromJsonString(searchOptions.FeedRange) : queryFeedRange;
+                            if (searchOptions.FeedRange is not null)
+                            {
+                                queryFeedRange = FeedRange.FromJsonString(searchOptions.FeedRange);
+                            }
                         }
                         catch (ArgumentException)
                         {
