@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.HtmlUi
                 services.Configure<MvcRazorRuntimeCompilationOptions>(options =>
                 {
                     options.FileProviders.Add(new EmbeddedFileProvider(typeof(CodePreviewModel).Assembly));
-                }).AddControllers().AddRazorRuntimeCompilation();
+                }).AddControllersWithViews().AddRazorRuntimeCompilation();
             }
         }
     }

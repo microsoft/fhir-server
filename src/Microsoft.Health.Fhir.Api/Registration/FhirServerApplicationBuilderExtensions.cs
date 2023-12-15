@@ -56,14 +56,12 @@ namespace Microsoft.AspNetCore.Builder
             useHttpLoggingMiddleware?.Invoke(app);
 
             app.UseCors(Constants.DefaultCorsPolicy);
-            app.UseAuthentication();
-            app.UseAuthorization();
 
             app.UseEndpoints(
                 endpoints =>
                 {
                     endpoints.MapControllers();
-                    endpoints.MapHealthChecks(
+                    /*endpoints.MapHealthChecks(
                         new PathString(KnownRoutes.HealthCheck),
                         new HealthCheckOptions
                         {
@@ -85,7 +83,7 @@ namespace Microsoft.AspNetCore.Builder
                                 httpContext.Response.ContentType = MediaTypeNames.Application.Json;
                                 await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
                             },
-                        });
+                        });*/
                 });
 
             return app;
