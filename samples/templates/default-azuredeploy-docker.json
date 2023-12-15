@@ -230,13 +230,6 @@
             "metadata": {
                 "description": "Supports parallel background task running"
             }
-        },
-        "supportsSelectableSearchParameters": {
-            "type": "bool",
-            "defaultValue": false,
-            "metadata": {
-                "description": "Determines whether the server supports selectable search parameters."
-            }
         }
     },
     "variables": {
@@ -276,8 +269,7 @@
             "FhirServer__Operations__ConvertData__Enabled": "[parameters('enableConvertData')]",
             "FhirServer__Operations__ConvertData__ContainerRegistryServers__0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]",
             "FhirServer__Operations__Reindex__Enabled": "[parameters('enableReindex')]",
-            "FhirServer__Operations__Import__Enabled": "[parameters('enableImport')]",
-            "FhirServer__CoreFeatures__SupportsSelectableSearchParameters": "[parameters('supportsSelectableSearchParameters')]"
+            "FhirServer__Operations__Import__Enabled": "[parameters('enableImport')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "sqlServerDerivedName": "[if(empty(parameters('sqlServerName')),variables('serviceName'),parameters('sqlServerName'))]",

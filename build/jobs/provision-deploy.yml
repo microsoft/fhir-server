@@ -93,7 +93,6 @@ jobs:
             $templateParameters["sqlServerName"] = "${{parameters.sqlServerName}}".ToLower()
             $templateParameters["sqlServerNewOrExisting"] = "existing"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
-            $templateParameters["supportsSelectableSearchParameters"] = "true"
         }
 
         Write-Host "Check for keyvaults in removed state..."
