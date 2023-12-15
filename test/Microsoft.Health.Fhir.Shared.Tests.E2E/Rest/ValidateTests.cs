@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
-            Assert.False(outcome.Issue.Any(x => x.Severity == OperationOutcome.IssueSeverity.Error), $"Found validation errors: {outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error).Select(x => x.Diagnostics).Aggregate((aggregate, element) => aggregate + " \r\n" + element)}");
+            Assert.False(outcome.Issue.Any(x => x.Severity == OperationOutcome.IssueSeverity.Error), $"Found validation errors: {outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error).Select(x => x.ToString()).Aggregate((aggregate, element) => aggregate + " \r\n" + element)}");
         }
 
         [Theory]
