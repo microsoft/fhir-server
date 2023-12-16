@@ -16,60 +16,40 @@ using Azure.Identity;
 
 namespace Microsoft.Health.Fhir.Importer
 {
-    /// <summary>
-    /// A HttpClient handler that sends an Access Token provided by a <see cref="TokenCredential"/> as an Authentication header.
-    /// </summary>
     public class BearerTokenHandler : DelegatingHandler
     {
-        private readonly string[] _scopes;
-        private readonly AccessTokenCache _accessTokenCache;
+        private readonly Dictionary<string, AccessTokenCache> _accessTokenCaches = new();
 
-        /// <summary>
-        /// Creates bearer token handler with default token cache settings.
-        /// </summary>
-        /// <param name="tokenCredential">Credential used to create tokens/</param>
-        /// <param name="baseAddress">Base address for the client using the credential. Used for resource based scoping via {{baseAddress}}/.default</param>
-        /// <param name="scopes">Optional scopes if you want to override the `.default` resource scope.</param>
-        public BearerTokenHandler(TokenCredential tokenCredential, Uri baseAddress, string[] scopes)
-            : this(tokenCredential, baseAddress, scopes, TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30))
+        public BearerTokenHandler(TokenCredential tokenCredential, Uri[] baseAddresses, string[] scopes)
+            : this(tokenCredential, baseAddresses, scopes, TimeSpan.FromMinutes(5), TimeSpan.FromSeconds(30))
         {
         }
 
         internal BearerTokenHandler(
             TokenCredential tokenCredential,
-            Uri baseAddress,
+            Uri[] baseAddresses,
             string[] scopes,
             TimeSpan tokenRefreshOffset,
             TimeSpan tokenRefreshRetryDelay)
         {
-            if (scopes is null or { Length: 0 })
+            if (scopes.Length == 0)
             {
-                _scopes = GetDefaultScopes(baseAddress);
-            }
-            else
-            {
-                _scopes = scopes;
+                scopes = baseAddresses.Select(ba => $"{ba.GetLeftPart(UriPartial.Authority)}/.default").ToArray();
             }
 
-            _accessTokenCache = new AccessTokenCache(tokenCredential, tokenRefreshOffset, tokenRefreshRetryDelay);
+            if (scopes.Length != baseAddresses.Length)
+            {
+                throw new ArgumentException("The number of scopes must match the number of base addresses.", nameof(scopes));
+            }
+
+            foreach (var (baseAddress, scope) in baseAddresses.Zip(scopes, (ba, s) => (ba, s)))
+            {
+                _accessTokenCaches.Add(baseAddress.GetLeftPart(UriPartial.Authority), new AccessTokenCache(tokenCredential, scope, tokenRefreshOffset, tokenRefreshRetryDelay));
+            }
+
+            InnerHandler = new HttpClientHandler();
         }
 
-        /// <summary>
-        /// Gets an access token using the AcceseTokenCache.
-        /// </summary>
-        /// <param name="cancellationToken">Async cancellation token.</param>
-        /// <returns>AccessToken object from Azure.Core.</returns>
-        public async Task<AccessToken> GetTokenAsync(CancellationToken cancellationToken)
-        {
-            return await _accessTokenCache.GetTokenAsync(_scopes, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Sends the request with the bearer token header.
-        /// </summary>
-        /// <param name="request">Incoming request message.</param>
-        /// <param name="cancellationToken">Incoming cancellation token.</param>
-        /// <returns>Response message from request.</returns>
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             // Only add header for requests that don't already have one.
@@ -83,30 +63,24 @@ namespace Microsoft.Health.Fhir.Importer
                 throw new InvalidOperationException("Bearer token authentication is not permitted for non TLS protected (https) endpoints.");
             }
 
-            var scopes = _scopes;
-            if (scopes is null or { Length: 0 })
+            if (_accessTokenCaches.TryGetValue(request.RequestUri.GetLeftPart(UriPartial.Authority), out AccessTokenCache tc))
             {
-                scopes = GetDefaultScopes(request.RequestUri);
+                AccessToken cachedToken = await tc.GetTokenAsync(cancellationToken).ConfigureAwait(false);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cachedToken.Token);
             }
-
-            AccessToken cachedToken = await _accessTokenCache.GetTokenAsync(scopes, cancellationToken).ConfigureAwait(false);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cachedToken.Token);
 
             // Send the request.
             return await base.SendAsync(request, cancellationToken);
-        }
-
-        private static string[] GetDefaultScopes(Uri requestUri)
-        {
-            var baseAddress = requestUri.GetLeftPart(UriPartial.Authority);
-            return new string[] { $"{baseAddress.TrimEnd('/')}/.default" };
         }
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _accessTokenCache.Dispose();
+                foreach (var (_, ac) in _accessTokenCaches)
+                {
+                    ac.Dispose();
+                }
             }
 
             base.Dispose(disposing);
@@ -117,6 +91,7 @@ namespace Microsoft.Health.Fhir.Importer
             private readonly SemaphoreSlim _semaphoreSlim = new(1, 1);
             private bool _disposed = false;
             private readonly TokenCredential _tokenCredential;
+            private readonly string _scope;
             private readonly TimeSpan _tokenRefreshOffset;
             private readonly TimeSpan _tokenRefreshRetryDelay;
             private AccessToken? _accessToken = null;
@@ -124,15 +99,17 @@ namespace Microsoft.Health.Fhir.Importer
 
             public AccessTokenCache(
                            TokenCredential tokenCredential,
+                           string scope,
                            TimeSpan tokenRefreshOffset,
                            TimeSpan tokenRefreshRetryDelay)
             {
                 _tokenCredential = tokenCredential;
+                _scope = scope;
                 _tokenRefreshOffset = tokenRefreshOffset;
                 _tokenRefreshRetryDelay = tokenRefreshRetryDelay;
             }
 
-            public async Task<AccessToken> GetTokenAsync(string[] scopes, CancellationToken cancellationToken)
+            public async Task<AccessToken> GetTokenAsync(CancellationToken cancellationToken)
             {
                 await _semaphoreSlim.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
@@ -141,14 +118,14 @@ namespace Microsoft.Health.Fhir.Importer
                     {
                         try
                         {
-                            _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext(scopes), cancellationToken).ConfigureAwait(false);
+                            _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext(new string[] { _scope }), cancellationToken).ConfigureAwait(false);
                             _accessTokenExpiration = _accessToken.Value.ExpiresOn;
                         }
                         catch (AuthenticationFailedException)
                         {
                             // If the token acquisition fails, retry after the delay.
                             await Task.Delay(_tokenRefreshRetryDelay, cancellationToken).ConfigureAwait(false);
-                            _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext(scopes), cancellationToken).ConfigureAwait(false);
+                            _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext(new string[] { _scope }), cancellationToken).ConfigureAwait(false);
                             _accessTokenExpiration = _accessToken.Value.ExpiresOn;
                         }
                     }

@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
-        private static readonly bool UseAuth = bool.Parse(ConfigurationManager.AppSettings["UseAuth"]);
-        private static readonly string Audience = ConfigurationManager.AppSettings["Audience"];
+        private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
+        private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -48,7 +48,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static long waits = 0L;
         private static List<string> endpoints;
         private static TokenCredential credential;
-        private static Dictionary<string, HttpClient> endpointClients = new();
+        private static HttpClient httpClient = new();
+        private static DelegatingHandler handler = null;
 
         internal static void Run()
         {
@@ -59,35 +60,22 @@ namespace Microsoft.Health.Fhir.Importer
 
             endpoints = Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
 
-            if (UseAuth)
+            if (UseFhirAuth)
             {
-                var audiences = Audience.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
-                if (audiences.Count == 0)
+                var scopes = FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+                if (scopes.Count == 0)
                 {
-                    audiences = endpoints;
+                    scopes = endpoints.Select(x => $"{x}/.default").ToList();
                 }
 
-                if (audiences.Count != endpoints.Count)
+                if (scopes.Count != endpoints.Count)
                 {
-                    throw new ArgumentException("When using a custom audience, Audiences and FhirEndpoints must have the same number of values.");
+                    throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
                 }
 
                 credential = new DefaultAzureCredential();
-
-                for (int i = 0; i < audiences.Count; i++)
-                {
-#pragma warning disable CA2000 // Dispose objects before losing scope
-                    var handler = new BearerTokenHandler(credential, new Uri(endpoints[i]), new string[] { $"{audiences[i]}/.default" });
-#pragma warning restore CA2000 // Dispose objects before losing scope
-                    endpointClients[endpoints[i]] = new HttpClient(handler);
-                }
-            }
-            else
-            {
-                foreach (var endpoint in endpoints)
-                {
-                    endpointClients[endpoint] = new HttpClient();
-                }
+                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), scopes.ToArray());
+                httpClient = new HttpClient(handler);
             }
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
@@ -148,7 +136,6 @@ namespace Microsoft.Health.Fhir.Importer
 #pragma warning disable CA1303 // Do not pass literals as localized parameters
             Console.WriteLine("Finishing and disposing clients");
 #pragma warning restore CA1303 // Do not pass literals as localized parameters
-            endpointClients.Clear();
         }
 
         private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
@@ -240,7 +227,7 @@ retry:
                 try
                 {
                     Thread.Sleep(40);
-                    var response = endpointClients[endpoint].PutAsync(uri, content).Result;
+                    var response = httpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
                         case HttpStatusCode.OK:
