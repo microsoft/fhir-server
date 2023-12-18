@@ -47,9 +47,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // If the parameter being sorted on is part of a filter then we don't need to run the seperate search for resources that are missing a value for the field being sorted on.
             // If the parameter being sorted on is not part of a filter we need to run a seperate search to get resources that don't have a value for the field being sorted on.
             bool matchFound = false;
+            bool isSortHasMissingModifier = false;
             for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
                 Expression updatedExpression = expression.SearchParamTableExpressions[i].Predicate.AcceptVisitor(this, context);
+
+                if (expression.SearchParamTableExpressions[i].Predicate is MissingSearchParameterExpression)
+                {
+                    MissingSearchParameterExpression misingSPExpression = (MissingSearchParameterExpression)expression.SearchParamTableExpressions[i].Predicate;
+                    isSortHasMissingModifier = !misingSPExpression.IsMissing && context.Sort[0].searchParameterInfo.Name.Equals(misingSPExpression.Parameter.Name, System.StringComparison.OrdinalIgnoreCase);
+                }
+
                 if (updatedExpression == null)
                 {
                     matchFound = true;
@@ -61,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             newTableExpressions.AddRange(expression.SearchParamTableExpressions);
             var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
 
-            if (!matchFound)
+            if (!matchFound && !isSortHasMissingModifier)
             {
                 // We are running a sort query where the parameter by which we are sorting
                 // is not present as part of other search parameters in the query.
