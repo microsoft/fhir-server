@@ -58,7 +58,11 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
 
-            services.AddControllers()
+            services.AddControllers(options =>
+                {
+                    options.EnableEndpointRouting = true;
+                    options.RespectBrowserAcceptHeader = true;
+                })
                 .AddNewtonsoftJson(options =>
                 {
                     options.SerializerSettings.DateParseHandling = Newtonsoft.Json.DateParseHandling.DateTimeOffset;
