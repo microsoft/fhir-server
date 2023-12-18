@@ -146,9 +146,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// Return all the values of constants of the specified type
         /// </summary>
         /// <returns>List of constant values</returns>
-        private static IList<string> GetAnonymousOperations()
+        private static List<string> GetAnonymousOperations()
         {
-            IList<string> anonymousOperations = new List<string>();
+            List<string> anonymousOperations = new List<string>();
             FieldInfo[] fieldInfos = typeof(FhirAnonymousOperationType).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
             // Go through the list and only pick out the constants

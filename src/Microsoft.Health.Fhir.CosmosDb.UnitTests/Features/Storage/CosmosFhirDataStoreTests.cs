@@ -19,7 +19,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -119,6 +118,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal("token", continuationToken);
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAQuery_WhenFetchingSubsequentPagesTimesOut_ReturnsExistingResults()
         {
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds = 0;
 
             // lock the time
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => time))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(time)))
             {
                 (IReadOnlyList<int> results, string continuationToken) =
                     await _dataStore.ExecuteDocumentQueryAsync<int>(
@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Assert.Equal("token", continuationToken);
             }
         }
+#endif
 
         [Fact]
         public async Task GivenAQueryWhereItemCountCanBeExceeded_WhenExecuted_FetchesSubsequentPages()

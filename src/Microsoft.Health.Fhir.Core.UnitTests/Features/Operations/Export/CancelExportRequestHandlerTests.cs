@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -70,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Null(outcome.JobRecord.CanceledTime);
         }
 
+#if NET8_0_OR_GREATER
         [Theory]
         [InlineData(OperationStatus.Queued)]
         [InlineData(OperationStatus.Running)]
@@ -79,7 +79,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var instant = new DateTimeOffset(2019, 5, 3, 22, 45, 15, TimeSpan.FromMinutes(-60));
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
+            Microsoft.Extensions.Time.Testing.FakeTimeProvider timeProvider = new(instant);
+            using (Mock.Property(() => ClockResolver.TimeProvider, timeProvider))
             {
                 outcome = await SetupAndExecuteCancelExportAsync(operationStatus, HttpStatusCode.Accepted);
             }
@@ -90,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _fhirOperationDataStore.Received(1).UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, _cancellationToken);
         }
+#endif
 
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingExportJobEncountersJobConflictException_ThenItWillBeRetried()

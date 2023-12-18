@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Importer
             Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
-        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
+        private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Importer
             {
                 var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
                 var idShort = jsonString.Substring(idStart, 50);
-                var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var idEnd = idShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceId = idShort.Substring(0, idEnd);
                 if (string.IsNullOrEmpty(resourceId))
                 {
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Importer
 
                 var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
                 var rtShort = jsonString.Substring(rtStart, 50);
-                var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var rtEnd = rtShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceType = rtShort.Substring(0, rtEnd);
                 if (string.IsNullOrEmpty(resourceType))
                 {

@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (!_cancellationTokenSource.IsCancellationRequested)
             {
-                _cancellationTokenSource.Cancel();
+                await _cancellationTokenSource.CancelAsync();
             }
 
             if (_rebuilder != null)

@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class FormatterExtensions
     {
-        private static readonly IDictionary<ResourceFormat, string> ResourceFormatContentType = new Dictionary<ResourceFormat, string>
+        private static readonly Dictionary<ResourceFormat, string> ResourceFormatContentType = new Dictionary<ResourceFormat, string>
         {
             { ResourceFormat.Json, KnownContentTypes.JsonContentType },
             { ResourceFormat.Xml, KnownContentTypes.XmlContentType },

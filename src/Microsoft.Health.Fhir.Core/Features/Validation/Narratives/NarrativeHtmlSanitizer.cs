@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
     {
         private readonly ILogger _logger;
 
-        private static readonly ISet<string> AllowedElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> AllowedElements = new(StringComparer.OrdinalIgnoreCase)
         {
             // https://www.hl7.org/fhir/narrative-definitions.html#Narrative.div
             "a",
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             "var",
         };
 
-        private static readonly ISet<string> AllowedAttributes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> AllowedAttributes = new(StringComparer.OrdinalIgnoreCase)
         {
             // https://www.hl7.org/fhir/narrative-definitions.html#Narrative.div
             "abbr",
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
         };
 
         // Obvious invalid structural parsing errors to report
-        private static readonly ISet<HtmlParseError> RaiseErrorTypes = new HashSet<HtmlParseError>
+        private static readonly HashSet<HtmlParseError> RaiseErrorTypes = new HashSet<HtmlParseError>
         {
             HtmlParseError.AmbiguousOpenTag,
             HtmlParseError.BogusComment,

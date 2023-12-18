@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Data;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -39,8 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (_statusResults == null)
             {
-                using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
-                using TextReader reader = new StreamReader(stream);
+                await using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
+                using var reader = new StreamReader(stream);
 #pragma warning disable CA2016
                 var content = await reader.ReadToEndAsync();
 #pragma warning restore CA2016
