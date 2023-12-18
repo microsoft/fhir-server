@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             Microsoft.Extensions.Logging.ILogger logger = null)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
-            IList<Tuple<string, string>> filteredParameters = conditionalParameters
+            List<Tuple<string, string>> filteredParameters = conditionalParameters
                 .Where(x => !_excludedParameters.Contains(x.Item1, StringComparer.OrdinalIgnoreCase))
                 .ToList();
 

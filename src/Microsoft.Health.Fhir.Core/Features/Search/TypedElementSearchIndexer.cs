@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
-        private IReadOnlyList<ISearchValue> ExtractSearchValues(
+        private List<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
             SearchParamType? searchParameterType,
             IReadOnlyList<string> allowedReferenceResourceTypes,

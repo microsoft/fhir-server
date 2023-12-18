@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Importer
 #pragma warning restore CA1303 // Do not pass literals as localized parameters
         }
 
-        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
+        private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
@@ -296,7 +296,7 @@ retry:
             {
                 var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
                 var idShort = jsonString.Substring(idStart, 50);
-                var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var idEnd = idShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceId = idShort.Substring(0, idEnd);
                 if (string.IsNullOrEmpty(resourceId))
                 {
@@ -305,7 +305,7 @@ retry:
 
                 var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
                 var rtShort = jsonString.Substring(rtStart, 50);
-                var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var rtEnd = rtShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceType = rtShort.Substring(0, rtEnd);
                 if (string.IsNullOrEmpty(resourceType))
                 {

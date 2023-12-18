@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Web
             return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
-        private static IReadOnlyCollection<ApiScope> GenerateSmartClinicalScopes()
+        private static List<ApiScope> GenerateSmartClinicalScopes()
         {
             ModelExtensions.SetModelInfoProvider();
             var resourceTypes = ModelInfoProvider.Instance.GetResourceTypeNames();
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Web
             return scopes;
         }
 
-        private static IEnumerable<ClientClaim> CreateFhirUserClaims(string userId, string host)
+        private static ClientClaim[] CreateFhirUserClaims(string userId, string host)
         {
             string userType = null;
 
@@ -209,11 +209,11 @@ namespace Microsoft.Health.Fhir.Web
                 userType = "System";
             }
 
-            return new ClientClaim[]
-            {
+            return
+            [
                 new ClientClaim("appid", userId),
                 new ClientClaim("fhirUser", $"{host}{userType}/" + userId),
-            };
+            ];
         }
 
         private sealed class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource

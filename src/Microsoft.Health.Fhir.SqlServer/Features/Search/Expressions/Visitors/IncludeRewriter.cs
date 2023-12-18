@@ -121,8 +121,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "This is a public signature.")]
             public IDictionary<SearchParamTableExpression, IList<SearchParamTableExpression>> OutgoingEdges { get; private set; }
 
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "This is a public signature.")]
             public IDictionary<SearchParamTableExpression, int> IncomingEdgesCount { get; private set; }
 
             public IEnumerable<SearchParamTableExpression> NodesWithoutIncomingEdges

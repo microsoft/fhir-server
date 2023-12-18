@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     internal static class SearchParameterDefinitionBuilder
     {
-        private static readonly ISet<Uri> _missingExpressionsInR5 = new HashSet<Uri>
+        private static readonly HashSet<Uri> _missingExpressionsInR5 = new HashSet<Uri>
         {
             new("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"),
             new("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             using Stream stream = modelInfoProvider.OpenVersionedFileStream(embeddedResourceName, embeddedResourceNamespace, assembly);
 
-            using TextReader reader = new StreamReader(stream);
+            using var reader = new StreamReader(stream);
             var data = reader.ReadToEnd();
             var rawResource = new RawResource(data, FhirResourceFormat.Json, true);
 
