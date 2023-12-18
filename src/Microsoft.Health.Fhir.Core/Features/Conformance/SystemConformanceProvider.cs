@@ -88,8 +88,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
 
-            // Following code block will log same information multiple times due to Mediatr bug.
-            // Link for Mediatr bug https://github.com/jbogard/MediatR.Extensions.Microsoft.DependencyInjection/issues/34
             if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default))
             {
                 _logger.LogInformation("Default version is:{VersioningDefault}.", _configuration.Value.Versioning.Default);
