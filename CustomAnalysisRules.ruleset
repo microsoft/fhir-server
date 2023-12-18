@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<RuleSet Name="FHIR Analysis Rules" Description="The code analysis rules used for the FHIR server C# source projects." ToolsVersion="16.0">
+<RuleSet Name="FHIR Analysis Rules" Description="The code analysis rules used for the FHIR server C# source projects." ToolsVersion="17.0">
   <Include Path="minimumrecommendedrules.ruleset" Action="Default" />
   <Include Path="securityrules.ruleset" Action="Default" />
   <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
@@ -16,6 +16,8 @@
     <Rule Id="CA1062" Action="Info" />
     <Rule Id="CA1508" Action="Info" />
     <Rule Id="CA1805" Action="Info" />
+    <Rule Id="CA1860" Action="Info" />
+    <Rule Id="CA1863" Action="Info" />
   </Rules>
   <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
     <Rule Id="CA1054" Action="Info" />

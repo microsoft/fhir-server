@@ -107,10 +107,7 @@ namespace Microsoft.AspNetCore.Builder
 
             public async Task Invoke(HttpContext context)
             {
-                if (context == null)
-                {
-                    throw new ArgumentNullException(nameof(context));
-                }
+                ArgumentNullException.ThrowIfNull(context, nameof(context));
 
                 var originalPathBase = context.Request.PathBase;
                 context.Request.PathBase = originalPathBase.Add(_pathBase);

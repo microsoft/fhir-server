@@ -150,11 +150,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return s;
         }
 
-        private static IReadOnlyList<string> Split(string s, char separator)
+        private static List<string> Split(string s, char separator)
         {
             EnsureArg.IsNotNull(s, nameof(s));
 
-            List<string> results = new List<string>();
+            var results = new List<string>();
 
             bool isEscaping = false;
 

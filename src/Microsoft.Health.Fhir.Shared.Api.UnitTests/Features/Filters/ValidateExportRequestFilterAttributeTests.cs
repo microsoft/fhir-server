@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = acceptHeader;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
+            context.HttpContext.Request.Headers[PreferHeaderName] = preferHeader;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
 
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -93,8 +93,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             var queryParams = new Dictionary<string, StringValues>()
             {
@@ -111,8 +111,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithAnonymizedExportQueryParam_WhenGettingAnDefaultExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             var queryParams = new Dictionary<string, StringValues>();
             foreach (string queryParamName in queryParamNames)
@@ -133,8 +133,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithCorrectHeaderAndSupportedQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             var queryParams = new Dictionary<string, StringValues>();
             foreach (string queryParamName in queryParamNames)
@@ -154,8 +154,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithCorrectHeaderAndSupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string outputFormat)
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             var queryParams = new Dictionary<string, StringValues>();
             queryParams.Add(KnownQueryParameterNames.OutputFormat, outputFormat);
@@ -169,8 +169,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithCorrectHeaderAndUnsupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             var queryParams = new Dictionary<string, StringValues>();
             queryParams.Add(KnownQueryParameterNames.OutputFormat, "invalid");
@@ -184,8 +184,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.Accept] = CorrectAcceptHeaderValue;
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             _filter.OnActionExecuting(context);
         }

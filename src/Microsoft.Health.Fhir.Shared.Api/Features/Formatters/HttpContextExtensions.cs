@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
@@ -39,14 +41,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             return SummaryType.False;
         }
 
-        public static string[] GetElementsOrDefault(this HttpContext context)
+        public static IReadOnlyList<string> GetElementsOrDefault(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Elements].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) &&
                 (context.Response.StatusCode == (int)HttpStatusCode.OK || context.Response.StatusCode == (int)HttpStatusCode.Created))
             {
-                var elements = query.Split(new char[1] { ',' });
+                IReadOnlyList<string> elements = query.SplitByOrSeparator();
                 return elements;
             }
 
@@ -72,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
         public static void AllowSynchronousIO(this HttpContext context)
         {
-            var bodyControlFeature = context.Features.Get<IHttpBodyControlFeature>();
+            IHttpBodyControlFeature bodyControlFeature = context.Features.Get<IHttpBodyControlFeature>();
             if (bodyControlFeature != null)
             {
                 bodyControlFeature.AllowSynchronousIO = true;

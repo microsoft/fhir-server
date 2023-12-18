@@ -53,11 +53,18 @@ SELECT count(*)
     AND I.index_id NOT IN (0,1)
     AND EXISTS (SELECT * FROM sys.partition_schemes PS WHERE PS.data_space_id = I.data_space_id AND name = 'PartitionScheme_ResourceTypeId')
     AND EXISTS (SELECT * FROM sys.index_columns IC JOIN sys.columns C ON C.object_id = I.object_id AND C.column_id = IC.column_id AND IC.is_included_column = 0 AND C.name = 'ResourceTypeId')
-    AND O.name NOT IN ('Resource','TokenTokenCompositeSearchParam','TokenStringCompositeSearchParam')
+    AND O.name <> 'Resource'
     AND is_disabled = @IsDisabled";
             command.Parameters.AddWithValue("@IsDisabled", isDisabled);
             var cnt = await command.ExecuteScalarAsync(CancellationToken.None);
-            Assert.Equal(27, cnt);
+            if (isDisabled)
+            {
+                Assert.Equal(27, cnt); // count of all disabled indexes
+            }
+            else
+            {
+                Assert.Equal(31, cnt); // count of all qualified indexes
+            }
         }
     }
 }
