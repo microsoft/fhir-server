@@ -25,12 +25,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private bool _disposed = false;
         private readonly ILogger _logger;
         private readonly MemoryCache _cache;
-        private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
+        private readonly TemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly ConvertDataConfiguration _convertDataConfig;
 
         public DefaultTemplateProvider(
             IOptions<ConvertDataConfiguration> convertDataConfig,
-            ILogger<IConvertDataTemplateProvider> logger)
+            ILogger<DefaultTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(convertDataConfig, nameof(convertDataConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             {
                 SizeLimit = _convertDataConfig.CacheSizeLimit,
             });
+
             _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(_convertDataConfig.TemplateCollectionOptions));
         }
 
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         {
             var accessToken = string.Empty;
 
-            _logger.LogInformation("Using the default template collection for data conversion.");
+            _logger.LogInformation("Using the default template collection for data conversion");
 
             try
             {
@@ -66,12 +67,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             }
             catch (TemplateManagementException templateEx)
             {
-                _logger.LogWarning(templateEx, "Template collection is invalid.");
+                _logger.LogWarning(templateEx, "Template collection is invalid");
                 throw new TemplateCollectionErrorException(string.Format(Core.Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
             }
             catch (Exception unhandledEx)
             {
-                _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection.");
+                _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection");
                 throw new FetchTemplateCollectionFailedException(string.Format(Core.Resources.FetchTemplateCollectionFailed, unhandledEx.Message), unhandledEx);
             }
         }

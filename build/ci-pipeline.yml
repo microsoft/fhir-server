@@ -33,7 +33,7 @@ stages:
   displayName: 'Cleanup Integration Test DBs'
   dependsOn: []
   jobs:
-  - job: provisionEnvironment
+  - job: cleanup
     pool:
       name: '$(SharedLinuxPool)'
       vmImage: '$(LinuxVmImage)'
@@ -50,7 +50,7 @@ stages:
             $resources = Get-AzResource -ResourceGroupName $(ResourceGroupName) -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
             foreach ($resource in $resources) {
               Write-Host "Cleaning up $($resource.ResourceName)"
-              Remove-AzResource -ResourceId $resource.ResourceId
+              Remove-AzResource -ResourceId $resource.ResourceId -Force
             }
           }
           
@@ -65,7 +65,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet7
+  - job: Windows_dotnet8
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -156,42 +156,6 @@ stages:
       keyVaultName: $(DeploymentEnvironmentName)
       appServiceName: $(DeploymentEnvironmentName)
 
-- stage: rollbackStu3
-  displayName: 'Rollback STU3 CosmosDB Site'
-  dependsOn:
-  - testStu3
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: rollbackStu3Sql
-  displayName: 'Rollback STU3 SQL Site'
-  dependsOn:
-  - testStu3
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: testStu3Rollback
-  displayName: 'Run Stu3 Rollback Tests'
-  dependsOn:
-  - rollbackStu3
-  - rollbackStu3Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
-
 # *********************** R4 ***********************
 - stage: redeployR4
   displayName: 'Redeploy R4 CosmosDB Site'
@@ -229,42 +193,6 @@ stages:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
       appServiceName: $(DeploymentEnvironmentNameR4)
-
-- stage: rollbackR4
-  displayName: 'Rollback R4 CosmosDB Site'
-  dependsOn:
-  - testR4
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: rollbackR4Sql
-  displayName: 'Rollback R4 SQL Site'
-  dependsOn:
-  - testR4
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: testR4Rollback
-  displayName: 'Run R4 Rollback Tests'
-  dependsOn:
-  - rollbackR4
-  - rollbackR4Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
 
 # *********************** R4B ***********************
 - stage: redeployR4B
@@ -304,42 +232,6 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR4B)
       appServiceName: $(DeploymentEnvironmentNameR4B)
 
-- stage: rollbackR4B
-  displayName: 'Rollback R4B CosmosDB Site'
-  dependsOn:
-  - testR4B
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: rollbackR4BSql
-  displayName: 'Rollback R4B SQL Site'
-  dependsOn:
-  - testR4B
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4B
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: testR4BRollback
-  displayName: 'Run R4B Rollback Tests'
-  dependsOn:
-  - rollbackR4B
-  - rollbackR4BSql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4B
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
-
 # *********************** R5 ***********************
 - stage: redeployR5
   displayName: 'Redeploy R5 CosmosDB Site'
@@ -378,50 +270,14 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR5)
       appServiceName: $(DeploymentEnvironmentNameR5)
 
-- stage: rollbackR5
-  displayName: 'Rollback R5 CosmosDB Site'
-  dependsOn:
-  - testR5
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: rollbackR5Sql
-  displayName: 'Rollback R5 SQL Site'
-  dependsOn:
-  - testR5
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: release
-
-- stage: testR5Rollback
-  displayName: 'Run R5 Rollback Tests'
-  dependsOn:
-  - rollbackR5
-  - rollbackR5Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentName)
-      appServiceName: $(DeploymentEnvironmentName)
-
 # *********************** Finalize ***********************
 - stage: DockerAddTag
   displayName: 'Docker add main tag'
   dependsOn:
-  - testStu3Rollback
-  - testR4Rollback
-  - testR4BRollback
-  - testR5Rollback
+  - testStu3
+  - testR4
+  - testR4B
+  - testR5
   jobs:
   - template: ./jobs/docker-add-tag.yml
     parameters:

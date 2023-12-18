@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return ToSaveOutcomeResult(saveOutcome);
         }
 
-        private IActionResult ToSaveOutcomeResult(SaveOutcome saveOutcome)
+        private FhirResult ToSaveOutcomeResult(SaveOutcome saveOutcome)
         {
             switch (saveOutcome.Outcome)
             {
@@ -444,7 +444,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (maxDeleteCount.HasValue)
             {
-                Response.Headers.Add(KnownHeaders.ItemsDeleted, (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture));
+                Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
             }
 
             return FhirResult.NoContent().SetETagHeader(response?.WeakETag);
