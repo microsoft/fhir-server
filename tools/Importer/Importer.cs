@@ -49,7 +49,9 @@ namespace Microsoft.Health.Fhir.Importer
         private static List<string> endpoints;
         private static TokenCredential credential;
         private static HttpClient httpClient = new();
-        private static DelegatingHandler handler = null;
+        private static DelegatingHandler handler;
+
+#pragma warning disable SA1010 // Opening square brackets should be spaced correctly. Fixed https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745 but not available yet.
 
         internal static void Run()
         {
@@ -58,11 +60,11 @@ namespace Microsoft.Health.Fhir.Importer
                 throw new ArgumentException("FhirEndpoints value is empty");
             }
 
-            endpoints = Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+            endpoints = [.. Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries)];
 
             if (UseFhirAuth)
             {
-                var scopes = FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+                List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
                 if (scopes.Count == 0)
                 {
                     scopes = endpoints.Select(x => $"{x}/.default").ToList();
@@ -74,7 +76,7 @@ namespace Microsoft.Health.Fhir.Importer
                 }
 
                 credential = new DefaultAzureCredential();
-                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), scopes.ToArray());
+                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
                 httpClient = new HttpClient(handler);
             }
 
