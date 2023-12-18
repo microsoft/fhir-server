@@ -134,10 +134,6 @@ namespace Microsoft.Health.Fhir.Importer
                 Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
             });
             Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
-
-#pragma warning disable CA1303 // Do not pass literals as localized parameters
-            Console.WriteLine("Finishing and disposing clients");
-#pragma warning restore CA1303 // Do not pass literals as localized parameters
         }
 
         private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
