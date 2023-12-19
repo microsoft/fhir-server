@@ -71,7 +71,7 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@2.205.0  # Using a full version temporarily to fix https://github.com/microsoft/azure-pipelines-tasks/issues/16990
+  - task: VSTest@3
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
       testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
@@ -175,7 +175,7 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@2.205.0  # Using a full version temporarily to fix https://github.com/microsoft/azure-pipelines-tasks/issues/16990
+  - task: VSTest@3
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
       testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.

@@ -39,7 +39,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
-  - task: VSTest@2.205.0  # Using a full version temporarily to fix https://github.com/microsoft/azure-pipelines-tasks/issues/16990
+  - task: VSTest@3
     displayName: 'Run Integration Tests'
     inputs:
       testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
