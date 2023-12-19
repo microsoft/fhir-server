@@ -94,7 +94,7 @@ steps:
 
         dotnet dev-certs https
 
-  - task: VSTest@2
+  - task: VSTest@2.205.0  # Using a full version temporarily to fix https://github.com/microsoft/azure-pipelines-tasks/issues/16990
     displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
     inputs:
       testSelector: 'testAssemblies'
