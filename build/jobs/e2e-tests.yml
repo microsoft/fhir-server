@@ -99,7 +99,7 @@ steps:
     inputs:
       testSelector: 'testAssemblies'
       testAssemblyVer2: '**/*${{ parameters.version }}.Tests.E2E*.dll'
-      searchFolder: '$(Agent.TempDirectory)/E2ETests/''
+      searchFolder: '$(Agent.TempDirectory)/E2ETests/'
       testFiltercriteria: "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
       rerunFailedTests: true
