@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                 foreach (var resourcetype in _configuration.Value.Versioning.ResourceTypeOverrides)
                 {
-                    _logger.LogInformation("{ResourceTypeKey} version overridden to:{ResourceTypeValue}.", resourcetype.Key, resourcetype.Value);
+                    _logger.LogInformation("{ResourceTypeKey} version overridden to:{ResourceTypeVersioningOverride}.", resourcetype.Key, resourcetype.Value);
                 }
             }
         }
