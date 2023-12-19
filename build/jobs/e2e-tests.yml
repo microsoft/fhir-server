@@ -105,7 +105,8 @@ steps:
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
-      customBatchSizeValue: 3000
+      batchingBasedOnAgentsOption: 'customBatchSize'
+      customBatchSizeValue: '9999999'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
