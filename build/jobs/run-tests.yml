@@ -49,6 +49,7 @@ jobs:
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
+      customBatchSizeValue: 3000
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
       'CosmosDb:Key': $(CosmosDb--Key)
