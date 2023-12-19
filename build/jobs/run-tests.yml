@@ -43,8 +43,8 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
-      testAssemblyVer2: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll"' # Required when testSelector = testAssemblies. Test files.
-      searchFolder: "$(System.ArtifactsDirectory)" # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
+      testAssemblyVer2: '**/*${{ parameters.version }}.Tests.Integration*.dll"' # Required when testSelector = testAssemblies. Test files.
+      searchFolder: '$(Agent.TempDirectory)/IntegrationTests' # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
       testRunTitle: '${{ parameters.version }} Integration' # Optional. Test run title.
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
