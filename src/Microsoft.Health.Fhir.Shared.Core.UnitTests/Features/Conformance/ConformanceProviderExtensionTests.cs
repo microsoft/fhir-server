@@ -7,6 +7,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
@@ -33,14 +34,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [InlineData(ResourceVersionPolicy.VersionedUpdate, true)]
         public async void GivenCoreConfigWithVersioningPolicy_WhenCheckingIfKeepHistory_ThenCorrectValueIsReturned(ResourceVersionPolicy versioningPolicy, bool expectedKeepHistory)
         {
-            const ResourceType resourceType = ResourceType.Patient;
-
             CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, versioningPolicy);
+            CapabilityStatementMock.SetupMockResource(statement, KnownResourceTypes.Patient, null, null, versioningPolicy);
 
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
 
-            bool actualKeepHistory = await _conformanceProvider.CanKeepHistory(resourceType.ToString(), CancellationToken.None);
+            bool actualKeepHistory = await _conformanceProvider.CanKeepHistory(KnownResourceTypes.Patient, CancellationToken.None);
             Assert.Equal(expectedKeepHistory, actualKeepHistory);
         }
     }
