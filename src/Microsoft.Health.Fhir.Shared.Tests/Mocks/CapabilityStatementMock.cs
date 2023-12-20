@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
@@ -28,14 +29,18 @@ namespace Microsoft.Health.Fhir.Tests.Common.Mocks
 
         public static void SetupMockResource(
             CapabilityStatement capability,
-            ResourceType type,
+            string resourceType,
             IEnumerable<TypeRestfulInteraction> interactions,
             IEnumerable<SearchParamComponent> searchParams = null,
             ResourceVersionPolicy? versioningPolicy = null)
         {
             capability.Rest[0].Resource.Add(new ResourceComponent
             {
-                Type = type,
+#if Stu3
+                Type = Enum.Parse<ResourceType>(resourceType),
+#else
+                Type = resourceType,
+#endif
                 Interaction = interactions?.Select(x => new ResourceInteractionComponent { Code = x }).ToList(),
                 SearchParam = searchParams?.ToList(),
                 Versioning = versioningPolicy,

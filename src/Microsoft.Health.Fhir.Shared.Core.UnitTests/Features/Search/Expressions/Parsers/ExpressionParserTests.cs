@@ -19,6 +19,7 @@ using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SearchModifierCode = Microsoft.Health.Fhir.ValueSets.SearchModifierCode;
 using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers

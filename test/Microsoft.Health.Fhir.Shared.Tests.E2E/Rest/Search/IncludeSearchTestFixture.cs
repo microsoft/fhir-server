@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public Organization DeletedOrganization { get; private set; }
 
-        public Device DeletedDevice { get; private set; }
+        public Resource DeletedDevice { get; private set; }
 
         public Practitioner Practitioner { get; private set; }
 
@@ -302,8 +302,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             Agent = new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
 #else
-                        IntentElement = new Code<MedicationRequest.medicationRequestIntent> { Value = MedicationRequest.medicationRequestIntent.Order },
-                        StatusElement = new Code<MedicationRequest.medicationrequestStatus> { Value = MedicationRequest.medicationrequestStatus.Completed },
+                        IntentElement = new Code<MedicationRequest.MedicationRequestIntent> { Value = MedicationRequest.MedicationRequestIntent.Order },
+                        StatusElement = new Code<MedicationRequest.MedicationrequestStatus> { Value = MedicationRequest.MedicationrequestStatus.Completed },
                         Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
 
 #endif
