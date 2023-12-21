@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web;
 using AngleSharp.Io;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -51,19 +53,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             try
             {
-                string[] conditionalHeaderNames =
-                {
-                    HeaderNames.IfMatch,
-                    HeaderNames.IfModifiedSince,
-                    HeaderNames.IfNoneMatch,
-                    KnownHeaders.IfNoneExist,
-                };
-
                 var routeCandidates = new List<KeyValuePair<RouteEndpoint, RouteValueDictionary>>();
                 var endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
                 var path = context.HttpContext.Request.Path;
                 var method = context.HttpContext.Request.Method;
-                var conditional = conditionalHeaderNames.Any(name => context.HttpContext.Request.Headers?.ContainsKey(name) ?? false);
 
                 foreach (var endpoint in endpoints)
                 {
@@ -80,58 +73,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         continue;
                     }
 
-                    if (!CheckConsumesAttribueIfPresent(context.HttpContext, endpoint))
-                    {
-                        continue;
-                    }
-
                     routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
                 }
 
-                if (routeCandidates.Count > 0)
+                (RouteEndpoint routeEndpointMatch, RouteValueDictionary routeValuesMatch) = FindRouteEndpoint(context.HttpContext, routeCandidates);
+                if (routeEndpointMatch != null && routeValuesMatch != null)
                 {
-                    RouteEndpoint routeEndpointBestMatch = null;
-                    RouteValueDictionary routeValuesBestMatch = null;
-                    if (routeCandidates.Count == 1)
+                    if (routeEndpointMatch.RoutePattern?.RequiredValues != null)
                     {
-                        routeEndpointBestMatch = routeCandidates[0].Key;
-                        routeValuesBestMatch = routeCandidates[0].Value;
-                    }
-                    else
-                    {
-                        if (method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase))
+                        foreach (var requiredValue in routeEndpointMatch.RoutePattern.RequiredValues)
                         {
-                            foreach (var candidate in routeCandidates)
-                            {
-                                if (conditional == (candidate.Key.RoutePattern?.RequiredValues?["action"]?.ToString()?.Contains("Conditional", StringComparison.OrdinalIgnoreCase) ?? false))
-                                {
-                                    routeEndpointBestMatch = candidate.Key;
-                                    routeValuesBestMatch = candidate.Value;
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            var sanitizedMethod = HttpUtility.HtmlEncode(method?.Trim());
-                            _logger.LogWarning("Multiple endpoint candidates {Count} found for {HttpMethod}.", routeCandidates.Count, sanitizedMethod);
+                            routeValuesMatch.Add(requiredValue.Key, requiredValue.Value);
                         }
                     }
 
-                    if (routeEndpointBestMatch != null && routeValuesBestMatch != null)
-                    {
-                        if (routeEndpointBestMatch.RoutePattern?.RequiredValues != null)
-                        {
-                            foreach (var requiredValue in routeEndpointBestMatch.RoutePattern.RequiredValues)
-                            {
-                                routeValuesBestMatch.Add(requiredValue.Key, requiredValue.Value);
-                            }
-                        }
-
-                        context.Handler = routeEndpointBestMatch.RequestDelegate;
-                        context.RouteData = new RouteData(routeValuesBestMatch);
-                        context.HttpContext.Request.RouteValues = routeValuesBestMatch;
-                    }
+                    context.Handler = routeEndpointMatch.RequestDelegate;
+                    context.RouteData = new RouteData(routeValuesMatch);
+                    context.HttpContext.Request.RouteValues = routeValuesMatch;
                 }
 
                 if (context.Handler == null)
@@ -145,19 +103,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static bool CheckConsumesAttribueIfPresent(HttpContext context, RouteEndpoint endpoint)
+        private static (RouteEndpoint routeEndpoint, RouteValueDictionary routeValues) FindRouteEndpoint(
+            HttpContext context,
+            IList<KeyValuePair<RouteEndpoint, RouteValueDictionary>> routeCandidates)
         {
-            // Request content-type
-            var requestContentType = context.Request.Headers["Content-Type"].FirstOrDefault();
-
-            var consumesAttributes = endpoint.Metadata.OfType<ConsumesAttribute>();
-            var consumesAttributeContentTypes = consumesAttributes.SelectMany(attr => attr.ContentTypes).ToList();
-            if (consumesAttributeContentTypes.Count > 0)
+            if (routeCandidates.Count == 0)
             {
-                return consumesAttributeContentTypes.Contains(requestContentType);
+                return (null, null);
             }
 
-            return true;
+            if (routeCandidates.Count == 1)
+            {
+                return (routeCandidates[0].Key, routeCandidates[0].Value);
+            }
+
+            // Note: When there are more than one route endpoint candidates, we need to find the best match
+            //       by looking at the request method, path, and headers. The logic of finding the best match
+            //       as of now is based on the implementation of FhirController actions and attributes.
+            // TODO: Find a more generic way of implementing the logic.
+
+            var method = context.Request.Method;
+            if (method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase))
+            {
+                var conditional = context.Request.Headers.ContainsKey(KnownHeaders.IfNoneExist);
+                var pair = routeCandidates.SingleOrDefault(r => (r.Key.Metadata.GetMetadata<ConditionalConstraintAttribute>() != null) == conditional);
+                return (pair.Key, pair.Value);
+            }
+            else if (method.Equals(HttpMethods.Patch, StringComparison.OrdinalIgnoreCase))
+            {
+                var contentType = context.Request.Headers.ContentType;
+                foreach (var candidate in routeCandidates)
+                {
+                    var consumes = candidate.Key.Metadata.OfType<ConsumesAttribute>();
+                    if (consumes.Any(c => c.ContentTypes.Any(t => t.Equals(contentType, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        return (candidate.Key, candidate.Value);
+                    }
+                }
+            }
+
+            return (null, null);
         }
     }
 }
