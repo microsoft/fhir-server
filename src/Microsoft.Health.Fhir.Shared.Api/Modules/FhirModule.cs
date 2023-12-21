@@ -10,6 +10,7 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -129,7 +131,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
-            services.Add<SystemConformanceProvider>()
+            services.RemoveServiceTypeExact<SystemConformanceProvider, INotificationHandler<RebuildCapabilityStatement>>()
+                .Add<SystemConformanceProvider>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

@@ -34,11 +34,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		CustomAnalysisRules.Test.ruleset = CustomAnalysisRules.Test.ruleset
 		Directory.Build.props = Directory.Build.props
 		Directory.Packages.props = Directory.Packages.props
+		build\docker\Dockerfile = build\docker\Dockerfile
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
 		testauthenvironment.json = testauthenvironment.json
 		xunit.runner.json = xunit.runner.json
-		build\docker\Dockerfile = build\docker\Dockerfile
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{B5F2D2DF-D0C7-4861-8259-F6A041DB9854}"
@@ -547,6 +547,7 @@ Global
 		{5E456FD7-E5A5-41F4-A0D3-7215585AEB7A} = {FCD51BAF-BFE5-476F-B562-C9AB36AA9839}
 		{A5DED132-32B1-4804-95F5-EBC6092EC8AE} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{D6C90E8C-50AF-45D8-B2D3-1B9B07E65F3E} = {1295CCC3-73FB-4376-AE95-F6F31A37B152}
+		{F4DE2945-80C5-48FE-B58A-4AD1264C9FEA} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{73BC4365-2BFB-41C7-B0B1-610059F967AC} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
 		{C834E05D-79CA-4983-8599-28AC098F755A} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
 		{6F000A06-6307-46FF-83FA-DD9FD2FD2AA5} = {323F60C6-936A-4C5B-AF6A-F27E93AA7B05}
@@ -558,8 +559,8 @@ Global
 		{76C29222-8D35-43A2-89C5-43114D113C10} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
