@@ -16,8 +16,8 @@ grant_type=client_credentials
 &scope=fhir-api
 
 ### POST new patient, this patient has a race value which can be indexed with the new Search parameter below
-# @name patient
-POST https://{{hostname}}/Patient
+# @name patientBundle
+POST https://{{hostname}}
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
@@ -37,6 +37,13 @@ content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\CustomSearchSearchParameter2.json
+
+### Another search param example.
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\CustomSearchSearchParameter3.json
 
 ### Composite custom search parameter (this test data requires R4 or higher)
 POST https://{{hostname}}/SearchParameter
@@ -81,12 +88,12 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Test your new search parameter to see what values it will return
 # This will extract and return the extracted values so you can see them
 # but it will not persist the extracted value to the DB
-GET https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+GET https://{{hostname}}/Patient/{{patientBundle.response.body.entry[0].resource.id}}/$reindex
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### if you want to test a single resource being indexed, use the same url as above
 # but with a POST to commit the new indices to the DB
-POST https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+POST https://{{hostname}}/Patient/{{patientBundle.response.body.entry[0].resource.id}}/$reindex
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 
@@ -106,3 +113,12 @@ x-ms-use-partial-indices: true
 # The usecase would be to evaluate multiple values together in chained search queries
 GET https://{{hostname}}/Patient?address-use-postcode=home$74047
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+### A search query showing sorting by a custom search parameter
+GET https://{{hostname}}/Patient?_sort=CreatedDate
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Same as above but reversed.
+GET https://{{hostname}}/Patient?_sort=-CreatedDate
+Authorization: Bearer {{bearer.response.body.access_token}}
+
