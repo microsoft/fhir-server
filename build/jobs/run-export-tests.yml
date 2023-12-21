@@ -82,8 +82,6 @@ jobs:
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
-      batchingBasedOnAgentsOption: 'customBatchSize'
-      customBatchSizeValue: '9999999'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -188,8 +186,6 @@ jobs:
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
-      batchingBasedOnAgentsOption: 'customBatchSize'
-      customBatchSizeValue: '9999999'
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
