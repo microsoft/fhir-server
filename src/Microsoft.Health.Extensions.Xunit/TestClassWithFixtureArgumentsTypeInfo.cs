@@ -27,7 +27,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
             _typeInfoImplementation = typeInfoImplementation;
             FixtureArguments = fixtureArguments;
-            Name = $"{typeInfoImplementation.Name}({string.Join(", ", fixtureArguments.Select(v => $"{v.EnumValue}"))})";
+            Name = $"{typeInfoImplementation.Name}[{string.Join(", ", fixtureArguments.Select(v => $"{v.EnumValue}"))}]";
         }
 
         public IReadOnlyList<SingleFlag> FixtureArguments { get; }
