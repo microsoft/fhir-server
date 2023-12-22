@@ -5527,7 +5527,7 @@ IF EXISTS (SELECT *
            FROM   sys.objects
            WHERE  type = 'u'
                   AND name = 'StringSearchParam')
-    EXECUTE sp_rename 'StringSearchParam', 'StringSearchParam_Table';
+    EXECUTE sp_rename 'StringSearchParam', 'StringSearchParam_Partitioned';
 
 
 GO
@@ -5567,13 +5567,18 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSea
   CREATE INDEX IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax ON dbo.StringSearchParam_XXX (SearchParamId, Text) INCLUDE (TextOverflow, IsMin, IsMax) 
     WITH (DATA_COMPRESSION = PAGE)', @CreateTable AS VARCHAR (MAX), @CreateView AS VARCHAR (MAX) = '
 CREATE VIEW dbo.StringSearchParam
-AS', @InsertTrigger AS VARCHAR (MAX) = '
+AS
+SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_Partitioned', @InsertTrigger AS VARCHAR (MAX) = '
 CREATE TRIGGER dbo.StringSearchParamIns ON dbo.StringSearchParam INSTEAD OF INSERT
 AS
-set nocount on', @DeleteTrigger AS VARCHAR (MAX) = '
+INSERT INTO dbo.StringSearchParam_Partitioned 
+        (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax) 
+  SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax 
+    FROM Inserted 
+    WHERE ResourceTypeId NOT IN (4,14,15,19,28,35,40,44,53,61,62,76,79,96,100,103,108,110,138)', @DeleteTrigger AS VARCHAR (MAX) = '
 CREATE TRIGGER dbo.StringSearchParamDel ON dbo.StringSearchParam INSTEAD OF DELETE
 AS
-set nocount on';
+DELETE FROM dbo.StringSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)';
 
 SELECT RT
 INTO   #RTs
@@ -5615,7 +5620,7 @@ FROM   (SELECT 4 AS RT
         UNION
         SELECT 138) AS A;
 
-DECLARE @RT AS VARCHAR (100), @First AS BIT = 1;
+DECLARE @RT AS VARCHAR (100);
 
 WHILE EXISTS (SELECT *
               FROM   #RTs)
@@ -5625,12 +5630,8 @@ WHILE EXISTS (SELECT *
         SET @CreateTable = @Template;
         SET @CreateTable = replace(@CreateTable, 'XXX', @RT);
         EXECUTE (@CreateTable);
-        IF @First = 0
-            SET @CreateView = @CreateView + '
-UNION ALL';
         SET @CreateView = @CreateView + '
-SELECT *, IsHistory = convert(bit,0) FROM dbo.StringSearchParam_' + @RT;
-        SET @First = 0;
+UNION ALL SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_' + @RT;
         SET @InsertTrigger = @InsertTrigger + '
 INSERT INTO dbo.StringSearchParam_' + @RT + ' 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax) 
@@ -5654,7 +5655,7 @@ IF EXISTS (SELECT *
            FROM   sys.objects
            WHERE  type = 'u'
                   AND name = 'TokenSearchParam')
-    EXECUTE sp_rename 'TokenSearchParam', 'TokenSearchParam_Table';
+    EXECUTE sp_rename 'TokenSearchParam', 'TokenSearchParam_Partitioned';
 
 
 GO
@@ -5694,13 +5695,18 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSear
   CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.TokenSearchParam_XXX (SearchParamId, Code) INCLUDE (SystemId) 
     WITH (DATA_COMPRESSION = PAGE)', @CreateTable AS VARCHAR (MAX), @CreateView AS VARCHAR (MAX) = '
 CREATE VIEW dbo.TokenSearchParam
-AS', @InsertTrigger AS VARCHAR (MAX) = '
+AS
+SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow, IsHistory = convert(bit,0) FROM dbo.TokenSearchParam_Partitioned', @InsertTrigger AS VARCHAR (MAX) = '
 CREATE TRIGGER dbo.TokenSearchParamIns ON dbo.TokenSearchParam INSTEAD OF INSERT
 AS
-set nocount on', @DeleteTrigger AS VARCHAR (MAX) = '
+INSERT INTO dbo.TokenSearchParam_Partitioned 
+        (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow) 
+  SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow
+    FROM Inserted 
+    WHERE ResourceTypeId NOT IN (4,14,15,19,28,35,40,44,53,61,62,76,79,96,100,103,108,110,138)', @DeleteTrigger AS VARCHAR (MAX) = '
 CREATE TRIGGER dbo.TokenSearchParamDel ON dbo.TokenSearchParam INSTEAD OF DELETE
 AS
-set nocount on';
+DELETE FROM dbo.TokenSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)';
 
 SELECT RT
 INTO   #RTs
@@ -5742,7 +5748,7 @@ FROM   (SELECT 4 AS RT
         UNION
         SELECT 138) AS A;
 
-DECLARE @RT AS VARCHAR (100), @First AS BIT = 1;
+DECLARE @RT AS VARCHAR (100);
 
 WHILE EXISTS (SELECT *
               FROM   #RTs)
@@ -5752,12 +5758,8 @@ WHILE EXISTS (SELECT *
         SET @CreateTable = @Template;
         SET @CreateTable = replace(@CreateTable, 'XXX', @RT);
         EXECUTE (@CreateTable);
-        IF @First = 0
-            SET @CreateView = @CreateView + '
-UNION ALL';
         SET @CreateView = @CreateView + '
-SELECT *, IsHistory = convert(bit,0) FROM dbo.TokenSearchParam_' + @RT;
-        SET @First = 0;
+UNION ALL SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow, IsHistory = convert(bit,0) FROM dbo.TokenSearchParam_' + @RT;
         SET @InsertTrigger = @InsertTrigger + '
 INSERT INTO dbo.TokenSearchParam_' + @RT + ' 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow) 

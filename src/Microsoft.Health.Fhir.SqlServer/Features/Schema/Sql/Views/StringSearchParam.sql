@@ -1,5 +1,5 @@
 ﻿IF EXISTS (SELECT * FROM sys.objects WHERE type = 'u' AND name = 'StringSearchParam')
-  EXECUTE sp_rename 'StringSearchParam', 'StringSearchParam_Table'
+  EXECUTE sp_rename 'StringSearchParam', 'StringSearchParam_Partitioned'
 GO
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'v' AND name = 'StringSearchParam')
   DROP VIEW dbo.StringSearchParam
@@ -31,15 +31,20 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSea
        ,@CreateTable varchar(max)
        ,@CreateView varchar(max) = '
 CREATE VIEW dbo.StringSearchParam
-AS'
+AS
+SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_Partitioned'
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamIns ON dbo.StringSearchParam INSTEAD OF INSERT
 AS
-set nocount on'
+INSERT INTO dbo.StringSearchParam_Partitioned 
+        (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax) 
+  SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax 
+    FROM Inserted 
+    WHERE ResourceTypeId NOT IN (4,14,15,19,28,35,40,44,53,61,62,76,79,96,100,103,108,110,138)'
        ,@DeleteTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamDel ON dbo.StringSearchParam INSTEAD OF DELETE
 AS
-set nocount on'
+DELETE FROM dbo.StringSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)'
 
 SELECT RT
   INTO #RTs
@@ -66,7 +71,6 @@ UNION SELECT 138
       ) A
 
 DECLARE @RT varchar(100)
-       ,@First bit = 1
 WHILE EXISTS (SELECT * FROM #RTs)
 BEGIN
   SET @RT = (SELECT TOP 1 RT FROM #RTs)
@@ -75,14 +79,8 @@ BEGIN
   --PRINT @CreateTable
   EXECUTE(@CreateTable)
   
-  IF @First = 0
-    SET @CreateView = @CreateView + '
-UNION ALL'
-  
   SET @CreateView = @CreateView + '
-SELECT *, IsHistory = convert(bit,0) FROM dbo.StringSearchParam_'+@RT
-
-  SET @First = 0
+UNION ALL SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_'+@RT
 
   SET @InsertTrigger = @InsertTrigger + '
 INSERT INTO dbo.StringSearchParam_'+@RT+' 
