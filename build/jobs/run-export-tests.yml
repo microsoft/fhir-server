@@ -79,7 +79,7 @@ jobs:
       searchFolder: '$(System.ArtifactsDirectory)'
       testFiltercriteria: 'FullyQualifiedName~CosmosDb&Category=ExportLongRunning'
       testRunTitle: '${{ parameters.version }} CosmosDB Export'
-      otherConsoleOptions: '--blame-hang-timeout 7m'
+      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Full;CollectHangDump;TestTimeout=7min;HangDumpType=Full"'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
@@ -184,7 +184,7 @@ jobs:
       searchFolder: '$(System.ArtifactsDirectory)'
       testFiltercriteria: 'FullyQualifiedName~SqlServer&Category=ExportLongRunning'
       testRunTitle: '${{ parameters.version }} SQL Export'
-      otherConsoleOptions: '--blame-hang-timeout 7m'
+      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Full;CollectHangDump;TestTimeout=7min;HangDumpType=Full"'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10

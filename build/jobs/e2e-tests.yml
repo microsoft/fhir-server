@@ -102,7 +102,7 @@ steps:
       searchFolder: '$(Agent.TempDirectory)/E2ETests/'
       testFiltercriteria: 'FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning'
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
-      otherConsoleOptions: '--blame-hang-timeout 7m'
+      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Full;CollectHangDump;TestTimeout=7min;HangDumpType=Full"'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
