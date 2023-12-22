@@ -1,9 +1,92 @@
-ALTER PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit, @OneResourceTypeId smallint = NULL
+ALTER PROCEDURE dbo.SwitchPartitionsIn @Tbl varchar(100), @OneResourceTypeId smallint = NULL, @InTbl varchar(100) = NULL
+WITH EXECUTE AS 'dbo'
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'SwitchPartitionsIn'
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')+' InTbl='+isnull(@InTbl,'NULL')
+       ,@st datetime = getUTCdate()
+       ,@ResourceTypeId smallint
+       ,@Rows bigint
+       ,@Txt varchar(1000)
+       ,@TblInt varchar(100)
+       ,@Ind varchar(200)
+       ,@IndId int
+       ,@DataComp varchar(100)
+
+DECLARE @Indexes TABLE (IndId int PRIMARY KEY, name varchar(200))
+DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY)
+
+BEGIN TRY
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
+
+  IF @Tbl IS NULL RAISERROR('@Tbl IS NULL', 18, 127)
+
+  SET @InTbl = isnull(@InTbl,@Tbl)
+
+  -- Partitioned table should be either empty, then rebuilt indexes, or all indexes are already built
+  INSERT INTO @Indexes SELECT index_id, name FROM sys.indexes WHERE object_id = object_id(@InTbl) AND is_disabled = 1
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Indexes',@Action='Insert',@Rows=@@rowcount
+
+  WHILE EXISTS (SELECT * FROM @Indexes) -- This is irrelevant if @InTbl is specified
+  BEGIN
+    SELECT TOP 1 @IndId = IndId, @Ind = name FROM @Indexes ORDER BY IndId
+
+    SET @DataComp = CASE WHEN (SELECT PropertyValue FROM dbo.IndexProperties WHERE TableName=@Tbl AND IndexName=@Ind)='PAGE' THEN ' PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)' ELSE '' END
+    SET @Txt = 'IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('''+@Tbl+''') AND name = '''+@Ind+''' AND is_disabled = 1) ALTER INDEX '+@Ind+' ON dbo.'+@Tbl+' REBUILD'+@DataComp
+    EXECUTE(@Txt)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Ind,@Action='Rebuild',@Text=@Txt
+
+    DELETE FROM @Indexes WHERE IndId = @IndId
+  END
+
+  INSERT INTO @ResourceTypes
+    SELECT ResourceTypeId
+      FROM (SELECT ResourceTypeId = convert(smallint,reverse(substring(revName,1,charindex('_',revName)-1))) -- break by last _
+              FROM (SELECT *, revName = reverse(name) FROM sys.objects) O
+              WHERE name LIKE @Tbl+'[_]%[0-9]'
+                AND (EXISTS (SELECT * FROM sysindexes WHERE id = O.object_id AND indid IN (0,1) AND rows > 0) OR @OneResourceTypeId IS NOT NULL)
+           ) A
+      WHERE @OneResourceTypeId IS NULL OR @OneResourceTypeId = ResourceTypeId
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='#ResourceTypes',@Action='Select Into',@Rows=@@rowcount
+
+  WHILE EXISTS (SELECT * FROM @ResourceTypes)
+  BEGIN
+    SET @ResourceTypeId = (SELECT TOP 1 ResourceTypeId FROM @ResourceTypes)
+    SET @TblInt = @Tbl+'_'+convert(varchar,@ResourceTypeId)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt
+
+    SET @Txt = 'ALTER TABLE dbo.'+@TblInt+' SWITCH TO dbo.'+@InTbl+' PARTITION $partition.PartitionFunction_ResourceTypeId('+convert(varchar,@ResourceTypeId)+')'
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@InTbl,@Action='Switch in start',@Text=@Txt
+    EXECUTE(@Txt)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@InTbl,@Action='Switch in',@Text=@Txt
+
+    -- Sanity check
+    IF EXISTS (SELECT * FROM sysindexes WHERE id = object_id(@TblInt) AND rows > 0)
+    BEGIN
+      SET @Txt = @TblInt+' is not empty after switch'
+      RAISERROR(@Txt, 18, 127)
+    END
+
+    EXECUTE('DROP TABLE dbo.'+@TblInt)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Drop'
+
+    DELETE FROM @ResourceTypes WHERE ResourceTypeId = @ResourceTypeId
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st;
+  THROW
+END CATCH
+GO
+ALTER PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit = 0, @OneResourceTypeId smallint = NULL, @OutTbl varchar(100) = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')+' OutTbl='+isnull(@OutTbl,'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
@@ -48,7 +131,7 @@ BEGIN TRY
   WHILE EXISTS (SELECT * FROM @ResourceTypes)
   BEGIN
     SELECT TOP 1 @ResourceTypeId = ResourceTypeId, @Rows = row_count FROM @ResourceTypes ORDER BY ResourceTypeId
-    SET @TblInt = @Tbl+'_'+convert(varchar,@ResourceTypeId)
+    SET @TblInt = isnull(@OutTbl,@Tbl)+'_'+convert(varchar,@ResourceTypeId)
     SET @Txt = 'Starting @ResourceTypeId='+convert(varchar,@ResourceTypeId)+' row_count='+convert(varchar,@Rows)
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Text=@Txt
 
@@ -361,6 +444,15 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
+IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('StringSearchParam') AND name = 'IX_StringSearchParam_SearchParamId_TextWithOverflow')
+  DROP INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow ON dbo.StringSearchParam
+GO
+IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('StringSearchParam') AND name = 'IXC_StringSearchParam')
+  EXECUTE sp_rename 'StringSearchParam.IXC_StringSearchParam','IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId'
+GO
+IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('StringSearchParam') AND name = 'IX_StringSearchParam_SearchParamId_Text')
+  EXECUTE sp_rename 'StringSearchParam.IX_StringSearchParam_SearchParamId_Text','IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0'
+GO
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'u' AND name = 'StringSearchParam')
   EXECUTE sp_rename 'StringSearchParam', 'StringSearchParam_Partitioned'
 GO
@@ -378,18 +470,20 @@ IF object_id(''StringSearchParam_XXX'') IS NULL
      ,SearchParamId        smallint      NOT NULL
      ,Text                 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL 
      ,TextOverflow         nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
+     ,IsHistory            bit           NOT NULL DEFAULT 0
      ,IsMin                bit           NOT NULL
      ,IsMax                bit           NOT NULL
 
      ,CONSTRAINT CHK_StringSearchParam_XXX_ResourceTypeId_XXX CHECK (ResourceTypeId = XXX)
   )
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IXC_ResourceSurrogateId_SearchParamId'')
-  CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId ON dbo.StringSearchParam_XXX (ResourceSurrogateId, SearchParamId) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId'')
+  CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.StringSearchParam_XXX (ResourceTypeId, ResourceSurrogateId, SearchParamId) 
     WITH (DATA_COMPRESSION = PAGE)
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax'')
-  CREATE INDEX IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax ON dbo.StringSearchParam_XXX (SearchParamId, Text) INCLUDE (TextOverflow, IsMin, IsMax) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0'')
+  CREATE INDEX IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0 
+    ON dbo.StringSearchParam_XXX (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) INCLUDE (TextOverflow, IsMin, IsMax) WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE)'
        ,@CreateTable varchar(max)
        ,@CreateView varchar(max) = '
@@ -399,6 +493,7 @@ SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamIns ON dbo.StringSearchParam INSTEAD OF INSERT
 AS
+set nocount on
 INSERT INTO dbo.StringSearchParam_Partitioned 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax) 
   SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax 
@@ -407,6 +502,7 @@ INSERT INTO dbo.StringSearchParam_Partitioned
        ,@DeleteTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamDel ON dbo.StringSearchParam INSTEAD OF DELETE
 AS
+set nocount on
 DELETE FROM dbo.StringSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)'
 
 SELECT RT
@@ -463,6 +559,12 @@ EXECUTE(@CreateView)
 EXECUTE(@InsertTrigger)
 EXECUTE(@DeleteTrigger)
 GO
+IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('TokenSearchParam') AND name = 'IXC_TokenSearchParam')
+  EXECUTE sp_rename 'TokenSearchParam.IXC_TokenSearchParam','IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId'
+GO
+IF EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id('TokenSearchParam') AND name = 'IX_TokenSeachParam_SearchParamId_Code_SystemId')
+  EXECUTE sp_rename 'TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId','IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0'
+GO
 IF EXISTS (SELECT * FROM sys.objects WHERE type = 'u' AND name = 'TokenSearchParam')
   EXECUTE sp_rename 'TokenSearchParam', 'TokenSearchParam_Partitioned'
 GO
@@ -480,6 +582,7 @@ IF object_id(''TokenSearchParam_XXX'') IS NULL
      ,SearchParamId        smallint     NOT NULL
      ,SystemId             int          NULL
      ,Code                 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+     ,IsHistory            bit          NOT NULL DEFAULT 0
      ,CodeOverflow         varchar(max) COLLATE Latin1_General_100_CS_AS NULL
    
      ,CONSTRAINT CHK_TokenSearchParam_XXX_CodeOverflow CHECK (len(Code) = 256 OR CodeOverflow IS NULL)
@@ -490,8 +593,9 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSear
   CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId ON dbo.TokenSearchParam_XXX (ResourceSurrogateId, SearchParamId) 
     WITH (DATA_COMPRESSION = PAGE)
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSearchParam_XXX'') AND name = ''IX_SearchParamId_Code_INCLUDE_SystemId'')
-  CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.TokenSearchParam_XXX (SearchParamId, Code) INCLUDE (SystemId) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSearchParam_XXX'') AND name = ''IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0'')
+  CREATE INDEX IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0
+    ON dbo.TokenSearchParam_XXX (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId) INCLUDE (SystemId) WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE)'
        ,@CreateTable varchar(max)
        ,@CreateView varchar(max) = '
@@ -501,6 +605,7 @@ SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverfl
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.TokenSearchParamIns ON dbo.TokenSearchParam INSTEAD OF INSERT
 AS
+set nocount on
 INSERT INTO dbo.TokenSearchParam_Partitioned 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow) 
   SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow
@@ -509,6 +614,7 @@ INSERT INTO dbo.TokenSearchParam_Partitioned
        ,@DeleteTrigger varchar(max) = '
 CREATE TRIGGER dbo.TokenSearchParamDel ON dbo.TokenSearchParam INSTEAD OF DELETE
 AS
+set nocount on
 DELETE FROM dbo.TokenSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)'
 
 SELECT RT

@@ -15,7 +15,7 @@ ALTER TABLE dbo.TokenSearchParam ADD CONSTRAINT CHK_TokenSearchParam_CodeOverflo
 
 ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE CLUSTERED INDEX IXC_TokenSearchParam
+CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId
 ON dbo.TokenSearchParam
 (
     ResourceTypeId,
@@ -23,21 +23,10 @@ ON dbo.TokenSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
-ON dbo.TokenSearchParam
-(
-    ResourceTypeId,
-    SearchParamId,
-    Code,
-    ResourceSurrogateId
-)
-INCLUDE
-(
-    SystemId
-)
-WHERE IsHistory = 0
+CREATE INDEX IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0
+ON dbo.TokenSearchParam (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId) INCLUDE (SystemId) WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

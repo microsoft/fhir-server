@@ -15,6 +15,7 @@ IF object_id(''TokenSearchParam_XXX'') IS NULL
      ,SearchParamId        smallint     NOT NULL
      ,SystemId             int          NULL
      ,Code                 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+     ,IsHistory            bit          NOT NULL DEFAULT 0
      ,CodeOverflow         varchar(max) COLLATE Latin1_General_100_CS_AS NULL
    
      ,CONSTRAINT CHK_TokenSearchParam_XXX_CodeOverflow CHECK (len(Code) = 256 OR CodeOverflow IS NULL)
@@ -25,8 +26,9 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSear
   CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId ON dbo.TokenSearchParam_XXX (ResourceSurrogateId, SearchParamId) 
     WITH (DATA_COMPRESSION = PAGE)
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSearchParam_XXX'') AND name = ''IX_SearchParamId_Code_INCLUDE_SystemId'')
-  CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId ON dbo.TokenSearchParam_XXX (SearchParamId, Code) INCLUDE (SystemId) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''TokenSearchParam_XXX'') AND name = ''IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0'')
+  CREATE INDEX IX_ResourceTypeId_SearchParamId_Code_ResourceSurrogateId_INCLUDE_SystemId_WHERE_IsHistory_0
+    ON dbo.TokenSearchParam_XXX (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId) INCLUDE (SystemId) WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE)'
        ,@CreateTable varchar(max)
        ,@CreateView varchar(max) = '
@@ -36,6 +38,7 @@ SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverfl
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.TokenSearchParamIns ON dbo.TokenSearchParam INSTEAD OF INSERT
 AS
+set nocount on
 INSERT INTO dbo.TokenSearchParam_Partitioned 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow) 
   SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,SystemId,Code,CodeOverflow
@@ -44,6 +47,7 @@ INSERT INTO dbo.TokenSearchParam_Partitioned
        ,@DeleteTrigger varchar(max) = '
 CREATE TRIGGER dbo.TokenSearchParamDel ON dbo.TokenSearchParam INSTEAD OF DELETE
 AS
+set nocount on
 DELETE FROM dbo.TokenSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)'
 
 SELECT RT

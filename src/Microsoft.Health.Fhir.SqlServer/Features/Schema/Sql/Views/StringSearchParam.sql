@@ -15,18 +15,20 @@ IF object_id(''StringSearchParam_XXX'') IS NULL
      ,SearchParamId        smallint      NOT NULL
      ,Text                 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL 
      ,TextOverflow         nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
+     ,IsHistory            bit           NOT NULL DEFAULT 0
      ,IsMin                bit           NOT NULL
      ,IsMax                bit           NOT NULL
 
      ,CONSTRAINT CHK_StringSearchParam_XXX_ResourceTypeId_XXX CHECK (ResourceTypeId = XXX)
   )
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IXC_ResourceSurrogateId_SearchParamId'')
-  CREATE CLUSTERED INDEX IXC_ResourceSurrogateId_SearchParamId ON dbo.StringSearchParam_XXX (ResourceSurrogateId, SearchParamId) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId'')
+  CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.StringSearchParam_XXX (ResourceTypeId, ResourceSurrogateId, SearchParamId) 
     WITH (DATA_COMPRESSION = PAGE)
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax'')
-  CREATE INDEX IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax ON dbo.StringSearchParam_XXX (SearchParamId, Text) INCLUDE (TextOverflow, IsMin, IsMax) 
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0'')
+  CREATE INDEX IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0 
+    ON dbo.StringSearchParam_XXX (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) INCLUDE (TextOverflow, IsMin, IsMax) WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE)'
        ,@CreateTable varchar(max)
        ,@CreateView varchar(max) = '
@@ -36,6 +38,7 @@ SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamIns ON dbo.StringSearchParam INSTEAD OF INSERT
 AS
+set nocount on
 INSERT INTO dbo.StringSearchParam_Partitioned 
         (ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax) 
   SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax 
@@ -44,6 +47,7 @@ INSERT INTO dbo.StringSearchParam_Partitioned
        ,@DeleteTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamDel ON dbo.StringSearchParam INSTEAD OF DELETE
 AS
+set nocount on
 DELETE FROM dbo.StringSearchParam_Partitioned WHERE EXISTS (SELECT * FROM (SELECT T = ResourceTypeId, S = ResourceSurrogateId FROM Deleted) A WHERE T = ResourceTypeId AND S = ResourceSurrogateId)'
 
 SELECT RT

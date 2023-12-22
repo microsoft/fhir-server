@@ -14,7 +14,7 @@ ALTER TABLE dbo.StringSearchParam ADD CONSTRAINT DF_StringSearchParam_IsHistory 
 
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE CLUSTERED INDEX IXC_StringSearchParam
+CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId
 ON dbo.StringSearchParam
 (
     ResourceTypeId,
@@ -24,38 +24,14 @@ ON dbo.StringSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
-ON dbo.StringSearchParam
-(
-    ResourceTypeId,
-    SearchParamId,
-    Text,
-    ResourceSurrogateId
-)
+CREATE INDEX IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0
+ON dbo.StringSearchParam (ResourceTypeId,SearchParamId,Text,ResourceSurrogateId)
 INCLUDE
 (
-    TextOverflow, -- will not be needed when all servers are targeting at least this version.
+    TextOverflow,
     IsMin,
     IsMax
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
-CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
-ON dbo.StringSearchParam
-(
-    ResourceTypeId,
-    SearchParamId,
-    Text,
-    ResourceSurrogateId
-)
-INCLUDE
-(
-    IsMin,
-    IsMax
-)
-WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-

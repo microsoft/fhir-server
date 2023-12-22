@@ -1,11 +1,11 @@
 ﻿--IF object_id('SwitchPartitionsOut') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOut
 GO
-CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit, @OneResourceTypeId smallint = NULL
+CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit = 0, @OneResourceTypeId smallint = NULL, @OutTbl varchar(100) = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')+' OutTbl='+isnull(@OutTbl,'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
@@ -50,7 +50,7 @@ BEGIN TRY
   WHILE EXISTS (SELECT * FROM @ResourceTypes)
   BEGIN
     SELECT TOP 1 @ResourceTypeId = ResourceTypeId, @Rows = row_count FROM @ResourceTypes ORDER BY ResourceTypeId
-    SET @TblInt = @Tbl+'_'+convert(varchar,@ResourceTypeId)
+    SET @TblInt = isnull(@OutTbl,@Tbl)+'_'+convert(varchar,@ResourceTypeId)
     SET @Txt = 'Starting @ResourceTypeId='+convert(varchar,@ResourceTypeId)+' row_count='+convert(varchar,@Rows)
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Text=@Txt
 
