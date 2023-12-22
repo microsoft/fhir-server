@@ -42,10 +42,11 @@ jobs:
   - task: VSTest@3
     displayName: 'Run Integration Tests'
     inputs:
-      testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
-      testAssemblyVer2: '**/*${{ parameters.version }}.Tests.Integration*.dll' # Required when testSelector = testAssemblies. Test files.
-      searchFolder: '$(Agent.TempDirectory)/IntegrationTests/' # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
-      testRunTitle: '${{ parameters.version }} Integration' # Optional. Test run title.
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: '**/*${{ parameters.version }}.Tests.Integration*.dll'
+      searchFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+      testRunTitle: '${{ parameters.version }} Integration'
+      otherConsoleOptions: '--blame-hang-timeout 7m'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10

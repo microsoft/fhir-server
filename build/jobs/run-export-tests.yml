@@ -74,11 +74,12 @@ jobs:
   - task: VSTest@3
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
-      testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
-      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"' # Required when testSelector = testAssemblies. Test files.
-      searchFolder: "$(System.ArtifactsDirectory)" # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
-      testFiltercriteria: "FullyQualifiedName~CosmosDb&Category=ExportLongRunning" # Optional. Use when testSelector = testAssemblies. Test filter criteria.
-      testRunTitle: '${{ parameters.version }} CosmosDB Export' # Optional. Test run title.
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"'
+      searchFolder: '$(System.ArtifactsDirectory)'
+      testFiltercriteria: 'FullyQualifiedName~CosmosDb&Category=ExportLongRunning'
+      testRunTitle: '${{ parameters.version }} CosmosDB Export'
+      otherConsoleOptions: '--blame-hang-timeout 7m'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
@@ -178,11 +179,12 @@ jobs:
   - task: VSTest@3
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
-      testSelector: 'testAssemblies' # Required. Select tests using. Default: testAssemblies.
-      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"' # Required when testSelector = testAssemblies. Test files.
-      searchFolder: "$(System.ArtifactsDirectory)" # Required. Search folder. Default: $(System.DefaultWorkingDirectory).
-      testFiltercriteria: "FullyQualifiedName~SqlServer&Category=ExportLongRunning" # Optional. Use when testSelector = testAssemblies. Test filter criteria.
-      testRunTitle: '${{ parameters.version }} SQL Export' # Optional. Test run title.
+      testSelector: 'testAssemblies'
+      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"'
+      searchFolder: '$(System.ArtifactsDirectory)'
+      testFiltercriteria: 'FullyQualifiedName~SqlServer&Category=ExportLongRunning'
+      testRunTitle: '${{ parameters.version }} SQL Export'
+      otherConsoleOptions: '--blame-hang-timeout 7m'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
