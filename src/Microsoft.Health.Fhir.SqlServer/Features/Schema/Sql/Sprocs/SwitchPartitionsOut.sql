@@ -1,11 +1,11 @@
 ﻿--IF object_id('SwitchPartitionsOut') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOut
 GO
-CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit
+CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit, @OneResourceTypeId smallint = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')+' ORT='+isnull(convert(varchar,@OneResourceTypeId),'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
@@ -14,8 +14,8 @@ DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
        ,@IndId int
        ,@Ind varchar(200)
        ,@Name varchar(100)
-       ,@checkName varchar(200)
-       ,@definition varchar(200)
+       ,@CheckName varchar(200)
+       ,@CheckDefinition varchar(200)
 
 DECLARE @Indexes TABLE (IndId int PRIMARY KEY, name varchar(200), IsDisabled bit)
 DECLARE @IndexesRT TABLE (IndId int PRIMARY KEY, name varchar(200), IsDisabled bit)
@@ -40,7 +40,8 @@ BEGIN TRY
       FROM sys.dm_db_partition_stats 
       WHERE object_id = object_id(@Tbl) 
         AND index_id = 1
-        AND row_count > 0
+        AND (row_count > 0 OR @OneResourceTypeId IS NOT NULL)
+        AND (@OneResourceTypeId IS NULL OR @OneResourceTypeId = partition_number - 1)
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@ResourceTypes',@Action='Insert',@Rows=@@rowcount,@Text='For partition switch'
 
   -- Sanity check
@@ -68,12 +69,12 @@ BEGIN TRY
       INSERT INTO @CheckConstraints SELECT name, definition FROM sys.check_constraints WHERE parent_object_id = object_id(@Tbl) 
       WHILE EXISTS (SELECT * FROM @CheckConstraints)
       BEGIN
-        SELECT TOP 1 @checkName=CheckName, @definition=CheckDefinition from @CheckConstraints
-        SET @Txt = 'ALTER TABLE '+@TblInt+' ADD CHECK '+@definition
+        SELECT TOP 1 @CheckName = CheckName, @CheckDefinition = CheckDefinition FROM @CheckConstraints
+        SET @Txt = 'ALTER TABLE '+@TblInt+' ADD CONSTRAINT '+replace(@CheckName,@Tbl,@TblInt)+' CHECK '+@CheckDefinition
         EXECUTE(@Txt)
         EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='ALTER',@Text=@Txt
 
-        DELETE FROM @CheckConstraints WHERE CheckName=@checkName
+        DELETE FROM @CheckConstraints WHERE CheckName=@CheckName
       END
 
       DELETE FROM @Names
@@ -113,7 +114,7 @@ BEGIN TRY
       DELETE FROM @IndexesRT WHERE IndId = @IndId
     END
 
-    SET @Txt = 'ALTER TABLE dbo.'+@TblInt+' ADD CHECK (ResourceTypeId >= '+convert(varchar,@ResourceTypeId)+' AND ResourceTypeId < '+convert(varchar,@ResourceTypeId)+' + 1)' -- this matches partition function
+    SET @Txt = 'ALTER TABLE dbo.'+@TblInt+' ADD CONSTRAINT CHK_'+@TblInt+'_ResourceTypeId_'+convert(varchar,@ResourceTypeId)+' CHECK (ResourceTypeId >= '+convert(varchar,@ResourceTypeId)+' AND ResourceTypeId < '+convert(varchar,@ResourceTypeId)+' + 1)' -- this matches partition function
     EXECUTE(@Txt)
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Add check',@Text=@Txt
 

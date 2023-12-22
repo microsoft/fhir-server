@@ -3356,112 +3356,84 @@ BEGIN TRY
                AND RawResource <> 0xF;
     IF @KeepCurrentVersion = 0
         BEGIN
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.ResourceWriteClaim AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.ResourceWriteClaim
+            WHERE  ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                           FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.ReferenceSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.ReferenceSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenSearchParamHighCard AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenSearchParamHighCard
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
             DELETE dbo.TokenSearchParam
             WHERE  ResourceTypeId = @ResourceTypeId
                    AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenText AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenText
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
             DELETE dbo.StringSearchParam
             WHERE  ResourceTypeId = @ResourceTypeId
                    AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
                                                FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.UriSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.UriSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.NumberSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.NumberSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.QuantitySearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.QuantitySearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.DateTimeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.DateTimeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.ReferenceTokenCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.ReferenceTokenCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenTokenCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenTokenCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenDateTimeCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenDateTimeCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenQuantityCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenQuantityCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenStringCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenStringCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
-            DELETE B
-            FROM   @SurrogateIds AS A
-                   INNER LOOP JOIN
-                   dbo.TokenNumberNumberCompositeSearchParam AS B WITH (INDEX (1), FORCESEEK, PAGLOCK)
-                   ON B.ResourceTypeId = @ResourceTypeId
-                      AND B.ResourceSurrogateId = A.ResourceSurrogateId
+            DELETE dbo.TokenNumberNumberCompositeSearchParam
+            WHERE  ResourceTypeId = @ResourceTypeId
+                   AND ResourceSurrogateId IN (SELECT ResourceSurrogateId
+                                               FROM   @SurrogateIds)
             OPTION (MAXDOP 1);
         END
     IF @@trancount > 0
@@ -4955,11 +4927,11 @@ END CATCH
 
 GO
 CREATE PROCEDURE dbo.SwitchPartitionsOut
-@Tbl VARCHAR (100), @RebuildClustered BIT
+@Tbl VARCHAR (100), @RebuildClustered BIT, @OneResourceTypeId SMALLINT=NULL
 WITH EXECUTE AS 'dbo'
 AS
 SET NOCOUNT ON;
-DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOut', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (MAX), @TblInt AS VARCHAR (100), @IndId AS INT, @Ind AS VARCHAR (200), @Name AS VARCHAR (100), @checkName AS VARCHAR (200), @definition AS VARCHAR (200);
+DECLARE @SP AS VARCHAR (100) = 'SwitchPartitionsOut', @Mode AS VARCHAR (200) = 'Tbl=' + isnull(@Tbl, 'NULL') + ' ND=' + isnull(CONVERT (VARCHAR, @RebuildClustered), 'NULL') + ' ORT=' + isnull(CONVERT (VARCHAR, @OneResourceTypeId), 'NULL'), @st AS DATETIME = getUTCdate(), @ResourceTypeId AS SMALLINT, @Rows AS BIGINT, @Txt AS VARCHAR (MAX), @TblInt AS VARCHAR (100), @IndId AS INT, @Ind AS VARCHAR (200), @Name AS VARCHAR (100), @CheckName AS VARCHAR (200), @CheckDefinition AS VARCHAR (200);
 DECLARE @Indexes TABLE (
     IndId      INT           PRIMARY KEY,
     name       VARCHAR (200),
@@ -5001,7 +4973,10 @@ BEGIN TRY
     FROM   sys.dm_db_partition_stats
     WHERE  object_id = object_id(@Tbl)
            AND index_id = 1
-           AND row_count > 0;
+           AND (row_count > 0
+                OR @OneResourceTypeId IS NOT NULL)
+           AND (@OneResourceTypeId IS NULL
+                OR @OneResourceTypeId = partition_number - 1);
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = '@ResourceTypes', @Action = 'Insert', @Rows = @@rowcount, @Text = 'For partition switch';
     IF EXISTS (SELECT *
                FROM   @ResourceTypes
@@ -5038,14 +5013,14 @@ BEGIN TRY
                     WHILE EXISTS (SELECT *
                                   FROM   @CheckConstraints)
                         BEGIN
-                            SELECT TOP 1 @checkName = CheckName,
-                                         @definition = CheckDefinition
+                            SELECT TOP 1 @CheckName = CheckName,
+                                         @CheckDefinition = CheckDefinition
                             FROM   @CheckConstraints;
-                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CHECK ' + @definition;
+                            SET @Txt = 'ALTER TABLE ' + @TblInt + ' ADD CONSTRAINT ' + replace(@CheckName, @Tbl, @TblInt) + ' CHECK ' + @CheckDefinition;
                             EXECUTE (@Txt);
                             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @TblInt, @Action = 'ALTER', @Text = @Txt;
                             DELETE @CheckConstraints
-                            WHERE  CheckName = @checkName;
+                            WHERE  CheckName = @CheckName;
                         END
                     DELETE @Names;
                     INSERT INTO @Names
@@ -5096,7 +5071,7 @@ BEGIN TRY
                     DELETE @IndexesRT
                     WHERE  IndId = @IndId;
                 END
-            SET @Txt = 'ALTER TABLE dbo.' + @TblInt + ' ADD CHECK (ResourceTypeId >= ' + CONVERT (VARCHAR, @ResourceTypeId) + ' AND ResourceTypeId < ' + CONVERT (VARCHAR, @ResourceTypeId) + ' + 1)';
+            SET @Txt = 'ALTER TABLE dbo.' + @TblInt + ' ADD CONSTRAINT CHK_' + @TblInt + '_ResourceTypeId_' + CONVERT (VARCHAR, @ResourceTypeId) + ' CHECK (ResourceTypeId >= ' + CONVERT (VARCHAR, @ResourceTypeId) + ' AND ResourceTypeId < ' + CONVERT (VARCHAR, @ResourceTypeId) + ' + 1)';
             EXECUTE (@Txt);
             EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'Info', @Target = @Tbl, @Action = 'Add check', @Text = @Txt;
             SET @Txt = 'ALTER TABLE dbo.' + @Tbl + ' SWITCH PARTITION $partition.PartitionFunction_ResourceTypeId(' + CONVERT (VARCHAR, @ResourceTypeId) + ') TO dbo.' + @TblInt;
@@ -5218,101 +5193,101 @@ BEGIN TRY
               AND B.ResourceSurrogateId = A.ResourceSurrogateId
     WHERE  B.IsHistory = 0;
     SET @Rows = @@rowcount;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.ResourceWriteClaim AS B
-           ON B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.ReferenceSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenSearchParamHighCard AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenText AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.StringSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.UriSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.NumberSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.QuantitySearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.DateTimeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.ReferenceTokenCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenTokenCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenDateTimeCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenQuantityCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenStringCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
-    DELETE B
-    FROM   @Ids AS A
-           INNER JOIN
-           dbo.TokenNumberNumberCompositeSearchParam AS B
-           ON B.ResourceTypeId = A.ResourceTypeId
-              AND B.ResourceSurrogateId = A.ResourceSurrogateId;
+    DELETE A
+    FROM   dbo.ResourceWriteClaim AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.ReferenceSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenSearchParamHighCard AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenText AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.StringSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.UriSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.NumberSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.QuantitySearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.DateTimeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.ReferenceTokenCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenTokenCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenDateTimeCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenQuantityCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenStringCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
+    DELETE A
+    FROM   dbo.TokenNumberNumberCompositeSearchParam AS A
+    WHERE  EXISTS (SELECT *
+                   FROM   @Ids AS B
+                   WHERE  B.ResourceTypeId = A.ResourceTypeId
+                          AND B.ResourceSurrogateId = A.ResourceSurrogateId);
     INSERT INTO dbo.ResourceWriteClaim (ResourceSurrogateId, ClaimTypeId, ClaimValue)
     SELECT ResourceSurrogateId,
            ClaimTypeId,
