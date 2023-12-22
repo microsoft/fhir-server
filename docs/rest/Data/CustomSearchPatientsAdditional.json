@@ -7,6 +7,21 @@
                 "resourceType": "Patient",
                 "extension": [
                     {
+                        "url": "http://mycompany.org/fhir/StructureDefinition/test-bool",
+                        "valueBoolean": true
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "extension": [
+                    {
                         "url": "http://mycompany.org/fhir/StructureDefinition/resource-created-date",
                         "valueDate": "2023-07-05"
                     }
@@ -39,6 +54,21 @@
                     {
                         "url": "http://mycompany.org/fhir/StructureDefinition/resource-created-date",
                         "valueDate": "2023-12-02"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "extension": [
+                    {
+                        "url": "http://mycompany.org/fhir/StructureDefinition/test-bool",
+                        "valueBoolean": false
                     }
                 ]
             },
