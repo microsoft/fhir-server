@@ -6,35 +6,10 @@ IF EXISTS (SELECT * FROM sys.objects WHERE type = 'v' AND name = 'StringSearchPa
 GO
 IF object_id('tempdb..#RTs') IS NOT NULL DROP TABLE #RTs
 GO
-DECLARE @Template varchar(max) = '
-IF object_id(''StringSearchParam_XXX'') IS NULL
-  CREATE TABLE dbo.StringSearchParam_XXX
-  (
-      ResourceTypeId       smallint      NOT NULL
-     ,ResourceSurrogateId  bigint        NOT NULL
-     ,SearchParamId        smallint      NOT NULL
-     ,Text                 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL 
-     ,TextOverflow         nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
-     ,IsHistory            bit           NOT NULL DEFAULT 0
-     ,IsMin                bit           NOT NULL
-     ,IsMax                bit           NOT NULL
-
-     ,CONSTRAINT CHK_StringSearchParam_XXX_ResourceTypeId_XXX CHECK (ResourceTypeId = XXX)
-  )
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId'')
-  CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId ON dbo.StringSearchParam_XXX (ResourceTypeId, ResourceSurrogateId, SearchParamId) 
-    WITH (DATA_COMPRESSION = PAGE)
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(''StringSearchParam_XXX'') AND name = ''IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0'')
-  CREATE INDEX IX_ResourceTypeId_SearchParamId_Text_ResourceSurrogateId_INCLUDE_TextOverflow_IsMin_IsMax_WHERE_IsHistory_0 
-    ON dbo.StringSearchParam_XXX (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) INCLUDE (TextOverflow, IsMin, IsMax) WHERE IsHistory = 0
-    WITH (DATA_COMPRESSION = PAGE)'
-       ,@CreateTable varchar(max)
-       ,@CreateView varchar(max) = '
+DECLARE @CreateView varchar(max) = '
 CREATE VIEW dbo.StringSearchParam
 AS
-SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_Partitioned'
+SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_Partitioned WHERE ResourceTypeId NOT IN (4,14,15,19,28,35,40,44,53,61,62,76,79,96,100,103,108,110,138)'
        ,@InsertTrigger varchar(max) = '
 CREATE TRIGGER dbo.StringSearchParamIns ON dbo.StringSearchParam INSTEAD OF INSERT
 AS
@@ -78,11 +53,13 @@ DECLARE @RT varchar(100)
 WHILE EXISTS (SELECT * FROM #RTs)
 BEGIN
   SET @RT = (SELECT TOP 1 RT FROM #RTs)
-  SET @CreateTable = @Template
-  SET @CreateTable = replace(@CreateTable,'XXX',@RT)
-  --PRINT @CreateTable
-  EXECUTE(@CreateTable)
+
+  IF object_id('dbo.StringSearchParam_'+@RT) IS NULL
+    EXECUTE dbo.SwitchPartitionsOut 'StringSearchParam_Partitioned', 0, @RT, 'StringSearchParam'
   
+  IF NOT EXISTS (SELECT * FROM sys.default_constraints WHERE name = 'DF_StringSearchParam_'+@RT+'_IsHistory')
+    EXECUTE('ALTER TABLE dbo.StringSearchParam_'+@RT+' ADD CONSTRAINT DF_StringSearchParam_'+@RT+'_IsHistory DEFAULT 0 FOR IsHistory')
+
   SET @CreateView = @CreateView + '
 UNION ALL SELECT ResourceTypeId,ResourceSurrogateId,SearchParamId,Text,TextOverflow,IsMin,IsMax,IsHistory = convert(bit,0) FROM dbo.StringSearchParam_'+@RT
 
