@@ -93,9 +93,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void WhenAddingSameHeaderTwice_ThenOnlyOneHeaderIsPresent()
         {
-            Assert.Throws<ArgumentException>(() => FhirResult.Create(_mockResource)
+            var result = FhirResult.Create(_mockResource)
                 .SetLastModifiedHeader()
-                .SetLastModifiedHeader());
+                .SetLastModifiedHeader();
+
+            Assert.Single(result.Headers);
         }
 
         [Fact]

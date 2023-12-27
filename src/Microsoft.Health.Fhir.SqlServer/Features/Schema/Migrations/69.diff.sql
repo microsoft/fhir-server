@@ -770,7 +770,7 @@ BEGIN TRY
     IF NOT EXISTS 
         (SELECT * 
            FROM #SearchParams A
-                INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId
+                INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId AND B.IsHistory = 0
         )
     BEGIN
       SET @CurrentMaxSurrogateId = NULL

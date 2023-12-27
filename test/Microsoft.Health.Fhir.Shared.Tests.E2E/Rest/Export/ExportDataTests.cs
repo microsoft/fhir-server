@@ -204,6 +204,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             Dictionary<(string resourceType, string resourceId, string versionId), Resource> dataFromExport =
                 await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
+            // Filter data from export to ONLY look for resource ids of test data from the fixture. This will reduce test flakiness from other resources from other tests.
+            var filteredDataFromExport = dataFromExport
+                .Where(exp => _fixture.TestResourcesWithHistoryAndDeletes.Any(test => test.Key.resourceType == exp.Key.resourceType && test.Key.resourceId == exp.Key.resourceId))
+                .ToDictionary(x => x.Key, x => x.Value);
+
             var expectedResources = _fixture.TestResourcesWithHistoryAndDeletes;
 
             if (!history)
@@ -217,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             }
 
             // Assert both data are equal
-            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, dataFromExport, _outputHelper));
+            Assert.True(ExportTestHelper.ValidateDataFromBothSources(expectedResources, filteredDataFromExport, _outputHelper));
         }
     }
 }

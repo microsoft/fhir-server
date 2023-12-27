@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly ExportJobRecord _exportJobRecord;
         private readonly IExportDestinationClient _exportDestinationClient;
-        private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
+        private readonly Dictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
         private readonly uint _approxMaxFileSizeInBytes;
         private bool _isInitialized = false;
         private Dictionary<string, bool> _resourceCommited = new Dictionary<string, bool>();
@@ -162,14 +162,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Update internal mapping with new file for the resource type.
-            if (_resourceTypeToFileInfoMapping.ContainsKey(resourceType))
+            if (!_resourceTypeToFileInfoMapping.TryAdd(resourceType, newFile))
             {
                 _resourceTypeToFileInfoMapping[resourceType] = newFile;
                 _resourceCommited[resourceType] = false;
             }
             else
             {
-                _resourceTypeToFileInfoMapping.Add(resourceType, newFile);
                 _resourceCommited.Add(resourceType, false);
             }
 

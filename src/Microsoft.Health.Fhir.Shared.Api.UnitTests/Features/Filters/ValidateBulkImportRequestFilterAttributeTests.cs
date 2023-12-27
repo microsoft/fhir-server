@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "GET";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = preferHeader;
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -57,8 +57,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = preferHeader;
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -71,8 +71,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "DELETE";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = preferHeader;
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "GET";
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "DELETE";
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -119,8 +119,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, contentTypeHeader);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = contentTypeHeader;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "GET";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             _filter.OnActionExecuting(context);
         }
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "DELETE";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
 
             _filter.OnActionExecuting(context);
         }
@@ -160,8 +160,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+            context.HttpContext.Request.Headers[PreferHeaderName] = CorrectPreferHeaderValue;
+            context.HttpContext.Request.Headers[HeaderNames.ContentType] = CorrectContentTypeHeaderValue;
 
             _filter.OnActionExecuting(context);
         }

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser.Code
 {
     public static class MinimalSearchParameterDefinitionBuilder
     {
-        private static readonly ISet<Uri> _missingExpressionsInR5 = new HashSet<Uri>
+        private static readonly HashSet<Uri> _missingExpressionsInR5 = new()
         {
             new("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"),
             new("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),

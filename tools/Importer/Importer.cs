@@ -13,6 +13,8 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using Azure.Core;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
@@ -22,7 +24,6 @@ namespace Microsoft.Health.Fhir.Importer
 {
     internal static class Importer
     {
-        private static readonly HttpClient HttpClient = new HttpClient();
         private static readonly string Endpoints = ConfigurationManager.AppSettings["FhirEndpoints"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
@@ -35,6 +36,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
+        private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
+        private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -44,6 +47,11 @@ namespace Microsoft.Health.Fhir.Importer
         private static long epCalls = 0L;
         private static long waits = 0L;
         private static List<string> endpoints;
+        private static TokenCredential credential;
+        private static HttpClient httpClient = new();
+        private static DelegatingHandler handler;
+
+#pragma warning disable SA1010 // Opening square brackets should be spaced correctly. Fixed https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745 but not available yet.
 
         internal static void Run()
         {
@@ -52,7 +60,25 @@ namespace Microsoft.Health.Fhir.Importer
                 throw new ArgumentException("FhirEndpoints value is empty");
             }
 
-            endpoints = Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
+            endpoints = [.. Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries)];
+
+            if (UseFhirAuth)
+            {
+                List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
+                if (scopes.Count == 0)
+                {
+                    scopes = endpoints.Select(x => $"{x}/.default").ToList();
+                }
+
+                if (scopes.Count != endpoints.Count)
+                {
+                    throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
+                }
+
+                credential = new DefaultAzureCredential();
+                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
+                httpClient = new HttpClient(handler);
+            }
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
@@ -110,7 +136,7 @@ namespace Microsoft.Health.Fhir.Importer
             Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
-        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
+        private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
@@ -199,7 +225,7 @@ namespace Microsoft.Health.Fhir.Importer
                 try
                 {
                     Thread.Sleep(40);
-                    var response = HttpClient.PutAsync(uri, content).Result;
+                    var response = httpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
                         case HttpStatusCode.OK:
@@ -268,7 +294,7 @@ namespace Microsoft.Health.Fhir.Importer
             {
                 var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
                 var idShort = jsonString.Substring(idStart, 50);
-                var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var idEnd = idShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceId = idShort.Substring(0, idEnd);
                 if (string.IsNullOrEmpty(resourceId))
                 {
@@ -277,7 +303,7 @@ namespace Microsoft.Health.Fhir.Importer
 
                 var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
                 var rtShort = jsonString.Substring(rtStart, 50);
-                var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var rtEnd = rtShort.IndexOf('"', StringComparison.OrdinalIgnoreCase);
                 var resourceType = rtShort.Substring(0, rtEnd);
                 if (string.IsNullOrEmpty(resourceType))
                 {

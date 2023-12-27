@@ -26,8 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
     {
         private bool _disposed = false;
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
-        private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
-        private readonly ConvertDataConfiguration _convertDataConfig;
+        private readonly TemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly MemoryCache _cache;
         private readonly MemoryCache _templateProviderCache;
         private readonly SemaphoreSlim _templateProviderFactorySemaphore;
@@ -39,19 +38,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             ILogger<ContainerRegistryTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
-            EnsureArg.IsNotNull(convertDataConfig, nameof(convertDataConfig));
+            EnsureArg.IsNotNull(convertDataConfig?.Value, nameof(convertDataConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            _convertDataConfig = convertDataConfig.Value;
             _logger = logger;
 
             // Initialize cache and template collection provider factory
             _cache = new MemoryCache(new MemoryCacheOptions
             {
-                SizeLimit = _convertDataConfig.CacheSizeLimit,
+                SizeLimit = convertDataConfig.Value.CacheSizeLimit,
             });
-            _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(_convertDataConfig.TemplateCollectionOptions));
+            _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(convertDataConfig.Value.TemplateCollectionOptions));
 
             _templateProviderCache = new MemoryCache(new MemoryCacheOptions());
             _templateProviderFactorySemaphore = new SemaphoreSlim(1, 1);
@@ -111,22 +109,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 // Remove token from cache when authentication failed.
                 _cache.Remove(GetCacheKey(request.RegistryServer));
 
-                _logger.LogWarning(authEx, "Failed to access container registry.");
+                _logger.LogWarning(authEx, "Failed to access container registry");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Core.Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
             catch (ImageFetchException fetchEx)
             {
-                _logger.LogWarning(fetchEx, "Failed to fetch template image.");
+                _logger.LogWarning(fetchEx, "Failed to fetch template image");
                 throw new FetchTemplateCollectionFailedException(string.Format(Core.Resources.FetchTemplateCollectionFailed, fetchEx.Message), fetchEx);
             }
             catch (TemplateManagementException templateEx)
             {
-                _logger.LogWarning(templateEx, "Template collection is invalid.");
+                _logger.LogWarning(templateEx, "Template collection is invalid");
                 throw new TemplateCollectionErrorException(string.Format(Core.Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
             }
             catch (Exception unhandledEx)
             {
-                _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection.");
+                _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection");
                 throw new FetchTemplateCollectionFailedException(string.Format(Core.Resources.FetchTemplateCollectionFailed, unhandledEx.Message), unhandledEx);
             }
         }
