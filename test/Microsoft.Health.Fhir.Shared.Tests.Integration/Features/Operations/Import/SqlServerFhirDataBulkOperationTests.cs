@@ -63,7 +63,7 @@ SELECT count(*)
             }
             else
             {
-                Assert.Equal(31, cnt); // count of all qualified indexes
+                Assert.Equal(30, cnt); // count of all qualified indexes
             }
         }
     }
