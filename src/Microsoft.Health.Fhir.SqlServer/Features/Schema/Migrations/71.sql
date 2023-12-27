@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (70, 'started');
+VALUES (71, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -1197,30 +1197,6 @@ CREATE CLUSTERED INDEX IXC_TokenSearchParam
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam(ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE TABLE dbo.TokenSearchParamHighCard (
-    ResourceTypeId      SMALLINT      NOT NULL,
-    ResourceSurrogateId BIGINT        NOT NULL,
-    SearchParamId       SMALLINT      NOT NULL,
-    SystemId            INT           NULL,
-    Code                VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CodeOverflow        VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
-);
-
-ALTER TABLE dbo.TokenSearchParamHighCard
-    ADD CONSTRAINT CHK_TokenSearchParamHighCard_CodeOverflow CHECK (LEN(Code) = 256
-                                                                    OR CodeOverflow IS NULL);
-
-ALTER TABLE dbo.TokenSearchParamHighCard SET (LOCK_ESCALATION = AUTO);
-
-CREATE CLUSTERED INDEX IXC_ResourceTypeId_ResourceSurrogateId_SearchParamId
-    ON dbo.TokenSearchParamHighCard(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
-
-CREATE INDEX IX_SearchParamId_Code_INCLUDE_SystemId
-    ON dbo.TokenSearchParamHighCard(SearchParamId, Code)
-    INCLUDE(SystemId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenStringCompositeSearchParam (
