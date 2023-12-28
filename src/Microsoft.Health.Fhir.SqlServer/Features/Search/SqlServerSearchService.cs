@@ -323,10 +323,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         var exportTimeTravel = clonedSearchOptions.QueryHints != null &&
                                                _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel &&
-                                               PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
+                                               ContainsGlobalEndSurrogateId(clonedSearchOptions);
 
                         if (exportTimeTravel)
                         {
+                            PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
                             sqlCommand.CommandTimeout = 1200; // set to 20 minutes, as dataset is usually large
                         }
                         else
@@ -540,14 +541,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        private bool PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
+        private static bool ContainsGlobalEndSurrogateId(SqlSearchOptions options)
         {
             IReadOnlyList<(string Param, string Value)> hints = options.QueryHints;
+            return hints.Any(x => string.Equals(KnownQueryParameterNames.GlobalEndSurrogateId, x.Param, StringComparison.OrdinalIgnoreCase));
+        }
 
-            if (!hints.Any(x => string.Equals(KnownQueryParameterNames.GlobalEndSurrogateId, x.Param, StringComparison.OrdinalIgnoreCase)))
+        private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
+        {
+            if (!ContainsGlobalEndSurrogateId(options))
             {
-                return false;
+                return;
             }
+
+            IReadOnlyList<(string Param, string Value)> hints = options.QueryHints;
 
             var resourceTypeId = _model.GetResourceTypeId(hints.First(x => x.Param == KnownQueryParameterNames.Type).Value);
             var startId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.StartSurrogateId).Value);
@@ -556,8 +563,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
             PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
-
-            return true;
         }
 
         private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
