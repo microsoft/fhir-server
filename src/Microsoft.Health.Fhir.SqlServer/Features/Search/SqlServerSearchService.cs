@@ -549,11 +549,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private void PopulateSqlCommandFromQueryHints(SqlSearchOptions options, SqlCommand command)
         {
-            if (!ContainsGlobalEndSurrogateId(options))
-            {
-                return;
-            }
-
             IReadOnlyList<(string Param, string Value)> hints = options.QueryHints;
 
             var resourceTypeId = _model.GetResourceTypeId(hints.First(x => x.Param == KnownQueryParameterNames.Type).Value);
