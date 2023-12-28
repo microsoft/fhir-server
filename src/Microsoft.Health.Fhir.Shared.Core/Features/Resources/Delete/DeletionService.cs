@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting");
-                cancellationTokenSource.Cancel();
+                await cancellationTokenSource.CancelAsync();
             }
 
             System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
