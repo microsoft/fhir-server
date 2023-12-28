@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
             UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, bundleResourceContext),
+                new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, maxParallelism: false, bundleResourceContext),
                 HttpContext.RequestAborted);
 
             if (createResponse == null)
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, bundleResourceContext),
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, maxParallelism: false, bundleResourceContext),
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;
@@ -439,6 +439,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     conditionalParameters,
                     hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
+                    maxParallelism: false,
                     bundleResourceContext),
                 HttpContext.RequestAborted);
 
@@ -496,7 +497,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, bundleResourceContext, ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, maxParallelism: false, bundleResourceContext, ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -541,7 +542,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             BundleResourceContext bundleResourceContext = GetBundleResourceContext();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, bundleResourceContext, ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, maxParallelism: false, bundleResourceContext, ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }

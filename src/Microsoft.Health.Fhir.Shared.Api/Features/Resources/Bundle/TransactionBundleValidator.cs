@@ -42,8 +42,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// </summary>
         /// <param name="bundle"> The input bundle</param>
         /// <param name="idDictionary">The id dictionary that stores fullUrl to actual ids.</param>
+        /// <param name="maxParallelism">Runs queries with max parallelism.</param>
         /// <param name="cancellationToken"> The cancellation token</param>
-        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
+        public async Task ValidateBundle(
+            Hl7.Fhir.Model.Bundle bundle,
+            IDictionary<string, (string resourceId, string resourceType)> idDictionary,
+            bool maxParallelism,
+            CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
@@ -53,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (ShouldValidateBundleEntry(entry))
                 {
-                    string resourceId = await GetResourceId(entry, idDictionary, cancellationToken);
+                    string resourceId = await GetResourceId(entry, idDictionary, maxParallelism, cancellationToken);
                     string conditionalCreateQuery = entry.Request.IfNoneExist;
 
                     if (!string.IsNullOrEmpty(resourceId))
@@ -76,7 +81,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.IsNullOrWhiteSpace(conditionalCreateQuery) ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
         }
 
-        private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
+        private async Task<string> GetResourceId(
+            EntryComponent entry,
+            IDictionary<string, (string resourceId, string resourceType)> idDictionary,
+            bool maxParallel,
+            CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
             if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains('?', StringComparison.Ordinal))
@@ -99,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 conditionalQueries = entry.Request.IfNoneExist;
             }
 
-            IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, maxParallel, cancellationToken);
 
             if (matchedResults?.Count > 1)
             {

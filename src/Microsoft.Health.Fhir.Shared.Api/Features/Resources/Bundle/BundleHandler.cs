@@ -84,6 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
+        private readonly bool _conditionalQueryMaxParallelism;
 
         private int _requestCount;
         private BundleType? _bundleType;
@@ -157,6 +158,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
 
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
+            _conditionalQueryMaxParallelism = GetConditionalQueryMaxParalellism(outerHttpContext);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -206,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else if (_bundleType == BundleType.Transaction)
                 {
                     // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-                    await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
+                    await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, maxParallelism: _conditionalQueryMaxParallelism, cancellationToken);
 
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
@@ -230,6 +232,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
+        }
+
+        private static bool GetConditionalQueryMaxParalellism(HttpContext outerHttpContext)
+        {
+            const bool defaultConditionalQueryMaxParalellism = false;
+            const string httpHeaderParallelProcessing = "parallel";
+
+            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalQueryProcessingLogic, out StringValues headerValues))
+            {
+                string conditionalQueryMaxParallelism = headerValues.FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(conditionalQueryMaxParallelism))
+                {
+                    return defaultConditionalQueryMaxParalellism;
+                }
+
+                return string.Equals(conditionalQueryMaxParallelism, httpHeaderParallelProcessing, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return defaultConditionalQueryMaxParalellism;
         }
 
         private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
@@ -483,7 +504,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (_bundleType == BundleType.Transaction && entry.Resource != null)
             {
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, maxParalelism: _conditionalQueryMaxParallelism, cancellationToken);
 
                 if (requestMethod == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {

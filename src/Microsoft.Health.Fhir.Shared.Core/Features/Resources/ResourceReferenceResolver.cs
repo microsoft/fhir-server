@@ -36,7 +36,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             _queryStringParser = queryStringParser;
         }
 
-        public async Task ResolveReferencesAsync(Resource resource, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
+        public async Task ResolveReferencesAsync(
+            Resource resource,
+            Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary,
+            string requestUrl,
+            bool maxParalelism,
+            CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
 
@@ -65,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                             throw new RequestNotValidException(string.Format(Core.Resources.ReferenceResourceTypeNotSupported, resourceType, reference.Reference));
                         }
 
-                        var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
+                        var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, maxParalelism, cancellationToken);
 
                         if (results == null || results.Count != 1)
                         {
@@ -82,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             }
         }
 
-        public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, bool maxParallelism, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
             {
@@ -93,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken)).Results;
+            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, maxParallelism: maxParallelism)).Results;
         }
     }
 }

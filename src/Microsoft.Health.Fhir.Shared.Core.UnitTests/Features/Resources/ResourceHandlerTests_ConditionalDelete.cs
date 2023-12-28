@@ -40,7 +40,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, false, 1, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 1,
+                maxParallelism: false,
+                mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -55,7 +61,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, true, 1, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                maxParallelism: false,
+                mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -78,6 +90,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: false,
                 count: 1,
+                maxParallelism: false,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -95,6 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: false,
                 count: 100,
+                maxParallelism: false,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -111,6 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             IReadOnlyList<Tuple<string, string>> list = null,
             bool hardDelete = false,
             int count = 1,
+            bool maxParallelism = false,
             params SearchResultEntry[] searchResults)
         {
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
@@ -126,7 +141,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count, bundleResourceContext: null);
+            var message = new ConditionalDeleteResourceRequest(
+                resourceType,
+                list,
+                hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
+                count,
+                maxParallelism,
+                bundleResourceContext: null);
 
             return message;
         }

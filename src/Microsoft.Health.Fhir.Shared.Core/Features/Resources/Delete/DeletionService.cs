@@ -92,7 +92,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, request.MaxDeleteCount);
+            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(
+                request.ResourceType,
+                request.ConditionalParameters,
+                cancellationToken,
+                count: request.MaxDeleteCount,
+                maxParallelism: request.MaxParallelism);
 
             var itemsDeleted = new HashSet<string>();
 
@@ -161,7 +166,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             request.ConditionalParameters,
                             cancellationToken,
                             request.DeleteAll ? null : request.MaxDeleteCount - itemsDeleted.Count,
-                            ct);
+                            ct,
+                            maxParallelism: request.MaxParallelism);
                     }
                     else
                     {

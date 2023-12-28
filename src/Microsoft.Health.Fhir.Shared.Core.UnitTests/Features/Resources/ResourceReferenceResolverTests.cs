@@ -35,8 +35,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
         }
 
-        [Fact]
-        public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated(bool maxParalellism)
         {
             var observation = new Observation
             {
@@ -66,15 +68,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 // Asserting the conditional reference value before resolution
                 Assert.Null(references.First().Reference);
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalellism, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Null(references.First().Reference);
             }
         }
 
-        [Fact]
-        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly(bool maxParalellism)
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -94,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalellism, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);
@@ -119,7 +123,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(
+                    entry.Resource,
+                    referenceIdDictionary,
+                    requestUrl,
+                    maxParalelism: false,
+                    CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }
@@ -136,7 +145,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(
+                    entry.Resource,
+                    referenceIdDictionary,
+                    requestUrl,
+                    maxParalelism: false,
+                    CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }

@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 request.ConditionalParameters,
                 cancellationToken,
                 logger: _logger,
-                maxParallel: true);
+                maxParallelism: request.MaxParallelism);
 
             int count = matchedResults.Results.Count;
             if (count == 0)

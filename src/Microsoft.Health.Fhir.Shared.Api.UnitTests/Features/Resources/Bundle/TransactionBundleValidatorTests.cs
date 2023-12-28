@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         public async Task GivenATransactionBundle_WhenContainsUniqueResources_ThenNoExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, maxParallelism: false, CancellationToken.None);
 
             ValidateIdDictionaryPopulatedCorrectly(_idDictionary, Array.Empty<Action<KeyValuePair<string, (string resourceId, string resourceType)>>>());
         }
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             MockSearchAsync(1);
 
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, maxParallelism: false, CancellationToken.None);
 
             var expectedEntries = new[]
             {
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             MockSearchAsync(2);
 
-            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, maxParallelism: false, CancellationToken.None));
         }
 
         [Theory]
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
 
             var requestBundle = Samples.GetDefaultTransaction();
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, maxParallelism: false, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
 
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, maxParallelism: false, CancellationToken.None);
         }
 
         private void MockSearchAsync(int resultCount)
