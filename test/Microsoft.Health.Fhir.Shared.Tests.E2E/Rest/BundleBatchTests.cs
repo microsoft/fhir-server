@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
+    public class BundleBatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
         private readonly Dictionary<HttpStatusCode, string> _statusCodeMap = new Dictionary<HttpStatusCode, string>()
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             { HttpStatusCode.Forbidden, "403" },
         };
 
-        public BatchTests(HttpIntegrationTestFixture fixture)
+        public BundleBatchTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }

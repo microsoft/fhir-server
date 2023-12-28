@@ -35,10 +35,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated(bool maxParalellism)
+        [Fact]
+        public async Task GivenATransactionBundleWithIdentifierReferences_WhenResolved_ThenReferencesValuesAreNotUpdated()
         {
             var observation = new Observation
             {
@@ -68,17 +66,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 // Asserting the conditional reference value before resolution
                 Assert.Null(references.First().Reference);
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalellism, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(
+                    entry.Resource,
+                    referenceIdDictionary,
+                    requestUrl,
+                    maxParalelism: true, // In the context of this test, maxParallelism is indifferent: tests are using mock search service.
+                    CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Null(references.First().Reference);
             }
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly(bool maxParalellism)
+        [Fact]
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenResolved_ThenReferencesValuesAreUpdatedCorrectly()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -98,7 +99,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalellism, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(
+                    entry.Resource,
+                    referenceIdDictionary,
+                    requestUrl,
+                    maxParalelism: true, // In the context of this test, maxParallelism is indifferent: tests are using mock search service.
+                    CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);

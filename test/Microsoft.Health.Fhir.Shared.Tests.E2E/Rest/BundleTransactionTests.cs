@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>
+    public class BundleTransactionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
 
-        public TransactionTests(HttpIntegrationTestFixture fixture)
+        public BundleTransactionTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }
