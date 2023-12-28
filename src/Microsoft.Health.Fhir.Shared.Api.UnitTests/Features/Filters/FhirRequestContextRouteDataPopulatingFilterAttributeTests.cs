@@ -123,9 +123,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
         {
-            _httpContext.Request.Headers.Add(
-                KnownHeaders.PartiallyIndexedParamsHeaderName,
-                new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" }));
+            _httpContext.Request.Headers[KnownHeaders.PartiallyIndexedParamsHeaderName] = new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" });
 
             _filterAttribute.OnActionExecuting(_actionExecutingContext);
 

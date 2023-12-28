@@ -87,8 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         private Provenance GetProvenanceFromHeader()
         {
-            StringValues header;
-            if (!_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(KnownHeaders.ProvenanceHeader, out header))
+            if (!_httpContextAccessor.HttpContext.Request.Headers.TryGetValue(KnownHeaders.ProvenanceHeader, out Microsoft.Extensions.Primitives.StringValues value))
             {
                 return null;
             }
@@ -96,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             Provenance provenance;
             try
             {
-                provenance = _fhirJsonParser.Parse<Provenance>(header);
+                provenance = _fhirJsonParser.Parse<Provenance>(value);
             }
             catch
             {

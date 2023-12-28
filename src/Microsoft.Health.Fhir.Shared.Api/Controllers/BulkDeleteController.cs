@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var actionResult = JobResult.FromResults(result.Results, result.Issues, result.HttpStatusCode);
             if (result.HttpStatusCode == System.Net.HttpStatusCode.Accepted)
             {
-                actionResult.Headers.Add(KnownHeaders.Progress, Resources.InProgress);
+                actionResult.Headers[KnownHeaders.Progress] = Resources.InProgress;
             }
 
             return actionResult;

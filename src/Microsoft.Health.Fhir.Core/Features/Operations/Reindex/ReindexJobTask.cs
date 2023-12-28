@@ -19,6 +19,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var resourceList = new HashSet<string>();
 
             // filter list of SearchParameters by the target resource types
-            if (_reindexJobRecord.TargetResourceTypes.Any())
+            if (_reindexJobRecord.TargetResourceTypes.Count > 0)
             {
                 foreach (var searchParam in possibleNotYetIndexedParams)
                 {
@@ -251,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!notYetIndexedParams.Any() && resourceList.Count == 0)
+            if (notYetIndexedParams.Count == 0 && resourceList.Count == 0)
             {
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
@@ -312,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _reindexJobRecord.FailureCount++;
 
-                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}, id: {Id}.", _reindexJobRecord.FailureCount, _reindexJobRecord.Id);
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {FailureCount}.", _reindexJobRecord.FailureCount);
 
                 if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
@@ -332,6 +333,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "tokenSource.CancelAsync(false) doesn't exist.")]
         private async Task ProcessJob()
         {
             var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -879,6 +881,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "Collection defined on model")]
         private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
             var completeResourceList = new HashSet<string>(resourceTypes);

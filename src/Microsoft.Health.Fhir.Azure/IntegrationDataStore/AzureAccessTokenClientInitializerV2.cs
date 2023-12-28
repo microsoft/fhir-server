@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        private static TokenCredential CreateDefaultTokenCredential()
+        private static DefaultAzureCredential CreateDefaultTokenCredential()
         {
             return new DefaultAzureCredential();
         }

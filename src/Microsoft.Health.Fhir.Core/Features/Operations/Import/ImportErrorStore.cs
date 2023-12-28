@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         /// <param name="importErrors">New import errors</param>
         /// <param name="cancellationToken">Cancellaltion Token</param>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2016:Forward the 'CancellationToken' parameter to methods", Justification = ".NET 6/8 compat")]
         public async Task UploadErrorsAsync(string[] importErrors, CancellationToken cancellationToken)
         {
             if (importErrors == null || importErrors.Length == 0)

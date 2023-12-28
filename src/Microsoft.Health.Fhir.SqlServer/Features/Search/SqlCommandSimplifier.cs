@@ -52,14 +52,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             foreach (Match match in operatorMatches)
             {
                 var groups = match.Groups;
-                List<(string, Match)> comparisons;
-                if (!fieldToParameterComparisons.TryGetValue(groups[1].Value, out comparisons))
+                if (!fieldToParameterComparisons.TryGetValue(groups[1].Value, out List<(string, Match)> value))
                 {
-                    comparisons = new List<(string, Match)>();
-                    fieldToParameterComparisons.Add(groups[1].Value, comparisons);
+                    value = new List<(string, Match)>();
+                    fieldToParameterComparisons.Add(groups[1].Value, value);
                 }
 
-                comparisons.Add((groups[2].Value, match));
+                value.Add((groups[2].Value, match));
             }
 
             foreach (string field in fieldToParameterComparisons.Keys)

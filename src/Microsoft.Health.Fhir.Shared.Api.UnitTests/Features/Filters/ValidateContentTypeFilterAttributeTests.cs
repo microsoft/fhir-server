@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
             context.HttpContext.Request.QueryString = new QueryString($"?_format=json");
-            context.HttpContext.Request.Headers.Add("Accept", string.Empty);
+            context.HttpContext.Request.Headers["Accept"] = string.Empty;
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
             context.HttpContext.Request.QueryString = new QueryString($"?_format={requestFormat}");
-            context.HttpContext.Request.Headers.Add("Accept", "application/json");
+            context.HttpContext.Request.Headers["Accept"] = "application/json";
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
@@ -129,8 +129,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             context.HttpContext.Request.QueryString = new QueryString($"?_format={requestFormat}");
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
-            context.HttpContext.Request.Headers.Add("Accept", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
+            context.HttpContext.Request.Headers["Accept"] = contentTypeHeader;
 
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.QueryString = new QueryString($"?_format={requestFormat}");
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", "application/fhir+xml");
+            context.HttpContext.Request.Headers["Content-Type"] = "application/fhir+xml";
 
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
 
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
@@ -229,10 +229,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
 
             // The fact that the Accept header is invalid is ignored, but an exception related to the invalid Content Type header is still thrown.
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
@@ -253,10 +253,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
 
             // The Accept header is invalid and has the format "application/<invalid_format>", so an exception for that is thrown.
             await Assert.ThrowsAsync<NotAcceptableException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
 
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
@@ -291,8 +291,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
-            context.HttpContext.Request.Headers.Add("Accept", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
+            context.HttpContext.Request.Headers["Accept"] = contentTypeHeader;
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
         }
@@ -309,10 +309,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", "application/json");
+            context.HttpContext.Request.Headers["Accept"] = "application/json";
 
             context.HttpContext.Request.Method = HttpMethod.Post.ToString();
-            context.HttpContext.Request.Headers.Add("Content-Type", contentTypeHeader);
+            context.HttpContext.Request.Headers["Content-Type"] = contentTypeHeader;
 
             await Assert.ThrowsAsync<UnsupportedMediaTypeException>(async () => await filter.OnActionExecutionAsync(context, actionExecutedDelegate));
         }
@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
             context.HttpContext.Request.QueryString = new QueryString($"?_format={formatQuerystring}");
-            context.HttpContext.Request.Headers.Add("Accept", formats[1]);
+            context.HttpContext.Request.Headers["Accept"] = formats[1];
 
             await filter.OnActionExecutionAsync(context, actionExecutedDelegate);
 
@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(Guid.NewGuid().ToString());
             var actionExecutedDelegate = CreateActionExecutedDelegate(context);
 
-            context.HttpContext.Request.Headers.Add("Accept", acceptHeader);
+            context.HttpContext.Request.Headers["Accept"] = acceptHeader;
             context.HttpContext.Request.Query = new QueryCollection(new Dictionary<string, StringValues>
             {
                 { KnownQueryParameterNames.Format, "xml" },

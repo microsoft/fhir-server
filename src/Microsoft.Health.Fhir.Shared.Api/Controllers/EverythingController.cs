@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(result.Bundle);
         }
 
-        private IReadOnlyList<Tuple<string, string>> ReadUnsupportedParameters()
+        private List<Tuple<string, string>> ReadUnsupportedParameters()
         {
             IReadOnlyList<Tuple<string, string>> parameters = Request.Query
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value))

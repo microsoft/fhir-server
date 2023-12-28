@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     if (newPartitionCount != PhysicalPartitionCount)
                     {
-                        _logger.LogInformation("Physical partition count changed from {OldPhysicalPartitionCount} to {NewPhysicalPartitionCount}.", PhysicalPartitionCount, newPartitionCount);
+                        _logger.LogInformation("Physical partition count changed from {OldPhysicalPartitionCount} to {NewPhysicalPartitionCount}", PhysicalPartitionCount, newPartitionCount);
                     }
 
                     PhysicalPartitionCount = newPartitionCount;
@@ -81,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (Exception e)
                 {
-                    _logger.LogError(e, "Unable to get physical partition count.");
+                    _logger.LogError(e, "Unable to get physical partition count");
                 }
             }
         }
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    _backgroundLoopCancellationTokenSource.Cancel();
+                    await _backgroundLoopCancellationTokenSource.CancelAsync();
                     await _backgroundLoopTask;
                     _backgroundLoopCancellationTokenSource.Dispose();
                     _backgroundLoopTask.Dispose();
