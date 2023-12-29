@@ -1,0 +1,22 @@
+﻿{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296811"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient?identifier=|11788759296811"
+            }
+        }
+    ]
+}

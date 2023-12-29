@@ -32,6 +32,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 #if !STU3
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 #endif
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
         private const BundleProcessingLogic DefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
+        private const ConditionalQueryProcessingLogic DefaultConditionalQueryProcessingLogic = ConditionalQueryProcessingLogic.Sequential;
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -84,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
-        private readonly bool _conditionalQueryMaxParallelism;
+        private readonly ConditionalQueryProcessingLogic _conditionalQueryProcessingLogic;
 
         private int _requestCount;
         private BundleType? _bundleType;
@@ -158,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
 
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
-            _conditionalQueryMaxParallelism = GetConditionalQueryMaxParalellism(outerHttpContext);
+            _conditionalQueryProcessingLogic = GetConditionalQueryProcessingLogic(outerHttpContext, _logger);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -208,7 +210,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else if (_bundleType == BundleType.Transaction)
                 {
                     // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-                    await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, maxParallelism: _conditionalQueryMaxParallelism, cancellationToken);
+                    await _transactionBundleValidator.ValidateBundle(
+                        bundleResource,
+                        _referenceIdDictionary,
+                        maxParallelism: _conditionalQueryProcessingLogic == ConditionalQueryProcessingLogic.Parallel,
+                        cancellationToken);
 
                     await FillRequestLists(bundleResource.Entry, cancellationToken);
 
@@ -234,50 +240,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static bool GetConditionalQueryMaxParalellism(HttpContext outerHttpContext)
+        private static ConditionalQueryProcessingLogic GetConditionalQueryProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
         {
-            const bool defaultConditionalQueryMaxParalellism = false;
-            const string httpHeaderParallelProcessing = "parallel";
-
-            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalQueryProcessingLogic, out StringValues headerValues))
+            try
             {
-                string conditionalQueryMaxParallelism = headerValues.FirstOrDefault();
-                if (string.IsNullOrWhiteSpace(conditionalQueryMaxParallelism))
-                {
-                    return defaultConditionalQueryMaxParalellism;
-                }
-
-                return string.Equals(conditionalQueryMaxParallelism, httpHeaderParallelProcessing, StringComparison.OrdinalIgnoreCase);
+                return outerHttpContext.GetConditionalQueryProcessingLogic();
             }
+            catch (Exception e)
+            {
+                logger.LogWarning(e, "Error while extracting the Conditional-Query Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
 
-            return defaultConditionalQueryMaxParalellism;
+                return DefaultConditionalQueryProcessingLogic;
+            }
         }
 
         private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
         {
-            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            try
             {
-                string processingLogicAsString = headerValues.FirstOrDefault();
-                if (string.IsNullOrWhiteSpace(processingLogicAsString))
-                {
-                    return DefaultBundleProcessingLogic;
-                }
-
-                try
-                {
-                    BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString.Trim(), ignoreCase: true);
-                    return processingLogic;
-                }
-                catch (Exception e)
-                {
-                    _bundleProcessingTypeIsInvalid = true;
-                    logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
-
-                    return DefaultBundleProcessingLogic;
-                }
+                return outerHttpContext.GetBundleProcessingLogic();
             }
+            catch (Exception e)
+            {
+                _bundleProcessingTypeIsInvalid = true;
+                logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
 
-            return DefaultBundleProcessingLogic;
+                return DefaultBundleProcessingLogic;
+            }
         }
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
@@ -504,7 +493,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (_bundleType == BundleType.Transaction && entry.Resource != null)
             {
-                await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, maxParalelism: _conditionalQueryMaxParallelism, cancellationToken);
+                await _referenceResolver.ResolveReferencesAsync(
+                    entry.Resource,
+                    _referenceIdDictionary,
+                    requestUrl,
+                    maxParalelism: _conditionalQueryProcessingLogic == ConditionalQueryProcessingLogic.Parallel,
+                    cancellationToken);
 
                 if (requestMethod == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
@@ -541,8 +535,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
-            if (requestMethod == HTTPVerb.POST
-                || requestMethod == HTTPVerb.PUT)
+            if (requestMethod == HTTPVerb.POST || requestMethod == HTTPVerb.PUT)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
 
@@ -781,6 +774,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = _originalFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
+
+            // Add parallel conditional-query processing logic to downstream requests.
+            if (_conditionalQueryProcessingLogic != ConditionalQueryProcessingLogic.Sequential)
+            {
+                newFhirRequestContext.DecorateRequestContextWithConditionalQueryProcessingLogic(_conditionalQueryProcessingLogic);
+            }
+
             _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;

@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: processingLogic, source.Token);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic }, source.Token);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic: processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
             using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponseAfterPostingSameBundle);
             Assert.Equal(HttpStatusCode.OK, fhirResponseAfterPostingSameBundle.StatusCode);
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
-            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, processingLogic);
+            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -190,7 +190,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), processingLogic));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(
+                Samples.GetDefaultObservation().ToPoco<Observation>(),
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -201,7 +203,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(), processingLogic));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(
+                Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(),
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
             ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
@@ -212,6 +216,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(false, FhirBundleProcessingLogic.Sequential)]
         public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation, FhirBundleProcessingLogic processingLogic)
         {
+            // This test is flaky when executed locally, but it works well when running in OSS pipeline.
+
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = Bundle.BundleType.Batch,
@@ -247,9 +253,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic: processingLogic);
+            var bundleOptions = new FhirBundleOptions()
+            {
+                ProfileValidation = profileValidation,
+                BundleProcessingLogic = processingLogic,
+            };
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle, bundleOptions);
+
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
             Bundle bundleResource = fhirResponse.Resource;
 
             if (profileValidation)
@@ -311,12 +324,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic));
+                var bundleOptions = new FhirBundleOptions()
+                {
+                    ProfileValidation = profileValidation,
+                    BundleProcessingLogic = processingLogic,
+                };
+                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle, bundleOptions));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, false, processingLogic);
+                var bundleOptions = new FhirBundleOptions()
+                {
+                    ProfileValidation = false,
+                    BundleProcessingLogic = processingLogic,
+                };
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle, bundleOptions);
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 

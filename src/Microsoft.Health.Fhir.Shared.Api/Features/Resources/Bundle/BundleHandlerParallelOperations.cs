@@ -21,8 +21,10 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -117,6 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             resourceIdProvider,
                             fhirJsonParser,
                             _logger,
+                            _conditionalQueryProcessingLogic,
                             ct);
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
@@ -256,6 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider,
             FhirJsonParser fhirJsonParser,
             ILogger<BundleHandler> logger,
+            ConditionalQueryProcessingLogic conditionalQueryProcessingLogic,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
@@ -278,7 +282,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         resourceIdProvider.Create = () => persistedId;
                     }
 
-                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor, conditionalQueryProcessingLogic);
 
                     // Attempt 1.
                     await request.Handler.Invoke(httpContext);
@@ -364,7 +368,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IFhirRequestContext requestContext,
             IAuditEventTypeMapping auditEventTypeMapping,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ConditionalQueryProcessingLogic conditionalQueryProcessingLogic)
         {
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
             request.RouteData.Values.TryGetValue("action", out object actionName);
@@ -391,6 +396,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Assign the HTTP Verb operation associated with the request as part of the downstream request.
             newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
+
+            // Add parallel conditional-query processing logic to downstream requests.
+            if (conditionalQueryProcessingLogic != ConditionalQueryProcessingLogic.Sequential)
+            {
+                newFhirRequestContext.DecorateRequestContextWithConditionalQueryProcessingLogic(conditionalQueryProcessingLogic);
+            }
 
             requestContextAccessor.RequestContext = newFhirRequestContext;
 
