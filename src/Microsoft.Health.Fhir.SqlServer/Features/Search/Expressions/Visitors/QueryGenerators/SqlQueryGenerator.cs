@@ -506,13 +506,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").AppendLine(_firstChainAfterUnionVisited ? "Sid2" : "Sid1");
 
                 // once we have visited a table after the union all, the remained of the inner joins
-                // should be on T1 and SID1
+                // should be on T1 and Sid1
                 _firstChainAfterUnionVisited = true;
             }
             else
             {
                 StringBuilder.Append("SELECT T1, Sid1, ")
-                    .Append(VLatest.Resource.ResourceTypeId, null).AppendLine(" AS T2, ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T2, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid2")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table)
                     .Append(_joinShift).Append("JOIN ").Append(TableExpressionName(FindRestrictingPredecessorTableExpressionIndex()))
