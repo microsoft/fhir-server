@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
-            await _resourceSearchParamStats.CreateStats(expression, cancellationToken);
+            await _resourceSearchParamStats.Create(expression, cancellationToken);
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
@@ -1136,7 +1136,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Init();
             }
 
-            public async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
+            public async Task Create(SqlRootExpression expression, CancellationToken cancel)
             {
                 for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
                 {
@@ -1158,27 +1158,38 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     }
 
                     var searchParamId = (short)0;
-                    var resorceTypeId = (short)0;
-                    if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiaryExpression)
+                    var resourceTypeIds = new HashSet<short>();
+                    if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiExp)
                     {
-                        foreach (var component in multiaryExpression.Expressions)
+                        foreach (var part in multiExp.Expressions)
                         {
-                            if (component is SearchParameterExpression parameterExp)
+                            if (part is SearchParameterExpression parameterExp)
                             {
-                                if (parameterExp.Parameter.Name == SearchParameterNames.ResourceType && parameterExp.Expression is StringExpression stringExp)
+                                if (parameterExp.Parameter.Name == SearchParameterNames.ResourceType)
                                 {
-                                    resorceTypeId = _model.GetResourceTypeId(stringExp.Value);
+                                    if (parameterExp.Expression is StringExpression stringExp)
+                                    {
+                                        resourceTypeIds.Add(_model.GetResourceTypeId(stringExp.Value));
+                                    }
+                                    else if (parameterExp.Expression is MultiaryExpression multiExp2)
+                                    {
+                                        foreach (var part2 in multiExp2.Expressions)
+                                        {
+                                            if (part2 is SearchParameterExpression parameterExp2)
+                                            {
+                                                if (parameterExp2.Expression is StringExpression stringExp2)
+                                                {
+                                                    resourceTypeIds.Add(_model.GetResourceTypeId(stringExp2.Value));
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
-                                else
+                                else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
                                 {
                                     searchParamId = _model.GetSearchParamId(parameterExp.Parameter.Url);
                                 }
                             }
-                        }
-
-                        if (resorceTypeId != 0 && searchParamId != 0)
-                        {
-                            await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
                         }
                     }
 
@@ -1190,15 +1201,22 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                             {
-                                resorceTypeId = _model.GetResourceTypeId(type);
-                                await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
+                                resourceTypeIds.Add(_model.GetResourceTypeId(type));
                             }
+                        }
+                    }
+
+                    if (searchParamId != 0)
+                    {
+                        foreach (var resourceTypeId in resourceTypeIds)
+                        {
+                            await Create(table, column, resourceTypeId, searchParamId, cancel);
                         }
                     }
                 }
             }
 
-            private async Task CreateStats(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
+            private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
             {
                 lock (_stats)
                 {
