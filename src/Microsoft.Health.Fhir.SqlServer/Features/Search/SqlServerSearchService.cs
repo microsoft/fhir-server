@@ -69,6 +69,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
+        private static ResourceSearchParamStats _resourceSearchParamStats;
+        private static object _locker = new object();
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -117,6 +119,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
+
+            if (_resourceSearchParamStats == null)
+            {
+                lock (_locker)
+                {
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _model);
+                }
+            }
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -305,6 +315,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(TopRewriter.Instance, clonedSearchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
+
+            await _resourceSearchParamStats.CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
@@ -1106,6 +1118,151 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
                 _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
                 _up.AddParameter(sqlCommand.Parameters, up);
+            }
+        }
+
+        private class ResourceSearchParamStats
+        {
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerSearchService> _logger;
+            private readonly ISqlServerFhirModel _model;
+            private HashSet<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> _stats;
+
+            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model)
+            {
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
+                _model = model;
+                Init();
+            }
+
+            public async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
+            {
+                for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
+                {
+                    var tableExpression = expression.SearchParamTableExpressions[index];
+                    if (tableExpression.Kind != SearchParamTableExpressionKind.Normal)
+                    {
+                        continue;
+                    }
+
+                    string[] priorResourceTypes = null;
+                    if (tableExpression.ChainLevel == 1)
+                    {
+                        var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
+                        if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
+                        {
+                            priorResourceTypes = ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes;
+                        }
+                    }
+
+                    var table = tableExpression.QueryGenerator.Table.TableName;
+                    var column = table == VLatest.StringSearchParam.TableName
+                               ? VLatest.StringSearchParam.Text.Metadata.Name
+                               : table == VLatest.TokenSearchParam.TableName
+                                    ? VLatest.TokenSearchParam.Code.Metadata.Name
+                                    : null;
+                    var searchParamId = (short)0;
+                    var resorceTypeId = (short)0;
+                    if (column != null && tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiaryExpression)
+                    {
+                        foreach (var component in multiaryExpression.Expressions)
+                        {
+                            if (component is SearchParameterExpression parameterExp)
+                            {
+                                if (parameterExp.Parameter.Name == SearchParameterNames.ResourceType && parameterExp.Expression is StringExpression stringExp)
+                                {
+                                    resorceTypeId = _model.GetResourceTypeId(stringExp.Value);
+                                }
+                                else
+                                {
+                                    searchParamId = _model.GetSearchParamId(parameterExp.Parameter.Url);
+                                }
+                            }
+                        }
+
+                        if (resorceTypeId != 0 && searchParamId != 0)
+                        {
+                            await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
+                        }
+                    }
+
+                    if (column != null && tableExpression.ChainLevel == 1 && priorResourceTypes != null && tableExpression.Predicate is SearchParameterExpression searchExpression)
+                    {
+                        searchParamId = _model.GetSearchParamId(searchExpression.Parameter.Url);
+                        foreach (var type in priorResourceTypes)
+                        {
+                            resorceTypeId = _model.GetResourceTypeId(type);
+                            await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
+                        }
+                    }
+                }
+            }
+
+            private async Task CreateStats(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
+            {
+                try
+                {
+                    using var cmd = new SqlCommand() { CommandText = "dbo.CreateResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
+                    cmd.Parameters.AddWithValue("@Table", tableName[4..]); // remove dbo.
+                    cmd.Parameters.AddWithValue("@Column", columnName);
+                    cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
+                    cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
+                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancel);
+
+                    lock (_stats)
+                    {
+                        _stats.Add((tableName, columnName, resourceTypeId, searchParamId));
+                    }
+
+                    _logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
+                }
+                catch (SqlException ex)
+                {
+                    _logger.LogWarning("ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
+                }
+            }
+
+            private void Init()
+            {
+                if (_stats == null)
+                {
+                    _stats = new HashSet<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>();
+                }
+
+                try
+                {
+                    using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
+                    var stats = cmd.ExecuteReaderAsync(
+                        _sqlRetryService,
+                        (reader) =>
+                        {
+                            // ST_Code_WHERE_ResourceTypeId_28_SearchParamId_202
+                            var table = reader.GetString(0);
+                            var stats = reader.GetString(1);
+                            var split = stats.Split("_");
+                            var column = split[1];
+                            var resorceTypeId = short.Parse(split[4]);
+                            var searchParamId = short.Parse(split[6]);
+                            return (table, column, resorceTypeId, searchParamId);
+                        },
+                        _logger,
+                        CancellationToken.None).Result;
+
+                    foreach (var stat in stats)
+                    {
+                        lock (_stats)
+                        {
+                            _stats.Add(stat);
+                        }
+                    }
+
+                    _logger.LogInformation("ResourceSearchParamStats.Init: Stats={Stats}", stats.Count);
+                }
+                catch (SqlException ex)
+                {
+                    _logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
+                }
             }
         }
     }
