@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallelOnCosmosDb()
         {
+            // #conditionalQueryParallelism
+
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-BatchWithConditionalUpdateByIdentifier");
 
             var bundle = bundleWithConditionalReference.ToPoco<Bundle>();

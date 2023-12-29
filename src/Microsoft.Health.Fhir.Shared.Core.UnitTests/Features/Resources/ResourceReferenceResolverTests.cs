@@ -10,6 +10,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -66,12 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 // Asserting the conditional reference value before resolution
                 Assert.Null(references.First().Reference);
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _referenceResolver.ResolveReferencesAsync(
-                    entry.Resource,
-                    referenceIdDictionary,
-                    requestUrl,
-                    maxParalelism: true, // In the context of this test, maxParallelism is indifferent: tests are using mock search service.
-                    CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalelism: false, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Null(references.First().Reference);
@@ -99,15 +95,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, maxParalelism: false, CancellationToken.None);
+
+                // Asserting the resolved reference value after resolution
+                Assert.Equal("Patient/123", references.First().Reference);
+            }
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleWithConditionalReferences_WhenUsingMaxParallelism_ThenOptimizeConcurrencyParameterIsPresent()
+        {
+            // #conditionalQueryParallelism
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceInResourceBody");
+            var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+
+            SearchResultEntry mockSearchEntry = GetMockSearchEntry("2112", KnownResourceTypes.Patient);
+
+            var searchResult = new SearchResult(new[] { mockSearchEntry }, null, null, new Tuple<string, string>[0]);
+            _searchService
+                .SearchAsync(
+                    "Patient",
+                    Arg.Do<IReadOnlyList<Tuple<string, string>>>(
+                        p => p.Single(x => x.Item1 == KnownQueryParameterNames.OptimizeConcurrency)), // Checks if 'OptimizeConcurrency' is present as one of the query/search parameters.
+                    CancellationToken.None)
+                .Returns(searchResult);
+
+            var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+
+            foreach (var entry in bundle.Entry)
+            {
+                var references = entry.Resource.GetAllChildren<ResourceReference>().ToList();
+
+                // Asserting the conditional reference value before resolution
+                Assert.Equal("Patient?identifier=12345", references.First().Reference);
+
+                var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
                 await _referenceResolver.ResolveReferencesAsync(
                     entry.Resource,
                     referenceIdDictionary,
                     requestUrl,
-                    maxParalelism: true, // In the context of this test, maxParallelism is indifferent: tests are using mock search service.
+                    maxParalelism: true,
                     CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
-                Assert.Equal("Patient/123", references.First().Reference);
+                Assert.Equal("Patient/2112", references.First().Reference);
             }
         }
 

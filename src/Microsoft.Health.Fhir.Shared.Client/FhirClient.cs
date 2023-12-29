@@ -484,6 +484,11 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, FhirBundleOptions bundleOptions = default, CancellationToken cancellationToken = default)
         {
+            if (bundleOptions == null)
+            {
+                bundleOptions = FhirBundleOptions.Default;
+            }
+
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
                 Content = CreateStringContent(bundle),
