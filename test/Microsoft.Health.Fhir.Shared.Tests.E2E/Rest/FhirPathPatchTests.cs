@@ -81,9 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        // [SkippableFact]
-        // This test used to require sequential processing. I'm removing the skippable tag from it.
-        [Fact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingAParallelBundleWithDuplicatedPatch_ThenServerShouldReturnAnError()
         {
@@ -111,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly()
         {
