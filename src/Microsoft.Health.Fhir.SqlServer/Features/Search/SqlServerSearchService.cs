@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -1125,7 +1126,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             private ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerSearchService> _logger;
             private readonly ISqlServerFhirModel _model;
-            private HashSet<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> _stats;
+            private ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
             public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model)
             {
@@ -1249,12 +1250,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
             {
-                lock (_stats)
+                if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId)))
                 {
-                    if (_stats.Contains((tableName, columnName, resourceTypeId, searchParamId)))
-                    {
-                        return;
-                    }
+                    return;
                 }
 
                 try
@@ -1266,10 +1264,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
                     await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancel);
 
-                    lock (_stats)
-                    {
-                        _stats.Add((tableName, columnName, resourceTypeId, searchParamId));
-                    }
+                    _stats.TryAdd((tableName, columnName, resourceTypeId, searchParamId), true);
 
                     _logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
                 }
@@ -1283,7 +1278,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 if (_stats == null)
                 {
-                    _stats = new HashSet<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>();
+                    _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
                 }
 
                 try
@@ -1307,10 +1302,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                     foreach (var stat in stats)
                     {
-                        lock (_stats)
-                        {
-                            _stats.Add(stat);
-                        }
+                        _stats.TryAdd(stat, true);
                     }
 
                     _logger.LogInformation("ResourceSearchParamStats.Init: Stats={Stats}", stats.Count);
