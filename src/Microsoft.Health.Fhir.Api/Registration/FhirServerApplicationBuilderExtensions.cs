@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
@@ -27,15 +28,17 @@ namespace Microsoft.AspNetCore.Builder
         /// Adds FHIR server functionality to the pipeline with health check filter.
         /// </summary>
         /// <param name="app">The application builder instance.</param>
-        /// <param name="useDevelopmentIdentityProvider">developmentIdentityProvider to invoke in the required order.</param>
-        /// <param name="useHttpLoggingMiddleware">httpLoggingMiddleware to invoke in the required order.</param>
+        /// <param name="useDevelopmentIdentityProvider">The method to register the development identity provider.</param>
+        /// <param name="useHttpLoggingMiddleware">The method to register the http logging middleware.</param>
         /// <param name="healthCheckOptionsPredicate">The predicate used to filter health check services.</param>
+        /// <param name="additionalEndpoints">The method to register additional endpoints.</param>
         /// <returns>THe application builder instance.</returns>
         public static IApplicationBuilder UseFhirServer(
             this IApplicationBuilder app,
             Func<IApplicationBuilder, IApplicationBuilder> useDevelopmentIdentityProvider = null,
             Func<IApplicationBuilder, IApplicationBuilder> useHttpLoggingMiddleware = null,
-            Func<HealthCheckRegistration, bool> healthCheckOptionsPredicate = null)
+            Func<HealthCheckRegistration, bool> healthCheckOptionsPredicate = null,
+            Func<IEndpointRouteBuilder, IEndpointRouteBuilder> additionalEndpoints = null)
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
@@ -86,6 +89,7 @@ namespace Microsoft.AspNetCore.Builder
                                 await httpContext.Response.WriteAsync(response).ConfigureAwait(false);
                             },
                         });
+                    additionalEndpoints?.Invoke(endpoints);
                 });
 
             return app;
