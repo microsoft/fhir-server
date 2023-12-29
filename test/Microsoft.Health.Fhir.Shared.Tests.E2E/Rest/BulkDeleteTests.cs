@@ -38,8 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _fhirClient = fixture.TestFhirClient;
         }
 
-        /*
-        [Fact(Skip = "Fails transiently. It will be re-enabled after adding delay")]
+        [SkippableFact]
         public async Task GivenVariousResourcesOfDifferentTypes_WhenBulkDeleted_ThenAllAreDeleted()
         {
             CheckBulkDeleteEnabled();
@@ -85,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact(Skip = "Fails transiently. It will be re-enabled after adding delay")]
+        [SkippableFact]
         public async Task GivenSoftBulkDeleteRequest_WhenCompleted_ThenHistoricalRecordsExist()
         {
             CheckBulkDeleteEnabled();
@@ -98,6 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
 
+            await Task.Delay(1000); // For some reason the bulk delete request can be created with a timestamp BEFORE the resources it needs to delete if the requests come in too close together.
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag);
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -123,6 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string tag = Guid.NewGuid().ToString();
             var resource = (await _fhirClient.CreateResourcesAsync<Patient>(1, tag)).FirstOrDefault();
 
+            await Task.Delay(1000); // For some reason the bulk delete request can be created with a timestamp BEFORE the resources it needs to delete if the requests come in too close together.
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 queryParams: new Dictionary<string, string>
@@ -156,6 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resource.Active = true;
             resource = await _fhirClient.UpdateAsync(resource);
 
+            await Task.Delay(1000); // For some reason the bulk delete request can be created with a timestamp BEFORE the resources it needs to delete if the requests come in too close together.
             using HttpRequestMessage request = GenerateBulkDeleteRequest(
                 tag,
                 queryParams: new Dictionary<string, string>()
@@ -193,6 +195,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await _fhirClient.CreateResourcesAsync(ModelInfoProvider.GetTypeForFhirType(key), expectedResults[key], tag);
             }
 
+            await Task.Delay(1000); // For some reason the bulk delete request can be created with a timestamp BEFORE the resources it needs to delete if the requests come in too close together.
             using HttpRequestMessage request = GenerateBulkDeleteRequest(tag, path, queryParams);
 
             using HttpResponseMessage response = await _httpClient.SendAsync(request);
@@ -268,6 +271,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='bulk-delete').exists()"), "$bulk-delete not enabled on this server");
         }
-        */
     }
 }
