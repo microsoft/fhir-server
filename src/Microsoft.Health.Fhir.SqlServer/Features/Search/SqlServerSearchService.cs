@@ -1200,6 +1200,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             private async Task CreateStats(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
             {
+                lock (_stats)
+                {
+                    if (_stats.Contains((tableName, columnName, resourceTypeId, searchParamId)))
+                    {
+                        return;
+                    }
+                }
+
                 try
                 {
                     using var cmd = new SqlCommand() { CommandText = "dbo.CreateResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
@@ -1243,7 +1251,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             var column = split[1];
                             var resorceTypeId = short.Parse(split[4]);
                             var searchParamId = short.Parse(split[6]);
-                            return (table, column, resorceTypeId, searchParamId);
+                            return ("dbo." + table, column, resorceTypeId, searchParamId);
                         },
                         _logger,
                         CancellationToken.None).Result;
