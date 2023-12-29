@@ -1146,25 +1146,20 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         continue;
                     }
 
-                    string[] priorResourceTypes = null;
-                    if (tableExpression.ChainLevel == 1)
-                    {
-                        var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
-                        if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
-                        {
-                            priorResourceTypes = ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes;
-                        }
-                    }
-
                     var table = tableExpression.QueryGenerator.Table.TableName;
                     var column = table == VLatest.StringSearchParam.TableName
                                ? VLatest.StringSearchParam.Text.Metadata.Name
                                : table == VLatest.TokenSearchParam.TableName
                                     ? VLatest.TokenSearchParam.Code.Metadata.Name
                                     : null;
+                    if (column == null)
+                    {
+                        return;
+                    }
+
                     var searchParamId = (short)0;
                     var resorceTypeId = (short)0;
-                    if (column != null && tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiaryExpression)
+                    if (tableExpression.ChainLevel == 0 && tableExpression.Predicate is MultiaryExpression multiaryExpression)
                     {
                         foreach (var component in multiaryExpression.Expressions)
                         {
@@ -1187,13 +1182,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         }
                     }
 
-                    if (column != null && tableExpression.ChainLevel == 1 && priorResourceTypes != null && tableExpression.Predicate is SearchParameterExpression searchExpression)
+                    if (tableExpression.ChainLevel == 1 && tableExpression.Predicate is SearchParameterExpression searchExpression)
                     {
                         searchParamId = _model.GetSearchParamId(searchExpression.Parameter.Url);
-                        foreach (var type in priorResourceTypes)
+                        var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
+                        if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
                         {
-                            resorceTypeId = _model.GetResourceTypeId(type);
-                            await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
+                            foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
+                            {
+                                resorceTypeId = _model.GetResourceTypeId(type);
+                                await CreateStats(table, column, resorceTypeId, searchParamId, cancel);
+                            }
                         }
                     }
                 }
