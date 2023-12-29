@@ -15,7 +15,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -1136,6 +1135,9 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 Init();
             }
 
+            // The goal is not to be 100% accurate, but cover majority of simple cases and not crash in the others.
+            // Simple expressions with one or more resource types are handled. For chains, resource types are derived from predecessor.
+            // Composite searches are skipped. Number of handled cases can be extended.
             public async Task Create(SqlRootExpression expression, CancellationToken cancel)
             {
                 for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
@@ -1147,12 +1149,8 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     }
 
                     var table = tableExpression.QueryGenerator.Table.TableName;
-                    var column = table == VLatest.StringSearchParam.TableName
-                               ? VLatest.StringSearchParam.Text.Metadata.Name
-                               : table == VLatest.TokenSearchParam.TableName
-                                    ? VLatest.TokenSearchParam.Code.Metadata.Name
-                                    : null;
-                    if (column == null)
+                    var columns = GetKeyColumns(table);
+                    if (columns.Count == 0)
                     {
                         return;
                     }
@@ -1210,10 +1208,43 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     {
                         foreach (var resourceTypeId in resourceTypeIds)
                         {
-                            await Create(table, column, resourceTypeId, searchParamId, cancel);
+                            foreach (var column in columns)
+                            {
+                                await Create(table, column, resourceTypeId, searchParamId, cancel);
+                            }
                         }
                     }
                 }
+            }
+
+            private static HashSet<string> GetKeyColumns(string table)
+            {
+                var results = new HashSet<string>();
+                if (table == VLatest.StringSearchParam.TableName)
+                {
+                    results.Add(VLatest.StringSearchParam.Text.Metadata.Name);
+                }
+                else if (table == VLatest.TokenSearchParam.TableName)
+                {
+                    results.Add(VLatest.TokenSearchParam.Code.Metadata.Name);
+                }
+                else if (table == VLatest.DateTimeSearchParam.TableName)
+                {
+                    results.Add(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name);
+                    results.Add(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name);
+                }
+                else if (table == VLatest.NumberSearchParam.TableName)
+                {
+                    results.Add(VLatest.NumberSearchParam.LowValue.Metadata.Name);
+                    results.Add(VLatest.NumberSearchParam.HighValue.Metadata.Name);
+                }
+                else if (table == VLatest.QuantitySearchParam.TableName)
+                {
+                    results.Add(VLatest.QuantitySearchParam.LowValue.Metadata.Name);
+                    results.Add(VLatest.QuantitySearchParam.HighValue.Metadata.Name);
+                }
+
+                return results;
             }
 
             private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
