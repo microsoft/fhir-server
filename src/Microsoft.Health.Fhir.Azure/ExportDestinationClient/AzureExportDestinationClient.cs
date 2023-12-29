@@ -16,6 +16,7 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -79,6 +80,19 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 _logger.LogWarning(se, "{Error}", se.Message);
 
                 throw new DestinationConnectionException(se.Message, (HttpStatusCode)se.Status);
+            }
+            catch (AggregateException ex) when (ex.InnerExceptions[0] is RequestFailedException)
+            {
+                // The blob container has added a 6 attempt retry that creates an aggregate exception if it can't find the blob.
+                var innerException = (RequestFailedException)ex.InnerExceptions[0];
+                _logger.LogWarning(innerException, "{Error}", innerException.Message);
+                throw new DestinationConnectionException(innerException.Message, (HttpStatusCode)innerException.Status);
+            }
+            catch (AccessTokenProviderException ex)
+            {
+                // Can't get an access token, likely an error with setup
+                _logger.LogWarning(ex, "Failed to get access token for export");
+                throw new DestinationConnectionException(Resources.CannotGetAccessToken, HttpStatusCode.Forbidden);
             }
         }
 
