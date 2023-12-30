@@ -83,6 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             // Check if stored procedure was used
             Assert.True(sprocWasUsed);
+
+            Thread.Sleep(60000);
         }
 
         private async Task<bool> CheckIfSprocUsed(string hash)
