@@ -1091,7 +1091,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 lock (_locker)
                 {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _model, cancel);
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
                 }
             }
 
@@ -1102,10 +1102,10 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
         {
             private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerSearchService> _logger;
-            private readonly ISqlServerFhirModel _model;
+            private readonly SqlServerFhirModel _model;
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
-            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model, CancellationToken cancel)
+            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model, CancellationToken cancel)
             {
                 _sqlRetryService = sqlRetryService;
                 _logger = logger;
@@ -1146,7 +1146,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 {
                                     if (parameterExp.Expression is StringExpression stringExp)
                                     {
-                                        resourceTypeIds.Add(_model.GetResourceTypeId(stringExp.Value));
+                                        resourceTypeIds.Add(_model.TryGetResourceTypeId(stringExp.Value));
                                     }
                                     else if (parameterExp.Expression is MultiaryExpression multiExp2)
                                     {
@@ -1156,7 +1156,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                             {
                                                 if (parameterExp2.Expression is StringExpression stringExp2)
                                                 {
-                                                    resourceTypeIds.Add(_model.GetResourceTypeId(stringExp2.Value));
+                                                    resourceTypeIds.Add(_model.TryGetResourceTypeId(stringExp2.Value));
                                                 }
                                             }
                                         }
@@ -1164,7 +1164,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 }
                                 else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
                                 {
-                                    searchParamId = _model.GetSearchParamId(parameterExp.Parameter.Url);
+                                    searchParamId = _model.TryGetSearchParamId(parameterExp.Parameter.Url);
                                 }
                             }
                         }
@@ -1178,14 +1178,14 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                             {
-                                resourceTypeIds.Add(_model.GetResourceTypeId(type));
+                                resourceTypeIds.Add(_model.TryGetResourceTypeId(type));
                             }
                         }
                     }
 
                     if (searchParamId != 0)
                     {
-                        foreach (var resourceTypeId in resourceTypeIds)
+                        foreach (var resourceTypeId in resourceTypeIds.Where(_ => _ > 0)) // ignore 0 returned by try gets
                         {
                             foreach (var column in columns)
                             {

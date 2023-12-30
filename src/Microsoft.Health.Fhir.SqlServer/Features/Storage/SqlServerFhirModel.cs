@@ -99,6 +99,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _resourceTypeToId[resourceTypeName];
         }
 
+        public short TryGetResourceTypeId(string resourceTypeName)
+        {
+            ThrowIfNotInitialized();
+            _resourceTypeToId.TryGetValue(resourceTypeName, out var resourceTypeId);
+            return resourceTypeId;
+        }
+
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
         {
             ThrowIfNotInitialized();
@@ -121,6 +128,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
+        }
+
+        public short TryGetSearchParamId(Uri searchParamUri)
+        {
+            ThrowIfNotInitialized();
+            _searchParamUriToId.TryGetValue(searchParamUri, out var searchParamId);
+            return searchParamId;
         }
 
         public void TryAddSearchParamIdToUriMapping(string searchParamUri, short searchParamId)
