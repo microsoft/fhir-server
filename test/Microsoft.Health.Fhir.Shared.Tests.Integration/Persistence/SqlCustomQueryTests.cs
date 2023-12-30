@@ -81,10 +81,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
             }
 
+            Assert.Single(CustomQueries.QueryStore);
+
             // Check if stored procedure was used
             Assert.True(sprocWasUsed);
 
-            Thread.Sleep(60000);
+            // drop stored procedure and clear cache, so no other tests use this stored procedure.
+            _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE [dbo].[CustomQuery_{hash}]").Wait();
+            CustomQueries.QueryStore.Clear();
         }
 
         private async Task<bool> CheckIfSprocUsed(string hash)
@@ -148,7 +152,7 @@ SELECT TOP 1 O.name
                 ")\r\nSELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource\r\n" +
                 "FROM dbo.Resource r\r\n\r\nINNER JOIN cte7\r\nON r.ResourceTypeId = cte7.T1 AND \r\nr.ResourceSurrogateId = cte7.Sid1\r\n" +
                 "ORDER BY IsMatch DESC, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC\r\n OPTION (OPTIMIZE FOR UNKNOWN)\r\n" +
-                "END");
+                "END").Wait();
         }
     }
 }
