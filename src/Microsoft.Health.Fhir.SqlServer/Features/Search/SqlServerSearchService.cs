@@ -119,14 +119,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
             _compressedRawResourceConverter = compressedRawResourceConverter;
-
-            if (_resourceSearchParamStats == null)
-            {
-                lock (_locker)
-                {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _model);
-                }
-            }
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -316,7 +308,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
-            await _resourceSearchParamStats.Create(expression, cancellationToken);
+            await CreateStats(expression, cancellationToken);
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
@@ -1093,32 +1085,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return queryText;
         }
 
-        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
-        private class GetResourceSurrogateIdRangesProcedure : StoredProcedure
+        private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
         {
-            private readonly ParameterDefinition<short> _resourceTypeId = new ParameterDefinition<short>("@ResourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
-            private readonly ParameterDefinition<long> _startId = new ParameterDefinition<long>("@StartId", global::System.Data.SqlDbType.BigInt, false);
-            private readonly ParameterDefinition<long> _endId = new ParameterDefinition<long>("@EndId", global::System.Data.SqlDbType.BigInt, false);
-            private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
-            private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
-
-            internal GetResourceSurrogateIdRangesProcedure()
-                : base("dbo.GetResourceSurrogateIdRanges")
+            if (_resourceSearchParamStats == null)
             {
+                lock (_locker)
+                {
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, _model, cancel);
+                }
             }
 
-            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up)
-            {
-                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
-                sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
-                _resourceTypeId.AddParameter(sqlCommand.Parameters, resourceTypeId);
-                _startId.AddParameter(sqlCommand.Parameters, startId);
-                _endId.AddParameter(sqlCommand.Parameters, endId);
-                _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
-                _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
-                _up.AddParameter(sqlCommand.Parameters, up);
-            }
+            await _resourceSearchParamStats.Create(expression, cancel);
         }
 
         private class ResourceSearchParamStats
@@ -1128,13 +1105,13 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             private readonly ISqlServerFhirModel _model;
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
-            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model)
+            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model, CancellationToken cancel)
             {
                 _sqlRetryService = sqlRetryService;
                 _logger = logger;
                 _model = model;
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
-                Init();
+                Init(cancel).Wait(cancel);
             }
 
             // The goal is not to be 100% accurate, but cover majority of simple cases and not crash in the others.
@@ -1275,12 +1252,12 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 }
             }
 
-            private void Init()
+            private async Task Init(CancellationToken cancel)
             {
                 try
                 {
                     using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
-                    var stats = cmd.ExecuteReaderAsync(
+                    var stats = await cmd.ExecuteReaderAsync(
                         _sqlRetryService,
                         (reader) =>
                         {
@@ -1294,7 +1271,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                             return ("dbo." + table, column, resorceTypeId, searchParamId);
                         },
                         _logger,
-                        CancellationToken.None).Result;
+                        cancel);
 
                     foreach (var stat in stats)
                     {
@@ -1307,6 +1284,34 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     _logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
+            }
+        }
+
+        // Class copied from src\Microsoft.Health.Fhir.SqlServer\Features\Schema\Model\VLatest.Generated.net7.0.cs .
+        private class GetResourceSurrogateIdRangesProcedure : StoredProcedure
+        {
+            private readonly ParameterDefinition<short> _resourceTypeId = new ParameterDefinition<short>("@ResourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<long> _startId = new ParameterDefinition<long>("@StartId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<long> _endId = new ParameterDefinition<long>("@EndId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<int> _rangeSize = new ParameterDefinition<int>("@RangeSize", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<int?> _numberOfRanges = new ParameterDefinition<int?>("@NumberOfRanges", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<bool?> _up = new ParameterDefinition<bool?>("@Up", global::System.Data.SqlDbType.Bit, true);
+
+            internal GetResourceSurrogateIdRangesProcedure()
+                : base("dbo.GetResourceSurrogateIdRanges")
+            {
+            }
+
+            public void PopulateCommand(SqlCommand sqlCommand, short resourceTypeId, long startId, long endId, int rangeSize, int? numberOfRanges, bool? up)
+            {
+                sqlCommand.CommandType = global::System.Data.CommandType.StoredProcedure;
+                sqlCommand.CommandText = "dbo.GetResourceSurrogateIdRanges";
+                _resourceTypeId.AddParameter(sqlCommand.Parameters, resourceTypeId);
+                _startId.AddParameter(sqlCommand.Parameters, startId);
+                _endId.AddParameter(sqlCommand.Parameters, endId);
+                _rangeSize.AddParameter(sqlCommand.Parameters, rangeSize);
+                _numberOfRanges.AddParameter(sqlCommand.Parameters, numberOfRanges);
+                _up.AddParameter(sqlCommand.Parameters, up);
             }
         }
     }
