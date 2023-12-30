@@ -1123,16 +1123,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
         private class ResourceSearchParamStats
         {
-            private ISqlRetryService _sqlRetryService;
+            private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerSearchService> _logger;
             private readonly ISqlServerFhirModel _model;
-            private ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
+            private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
             public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, ISqlServerFhirModel model)
             {
                 _sqlRetryService = sqlRetryService;
                 _logger = logger;
                 _model = model;
+                _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
                 Init();
             }
 
@@ -1276,11 +1277,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
             private void Init()
             {
-                if (_stats == null)
-                {
-                    _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
-                }
-
                 try
                 {
                     using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
