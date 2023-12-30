@@ -86,9 +86,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Check if stored procedure was used
             Assert.True(sprocWasUsed);
 
+            // restore state before this test
             // drop stored procedure and clear cache, so no other tests use this stored procedure.
             _fixture.SqlHelper.ExecuteSqlCmd($"DROP PROCEDURE [dbo].[CustomQuery_{hash}]").Wait();
             CustomQueries.QueryStore.Clear();
+            CustomQueries.WaitTime = 60;
         }
 
         private async Task<bool> CheckIfSprocUsed(string hash)
