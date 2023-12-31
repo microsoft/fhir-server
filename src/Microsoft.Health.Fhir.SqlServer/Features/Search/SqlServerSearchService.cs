@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             SqlCommandSimplifier.RemoveRedundantParameters(stringBuilder, sqlCommand.Parameters, _logger);
 
                             var queryText = stringBuilder.ToString();
-                            var queryHash = _queryHashCalculator.CalculateHash(RemoveParamHash(queryText));
+                            var queryHash = _queryHashCalculator.CalculateHash(queryText);
                             _logger.LogInformation("SQL Search Service query hash: {QueryHash}", queryHash);
                             var customQuery = CustomQueries.CheckQueryHash(connection, queryHash, _logger);
 
@@ -1065,24 +1065,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             }
 
             return resourceType;
-        }
-
-        private static string RemoveParamHash(string queryText)
-        {
-            var lines = queryText.Split('\n');
-            for (var i = lines.Length - 1; i >= 0; i--)
-            {
-                if (string.IsNullOrWhiteSpace(lines[i]))
-                {
-                    continue;
-                }
-                else if (lines[i].StartsWith("/* HASH", StringComparison.OrdinalIgnoreCase))
-                {
-                    return string.Join('\n', lines.Take(i));
-                }
-            }
-
-            return queryText;
         }
 
         internal static void ClearStatsCache()
