@@ -1149,11 +1149,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             // Composite searches are skipped. Number of handled cases can be extended.
             public async Task Create(SqlRootExpression expression, CancellationToken cancel)
             {
-                if (_model.GetSearchParamIdCount() < 1000 || _model.GetResourceTypeIdCount() < 10)
-                {
-                    throw new InvalidOperationException("_model.GetSearchParamIdCount() < 1000 || _model.GetResourceTypeIdCount() < 10");
-                }
-
                 for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
                 {
                     var tableExpression = expression.SearchParamTableExpressions[index];
