@@ -1085,6 +1085,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return queryText;
         }
 
+        internal static void ClearStatsCache()
+        {
+            _resourceSearchParamStats.ClearCache();
+        }
+
         private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
         {
             if (_resourceSearchParamStats == null)
@@ -1096,6 +1101,31 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             }
 
             await _resourceSearchParamStats.Create(expression, cancel);
+        }
+
+        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStats(CancellationToken cancel)
+        {
+            return await GetStats(_sqlRetryService, _logger, cancel);
+        }
+
+        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+        {
+            using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
+            return await cmd.ExecuteReaderAsync(
+                            sqlRetryService,
+                            (reader) =>
+                            {
+                                // ST_Code_WHERE_ResourceTypeId_28_SearchParamId_202
+                                var table = reader.GetString(0);
+                                var stats = reader.GetString(1);
+                                var split = stats.Split("_");
+                                var column = split[1];
+                                var resorceTypeId = short.Parse(split[4]);
+                                var searchParamId = short.Parse(split[6]);
+                                return ("dbo." + table, column, resorceTypeId, searchParamId);
+                            },
+                            logger,
+                            cancel);
         }
 
         private class ResourceSearchParamStats
@@ -1146,7 +1176,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 {
                                     if (parameterExp.Expression is StringExpression stringExp)
                                     {
-                                        resourceTypeIds.Add(_model.TryGetResourceTypeId(stringExp.Value));
+                                        var resourceTypeId = _model.TryGetResourceTypeId(stringExp.Value);
+                                        if (resourceTypeId > 0)
+                                        {
+                                            resourceTypeIds.Add(resourceTypeId);
+                                        }
                                     }
                                     else if (parameterExp.Expression is MultiaryExpression multiExp2)
                                     {
@@ -1156,7 +1190,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                             {
                                                 if (parameterExp2.Expression is StringExpression stringExp2)
                                                 {
-                                                    resourceTypeIds.Add(_model.TryGetResourceTypeId(stringExp2.Value));
+                                                    var resourceTypeId = _model.TryGetResourceTypeId(stringExp2.Value);
+                                                    if (resourceTypeId > 0)
+                                                    {
+                                                        resourceTypeIds.Add(resourceTypeId);
+                                                    }
                                                 }
                                             }
                                         }
@@ -1178,14 +1216,18 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                             {
-                                resourceTypeIds.Add(_model.TryGetResourceTypeId(type));
+                                var resourceTypeId = _model.TryGetResourceTypeId(type);
+                                if (resourceTypeId > 0)
+                                {
+                                    resourceTypeIds.Add(resourceTypeId);
+                                }
                             }
                         }
                     }
 
                     if (searchParamId != 0)
                     {
-                        foreach (var resourceTypeId in resourceTypeIds.Where(_ => _ > 0)) // ignore 0 returned by try gets
+                        foreach (var resourceTypeId in resourceTypeIds)
                         {
                             foreach (var column in columns)
                             {
@@ -1256,22 +1298,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 try
                 {
-                    using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
-                    var stats = await cmd.ExecuteReaderAsync(
-                        _sqlRetryService,
-                        (reader) =>
-                        {
-                            // ST_Code_WHERE_ResourceTypeId_28_SearchParamId_202
-                            var table = reader.GetString(0);
-                            var stats = reader.GetString(1);
-                            var split = stats.Split("_");
-                            var column = split[1];
-                            var resorceTypeId = short.Parse(split[4]);
-                            var searchParamId = short.Parse(split[6]);
-                            return ("dbo." + table, column, resorceTypeId, searchParamId);
-                        },
-                        _logger,
-                        cancel);
+                    var stats = await GetStats(_sqlRetryService, _logger, cancel);
 
                     foreach (var stat in stats)
                     {
@@ -1284,6 +1311,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     _logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
+            }
+
+            internal void ClearCache()
+            {
+                _stats.Clear();
             }
         }
 
