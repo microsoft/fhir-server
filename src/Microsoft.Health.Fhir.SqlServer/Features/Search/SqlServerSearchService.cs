@@ -1149,6 +1149,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             // Composite searches are skipped. Number of handled cases can be extended.
             public async Task Create(SqlRootExpression expression, CancellationToken cancel)
             {
+                if (_model.GetSearchParamIdCount() < 1000 || _model.GetResourceTypeIdCount() < 10)
+                {
+                    throw new InvalidOperationException("_model.GetSearchParamIdCount() < 1000 || _model.GetResourceTypeIdCount() < 10");
+                }
+
                 for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
                 {
                     var tableExpression = expression.SearchParamTableExpressions[index];
@@ -1176,8 +1181,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 {
                                     if (parameterExp.Expression is StringExpression stringExp)
                                     {
-                                        var resourceTypeId = _model.TryGetResourceTypeId(stringExp.Value);
-                                        if (resourceTypeId > 0)
+                                        if (_model.TryGetResourceTypeId(stringExp.Value, out var resourceTypeId))
                                         {
                                             resourceTypeIds.Add(resourceTypeId);
                                         }
@@ -1190,8 +1194,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                             {
                                                 if (parameterExp2.Expression is StringExpression stringExp2)
                                                 {
-                                                    var resourceTypeId = _model.TryGetResourceTypeId(stringExp2.Value);
-                                                    if (resourceTypeId > 0)
+                                                    if (_model.TryGetResourceTypeId(stringExp2.Value, out var resourceTypeId))
                                                     {
                                                         resourceTypeIds.Add(resourceTypeId);
                                                     }
@@ -1202,7 +1205,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 }
                                 else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
                                 {
-                                    searchParamId = _model.TryGetSearchParamId(parameterExp.Parameter.Url);
+                                    _model.TryGetSearchParamId(parameterExp.Parameter.Url, out searchParamId);
                                 }
                             }
                         }
@@ -1216,8 +1219,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                             {
-                                var resourceTypeId = _model.TryGetResourceTypeId(type);
-                                if (resourceTypeId > 0)
+                                if (_model.TryGetResourceTypeId(type, out var resourceTypeId))
                                 {
                                     resourceTypeIds.Add(resourceTypeId);
                                 }
