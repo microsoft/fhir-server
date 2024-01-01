@@ -48,8 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            var helperDatabase = conn.Database;
-            _output.WriteLine($"helperDatabase={helperDatabase}");
+            _output.WriteLine($"database={conn.Database}");
 
             Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4,

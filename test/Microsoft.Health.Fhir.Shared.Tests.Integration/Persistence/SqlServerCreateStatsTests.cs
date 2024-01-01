@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Dac.Model;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -31,20 +32,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly SqlServerSearchService _sqlSearchService;
-        private readonly ITestOutputHelper _testOutputHelper;
+        private readonly ITestOutputHelper _output;
 
         public SqlServerCreateStatsTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
             _sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
-            _testOutputHelper = testOutputHelper;
+            _output = testOutputHelper;
         }
 
         [Fact]
         public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
-            _testOutputHelper.WriteLine($"database={conn.Database}");
+            _output.WriteLine($"database={conn.Database}");
 
             const string resourceType = "ImagingStudy";
             var query = new[] { Tuple.Create("identifier", "xyz") };
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(stats);
             foreach (var stat in stats)
             {
-                _testOutputHelper.WriteLine(stat.ToString());
+                _output.WriteLine(stat.ToString());
             }
 
             Assert.Single(stats.Where(_ => _.TableName == VLatest.TokenSearchParam.TableName
