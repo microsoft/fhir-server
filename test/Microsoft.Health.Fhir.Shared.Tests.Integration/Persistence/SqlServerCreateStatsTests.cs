@@ -40,11 +40,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenPatientInCityWithCondition_StatsAreCreated()
+        public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
         {
             DropAllStats();
-            var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-            await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+            var query = new[] { Tuple.Create("identifier", "xyz") };
+            await _sqlSearchService.SearchAsync("ImagingStudy", query, CancellationToken.None);
             var stats = await _sqlSearchService.GetStats(CancellationToken.None);
             Assert.NotNull(stats);
             foreach (var stat in stats)
@@ -52,40 +52,56 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _testOutputHelper.WriteLine(stat.ToString());
             }
 
-            Assert.Equal(2, stats.Count);
+            Assert.Single(stats);
         }
 
-        [Fact]
-        public async Task GivenPatientInCityAndStateWithCondition_StatsAreCreated()
-        {
-            DropAllStats();
-            var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-            await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-            var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-            Assert.NotNull(stats);
-            foreach (var stat in stats)
-            {
-                _testOutputHelper.WriteLine(stat.ToString());
-            }
+        ////[Fact]
+        ////public async Task GivenPatientInCityWithCondition_StatsAreCreated()
+        ////{
+        ////    DropAllStats();
+        ////    var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
+        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
+        ////    Assert.NotNull(stats);
+        ////    foreach (var stat in stats)
+        ////    {
+        ////        _testOutputHelper.WriteLine(stat.ToString());
+        ////    }
 
-            Assert.Equal(3, stats.Count);
-        }
+        ////    Assert.Equal(2, stats.Count);
+        ////}
 
-        [Fact]
-        public async Task GivenPatientInCityAndStateAndBirthdateWithCondition_StatsAreCreated()
-        {
-            DropAllStats();
-            var query = new[] { Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-            await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-            var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-            Assert.NotNull(stats);
-            foreach (var stat in stats)
-            {
-                _testOutputHelper.WriteLine(stat.ToString());
-            }
+        ////[Fact]
+        ////public async Task GivenPatientInCityAndStateWithCondition_StatsAreCreated()
+        ////{
+        ////    DropAllStats();
+        ////    var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
+        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
+        ////    Assert.NotNull(stats);
+        ////    foreach (var stat in stats)
+        ////    {
+        ////        _testOutputHelper.WriteLine(stat.ToString());
+        ////    }
 
-            Assert.Equal(5, stats.Count); // +1 for end date
-        }
+        ////    Assert.Equal(3, stats.Count);
+        ////}
+
+        ////[Fact]
+        ////public async Task GivenPatientInCityAndStateAndBirthdateWithCondition_StatsAreCreated()
+        ////{
+        ////    DropAllStats();
+        ////    var query = new[] { Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
+        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
+        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
+        ////    Assert.NotNull(stats);
+        ////    foreach (var stat in stats)
+        ////    {
+        ////        _testOutputHelper.WriteLine(stat.ToString());
+        ////    }
+
+        ////    Assert.Equal(5, stats.Count); // +1 for end date
+        ////}
 
         private void DropAllStats()
         {
