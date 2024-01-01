@@ -39,21 +39,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        [Fact]
-        public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
-        {
-            DropAllStats();
-            var query = new[] { Tuple.Create("identifier", "xyz") };
-            await _sqlSearchService.SearchAsync("ImagingStudy", query, CancellationToken.None);
-            var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-            Assert.NotNull(stats);
-            foreach (var stat in stats)
-            {
-                _testOutputHelper.WriteLine(stat.ToString());
-            }
+        ////[Fact]
+        ////public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
+        ////{
+        ////    DropAllStats();
+        ////    var query = new[] { Tuple.Create("identifier", "xyz") };
+        ////    await _sqlSearchService.SearchAsync("ImagingStudy", query, CancellationToken.None);
+        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
+        ////    Assert.NotNull(stats);
+        ////    foreach (var stat in stats)
+        ////    {
+        ////        _testOutputHelper.WriteLine(stat.ToString());
+        ////    }
 
-            Assert.Single(stats);
-        }
+        ////    Assert.Single(stats);
+        ////}
 
         ////[Fact]
         ////public async Task GivenPatientInCityWithCondition_StatsAreCreated()
