@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.SqlServer.Dac.Model;
 using NSubstitute.Core;
 using Xunit;
 using Xunit.Abstractions;
@@ -39,21 +40,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testOutputHelper = testOutputHelper;
         }
 
-        ////[Fact]
-        ////public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
-        ////{
-        ////    DropAllStats();
-        ////    var query = new[] { Tuple.Create("identifier", "xyz") };
-        ////    await _sqlSearchService.SearchAsync("ImagingStudy", query, CancellationToken.None);
-        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-        ////    Assert.NotNull(stats);
-        ////    foreach (var stat in stats)
-        ////    {
-        ////        _testOutputHelper.WriteLine(stat.ToString());
-        ////    }
+        [Fact]
+        public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
+        {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            _testOutputHelper.WriteLine($"database={conn.Database}");
 
-        ////    Assert.Single(stats);
-        ////}
+            const string resourceType = "ImagingStudy";
+            var query = new[] { Tuple.Create("identifier", "xyz") };
+            await _sqlSearchService.SearchAsync(resourceType, query, CancellationToken.None);
+            var stats = await _sqlSearchService.GetDatabaseStats(CancellationToken.None);
+            Assert.NotNull(stats);
+            foreach (var stat in stats)
+            {
+                _testOutputHelper.WriteLine(stat.ToString());
+            }
+
+            Assert.Single(stats.Where(_ => _.TableName == VLatest.TokenSearchParam.TableName
+                                        && _.ColumnName == "Code"
+                                        && _.ResourceTypeId == _sqlSearchService.Model.GetResourceTypeId(resourceType)
+                                        && _.SearchParamId == _sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
+        }
 
         ////[Fact]
         ////public async Task GivenPatientInCityWithCondition_StatsAreCreated()
@@ -102,28 +109,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         ////    Assert.Equal(5, stats.Count); // +1 for end date
         ////}
-
-        private void DropAllStats()
-        {
-            var stats = _sqlSearchService.GetStats(CancellationToken.None).Result;
-            foreach (var stat in stats)
-            {
-                var sql = $"DROP STATISTICS {stat.TableName}.ST_{stat.ColumnName}_WHERE_ResourceTypeId_{stat.ResourceTypeId}_SearchParamId_{stat.SearchParamId}";
-                _testOutputHelper.WriteLine(sql);
-                ExecuteSql(sql);
-            }
-
-            stats = _sqlSearchService.GetStats(CancellationToken.None).Result;
-            Assert.Empty(stats);
-            SqlServerSearchService.ClearStatsCache();
-        }
-
-        private void ExecuteSql(string sql)
-        {
-            using var conn = _fixture.SqlHelper.GetSqlConnectionAsync().Result;
-            conn.Open();
-            using var cmd = new SqlCommand(sql, conn);
-            cmd.ExecuteNonQuery();
-        }
     }
 }

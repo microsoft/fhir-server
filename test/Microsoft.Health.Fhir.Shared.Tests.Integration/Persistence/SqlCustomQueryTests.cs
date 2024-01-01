@@ -19,6 +19,7 @@ using Microsoft.Health.Test.Utilities;
 using Microsoft.SqlServer.Management.Sdk.Sfc;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
 
@@ -46,6 +47,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            var helperDatabase = conn.Database;
+            _output.WriteLine($"helperDatabase={helperDatabase}");
+
             Skip.If(
                 ModelInfoProvider.Instance.Version != FhirSpecification.R4,
                 "This test is only valid for R4");

@@ -121,6 +121,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compressedRawResourceConverter = compressedRawResourceConverter;
         }
 
+        internal ISqlServerFhirModel Model => _model;
+
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
@@ -1067,11 +1069,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             return resourceType;
         }
 
-        internal static void ClearStatsCache()
-        {
-            _resourceSearchParamStats.ClearCache();
-        }
-
         private async Task CreateStats(SqlRootExpression expression, CancellationToken cancel)
         {
             if (_resourceSearchParamStats == null)
@@ -1085,12 +1082,12 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             await _resourceSearchParamStats.Create(expression, cancel);
         }
 
-        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStats(CancellationToken cancel)
+        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetDatabaseStats(CancellationToken cancel)
         {
-            return await GetStats(_sqlRetryService, _logger, cancel);
+            return await GetDatabaseStats(_sqlRetryService, _logger, cancel);
         }
 
-        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetDatabaseStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
             return await cmd.ExecuteReaderAsync(
@@ -1277,7 +1274,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 try
                 {
-                    var stats = await GetStats(_sqlRetryService, _logger, cancel);
+                    var stats = await GetDatabaseStats(_sqlRetryService, _logger, cancel);
 
                     foreach (var stat in stats)
                     {
@@ -1290,11 +1287,6 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 {
                     _logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
-            }
-
-            internal void ClearCache()
-            {
-                _stats.Clear();
             }
         }
 
