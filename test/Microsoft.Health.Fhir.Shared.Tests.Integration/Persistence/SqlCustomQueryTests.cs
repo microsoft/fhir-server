@@ -7,6 +7,9 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel.Types;
+using Hl7.Fhir.Rest;
+using MathNet.Numerics;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -14,8 +17,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.SqlServer.Management.Sdk.Sfc;
 using Xunit;
 using Xunit.Abstractions;
+using static Antlr4.Runtime.Atn.SemanticContext;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -122,38 +127,90 @@ SELECT TOP 1 O.name
 
         private void AddSproc(string hash)
         {
-            _fixture.SqlHelper.ExecuteSqlCmd(
-                "CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_" + hash + "]\r\n" +
-                "(@p0 SmallInt=1, @p1 SmallInt=1, @p2 SmallInt=1, @p3 SmallInt=1, @p4 NVarChar(256)='code', @p5 SmallInt=1, @p6 VarChar(256)='code', @p7 Int=1, @p8 SmallInt=1, @p9 Int=1)\r\n" +
-                "AS\r\n" +
-                "BEGIN\r\n" +
-                "WITH cte0 AS\r\n(\r\n" +
-                "SELECT refSource.ResourceTypeId AS T1, refSource.ResourceSurrogateId AS Sid1, refTarget.ResourceTypeId AS T2, refTarget.ResourceSurrogateId AS Sid2 \r\n" +
-                "FROM dbo.ReferenceSearchParam refSource\r\n    INNER JOIN dbo.Resource refTarget\r\n    ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId\r\n" +
-                "AND refSource.ReferenceResourceId = refTarget.ResourceId\r\n    WHERE refSource.SearchParamId = @p0\r\n        AND refTarget.IsHistory = 0\r\n" +
-                "AND refSource.IsHistory = 0\r\n        AND refSource.ResourceTypeId IN (@p1)\r\n        AND refSource.ReferenceResourceTypeId IN (@p2)\r\n" +
-                "AND refSource.ResourceTypeId = @p1\r\n),\r\ncte1 AS\r\n(\r\n    SELECT T1, Sid1, ResourceTypeId AS T2, \r\n    ResourceSurrogateId AS Sid2\r\n" +
-                "FROM dbo.TokenSearchParam\r\n    INNER JOIN cte0\r\n    ON ResourceTypeId = T2\r\n        AND ResourceSurrogateId = Sid2\r\n    WHERE IsHistory = 0\r\n" +
-                "AND SearchParamId = @p3\r\n        AND Code = @p4\r\n),\r\ncte2 AS\r\n(\r\n" +
-                "SELECT refSource.ResourceTypeId AS T1, refSource.ResourceSurrogateId AS Sid1, refTarget.ResourceTypeId AS T2, refTarget.ResourceSurrogateId AS Sid2 \r\n" +
-                "FROM dbo.ReferenceSearchParam refSource\r\n    INNER JOIN dbo.Resource refTarget\r\n    ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId\r\n" +
-                "AND refSource.ReferenceResourceId = refTarget.ResourceId\r\n    WHERE refSource.SearchParamId = @p0\r\n        AND refTarget.IsHistory = 0\r\n" +
-                "AND refSource.IsHistory = 0\r\n        AND refSource.ResourceTypeId IN (@p1)\r\n        AND refSource.ReferenceResourceTypeId IN (@p2)\r\n " +
-                " AND EXISTS(SELECT * FROM cte1 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1)\r\n        AND refSource.ResourceTypeId = @p1\r\n" +
-                "),\r\ncte3 AS\r\n(\r\n    SELECT T1, Sid1, ResourceTypeId AS T2, \r\n    ResourceSurrogateId AS Sid2\r\n    FROM dbo.TokenSearchParam\r\n    INNER JOIN cte2\r\n" +
-                "ON ResourceTypeId = T2\r\n        AND ResourceSurrogateId = Sid2\r\n    WHERE IsHistory = 0\r\n        AND SearchParamId = @p5\r\n        AND Code = @p6\r\n),\r\ncte4 AS\r\n" +
-                "(\r\n    SELECT ROW_NUMBER() OVER(ORDER BY T1 ASC, Sid1 ASC) AS Row, *\r\n    FROM\r\n    (\r\n        SELECT DISTINCT TOP (@p7) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial \r\n" +
-                "FROM cte3\r\n        ORDER BY T1 ASC, Sid1 ASC\r\n    ) t\r\n),\r\ncte5 AS\r\n(\r\n" +
-                "SELECT DISTINCT refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1, 0 AS IsMatch \r\n    FROM dbo.ReferenceSearchParam refSource\r\n" +
-                "INNER JOIN dbo.Resource refTarget\r\n    ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId\r\n        AND refSource.ReferenceResourceId = refTarget.ResourceId\r\n" +
-                "WHERE refSource.SearchParamId = @p8\r\n        AND refTarget.IsHistory = 0\r\n        AND refSource.IsHistory = 0\r\n        AND refTarget.IsDeleted = 0\r\n" +
-                "AND refSource.ResourceTypeId IN (98)\r\n        AND EXISTS( SELECT * FROM cte4 WHERE refSource.ResourceTypeId = T1 AND refSource.ResourceSurrogateId = Sid1 AND Row < @p9)\r\n" +
-                "),\r\ncte6 AS\r\n(\r\n    SELECT DISTINCT T1, Sid1, IsMatch, 0 AS IsPartial \r\n    FROM cte5\r\n),\r\ncte7 AS\r\n(\r\n    SELECT T1, Sid1, IsMatch, IsPartial \r\n" +
-                "FROM cte4\r\n    UNION ALL\r\n    SELECT T1, Sid1, IsMatch, IsPartial\r\n    FROM cte6 WHERE NOT EXISTS (SELECT * FROM cte4 WHERE cte4.Sid1 = cte6.Sid1 AND cte4.T1 = cte6.T1)\r\n" +
-                ")\r\nSELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource\r\n" +
-                "FROM dbo.Resource r\r\n\r\nINNER JOIN cte7\r\nON r.ResourceTypeId = cte7.T1 AND \r\nr.ResourceSurrogateId = cte7.Sid1\r\n" +
-                "ORDER BY IsMatch DESC, r.ResourceTypeId ASC, r.ResourceSurrogateId ASC\r\n OPTION (OPTIMIZE FOR UNKNOWN)\r\n" +
-                "END").Wait();
+            _fixture.SqlHelper.ExecuteSqlCmd(@$"
+CREATE OR ALTER PROCEDURE[dbo].[CustomQuery_{hash}]
+   @p0 smallint = 690
+  ,@p1 datetime2 = '1800-01-01T23:59:59.9999999Z'
+  ,@p2 smallint = 103
+  ,@p3 smallint = 685
+  ,@p4 nvarchar(256) = N'City%'
+  ,@p5 smallint = 688
+  ,@p6 nvarchar(256) = N'State%'
+  ,@p7 smallint = 217
+  ,@p8 smallint = 28
+  ,@p9 smallint = 202
+  ,@p10 nvarchar(256) = N'http://snomed.info/sct'
+  ,@p11 varchar(256) = '444814009'
+  ,@p12 int = 11
+AS
+set nocount on
+DECLARE @FilteredData AS TABLE(T1 smallint, Sid1 bigint, IsMatch bit, IsPartial bit, Row int)
+;WITH
+cte0 AS
+(
+  SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.DateTimeSearchParam
+    WHERE IsHistory = 0
+      AND SearchParamId = @p0
+      AND EndDateTime > @p1
+      AND ResourceTypeId = @p2
+)
+,cte1 AS
+(
+  SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.StringSearchParam
+         JOIN cte0 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0
+      AND SearchParamId = @p3
+      AND Text LIKE @p4
+      AND ResourceTypeId = @p2
+)
+,cte2 AS
+(
+  SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
+    FROM dbo.StringSearchParam
+         JOIN cte1 ON ResourceTypeId = T1 AND ResourceSurrogateId = Sid1
+    WHERE IsHistory = 0
+      AND SearchParamId = @p5
+      AND Text LIKE @p6
+      AND ResourceTypeId = @p2
+)
+,cte3 AS
+(
+  SELECT refSource.ResourceTypeId AS T2, refSource.ResourceSurrogateId AS Sid2, refTarget.ResourceTypeId AS T1, refTarget.ResourceSurrogateId AS Sid1
+    FROM dbo.ReferenceSearchParam refSource
+         JOIN dbo.Resource refTarget ON refSource.ReferenceResourceTypeId = refTarget.ResourceTypeId AND refSource.ReferenceResourceId = refTarget.ResourceId
+         JOIN cte2 ON refTarget.ResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1
+    WHERE refSource.SearchParamId = @p7
+      AND refTarget.IsHistory = 0
+      AND refSource.IsHistory = 0
+      AND refSource.ResourceTypeId IN (@p8)
+      AND refSource.ReferenceResourceTypeId IN (@p2)
+      AND refTarget.ResourceTypeId = @p2
+)
+,cte4 AS
+(
+  SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
+    FROM dbo.TokenSearchParam
+         JOIN cte3 ON ResourceTypeId = T2 AND ResourceSurrogateId = Sid2
+    WHERE IsHistory = 0
+      AND SearchParamId = @p9
+      AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p10)
+      AND Code = @p11 
+)
+,cte5 AS
+(
+  SELECT DISTINCT TOP(@p12) T1, Sid1, 1 AS IsMatch, 0 AS IsPartial
+    FROM cte4
+    ORDER BY T1 ASC, Sid1 ASC
+)
+/* HASH mjWyjUhfaQSwdGxzuqf2zIoL40RwSu3TGuwOHSjeC98= */
+SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
+  FROM dbo.Resource r
+       JOIN cte5 ON r.ResourceTypeId = cte5.T1 AND r.ResourceSurrogateId = cte5.Sid1
+  WHERE IsHistory = 0
+  ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC
+            ").Wait();
         }
     }
 }
