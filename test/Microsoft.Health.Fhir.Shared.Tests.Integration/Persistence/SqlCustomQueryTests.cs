@@ -127,7 +127,7 @@ SELECT TOP 1 O.name
         private void AddSproc(string hash)
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
-CREATE OR ALTER PROCEDURE[dbo].[CustomQuery_{hash}]
+CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
    @p0 smallint
   ,@p1 datetime2
   ,@p2 smallint
