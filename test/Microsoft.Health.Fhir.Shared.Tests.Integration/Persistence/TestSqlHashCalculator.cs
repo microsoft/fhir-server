@@ -8,7 +8,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    // TODO: Consider removing as it produces incorrect info in racing conditions
     public class TestSqlHashCalculator : ISqlQueryHashCalculator
     {
         public string MostRecentSqlQuery { get; set; }

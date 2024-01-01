@@ -49,16 +49,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // set the wait time to 1 second
             CustomQueries.WaitTime = 1;
 
-            var queryParameters = new[]
-            {
-               Tuple.Create("_count", "5"),
-            };
+            // use more unique call to avoid racing
+            var query = new[] { Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
 
             // Query before adding an sproc to the database
-            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
 
-            // cannot rely on MostRecentSqlHash because of racing
-            var hash = "0EBA3E97641A110D39DA14959E8E643A01D30732F5094871D0865B54C0E58079"; // _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
+            var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
 
             // assert an sproc was not used
             Assert.False(await CheckIfSprocUsed(hash));
@@ -73,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             while (sw.Elapsed.TotalSeconds < 10) // previous single try after 1.1 sec delay was not reliable.
             {
                 await Task.Delay(300);
-                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
+                await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
                 Assert.Equal(hash, _fixture.SqlQueryHashCalculator.MostRecentSqlHash);
                 if (await CheckIfSprocUsed(hash))
                 {
