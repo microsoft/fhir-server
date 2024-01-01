@@ -57,7 +57,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Query before adding an sproc to the database
             await _fixture.SearchService.SearchAsync(KnownResourceTypes.Patient, queryParameters, CancellationToken.None);
 
-            var hash = _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
+            // cannot rely on MostRecentSqlHash because of racing
+            var hash = "0EBA3E97641A110D39DA14959E8E643A01D30732F5094871D0865B54C0E58079"; // _fixture.SqlQueryHashCalculator.MostRecentSqlHash;
 
             // assert an sproc was not used
             Assert.False(await CheckIfSprocUsed(hash));
