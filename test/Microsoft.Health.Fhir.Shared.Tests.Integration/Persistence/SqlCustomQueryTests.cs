@@ -98,29 +98,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private async Task<bool> CheckIfSprocUsed(string hash)
         {
-            using (SqlConnection conn = await _fixture.SqlHelper.GetSqlConnectionAsync())
-            {
-                _output.WriteLine("Checking database for sproc being run.");
-                conn.Open();
-                var cmd = conn.CreateCommand();
-                cmd.CommandText = @"
+            using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
+            _output.WriteLine("Checking database for sproc being run.");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
 SELECT TOP 1 O.name
   FROM sys.dm_exec_procedure_stats S
        JOIN sys.objects O ON O.object_id = S.object_id
   WHERE O.type = 'p' AND O.name = 'CustomQuery_'+@hash
   ORDER BY
        S.last_execution_time DESC";
-                cmd.Parameters.AddWithValue("@hash", hash);
+            cmd.Parameters.AddWithValue("@hash", hash);
 
-                var reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    return true;
-                }
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                return true;
             }
 
             _output.WriteLine("No evidence found of sproc being run.");
-
             return false;
         }
 
