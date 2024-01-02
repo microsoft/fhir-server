@@ -31,88 +31,70 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerCreateStatsTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
-        private readonly SqlServerSearchService _sqlSearchService;
         private readonly ITestOutputHelper _output;
 
         public SqlServerCreateStatsTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fixture = fixture;
-            _sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
             _output = testOutputHelper;
         }
 
         [Fact]
-        public async Task GivenImagingStudyWithIdentifier_StatsAreCreated()
+        public async Task GivenSearchForImagingStudyByIdentifier_StatsAreCreated()
         {
             using var conn = await _fixture.SqlHelper.GetSqlConnectionAsync();
             _output.WriteLine($"database={conn.Database}");
 
             const string resourceType = "ImagingStudy";
             var query = new[] { Tuple.Create("identifier", "xyz") };
-            await _sqlSearchService.SearchAsync(resourceType, query, CancellationToken.None);
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
             var statsFromCache = SqlServerSearchService.GetStatsFromCache();
             foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
             }
 
-            foreach (var stat in await _sqlSearchService.GetStatsFromDatabase(CancellationToken.None))
+            var sqlSearchService = (SqlServerSearchService)_fixture.SearchService;
+            foreach (var stat in await sqlSearchService.GetStatsFromDatabase(CancellationToken.None))
             {
                 _output.WriteLine($"database {stat}");
             }
 
-            Assert.Single(statsFromCache.Where(_ => _.TableName == VLatest.TokenSearchParam.TableName
-                                        && _.ColumnName == "Code"
-                                        && _.ResourceTypeId == _sqlSearchService.Model.GetResourceTypeId(resourceType)
-                                        && _.SearchParamId == _sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
+            Assert.Single(statsFromCache.Where(
+                _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == sqlSearchService.Model.GetResourceTypeId(resourceType)
+                  && _.SearchParamId == sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
         }
 
-        ////[Fact]
-        ////public async Task GivenPatientInCityWithCondition_StatsAreCreated()
-        ////{
-        ////    DropAllStats();
-        ////    var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-        ////    Assert.NotNull(stats);
-        ////    foreach (var stat in stats)
-        ////    {
-        ////        _testOutputHelper.WriteLine(stat.ToString());
-        ////    }
-
-        ////    Assert.Equal(2, stats.Count);
-        ////}
-
-        ////[Fact]
-        ////public async Task GivenPatientInCityAndStateWithCondition_StatsAreCreated()
-        ////{
-        ////    DropAllStats();
-        ////    var query = new[] { Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-        ////    Assert.NotNull(stats);
-        ////    foreach (var stat in stats)
-        ////    {
-        ////        _testOutputHelper.WriteLine(stat.ToString());
-        ////    }
-
-        ////    Assert.Equal(3, stats.Count);
-        ////}
-
-        ////[Fact]
-        ////public async Task GivenPatientInCityAndStateAndBirthdateWithCondition_StatsAreCreated()
-        ////{
-        ////    DropAllStats();
-        ////    var query = new[] { Tuple.Create("birthdate", "gt1800-01-01"), Tuple.Create("address-city", "City"), Tuple.Create("address-state", "State"), Tuple.Create("_has:Condition:patient:code", "http://snomed.info/sct|444814009") };
-        ////    await _sqlSearchService.SearchAsync(KnownResourceTypes.Patient, query, CancellationToken.None);
-        ////    var stats = await _sqlSearchService.GetStats(CancellationToken.None);
-        ////    Assert.NotNull(stats);
-        ////    foreach (var stat in stats)
-        ////    {
-        ////        _testOutputHelper.WriteLine(stat.ToString());
-        ////    }
-
-        ////    Assert.Equal(5, stats.Count); // +1 for end date
-        ////}
+        [Fact]
+        public async Task GivenSearchForResearchStudyByFocusAndDateWithResearchSubject_StatsAreCreated()
+        {
+            const string resourceType = "ResearchStudy";
+            var query = new[] { Tuple.Create("focus", "surgery"), Tuple.Create("date", "gt1800-01-01"), Tuple.Create("_has:ResearchSubject:study:status", "eligible") };
+            await _fixture.SearchService.SearchAsync(resourceType, query, CancellationToken.None);
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            var model = ((SqlServerSearchService)_fixture.SearchService).Model;
+            Assert.Single(statsFromCache.Where(
+                _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-focus"))));
+            Assert.Single(statsFromCache.Where(
+                _ => _.TableName == VLatest.DateTimeSearchParam.TableName
+                  && _.ColumnName == "StartDateTime"
+                  && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date"))));
+            Assert.Single(statsFromCache.Where(
+                _ => _.TableName == VLatest.DateTimeSearchParam.TableName
+                  && _.ColumnName == "EndDateTime"
+                  && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date"))));
+            Assert.Single(statsFromCache.Where(
+                _ => _.TableName == VLatest.TokenSearchParam.TableName
+                  && _.ColumnName == "Code"
+                  && _.ResourceTypeId == model.GetResourceTypeId("ResearchSubject")
+                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status"))));
+        }
     }
 }
