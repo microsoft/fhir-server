@@ -1082,12 +1082,17 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             await _resourceSearchParamStats.Create(expression, cancel);
         }
 
-        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetDatabaseStats(CancellationToken cancel)
+        internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
         {
-            return await GetDatabaseStats(_sqlRetryService, _logger, cancel);
+            return _resourceSearchParamStats.GetStatsFromCache();
         }
 
-        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetDatabaseStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
+        internal async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(CancellationToken cancel)
+        {
+            return await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
+        }
+
+        private static async Task<IReadOnlyList<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)>> GetStatsFromDatabase(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
         {
             using var cmd = new SqlCommand() { CommandText = "dbo.GetResourceSearchParamStats", CommandType = CommandType.StoredProcedure };
             return await cmd.ExecuteReaderAsync(
@@ -1121,6 +1126,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 _model = model;
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
                 Init(cancel).Wait(cancel);
+            }
+
+            public ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
+            {
+                return _stats.Keys;
             }
 
             // The goal is not to be 100% accurate, but cover majority of simple cases and not crash in the others.
@@ -1274,7 +1284,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 try
                 {
-                    var stats = await GetDatabaseStats(_sqlRetryService, _logger, cancel);
+                    var stats = await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
 
                     foreach (var stat in stats)
                     {
