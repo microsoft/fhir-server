@@ -50,21 +50,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             const string resourceType = "ImagingStudy";
             var query = new[] { Tuple.Create("identifier", "xyz") };
             await _sqlSearchService.SearchAsync(resourceType, query, CancellationToken.None);
-            var stats = SqlServerSearchService.GetStatsFromCache();
-            foreach (var stat in stats)
+            var statsFromCache = SqlServerSearchService.GetStatsFromCache();
+            foreach (var stat in statsFromCache)
             {
                 _output.WriteLine($"cache {stat}");
             }
-
-            Assert.Single(stats.Where(_ => _.TableName == VLatest.TokenSearchParam.TableName
-                                        && _.ColumnName == "Code"
-                                        && _.ResourceTypeId == _sqlSearchService.Model.GetResourceTypeId(resourceType)
-                                        && _.SearchParamId == _sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
 
             foreach (var stat in await _sqlSearchService.GetStatsFromDatabase(CancellationToken.None))
             {
                 _output.WriteLine($"database {stat}");
             }
+
+            Assert.Single(statsFromCache.Where(_ => _.TableName == VLatest.TokenSearchParam.TableName
+                                        && _.ColumnName == "Code"
+                                        && _.ResourceTypeId == _sqlSearchService.Model.GetResourceTypeId(resourceType)
+                                        && _.SearchParamId == _sqlSearchService.Model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/clinical-identifier"))));
         }
 
         ////[Fact]
