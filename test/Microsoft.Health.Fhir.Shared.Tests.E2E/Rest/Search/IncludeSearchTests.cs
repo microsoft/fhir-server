@@ -1278,10 +1278,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             return bundle;
         }
-
-        private async Task UpdateSearchParameterStatusAsync(string searchParameterUri, SearchParameterStatus status, CancellationToken cancellationToken = default)
-        {
-            await Client.UpdateSearchParameterStateAsync(searchParameterUri, status, cancellationToken);
-        }
     }
 }
