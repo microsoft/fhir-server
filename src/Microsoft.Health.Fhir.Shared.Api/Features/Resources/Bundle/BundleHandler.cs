@@ -523,7 +523,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             if (requestMethod == HTTPVerb.POST
                 || requestMethod == HTTPVerb.PUT)
             {
-                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
+                httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
 
                 if (entry.Resource != null)
                 {
@@ -540,7 +540,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 string.Equals(KnownResourceTypes.Parameters, entry.Resource?.TypeName, StringComparison.Ordinal) &&
                 entry.Resource is Parameters parametersResource)
             {
-                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
+                httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
                 var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
@@ -552,7 +552,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 string.Equals(KnownResourceTypes.Binary, entry.Resource?.TypeName, StringComparison.Ordinal) &&
                 entry.Resource is Binary binaryResource && string.Equals(KnownMediaTypeHeaderValues.ApplicationJsonPatch.ToString(), binaryResource.ContentType, StringComparison.OrdinalIgnoreCase))
             {
-                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(binaryResource.ContentType));
+                httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(binaryResource.ContentType);
                 var memoryStream = new MemoryStream(binaryResource.Data);
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             if (!string.IsNullOrWhiteSpace(headerValue))
             {
-                httpContext.Request.Headers.Add(headerKey, new StringValues(headerValue));
+                httpContext.Request.Headers[headerKey] = new StringValues(headerValue);
             }
         }
 
@@ -773,7 +773,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, Dictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {

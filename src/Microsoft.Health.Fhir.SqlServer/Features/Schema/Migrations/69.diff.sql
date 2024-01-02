@@ -758,7 +758,7 @@ BEGIN TRY
   SET @ResourceTypeId = substring(@LastProcessed, 1, charindex('.', @LastProcessed) - 1) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 1)
   SET @SurrogateId = substring(@LastProcessed, charindex('.', @LastProcessed) + 1, 255) -- (SELECT value FROM string_split(@LastProcessed, '.', 1) WHERE ordinal = 2)
 
-  DELETE FROM @Types WHERE ResourceTypeId < @ResourceTypeId
+  DELETE FROM @Types --WHERE ResourceTypeId < @ResourceTypeId
   EXECUTE dbo.LogEvent @Process=@Process,@Status='Run',@Target='@Types',@Action='Delete',@Rows=@@rowcount
 
   WHILE EXISTS (SELECT * FROM @Types) -- Processing in ASC order
@@ -770,7 +770,7 @@ BEGIN TRY
     IF NOT EXISTS 
         (SELECT * 
            FROM #SearchParams A
-                INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId
+                INNER LOOP JOIN dbo.TokenSearchParam B ON B.ResourceTypeId = @ResourceTypeId AND B.SearchParamId = A.SearchParamId AND B.IsHistory = 0
         )
     BEGIN
       SET @CurrentMaxSurrogateId = NULL

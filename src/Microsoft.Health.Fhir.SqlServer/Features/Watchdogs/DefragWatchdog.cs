@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
         private CancellationToken _cancellationToken;
+        private static readonly string[] Definitions = { "Defrag" };
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlQueueClient _sqlQueueClient;
@@ -208,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, Definitions, null, true, false, cancellationToken);
 
                 if (jobs.Count > 0)
                 {

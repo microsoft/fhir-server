@@ -11,7 +11,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -60,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public void GivenAnEmptySearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ResourceElement actual = null;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(_dateTime)))
             {
                 actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], null, null, _unsupportedSearchParameters));
             }
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ResourceElement actual = null;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(_dateTime)))
             {
                 actual = _bundleFactory.CreateSearchBundle(searchResult);
             }
@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 }
             }
         }
+#endif
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)
         {

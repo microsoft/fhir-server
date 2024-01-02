@@ -60,10 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var resourceBuffer = new List<ImportResource>();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException();
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     currentIndex = resource.Index;
 

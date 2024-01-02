@@ -9,7 +9,6 @@ using System.Linq;
 using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -65,6 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             Assert.Equal("version1", historyRecord.Version);
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public void GivenAResource_WhenCreatingAResourceWrapper_ThenMetaPropertiesAreCorrect()
         {
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             observation.Meta.Profile = new List<string> { "test" };
 
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => lastModified))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(lastModified)))
             {
                 ResourceElement typedElement = observation.ToResourceElement();
 
@@ -88,5 +88,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
                 Assert.Equal("test", poco.Meta.Profile.First());
             }
         }
+#endif
     }
 }

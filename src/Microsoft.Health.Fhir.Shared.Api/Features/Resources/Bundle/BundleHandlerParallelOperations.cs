@@ -22,6 +22,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -132,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         // In case of a FhirTransactionFailedException, the entire Bundle Operation should be canceled.
                         bundleOperation.Cancel($"Failed transaction. Resource at position {resourceExecutionContext.Index}. Status Code: {ex.ResponseStatusCode}. Message: {ex.Message}");
 
-                        requestCancellationToken.Cancel();
+                        await requestCancellationToken.CancelAsync();
 
                         throw;
                     }
