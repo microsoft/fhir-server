@@ -337,7 +337,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeValues,
                     scheme,
                     host);
-
                 return new Uri(uriString);
             }
             catch
@@ -347,7 +346,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName,
                     routeValues,
                     scheme,
-                    new HostString(host));
+                    new HostString(host),
+                    null,
+                    FragmentString.Empty,
+                    new LinkOptions { AppendTrailingSlash = true });
                 return new Uri(uriString);
             }
         }
