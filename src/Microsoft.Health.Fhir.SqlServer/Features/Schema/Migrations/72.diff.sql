@@ -25,7 +25,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE OR ALTER PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL
+CREATE PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
@@ -34,8 +34,9 @@ DECLARE @SP varchar(100) = object_name(@@procid)
        ,@st datetime = getUTCdate()
 
 BEGIN TRY
-  SELECT T.name
-        ,S.name
+  SELECT TableName = T.name
+        ,StatsName = S.name
+        ,DatabaseName = db_name()
     FROM sys.stats S
          JOIN sys.tables T ON T.object_id = S.object_id
     WHERE T.name LIKE '%SearchParam' AND T.name <> 'SearchParam'
@@ -44,7 +45,7 @@ BEGIN TRY
       AND (S.name LIKE '%ResourceTypeId[_]'+convert(varchar,@ResourceTypeId)+'[_]%' OR @ResourceTypeId IS NULL)
       AND (S.name LIKE '%SearchParamId[_]'+convert(varchar,@SearchParamId) OR @SearchParamId IS NULL)
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Rows=@@rowcount,@Start=@st
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
