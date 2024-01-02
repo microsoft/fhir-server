@@ -1075,7 +1075,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 lock (_locker)
                 {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, (SqlServerFhirModel)_model);
                 }
             }
 
@@ -1119,13 +1119,15 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             private readonly SqlServerFhirModel _model;
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
-            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model, CancellationToken cancel)
+            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model)
             {
                 _sqlRetryService = sqlRetryService;
                 _logger = logger;
                 _model = model;
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
-                Init(cancel).Wait(cancel);
+                using var cts = new CancellationTokenSource();
+                cts.CancelAfter(TimeSpan.FromSeconds(60));
+                Init(cts.Token).Wait(cts.Token);
             }
 
             public ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
