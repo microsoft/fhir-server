@@ -877,8 +877,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.AppendLine();
             }
 
-            sb.AppendLine($"{nameof(sqlCommandWrapper.CommandTimeout)} = " + TimeSpan.FromSeconds(sqlCommandWrapper.CommandTimeout).Duration().ToString());
-            _sqlRetryService.TryLogEvent("Search", "Warn", sb.ToString(), null, CancellationToken.None);
+            sb.AppendLine($"-- execution timeout = {sqlCommandWrapper.CommandTimeout} sec.");
+            _sqlRetryService.TryLogEvent("Search", "Start", sb.ToString(), null, CancellationToken.None);
             _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 

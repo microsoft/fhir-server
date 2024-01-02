@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
                 await connection.OpenAsync(CancellationToken.None);
                 await using SqlCommand sqlCommand = connection.CreateCommand();
-                sqlCommand.CommandText = "INSERT INTO Parameters (Id,Char) SELECT name,'LogEvent' FROM sys.objects WHERE type = 'p'";
+                sqlCommand.CommandText = "INSERT INTO Parameters (Id,Char) SELECT name,'LogEvent' FROM sys.objects WHERE type = 'p' INSERT INTO Parameters (Id,Char) SELECT 'Search','LogEvent'";
                 await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
                 await connection.CloseAsync();
             });
