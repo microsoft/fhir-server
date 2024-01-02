@@ -87,6 +87,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _urlResolver = urlResolver;
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
+
+            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default))
+            {
+                _logger.LogInformation("Default version is:{VersioningDefault}.", _configuration.Value.Versioning.Default);
+
+                foreach (var resourcetype in _configuration.Value.Versioning.ResourceTypeOverrides)
+                {
+                    _logger.LogInformation("{ResourceTypeKey} version overridden to:{ResourceTypeVersioningOverride}.", resourcetype.Key, resourcetype.Value);
+                }
+            }
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
