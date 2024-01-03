@@ -258,7 +258,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 httpContextAccessor,
                 actionContextAccessor,
                 bundleHttpContextAccessor,
-                _linkGenerator);
+                _linkGenerator,
+                NullLogger<UrlResolver>.Instance);
         }
     }
 }

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly ILogger<UrlResolver> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
@@ -51,19 +53,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
+        /// <param name="logger">Logger.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
-            LinkGenerator linkGenerator)
+            LinkGenerator linkGenerator,
+            ILogger<UrlResolver> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
@@ -71,6 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _linkGenerator = linkGenerator;
+            _logger = logger;
         }
 
         private HttpRequest Request
@@ -341,12 +347,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             }
             catch
             {
+                _logger.LogInformation("Resolve route using linkGenerator");
+
+                var hostString = new HostString(host);
+                _logger.LogInformation($"Passed values in linkGenerator: Host {host}, HostString {hostString}, RouteName {routeName}");
+
                 var uriString = _linkGenerator.GetUriByRouteValues(
                     httpContext,
                     routeName,
                     routeValues,
                     scheme,
-                    new HostString(host));
+                    hostString);
+
+                _logger.LogInformation($"Url generated from LinkGenerator: {uriString}");
+
                 return new Uri(uriString);
             }
         }

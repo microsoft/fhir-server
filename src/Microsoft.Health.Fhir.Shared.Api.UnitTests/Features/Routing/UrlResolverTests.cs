@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -61,7 +62,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _httpContextAccessor,
                 _actionContextAccessor,
                 _bundleHttpContextAccessor,
-                _linkGenerator);
+                _linkGenerator,
+                NullLogger<UrlResolver>.Instance);
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 
