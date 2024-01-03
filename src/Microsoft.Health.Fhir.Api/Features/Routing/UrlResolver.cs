@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -346,7 +347,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     host);
                 var s = string.Empty;
                 routeValues?.ToList().ForEach(kv => s += kv.ToString());
-                _logger.LogInformation($"UrlHelper.RouteUrl: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
+                _logger.LogInformation($"UrlHelper.RouteUrl: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
                 return new Uri(uriString);
             }
             catch
@@ -359,9 +360,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     new HostString(host));
                 var s = string.Empty;
                 routeValues?.ToList().ForEach(kv => s += kv.ToString());
-                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
+                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
                 return new Uri(uriString);
             }
+        }
+
+        private static string SanitizeString(string value)
+        {
+            return HttpUtility.HtmlEncode(value?.Trim());
         }
     }
 }
