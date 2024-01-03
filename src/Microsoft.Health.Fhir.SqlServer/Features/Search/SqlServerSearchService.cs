@@ -1086,11 +1086,11 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 lock (_locker)
                 {
-                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
+                    _resourceSearchParamStats ??= new ResourceSearchParamStats(_sqlRetryService, _logger, cancel);
                 }
             }
 
-            await _resourceSearchParamStats.Create(expression, cancel);
+            await _resourceSearchParamStats.Create(expression, _sqlRetryService, _logger, (SqlServerFhirModel)_model, cancel);
         }
 
         internal static ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
@@ -1125,18 +1125,12 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
         private class ResourceSearchParamStats
         {
-            private readonly ISqlRetryService _sqlRetryService;
-            private readonly ILogger<SqlServerSearchService> _logger;
-            private readonly SqlServerFhirModel _model;
             private readonly ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool> _stats;
 
-            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model, CancellationToken cancel)
+            public ResourceSearchParamStats(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
-                _sqlRetryService = sqlRetryService;
-                _logger = logger;
-                _model = model;
                 _stats = new ConcurrentDictionary<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId), bool>();
-                Init(cancel).Wait(cancel);
+                Init(sqlRetryService, logger, cancel).Wait(cancel);
             }
 
             public ICollection<(string TableName, string ColumnName, short ResourceTypeId, short SearchParamId)> GetStatsFromCache()
@@ -1147,7 +1141,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             // The goal is not to be 100% accurate, but cover majority of simple cases and not crash in the others.
             // Simple expressions with one or more resource types are handled. For chains, resource types are derived from predecessor.
             // Composite searches are skipped. Number of handled cases can be extended.
-            public async Task Create(SqlRootExpression expression, CancellationToken cancel)
+            public async Task Create(SqlRootExpression expression, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, SqlServerFhirModel model, CancellationToken cancel)
             {
                 for (var index = 0; index < expression.SearchParamTableExpressions.Count; index++)
                 {
@@ -1176,7 +1170,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 {
                                     if (parameterExp.Expression is StringExpression stringExp)
                                     {
-                                        if (_model.TryGetResourceTypeId(stringExp.Value, out var resourceTypeId))
+                                        if (model.TryGetResourceTypeId(stringExp.Value, out var resourceTypeId))
                                         {
                                             resourceTypeIds.Add(resourceTypeId);
                                         }
@@ -1189,7 +1183,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                             {
                                                 if (parameterExp2.Expression is StringExpression stringExp2)
                                                 {
-                                                    if (_model.TryGetResourceTypeId(stringExp2.Value, out var resourceTypeId))
+                                                    if (model.TryGetResourceTypeId(stringExp2.Value, out var resourceTypeId))
                                                     {
                                                         resourceTypeIds.Add(resourceTypeId);
                                                     }
@@ -1200,7 +1194,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                                 }
                                 else if (parameterExp.Parameter.Name != SqlSearchParameters.PrimaryKeyParameterName && parameterExp.Parameter.Name != SqlSearchParameters.ResourceSurrogateIdParameterName)
                                 {
-                                    _model.TryGetSearchParamId(parameterExp.Parameter.Url, out searchParamId);
+                                    model.TryGetSearchParamId(parameterExp.Parameter.Url, out searchParamId);
                                 }
                             }
                         }
@@ -1208,13 +1202,13 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
 
                     if (tableExpression.ChainLevel == 1 && tableExpression.Predicate is SearchParameterExpression searchExpression)
                     {
-                        searchParamId = _model.GetSearchParamId(searchExpression.Parameter.Url);
+                        searchParamId = model.GetSearchParamId(searchExpression.Parameter.Url);
                         var priorTableExpression = expression.SearchParamTableExpressions[index - 1];
                         if (priorTableExpression.Kind == SearchParamTableExpressionKind.Chain)
                         {
                             foreach (var type in ((SqlChainLinkExpression)priorTableExpression.Predicate).ResourceTypes)
                             {
-                                if (_model.TryGetResourceTypeId(type, out var resourceTypeId))
+                                if (model.TryGetResourceTypeId(type, out var resourceTypeId))
                                 {
                                     resourceTypeIds.Add(resourceTypeId);
                                 }
@@ -1228,7 +1222,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                         {
                             foreach (var column in columns)
                             {
-                                await Create(table, column, resourceTypeId, searchParamId, cancel);
+                                await Create(table, column, resourceTypeId, searchParamId, sqlRetryService, logger, cancel);
                             }
                         }
                     }
@@ -1265,7 +1259,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                 return results;
             }
 
-            private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, CancellationToken cancel)
+            private async Task Create(string tableName, string columnName, short resourceTypeId, short searchParamId, ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId)))
                 {
@@ -1279,34 +1273,34 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
                     cmd.Parameters.AddWithValue("@Column", columnName);
                     cmd.Parameters.AddWithValue("@ResourceTypeId", resourceTypeId);
                     cmd.Parameters.AddWithValue("@SearchParamId", searchParamId);
-                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancel);
+                    await cmd.ExecuteNonQueryAsync(sqlRetryService, logger, cancel);
 
                     _stats.TryAdd((tableName, columnName, resourceTypeId, searchParamId), true);
 
-                    _logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
+                    logger.LogInformation("ResourceSearchParamStats.CreateStats.Completed Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
                 }
                 catch (SqlException ex)
                 {
-                    _logger.LogWarning("ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
+                    logger.LogWarning("ResourceSearchParamStats.CreateStats: Exception={Exception}", ex.Message);
                 }
             }
 
-            private async Task Init(CancellationToken cancel)
+            private async Task Init(ISqlRetryService sqlRetryService, ILogger<SqlServerSearchService> logger, CancellationToken cancel)
             {
                 try
                 {
-                    var stats = await GetStatsFromDatabase(_sqlRetryService, _logger, cancel);
+                    var stats = await GetStatsFromDatabase(sqlRetryService, logger, cancel);
 
                     foreach (var stat in stats)
                     {
                         _stats.TryAdd(stat, true);
                     }
 
-                    _logger.LogInformation("ResourceSearchParamStats.Init: Stats={Stats}", stats.Count);
+                    logger.LogInformation("ResourceSearchParamStats.Init: Stats={Stats}", stats.Count);
                 }
                 catch (SqlException ex)
                 {
-                    _logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
+                    logger.LogWarning("ResourceSearchParamStats.Init: Exception={Exception}", ex.Message);
                 }
             }
         }
