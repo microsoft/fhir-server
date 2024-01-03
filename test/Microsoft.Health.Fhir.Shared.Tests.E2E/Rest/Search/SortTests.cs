@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             patients[0].BirthDate = null;
             patients[1].BirthDate = null;
 
-            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate.missing=false&_sort=birthdate");
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate:missing=false&_sort=birthdate");
 
             Assert.True(returnedResults.Count() == 10);
         }
