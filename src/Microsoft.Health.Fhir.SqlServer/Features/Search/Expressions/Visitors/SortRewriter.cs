@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
+            context.IsSortHasMissingModifier |= isSortHasMissingModifier;
             var newTableExpressions = new List<SearchParamTableExpression>();
             newTableExpressions.AddRange(expression.SearchParamTableExpressions);
             var continuationToken = ContinuationToken.FromString(context.ContinuationToken);

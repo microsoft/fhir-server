@@ -87,6 +87,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMissingBirthDates_WhenSearchedWithSortParamAndMissingModifierFalse_ThenThosePatientsShouldNotReturn()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedPatients(tag);
+
+            patients[0].BirthDate = null;
+            patients[1].BirthDate = null;
+
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate.missing=false&_sort=birthdate");
+
+            Assert.True(returnedResults.Count() == 10);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMissingBirthDates_WhenSearchedWithSortParamAndNoMissingModifier_ThenAllPatientsShouldReturn()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedPatients(tag);
+
+            patients[0].BirthDate = null;
+            patients[1].BirthDate = null;
+
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort=birthdate");
+
+            Assert.True(returnedResults.Count() == 12);
+        }
+
         [Theory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
