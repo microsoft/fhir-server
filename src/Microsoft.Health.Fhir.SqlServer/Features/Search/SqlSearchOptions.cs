@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 searchType |= SqlSearchType.Default;
             }
 
-            if (ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy))
+            if (ResourceVersionTypes.HasFlag(ResourceVersionType.History))
             {
                 searchType |= SqlSearchType.IncludeHistory;
             }
