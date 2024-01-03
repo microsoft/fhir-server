@@ -58,10 +58,6 @@ namespace Microsoft.AspNetCore.Builder
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
 
-            app.UseCors(Constants.DefaultCorsPolicy);
-            app.UseAuthentication();
-            app.UseAuthorization();
-
             app.UseEndpoints(
                 endpoints =>
                 {
