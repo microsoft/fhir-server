@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceTest = "http://hl7.org/fhir/SearchParameter/Resource-test";
         private static readonly string ResourcePartial = "http://hl7.org/fhir/SearchParameter/Resource-partial";
 
-        private readonly SearchParameterStatusManager _manager;
+        private readonly SearchParameterStatusManager _statusManager;
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
-            _manager = new SearchParameterStatusManager(
+            _statusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchService = Substitute.For<ISearchService>();
 
             _searchParameterOperations = new SearchParameterOperations(
-                _manager,
+                _statusManager,
                 _searchParameterDefinitionManager,
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
@@ -163,8 +163,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _manager);
+            await _statusManager.EnsureInitializedAsync(CancellationToken.None);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _statusManager);
             var paramList = searchableDefinitionManager.AllSearchParameters;
 
             Assert.Collection(
@@ -194,9 +194,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _statusManager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _manager);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _statusManager);
             var paramList = searchableDefinitionManager.AllSearchParameters.OrderBy(p => p.Code);
 
             Assert.Collection(
@@ -228,9 +228,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenNoHeaderForPatiallyIndexedParams_WhenSearchingSupportedParameterByName_ThenExceptionThrown()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _statusManager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _manager);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _statusManager);
 
             Assert.Throws<SearchParameterNotSupportedException>(() => searchableDefinitionManager.GetSearchParameter(ResourcePartial));
 
@@ -240,9 +240,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenHeaderToIncludePatialIndexedParams_WhenSearchingSupportedParameterByName_ThenSupportedParamsReturned()
         {
-            await _manager.EnsureInitializedAsync(CancellationToken.None);
+            await _statusManager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _manager);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor, _statusManager);
 
             var param = searchableDefinitionManager.GetSearchParameter(ResourceSecurity);
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[3];
