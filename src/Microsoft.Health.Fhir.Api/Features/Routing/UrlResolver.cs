@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
         private readonly LinkGenerator _linkGenerator;
+        private readonly ILogger<UrlResolver> _logger;
 
         // If we update the search implementation to not use these, we should remove
         // the registration since enabling these accessors has performance implications.
@@ -57,13 +60,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
-            LinkGenerator linkGenerator)
+            LinkGenerator linkGenerator,
+            ILogger<UrlResolver> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
@@ -71,6 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _linkGenerator = linkGenerator;
+            _logger = logger;
         }
 
         private HttpRequest Request
@@ -337,6 +343,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeValues,
                     scheme,
                     host);
+                var s = string.Empty;
+                routeValues.ToList().ForEach(kv => s += kv.ToString());
+                _logger.LogInformation($"UrlHelper.RouteUrl: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
                 return new Uri(uriString);
             }
             catch
@@ -347,6 +356,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeValues,
                     scheme,
                     new HostString(host));
+                var s = string.Empty;
+                routeValues.ToList().ForEach(kv => s += kv.ToString());
+                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
                 return new Uri(uriString);
             }
         }
