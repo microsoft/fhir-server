@@ -54,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
+        /// <param name="logger">The logger for debugging.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
@@ -344,7 +345,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     scheme,
                     host);
                 var s = string.Empty;
-                routeValues.ToList().ForEach(kv => s += kv.ToString());
+                routeValues?.ToList().ForEach(kv => s += kv.ToString());
                 _logger.LogInformation($"UrlHelper.RouteUrl: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
                 return new Uri(uriString);
             }
@@ -357,7 +358,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     scheme,
                     new HostString(host));
                 var s = string.Empty;
-                routeValues.ToList().ForEach(kv => s += kv.ToString());
+                routeValues?.ToList().ForEach(kv => s += kv.ToString());
                 _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
                 return new Uri(uriString);
             }

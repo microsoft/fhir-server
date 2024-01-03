@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Features.Context;
@@ -218,6 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
             LinkGenerator linkGenerator = Substitute.For<LinkGenerator>();
+            ILogger<UrlResolver> logger = Substitute.For<ILogger<UrlResolver>>();
 
             var httpContext = new DefaultHttpContext();
             var actionContext = new ActionContext();
@@ -244,7 +246,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 httpContextAccessor,
                 actionContextAccessor,
                 bundleHttpContextAccessor,
-                linkGenerator);
+                linkGenerator,
+                logger);
         }
     }
 }

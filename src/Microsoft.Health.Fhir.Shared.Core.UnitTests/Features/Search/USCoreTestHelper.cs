@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Xml;
+using Castle.Core.Logging;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
         private static readonly FhirJsonParser _jsonParser = new FhirJsonParser(_parserSettings);
         private static readonly FhirXmlParser _xmlParser = new FhirXmlParser(_parserSettings);
         private static readonly LinkGenerator _linkGenerator = Substitute.For<LinkGenerator>();
+        private static readonly ILogger<UrlResolver> _logger = Substitute.For<ILogger<UrlResolver>>();
 
         public static SearchResult GetSearchResult(string fileName)
         {
@@ -258,7 +261,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 httpContextAccessor,
                 actionContextAccessor,
                 bundleHttpContextAccessor,
-                _linkGenerator);
+                _linkGenerator,
+                _logger);
         }
     }
 }
