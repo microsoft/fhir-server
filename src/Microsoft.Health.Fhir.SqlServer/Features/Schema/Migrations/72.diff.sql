@@ -25,7 +25,7 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
-CREATE PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL
+CREATE OR ALTER PROCEDURE dbo.GetResourceSearchParamStats @Table varchar(100) = NULL, @ResourceTypeId smallint = NULL, @SearchParamId smallint = NULL
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
