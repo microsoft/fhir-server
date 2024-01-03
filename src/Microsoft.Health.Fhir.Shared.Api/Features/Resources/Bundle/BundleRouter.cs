@@ -22,6 +22,8 @@ using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
+    /* BundleRouter creates the routingContext for bundles with enabled endpoint routing.It fetches all RouteEndpoints using EndpointDataSource(based on controller actions)
+       and find the best endpoint match based on the request httpContext to build the routeContext for bundle request to route to appropriate action.*/
     internal class BundleRouter : IRouter
     {
         private readonly EndpointDataSource _endpointDataSource;

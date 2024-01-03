@@ -339,7 +339,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     host);
                 return new Uri(uriString);
             }
-            catch
+            catch (InvalidOperationException)
             {
                 var uriString = _linkGenerator.GetUriByRouteValues(
                     httpContext,
