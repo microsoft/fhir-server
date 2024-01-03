@@ -346,10 +346,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     routeName,
                     routeValues,
                     scheme,
-                    new HostString(host),
-                    null,
-                    FragmentString.Empty,
-                    new LinkOptions { AppendTrailingSlash = true });
+                    new HostString(host));
                 return new Uri(uriString);
             }
         }
