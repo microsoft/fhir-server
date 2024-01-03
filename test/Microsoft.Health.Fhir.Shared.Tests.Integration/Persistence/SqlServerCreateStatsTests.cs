@@ -90,11 +90,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                   && _.ColumnName == "EndDateTime"
                   && _.ResourceTypeId == model.GetResourceTypeId(resourceType)
                   && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchStudy-date"))));
-            Assert.Single(statsFromCache.Where(
-                _ => _.TableName == VLatest.TokenSearchParam.TableName
-                  && _.ColumnName == "Code"
-                  && _.ResourceTypeId == model.GetResourceTypeId("ResearchSubject")
-                  && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status"))));
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.R4)
+            {
+                Assert.Single(statsFromCache.Where(
+                    _ => _.TableName == VLatest.TokenSearchParam.TableName
+                      && _.ColumnName == "Code"
+                      && _.ResourceTypeId == model.GetResourceTypeId("ResearchSubject")
+                      && _.SearchParamId == model.GetSearchParamId(new Uri("http://hl7.org/fhir/SearchParameter/ResearchSubject-status"))));
+            }
         }
     }
 }
