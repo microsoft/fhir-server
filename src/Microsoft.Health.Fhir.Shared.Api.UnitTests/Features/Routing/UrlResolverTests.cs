@@ -5,12 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using Castle.Core.Logging;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -42,6 +44,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         private readonly IActionContextAccessor _actionContextAccessor = Substitute.For<IActionContextAccessor>();
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
+        private readonly ILogger<UrlResolver> _logger = Substitute.For<ILogger<UrlResolver>>();
 
         private readonly IUrlHelper _urlHelper = Substitute.For<IUrlHelper>();
         private readonly DefaultHttpContext _httpContext = new DefaultHttpContext();
@@ -58,7 +61,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _urlHelperFactory,
                 _httpContextAccessor,
                 _actionContextAccessor,
-                _bundleHttpContextAccessor);
+                _bundleHttpContextAccessor,
+                _logger);
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 

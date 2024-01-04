@@ -7,12 +7,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Web;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -40,6 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
         private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
+        private readonly ILogger<UrlResolver> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
@@ -49,24 +53,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
+        /// <param name="logger">The logger for debugging.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ILogger<UrlResolver> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _logger = logger;
         }
 
         private HttpRequest Request
@@ -96,13 +104,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add("system", true);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 RouteNames.Metadata,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
@@ -134,13 +141,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
-            var uriString = UrlHelper.RouteUrl(
-                routeName,
-                routeValues,
-                Request.Scheme,
-                Request.Host.Value);
-
-            return new Uri(uriString);
+            return GetRouteUri(
+               ActionContext.HttpContext,
+               routeName,
+               routeValues,
+               Request.Scheme,
+               Request.Host.Value);
         }
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
@@ -213,26 +219,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
         {
             var routeValueDictionary = new RouteValueDictionary(routeValues);
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValueDictionary,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationResultUrl(string operationName, string id)
@@ -268,13 +272,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 { KnownActionParameterNames.Id, id },
             };
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationDefinitionUrl(string operationName)
@@ -321,13 +324,190 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
-                values: null,
+                null,
                 Request.Scheme,
                 Request.Host.Value);
+        }
 
+        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
+        {
+            var s = string.Empty;
+            routeValues?.ToList().ForEach(kv => s += kv.ToString());
+
+            var uriString = UrlHelper.RouteUrl(
+                routeName,
+                routeValues,
+                scheme,
+                host);
+            _logger.LogInformation($"UrlHelper.RouteUrl: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
+
+            DumpHttpContext(httpContext);
             return new Uri(uriString);
+        }
+
+        private static string SanitizeString(string value)
+        {
+            return HttpUtility.HtmlEncode(value?.Trim());
+        }
+
+        public void DumpActionContext(ActionContext context)
+        {
+            if (context == null)
+            {
+                _logger.LogInformation("ActionContext is null.");
+                return;
+            }
+
+            DumpHttpContext(context.HttpContext);
+        }
+
+        public void DumpHttpContext(HttpContext context)
+        {
+            if (context == null)
+            {
+                _logger.LogInformation("HttpContext is null.");
+                return;
+            }
+
+            string s = string.Empty;
+#if false
+            try
+            {
+                if (_httpContextAccessor.HttpContext != null)
+                {
+                    var httpContext = _httpContextAccessor.HttpContext;
+                    if (httpContext.Items != null)
+                    {
+                        s += "Items:\r\n";
+                        foreach (var item in httpContext.Items)
+                        {
+                            s += item.ToString();
+                        }
+                    }
+                    else
+                    {
+                        s += "httpContext.Items is null.";
+                    }
+
+                    if (httpContext.Features != null)
+                    {
+                        s += "Features:\r\n";
+                        foreach (var feature in httpContext.Features)
+                        {
+                            s += feature.ToString();
+                        }
+                    }
+                    else
+                    {
+                        s += "httpContext.Features is null.";
+                    }
+                }
+                else
+                {
+                    s = "http context is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                stateValues[dumpContextDimensionName] = s;
+            }
+#endif
+            try
+            {
+                s = string.Empty;
+                var request = context?.Request;
+                if (request != null)
+                {
+                    s += $"Request method: {request.Method}, host: {request.Host}, pathbase: {request.PathBase}, path: {request.Path}\r\n";
+                    if (request.Headers != null && request.Headers.Any())
+                    {
+                        s += "Headers:\r\n";
+                        foreach (var header in request.Headers)
+                        {
+                            if (!header.Key.Contains("Authorization", StringComparison.OrdinalIgnoreCase))
+                            {
+                                s += header.ToString();
+                                s += "\r\n";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        s += "request headers is null or empty.";
+                    }
+
+                    if (request.RouteValues != null && request.RouteValues.Any())
+                    {
+                        s += "RouteValues:\r\n";
+                        foreach (var rv in request.RouteValues)
+                        {
+                            s += rv.ToString();
+                            s += "\r\n";
+                        }
+                    }
+                    else
+                    {
+                        s += "request reouteValues is null or empty.";
+                    }
+                }
+                else
+                {
+                    s += "httpcontext or httprequest is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                _logger.LogInformation(s);
+            }
+
+            s = string.Empty;
+            try
+            {
+                var response = _httpContextAccessor.HttpContext?.Response;
+                if (response != null)
+                {
+                    s += $"Response status code: {response.StatusCode}, has started: {response.HasStarted}\r\n";
+                    if (response.Headers != null && response.Headers.Any())
+                    {
+                        s += "Headers:\r\n";
+                        foreach (var header in response.Headers)
+                        {
+                            if (!header.Key.Contains("Authorization", StringComparison.OrdinalIgnoreCase))
+                            {
+                                s += header.ToString();
+                                s += "\r\n";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        s += "response headers is null or empty.";
+                    }
+                }
+                else
+                {
+                    s += "httpcontext or httprequest is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                _logger.LogInformation(s);
+            }
         }
     }
 }
