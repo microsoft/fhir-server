@@ -14,8 +14,7 @@ files that were already imported and saved to disk.
 The app.config has descriptions for all of the necessary values that you will need to supply in order to run this tool.
 
 When running FHIR OSS be sure to have these configuration settings in the portal:  
-FhirServer__Operations__Import__Enabled = True  
-FhirServer__Operations__Import__InitialImportMode = True  
+FhirServer__Operations__Import__Enabled = True
 FhirServer__Operations__IntegrationDataStore__StorageAccountConnection = your_storageaccount_access_key_connection_string  
 TaskHosting__MaxRunningTaskCount = some_value_greater_than_1
 
