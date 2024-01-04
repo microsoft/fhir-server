@@ -350,13 +350,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     host);
                 _logger.LogInformation($"UrlHelper.RouteUrl: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
 
-                var uriString2 = _linkGenerator.GetUriByRouteValues(
-                    httpContext,
-                    routeName,
-                    routeValues,
-                    scheme,
-                    new HostString(host));
-                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString2)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
+                if (httpContext != null)
+                {
+                    try
+                    {
+                        var uriString2 = _linkGenerator.GetUriByRouteValues(
+                            httpContext,
+                            routeName,
+                            routeValues,
+                            scheme,
+                            new HostString(host));
+                        _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString2)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {ex}");
+                    }
+                }
 
                 DumpHttpContext(httpContext);
                 return new Uri(uriString);
