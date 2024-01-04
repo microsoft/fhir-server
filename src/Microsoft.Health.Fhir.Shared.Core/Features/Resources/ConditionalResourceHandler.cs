@@ -59,8 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
-                logger: _logger,
-                maxParallelism: request.MaxParallelism);
+                logger: _logger);
 
             int count = matchedResults.Results.Count;
             if (count == 0)

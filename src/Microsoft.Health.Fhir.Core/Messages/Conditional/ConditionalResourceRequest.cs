@@ -14,14 +14,13 @@ namespace Microsoft.Health.Fhir.Core.Messages
 {
     public abstract class ConditionalResourceRequest<TResponse> : IRequireCapability, IRequest<TResponse>
     {
-        protected ConditionalResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, bool maxParallelism, BundleResourceContext bundleResourceContext)
+        protected ConditionalResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
-            MaxParallelism = maxParallelism;
             BundleResourceContext = bundleResourceContext;
         }
 
@@ -30,8 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Messages
         public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
 
         public BundleResourceContext BundleResourceContext { get; }
-
-        public bool MaxParallelism { get; }
 
         protected abstract IEnumerable<string> GetCapabilities();
 

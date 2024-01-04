@@ -21,10 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             string resourceType,
             PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            bool maxParallelism = false,
             BundleResourceContext bundleResourceContext = null,
             WeakETag weakETag = null)
-            : base(resourceType, conditionalParameters, maxParallelism, bundleResourceContext)
+            : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(payload, nameof(payload));
 

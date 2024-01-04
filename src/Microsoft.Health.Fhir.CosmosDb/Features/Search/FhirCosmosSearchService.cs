@@ -14,9 +14,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -415,11 +413,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         // Telemetry currently shows that when there is a continuation token, then the query only hits one partition.
                         // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
-
-                        (string Param, string Value)? maxParallelHint = searchOptions.QueryHints?.FirstOrDefault(x => string.Equals(x.Param, KnownQueryParameterNames.OptimizeConcurrency, StringComparison.OrdinalIgnoreCase));
-                        if (bool.TryParse(maxParallelHint?.Value, out bool maxParallel) && maxParallel)
+                        if (_requestContextAccessor.RequestContext.Properties.TryGetValue(KnownQueryParameterNames.OptimizeConcurrency, out object maxParallelAsObject))
                         {
-                            feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+                            if (maxParallelAsObject != null && Convert.ToBoolean(maxParallelAsObject))
+                            {
+                                feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+                            }
                         }
 
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor

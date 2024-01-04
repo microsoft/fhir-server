@@ -183,6 +183,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
 
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
@@ -190,7 +192,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new ConditionalCreateResourceRequest(
                     resource.ToResourceElement(),
                     conditionalParameters,
-                    IsConditionalQuerySetToUseMaxParallelism(),
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
@@ -237,13 +238,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(
                     resource.ToResourceElement(),
                     conditionalParameters,
-                    IsConditionalQuerySetToUseMaxParallelism(),
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
@@ -437,13 +439,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             DeleteResourceResponse response = await _mediator.Send(
                 new ConditionalDeleteResourceRequest(
                     typeParameter,
                     conditionalParameters,
                     hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     maxDeleteCount.GetValueOrDefault(1),
-                    maxParallelism: IsConditionalQuerySetToUseMaxParallelism(),
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
@@ -496,8 +499,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new JsonPatchPayload(patchDocument);
 
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, IsConditionalQuerySetToUseMaxParallelism(), GetBundleResourceContext(), ifMatchHeader),
+                new ConditionalPatchResourceRequest(
+                    typeParameter,
+                    payload,
+                    conditionalParameters,
+                    GetBundleResourceContext(),
+                    ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -539,7 +549,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var payload = new FhirPathPatchPayload(paramsResource);
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, IsConditionalQuerySetToUseMaxParallelism(), GetBundleResourceContext(), ifMatchHeader),
+                new ConditionalPatchResourceRequest(
+                    typeParameter,
+                    payload,
+                    conditionalParameters,
+                    GetBundleResourceContext(),
+                    ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -685,16 +700,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return null;
         }
 
-        private bool IsConditionalQuerySetToUseMaxParallelism()
+        private void SetupRequestContextWithConditionalQueryMaxParallelism()
         {
-            if (HttpContext?.Request?.Headers != null)
+            if (HttpContext?.Request?.Headers != null && _fhirRequestContextAccessor != null)
             {
                 ConditionalQueryProcessingLogic processingLogic = HttpContext.GetConditionalQueryProcessingLogic();
 
-                return processingLogic == ConditionalQueryProcessingLogic.Parallel;
+                if (processingLogic == ConditionalQueryProcessingLogic.Parallel)
+                {
+                    _fhirRequestContextAccessor.RequestContext.DecorateRequestContextWithOptimizedConcurrency();
+                }
             }
-
-            return false;
         }
     }
 }

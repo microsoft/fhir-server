@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -73,9 +74,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             return defaultValue;
         }
 
-        public static void DecorateRequestContextWithConditionalQueryProcessingLogic(this FhirRequestContext requestContext, ConditionalQueryProcessingLogic processingLogic)
+        /// <summary>
+        /// Decorate FHIR Request Context with a property bag setting queries to use optimized concurrecy.
+        /// </summary>
+        /// <param name="requestContext">FHIR request context</param>
+        public static bool DecorateRequestContextWithOptimizedConcurrency(this IFhirRequestContext requestContext)
         {
-            requestContext.RequestHeaders.Add(KnownHeaders.ConditionalQueryProcessingLogic, processingLogic.ToString());
+            if (requestContext == null)
+            {
+                return false;
+            }
+
+            return requestContext.Properties.TryAdd(KnownQueryParameterNames.OptimizeConcurrency, true);
         }
     }
 }

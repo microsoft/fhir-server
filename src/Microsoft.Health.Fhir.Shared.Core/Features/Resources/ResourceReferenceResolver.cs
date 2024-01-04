@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             Resource resource,
             Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary,
             string requestUrl,
-            bool maxParalelism,
             CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
@@ -70,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                             throw new RequestNotValidException(string.Format(Core.Resources.ReferenceResourceTypeNotSupported, resourceType, reference.Reference));
                         }
 
-                        var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, maxParalelism, cancellationToken);
+                        var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
                         if (results == null || results.Count != 1)
                         {
@@ -87,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             }
         }
 
-        public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, bool maxParallelism, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
             {
@@ -98,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken, maxParallelism: maxParallelism)).Results;
+            return (await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken)).Results;
         }
     }
 }

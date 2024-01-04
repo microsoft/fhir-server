@@ -20,10 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             DeleteOperation deleteOperation,
             int? maxDeleteCount,
-            bool maxParallelism = false,
             BundleResourceContext bundleResourceContext = null,
             bool deleteAll = false)
-            : base(resourceType, conditionalParameters, maxParallelism, bundleResourceContext)
+            : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 

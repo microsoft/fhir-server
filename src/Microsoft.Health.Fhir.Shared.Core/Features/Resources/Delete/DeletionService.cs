@@ -96,8 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
-                count: request.MaxDeleteCount,
-                maxParallelism: request.MaxParallelism);
+                count: request.MaxDeleteCount);
 
             var itemsDeleted = new HashSet<string>();
 
@@ -166,8 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             request.ConditionalParameters,
                             cancellationToken,
                             request.DeleteAll ? null : request.MaxDeleteCount - itemsDeleted.Count,
-                            ct,
-                            maxParallelism: request.MaxParallelism);
+                            ct);
                     }
                     else
                     {

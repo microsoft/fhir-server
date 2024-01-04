@@ -146,7 +146,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 list,
                 hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                 count,
-                maxParallelism,
                 bundleResourceContext: null);
 
             return message;

@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="count">The search Count.</param>
         /// <param name="continuationToken">An optional ContinuationToken</param>
         /// <param name="logger">Logger</param>
-        /// <param name="maxParallelism">Enable parallel query execution</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
         internal static async Task<(IReadOnlyCollection<SearchResultEntry> Results, string ContinuationToken)> ConditionalSearchAsync(
@@ -52,8 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             CancellationToken cancellationToken,
             int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
             string continuationToken = null,
-            Microsoft.Extensions.Logging.ILogger logger = null,
-            bool? maxParallelism = false)
+            Microsoft.Extensions.Logging.ILogger logger = null)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
             List<Tuple<string, string>> filteredParameters = conditionalParameters
@@ -76,12 +74,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 do
                 {
                     var searchParameters = new List<Tuple<string, string>>(filteredParameters);
-
-                    // Enable parallel query execution.
-                    if (maxParallelism == true)
-                    {
-                        searchParameters.Add(Tuple.Create(KnownQueryParameterNames.OptimizeConcurrency, true.ToString()));
-                    }
 
                     if (!string.IsNullOrEmpty(lastContinuationToken))
                     {

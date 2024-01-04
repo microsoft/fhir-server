@@ -18,9 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Create
         public ConditionalCreateResourceRequest(
             ResourceElement resource,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            bool maxParallelism = false,
             BundleResourceContext bundleResourceContext = null)
-            : base(resource.InstanceType, conditionalParameters, maxParallelism, bundleResourceContext)
+            : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
             Resource = resource;
