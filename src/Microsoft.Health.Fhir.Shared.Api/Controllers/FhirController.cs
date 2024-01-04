@@ -160,9 +160,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
             RawResourceElement response = await _mediator.CreateResourceAsync(
-                new CreateResourceRequest(
-                    resource.ToResourceElement(),
-                    GetBundleResourceContext()),
+                new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
@@ -189,10 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
 
             UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalCreateResourceRequest(
-                    resource.ToResourceElement(),
-                    conditionalParameters,
-                    GetBundleResourceContext()),
+                new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             if (createResponse == null)
@@ -220,10 +215,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
-                new UpsertResourceRequest(
-                    resource.ToResourceElement(),
-                    GetBundleResourceContext(),
-                    ifMatchHeader),
+                new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response);
@@ -243,10 +235,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalUpsertResourceRequest(
-                    resource.ToResourceElement(),
-                    conditionalParameters,
-                    GetBundleResourceContext()),
+                new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters, GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;
@@ -502,12 +491,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             SetupRequestContextWithConditionalQueryMaxParallelism();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(
-                    typeParameter,
-                    payload,
-                    conditionalParameters,
-                    GetBundleResourceContext(),
-                    ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -549,12 +533,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var payload = new FhirPathPatchPayload(paramsResource);
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
-                new ConditionalPatchResourceRequest(
-                    typeParameter,
-                    payload,
-                    conditionalParameters,
-                    GetBundleResourceContext(),
-                    ifMatchHeader),
+                new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }

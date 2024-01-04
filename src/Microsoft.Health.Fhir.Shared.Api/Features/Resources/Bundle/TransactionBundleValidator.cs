@@ -43,10 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <param name="bundle"> The input bundle</param>
         /// <param name="idDictionary">The id dictionary that stores fullUrl to actual ids.</param>
         /// <param name="cancellationToken"> The cancellation token</param>
-        public async Task ValidateBundle(
-            Hl7.Fhir.Model.Bundle bundle,
-            IDictionary<string, (string resourceId, string resourceType)> idDictionary,
-            CancellationToken cancellationToken)
+        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
@@ -79,10 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.IsNullOrWhiteSpace(conditionalCreateQuery) ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
         }
 
-        private async Task<string> GetResourceId(
-            EntryComponent entry,
-            IDictionary<string, (string resourceId, string resourceType)> idDictionary,
-            CancellationToken cancellationToken)
+        private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
             if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains('?', StringComparison.Ordinal))

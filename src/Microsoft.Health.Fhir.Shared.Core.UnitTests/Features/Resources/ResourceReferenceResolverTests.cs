@@ -10,7 +10,6 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -120,11 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(
-                    entry.Resource,
-                    referenceIdDictionary,
-                    requestUrl,
-                    CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }
@@ -141,11 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(
-                    entry.Resource,
-                    referenceIdDictionary,
-                    requestUrl,
-                    CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }

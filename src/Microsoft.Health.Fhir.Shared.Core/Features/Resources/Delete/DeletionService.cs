@@ -92,11 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(
-                request.ResourceType,
-                request.ConditionalParameters,
-                cancellationToken,
-                count: request.MaxDeleteCount);
+            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken, count: request.MaxDeleteCount);
 
             var itemsDeleted = new HashSet<string>();
 
