@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -33,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
+        private readonly ILogger<UrlResolver> _logger;
 
         // If we update the search implementation to not use these, we should remove
         // the registration since enabling these accessors has performance implications.
@@ -49,24 +52,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
+        /// <param name="logger">Logger.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ILogger<UrlResolver> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _logger = logger;
         }
 
         private HttpRequest Request
@@ -96,13 +103,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add("system", true);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 RouteNames.Metadata,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
@@ -134,13 +140,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
@@ -213,26 +218,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
         {
             var routeValueDictionary = new RouteValueDictionary(routeValues);
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValueDictionary,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationResultUrl(string operationName, string id)
@@ -268,13 +271,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 { KnownActionParameterNames.Id, id },
             };
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationDefinitionUrl(string operationName)
@@ -321,12 +323,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
-                values: null,
+                null,
                 Request.Scheme,
                 Request.Host.Value);
+        }
 
+        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
+        {
+            var uriString = UrlHelper.RouteUrl(
+                    routeName,
+                    routeValues,
+                    scheme,
+                    host);
+            var s = string.Empty;
+            routeValues.ToList().ForEach(kv => s += kv.ToString());
+            _logger.LogInformation($"UrlHelper.RouteUrl: {uriString}, host: {host}, scheme: {scheme}, routeName: {routeName}, routeValue: {s}");
             return new Uri(uriString);
         }
     }
