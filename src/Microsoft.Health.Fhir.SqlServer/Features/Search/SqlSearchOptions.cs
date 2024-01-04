@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <summary>
         /// Keeps track of whether missing modifier is specified for search parameter used in sort.
         /// </summary>
-        public bool IsSortHasMissingModifier { get; internal set; }
+        public bool SortHasMissingModifier { get; internal set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance
