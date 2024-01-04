@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 Expression updatedExpression = expression.SearchParamTableExpressions[i].Predicate.AcceptVisitor(this, context);
 
-                if (expression.SearchParamTableExpressions[i].Predicate is MissingSearchParameterExpression)
+                if (expression.SearchParamTableExpressions[i].Predicate is MissingSearchParameterExpression && !isSortHasMissingModifier)
                 {
                     MissingSearchParameterExpression misingSPExpression = (MissingSearchParameterExpression)expression.SearchParamTableExpressions[i].Predicate;
                     isSortHasMissingModifier = !misingSPExpression.IsMissing && context.Sort[0].searchParameterInfo.Name.Equals(misingSPExpression.Parameter.Name, System.StringComparison.OrdinalIgnoreCase);
