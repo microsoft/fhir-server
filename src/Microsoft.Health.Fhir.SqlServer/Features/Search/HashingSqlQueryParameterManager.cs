@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool HasParametersToHash => _setToHash.Count > 0;
 
         /// <summary>
-        /// Add a parameter to the SQL command.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
         /// </summary>
         /// <typeparam name="T">The CLR column type</typeparam>
         /// <param name="column">The table column the parameter is bound to.</param>
@@ -45,13 +46,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
         /// <returns>The SQL parameter.</returns>
-        public SqlParameter AddParameter<T>(Column<T> column, T value, bool includeInHash)
+        public object AddParameter<T>(Column<T> column, T value, bool includeInHash)
         {
             return AddParameter((Column)column, value, includeInHash);
         }
 
         /// <summary>
-        /// Add a parameter to the SQL command.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
         /// </summary>
         /// <param name="column">The table column the parameter is bound to.</param>
         /// <param name="value">The parameter value</param>
@@ -60,8 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
         /// <returns>The SQL parameter.</returns>
-        public SqlParameter AddParameter(Column column, object value, bool includeInHash)
+        public object AddParameter(Column column, object value, bool includeInHash)
         {
+            if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name
+                    || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
+                    || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name)
+            {
+                return value;
+            }
+
             SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash)
             {

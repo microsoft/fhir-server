@@ -129,15 +129,11 @@ SELECT TOP 1 O.name
         {
             _fixture.SqlHelper.ExecuteSqlCmd(@$"
 CREATE OR ALTER PROCEDURE [dbo].[CustomQuery_{hash}]
-   @p0 smallint
+   @p0 datetime2
   ,@p1 datetime2
-  ,@p2 smallint
-  ,@p3 datetime2
-  ,@p4 smallint
-  ,@p5 nvarchar(256)
-  ,@p6 smallint
-  ,@p7 nvarchar(256)
-  ,@p8 int
+  ,@p2 nvarchar(256)
+  ,@p3 nvarchar(256)
+  ,@p4 int
 AS
 set nocount on
 SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(1 AS bit) AS IsMatch, CAST(0 AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
