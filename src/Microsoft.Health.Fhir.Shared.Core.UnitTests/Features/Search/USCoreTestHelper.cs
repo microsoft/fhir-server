@@ -255,7 +255,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Search
                 urlHelperFactory,
                 httpContextAccessor,
                 actionContextAccessor,
-                bundleHttpContextAccessor);
+                bundleHttpContextAccessor,
+                NullLogger.Instance);
         }
     }
 }

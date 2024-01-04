@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Castle.Core.Logging;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -58,7 +59,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _urlHelperFactory,
                 _httpContextAccessor,
                 _actionContextAccessor,
-                _bundleHttpContextAccessor);
+                _bundleHttpContextAccessor,
+                NullLogger.Instance);
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 

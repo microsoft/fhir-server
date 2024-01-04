@@ -241,7 +241,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 urlHelperFactory,
                 httpContextAccessor,
                 actionContextAccessor,
-                bundleHttpContextAccessor);
+                bundleHttpContextAccessor,
+                NullLogger.Instance);
         }
     }
 }
