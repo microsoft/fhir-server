@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
@@ -27,8 +28,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using StringComparison = System.StringComparison;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -311,28 +312,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CheckFineGrainedAccessControl(searchExpressions);
 
             var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
-            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
-            var expressions = searchParams.Parameters.Select(
+            searchExpressions.AddRange(searchParams.Parameters.Select(
             q =>
             {
                 try
                 {
-                    if (!unsupportedSearchParameters.Contains(q))
-                    {
-                        CheckForSearchParameterEnabled(resourceType, q.Item1, statuses);
-                    }
-
                     return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
                 }
                 catch (SearchParameterNotSupportedException)
                 {
                     unsupportedSearchParameters.Add(q);
-
                     return null;
                 }
-            });
-
-            searchExpressions.AddRange(expressions.Where(item => item != null));
+            }).Where(item => item != null));
 
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
@@ -342,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
-                if (Enum.TryParse(compartmentType, out Hl7.Fhir.Model.CompartmentType parsedCompartmentType))
+                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
                 {
                     if (string.IsNullOrWhiteSpace(compartmentId))
                     {
@@ -369,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var smartCompartmentType = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentResourceType;
                 var smartCompartmentId = _contextAccessor.RequestContext?.AccessControlContext?.CompartmentId;
 
-                if (Enum.TryParse(smartCompartmentType, out Hl7.Fhir.Model.CompartmentType parsedCompartmentType))
+                if (Enum.TryParse(smartCompartmentType, out CompartmentType parsedCompartmentType))
                 {
                     if (string.IsNullOrWhiteSpace(smartCompartmentId))
                     {
@@ -486,7 +478,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
-
+            await CheckForSearchParameterEnabled(searchExpressions, cancellationToken);
             try
             {
                 LogExpresssionSearchParameters(searchOptions.Expression);
@@ -499,31 +491,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return searchOptions;
         }
 
-        private void CheckForSearchParameterEnabled(string resourceType, string code, IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        private async Task CheckForSearchParameterEnabled(List<Expression> searchExpression, CancellationToken cancellationToken)
         {
+            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
             try
             {
-                var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceType, code);
-                var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
-
-                if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
+                foreach (var expression in searchExpression)
                 {
-                    throw new SearchParameterNotSupportedException("Status is not set to Enabled for search parameter. It will not be used in the search.");
+                    if (expression.GetType() == typeof(SearchParameterExpression))
+                    {
+                        SearchParameterInfo sp = ((SearchParameterExpression)expression).Parameter;
+                        var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(sp.Name, sp.Code);
+                        var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
+
+                        if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
+                        {
+                            _contextAccessor.RequestContext?.BundleIssues.Add(
+                                new OperationOutcomeIssue(
+                                    OperationOutcomeConstants.IssueSeverity.Warning,
+                                    OperationOutcomeConstants.IssueType.Informational,
+                                    string.Format(Core.Resources.SearchParameterNotEnabledErrorMessage, searchParamInfo.Url.OriginalString, searchParamStatus.Status.ToString())));
+                        }
+                    }
                 }
             }
-            catch (SearchParameterNotSupportedException)
-            {
-                if (code.Contains(':', StringComparison.OrdinalIgnoreCase) || code.Contains('.', StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                throw;
-            }
-            catch (ArgumentNullException)
+            catch (Exception e)
             {
                 // If there is an error, we will just ignore it and not check the status since it could be a base search parameter such as _type or a complex one with modifer _id:not..
-                _logger.LogInformation("Status is not available for search parameter with code {Code}. Bypassing status check.", code);
+                _logger.LogWarning("Unable to check search parameter status. Error: {Exception}. Non actionable error.", e.ToString());
             }
         }
 

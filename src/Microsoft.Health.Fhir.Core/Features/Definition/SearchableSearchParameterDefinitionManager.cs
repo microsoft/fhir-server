@@ -25,17 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         private readonly ISearchParameterDefinitionManager _inner;
         private RequestContextAccessor<IFhirRequestContext> _fhirReqeustContextAccessor;
-        private SearchParameterStatusManager _statusManager;
 
-        public SearchableSearchParameterDefinitionManager(ISearchParameterDefinitionManager inner, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, SearchParameterStatusManager statusManager)
+        public SearchableSearchParameterDefinitionManager(ISearchParameterDefinitionManager inner, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(statusManager, nameof(statusManager));
 
             _inner = inner;
             _fhirReqeustContextAccessor = fhirRequestContextAccessor;
-            _statusManager = statusManager;
         }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => GetAllSearchParameters();
@@ -48,12 +45,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 && _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams)
             {
                 return _inner.GetSearchParameters(resourceType)
-                .Where(x => x.IsSupported && IsEnabled(x));
+                .Where(x => x.IsSupported);
             }
             else
             {
                 return _inner.GetSearchParameters(resourceType)
-                    .Where(x => x.IsSearchable && IsEnabled(x));
+                    .Where(x => x.IsSearchable);
             }
         }
 
@@ -62,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             searchParameter = null;
 
             if (_inner.TryGetSearchParameter(resourceType, code, out var parameter) &&
-                (parameter.IsSearchable || UsePartialSearchParams(parameter)) && IsEnabled(parameter))
+                (parameter.IsSearchable || UsePartialSearchParams(parameter)))
             {
                 searchParameter = parameter;
 
@@ -76,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, code);
 
-            if ((parameter.IsSearchable || UsePartialSearchParams(parameter)) && IsEnabled(parameter))
+            if (parameter.IsSearchable || UsePartialSearchParams(parameter))
             {
                 return parameter;
             }
@@ -88,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(definitionUri);
 
-            if ((parameter.IsSearchable || UsePartialSearchParams(parameter)) && IsEnabled(parameter))
+            if (parameter.IsSearchable || UsePartialSearchParams(parameter))
             {
                 return parameter;
             }
@@ -98,16 +95,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private IEnumerable<SearchParameterInfo> GetAllSearchParameters()
         {
-            var searchParameterStatuses = _statusManager.GetAllSearchParameterStatus(default).ConfigureAwait(false).GetAwaiter().GetResult();
-
             if (_fhirReqeustContextAccessor.RequestContext != null &&
                 _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams)
             {
-                return _inner.AllSearchParameters.Where(x => x.IsSupported && IsEnabled(x));
+                return _inner.AllSearchParameters.Where(x => x.IsSupported);
             }
             else
             {
-                return _inner.AllSearchParameters.Where(x => x.IsSearchable && IsEnabled(x));
+                return _inner.AllSearchParameters.Where(x => x.IsSearchable);
             }
         }
 
@@ -135,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.TryGetSearchParameter(definitionUri, out var parameter);
 
-            if ((parameter.IsSearchable || UsePartialSearchParams(parameter)) && IsEnabled(parameter))
+            if (parameter.IsSearchable || UsePartialSearchParams(parameter))
             {
                 value = parameter;
                 return true;
@@ -155,17 +150,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _fhirReqeustContextAccessor.RequestContext != null &&
                    _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams &&
                    parameter.IsSupported;
-        }
-
-        private bool IsEnabled(SearchParameterInfo parameter)
-        {
-            if (parameter.Code == "_type")
-            {
-                return true;
-            }
-
-            var searchParameterStatuses = _statusManager.GetAllSearchParameterStatus(default).ConfigureAwait(false).GetAwaiter().GetResult();
-            return searchParameterStatuses.Where(sp => sp.Uri.OriginalString.Equals(parameter.Url.OriginalString, StringComparison.OrdinalIgnoreCase)).First().Status == SearchParameterStatus.Enabled;
         }
     }
 }

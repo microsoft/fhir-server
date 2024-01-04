@@ -1421,6 +1421,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The search parameter: &apos;{0}&apos; is currently set as: &apos;{1}&apos;, which is not a valid state and can&apos;t be used in this search. Please run reindex if state is shown as supported to include this search parameter in your query. The search will run without this search parameter, but may not return what you are expecting..
+        /// </summary>
+        internal static string SearchParameterNotEnabledErrorMessage {
+            get {
+                return ResourceManager.GetString("SearchParameterNotEnabledErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search parameter matching the url &apos;{0}&apos; does not exist in datastore. The $status operation cannot be used to add a search parameter..
         /// </summary>
         internal static string SearchParameterNotFound {

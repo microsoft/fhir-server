@@ -73,7 +73,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
 
-            // searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             _searchParameterStatusManager = new SearchParameterStatusManager(
                                Substitute.For<ISearchParameterStatusDataStore>(),
                                searchParameterDefinitionManager,
@@ -600,14 +599,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(queryParameters, options.UnsupportedSearchParams);
         }
 
+        [Fact]
+        public async void GivenASearchParamThatIsNotInEnabledStateInRevInclude_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
+        {
+            const ResourceType resourceType = ResourceType.Account;
+            const string paramName = "_revinclude";
+            const string paramValue = "Account:Name";
+            var queryParameters = new[]
+            {
+                Tuple.Create(paramName, paramValue),
+            };
+            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), "Name").Returns(_accountNameSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
+            var referenceParser = Substitute.For<IReferenceSearchValueParser>();
+            var searchParameterParser = new SearchParameterExpressionParser(referenceParser);
+            var expressionParser = new ExpressionParser(() => searchParameterDefinitionManager, searchParameterParser);
+            var spDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            spDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(
+                new List<ResourceSearchParameterStatus>
+                {
+                    new ResourceSearchParameterStatus()
+                    {
+                        Status = SearchParameterStatus.Disabled,
+                        Uri = new Uri(ACCOUNTURI),
+                    },
+                });
+            var spStatusManager = new SearchParameterStatusManager(spDataStore, searchParameterDefinitionManager, Substitute.For<ISearchParameterSupportResolver>(), Substitute.For<IMediator>(), NullLogger<SearchParameterStatusManager>.Instance);
+            var factory = new SearchOptionsFactory(
+                expressionParser,
+                () => searchParameterDefinitionManager,
+                new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
+                contextAccessor,
+                _sortingValidator,
+                new ExpressionAccessControl(contextAccessor),
+                NullLogger<SearchOptionsFactory>.Instance,
+                spStatusManager);
+            SearchOptions options = await factory.Create(null, null, DefaultResourceType, queryParameters, resourceVersionTypes: ResourceVersionType.Latest, cancellationToken: default);
+            Assert.NotNull(options);
+            Assert.Equal(queryParameters, options.UnsupportedSearchParams);
+        }
+
         [Theory]
         [InlineData(ResourceVersionType.Latest)]
-        [InlineData(ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.History)]
         [InlineData(ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History)]
         [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
         public async void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
         {
             SearchOptions options = await CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);

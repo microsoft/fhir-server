@@ -736,4 +736,8 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="SearchParameterNotEnabledErrorMessage" xml:space="preserve">
+    <value>The search parameter: '{0}' is currently set as: '{1}', which is not a valid state and can't be used in this search. Please run reindex if state is shown as supported to include this search parameter in your query. The search will run without this search parameter, but may not return what you are expecting.</value>
+    <comment>{NumberedPlaceHolder="{0}", "{1}"}</comment>
+  </data>
 </root>
