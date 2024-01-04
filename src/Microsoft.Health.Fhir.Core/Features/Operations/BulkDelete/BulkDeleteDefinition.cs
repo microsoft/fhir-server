@@ -12,7 +12,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 {
-    internal class BulkDeleteDefinition : IJobData
+    internal class BulkDeleteDefinition : IJobData, IThrottleableJobRecord
     {
         public BulkDeleteDefinition(
             JobType jobType,
@@ -34,6 +34,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             ParentRequestId = parentRequestId;
             ExpectedResourceCount = startingResourceCount;
             VersionType = versionType;
+
+            MaximumNumberOfResourcesPerQuery = 1000;
+            QueryDelayIntervalInMilliseconds = 5;
+            TargetDataStoreUsagePercentage = 90;
         }
 
         [JsonConstructor]
@@ -67,5 +71,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
         [JsonProperty(JobRecordProperties.VersionType)]
         public ResourceVersionType VersionType { get; private set; }
+
+        [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
+        public uint MaximumNumberOfResourcesPerQuery { get; set; }
+
+        /// <summary>
+        /// Controls the time between queries of resources to be reindexed
+        /// </summary>
+        [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
+        public int QueryDelayIntervalInMilliseconds { get; set; }
+
+        /// <summary>
+        /// Controls the target percentage of how much of the allocated
+        /// data store resources to use
+        /// Ex: 1 - 100 percent of provisioned datastore resources
+        /// 0 means the value is not set, no throttling will occur
+        /// </summary>
+        [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
+        public ushort? TargetDataStoreUsagePercentage { get; set; }
     }
 }

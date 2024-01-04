@@ -25,6 +25,8 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
@@ -43,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
         private readonly IAuditLogger _auditLogger;
+        private readonly IBackgroundJobThrottleController _throttleController;
         private readonly ILogger<DeletionService> _logger;
 
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
@@ -56,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
+            IBackgroundJobThrottleController throttleController,
             ILogger<DeletionService> logger)
         {
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
@@ -65,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _resourceIdProvider = EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
+            _throttleController = EnsureArg.IsNotNull(throttleController, nameof(throttleController));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             _retryPolicy = Policy
@@ -107,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(key.ResourceType, key.Id, version);
         }
 
-        public async Task<long> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        public async Task<long> DeleteMultipleAsync(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken, IThrottleableJobRecord jobRecord = null)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -115,6 +120,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             stopwatch.Start();
 
             var searchCount = 1000;
+
+            if (jobRecord != null)
+            {
+                searchCount = (int)jobRecord.MaximumNumberOfResourcesPerQuery;
+                await _throttleController.Initialize(jobRecord, cancellationToken);
+                _throttleController.UpdateDatastoreUsage();
+            }
 
             (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
@@ -165,6 +177,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                     if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numQueuedForDeletion) > 0))
                     {
+                        if (jobRecord != null)
+                        {
+                            _throttleController.UpdateDatastoreUsage();
+                            await System.Threading.Tasks.Task.Delay(_throttleController.GetThrottleBasedDelay());
+                            searchCount = (int)_throttleController.GetThrottleBatchSize();
+                        }
+
                         (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                             request.ResourceType,
                             request.ConditionalParameters,

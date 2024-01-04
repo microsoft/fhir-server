@@ -5,21 +5,25 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
 {
-    public class ReindexJobCosmosThrottleController : IReindexJobThrottleController
+    public class CosmosBackgroundJobThrottleController : IBackgroundJobThrottleController
     {
         private int? _provisionedRUThroughput;
         private DateTimeOffset? _intervalStart = null;
@@ -30,40 +34,52 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private uint _jobConfiguredBatchSize = 100;
         private bool _initialized = false;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-        private readonly ILogger<ReindexJobCosmosThrottleController> _logger;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly ILogger<CosmosBackgroundJobThrottleController> _logger;
 
-        public ReindexJobCosmosThrottleController(
+        public CosmosBackgroundJobThrottleController(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            ILogger<ReindexJobCosmosThrottleController> logger)
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            ILogger<CosmosBackgroundJobThrottleController> logger)
         {
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _logger = logger;
+            _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            _fhirDataStoreFactory = EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public ReindexJobRecord ReindexJobRecord { get; set; } = null;
+        public IThrottleableJobRecord JobRecord { get; set; } = null;
 
-        public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
+        public async Task Initialize(IThrottleableJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(reindexJobRecord, nameof(reindexJobRecord));
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
-            ReindexJobRecord = reindexJobRecord;
-            _provisionedRUThroughput = provisionedDatastoreCapacity;
-            _jobConfiguredBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
+            if (jobRecord.TargetDataStoreUsagePercentage != null &&
+                    jobRecord.TargetDataStoreUsagePercentage > 0)
+            {
+                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+                {
+                    _provisionedRUThroughput = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
+                }
+            }
+            else
+            {
+                _provisionedRUThroughput = null;
+            }
 
-            if (ReindexJobRecord.TargetDataStoreUsagePercentage.HasValue
-                && ReindexJobRecord.TargetDataStoreUsagePercentage.Value > 0
+            JobRecord = jobRecord;
+            _jobConfiguredBatchSize = jobRecord.MaximumNumberOfResourcesPerQuery;
+
+            if (JobRecord.TargetDataStoreUsagePercentage.HasValue
+                && JobRecord.TargetDataStoreUsagePercentage.Value > 0
                 && _provisionedRUThroughput.HasValue
                 && _provisionedRUThroughput > 0)
             {
-                _targetRUs = _provisionedRUThroughput.Value * (ReindexJobRecord.TargetDataStoreUsagePercentage.Value / 100.0);
-                _logger.LogInformation("Reindex throttling initialized, target RUs: {TargetRUs}", _targetRUs);
+                _targetRUs = _provisionedRUThroughput.Value * (JobRecord.TargetDataStoreUsagePercentage.Value / 100.0);
+                _logger.LogInformation("Background job throttling initialized, target RUs: {TargetRUs}", _targetRUs);
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
-                _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
+                _targetBatchSize = jobRecord.MaximumNumberOfResourcesPerQuery;
             }
             else
             {
@@ -79,7 +95,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 return 0;
             }
 
-            return ReindexJobRecord.QueryDelayIntervalInMilliseconds * _delayFactor;
+            return JobRecord.QueryDelayIntervalInMilliseconds * _delayFactor;
         }
 
         public uint GetThrottleBatchSize()
@@ -104,9 +120,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             if (_initialized)
             {
                 var requestContext = _fhirRequestContextAccessor.RequestContext;
-                Debug.Assert(
-                    requestContext.Method.Equals(OperationsConstants.Reindex, StringComparison.OrdinalIgnoreCase),
-                    "We should not be here with FhirRequestContext that is not reindex!");
+
+                // Debug.Assert(
+                //    requestContext.Method.Equals(OperationsConstants.Reindex, StringComparison.OrdinalIgnoreCase),
+                //    "We should not be here with FhirRequestContext that is not reindex!");
 
                 if (!_intervalStart.HasValue)
                 {
@@ -128,7 +145,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                     double batchPercent = _targetRUs.Value / responseRequestCharge;
                     _targetBatchSize = (uint)(_targetBatchSize * batchPercent);
                     _targetBatchSize = _targetBatchSize >= 10 ? _targetBatchSize : 10;
-                    _logger.LogInformation("Reindex query for one batch was larger than target RUs, current query cost: {ResponseRequestCharge}.  Reduced batch size to: {TargetBatchSize}", responseRequestCharge, _targetBatchSize);
+                    _logger.LogInformation("Query for one batch was larger than target RUs, current query cost: {ResponseRequestCharge}.  Reduced batch size to: {TargetBatchSize}", responseRequestCharge, _targetBatchSize);
                 }
                 else
                 {
@@ -145,12 +162,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 // then we average that RU consumption per second
                 // and compare it against the target
                 if ((Clock.UtcNow - _intervalStart).Value.TotalMilliseconds >=
-                    (5 * (ReindexJobRecord.QueryDelayIntervalInMilliseconds + GetThrottleBasedDelay())))
+                    (5 * (JobRecord.QueryDelayIntervalInMilliseconds + GetThrottleBasedDelay())))
                 {
                     if (averageRUsConsumed > _targetRUs)
                     {
                         _delayFactor += 1;
-                        _logger.LogInformation("Reindex RU consumption high, delay factor increase to: {DelayFactor}", _delayFactor);
+                        _logger.LogInformation("Background Job RU consumption high, delay factor increase to: {DelayFactor}", _delayFactor);
                     }
                     else if (averageRUsConsumed < (_targetRUs * 0.75)
                         && _delayFactor > 0)

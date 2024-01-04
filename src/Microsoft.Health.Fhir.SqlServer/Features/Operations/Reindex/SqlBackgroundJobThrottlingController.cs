@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 {
-    public class ReindexJobSqlThrottlingController : IReindexJobThrottleController
+    public class SqlBackgroundJobThrottlingController : IBackgroundJobThrottleController
     {
         private uint _targetBatchSize;
 
@@ -17,10 +20,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             return 0;
         }
 
-        public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
+        public Task Initialize(IThrottleableJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
-            return;
+            _targetBatchSize = jobRecord.MaximumNumberOfResourcesPerQuery;
+            return Task.CompletedTask;
         }
 
         public double UpdateDatastoreUsage()

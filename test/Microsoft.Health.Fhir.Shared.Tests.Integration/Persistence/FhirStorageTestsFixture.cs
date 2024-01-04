@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
@@ -186,8 +187,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
+            var throttleController = Substitute.For<IBackgroundJobThrottleController>();
+            throttleController.GetThrottleBasedDelay().Returns(0);
+            throttleController.GetThrottleBatchSize().Returns(1000u);
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, throttleController, logger);
 
             var collection = new ServiceCollection();
 
