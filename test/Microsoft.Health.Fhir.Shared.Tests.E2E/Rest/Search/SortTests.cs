@@ -91,28 +91,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMissingBirthDates_WhenSearchedWithSortParamAndMissingModifierFalse_ThenThosePatientsShouldNotReturn(string sortParameterName)
+        public async Task GivenPatients_WhenSearchedWithSortParamAndMissingIdentifier_SearchResultsReturnedShouldHonorMissingIdentifier(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
 
-            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate:missing=false&_sort={sortParameterName}");
-
-            Assert.Equal(10, returnedResults.Count());
-        }
-
-        [Theory]
-        [InlineData("birthdate")]
-        [InlineData("-birthdate")]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMissingBirthDates_WhenSearchedWithSortParamAndNoMissingModifier_ThenAllPatientsShouldReturn(string sortParameterName)
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
-
+            // Search without missing modifier should return all Patients
             var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort={sortParameterName}");
-
             Assert.Equal(12, returnedResults.Count());
+
+            // Search with missing modifier false should return only Patients with Birth dates
+            returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate:missing=false&_sort={sortParameterName}");
+            Assert.Equal(10, returnedResults.Count());
         }
 
         [Theory]
