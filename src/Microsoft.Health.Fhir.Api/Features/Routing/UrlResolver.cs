@@ -340,14 +340,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             try
             {
+                var s = string.Empty;
+                routeValues?.ToList().ForEach(kv => s += kv.ToString());
+
                 var uriString = UrlHelper.RouteUrl(
                     routeName,
                     routeValues,
                     scheme,
                     host);
-                var s = string.Empty;
-                routeValues?.ToList().ForEach(kv => s += kv.ToString());
                 _logger.LogInformation($"UrlHelper.RouteUrl: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
+
+                var uriString2 = _linkGenerator.GetUriByRouteValues(
+                    httpContext,
+                    routeName,
+                    routeValues,
+                    scheme,
+                    new HostString(host));
+                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString2)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
+
+                DumpHttpContext(httpContext);
                 return new Uri(uriString);
             }
             catch
@@ -368,6 +379,163 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         private static string SanitizeString(string value)
         {
             return HttpUtility.HtmlEncode(value?.Trim());
+        }
+
+        public void DumpActionContext(ActionContext context)
+        {
+            if (context == null)
+            {
+                _logger.LogInformation("ActionContext is null.");
+                return;
+            }
+
+            DumpHttpContext(context.HttpContext);
+        }
+
+        public void DumpHttpContext(HttpContext context)
+        {
+            if (context == null)
+            {
+                _logger.LogInformation("HttpContext is null.");
+                return;
+            }
+
+            string s = string.Empty;
+#if false
+            try
+            {
+                if (_httpContextAccessor.HttpContext != null)
+                {
+                    var httpContext = _httpContextAccessor.HttpContext;
+                    if (httpContext.Items != null)
+                    {
+                        s += "Items:\r\n";
+                        foreach (var item in httpContext.Items)
+                        {
+                            s += item.ToString();
+                        }
+                    }
+                    else
+                    {
+                        s += "httpContext.Items is null.";
+                    }
+
+                    if (httpContext.Features != null)
+                    {
+                        s += "Features:\r\n";
+                        foreach (var feature in httpContext.Features)
+                        {
+                            s += feature.ToString();
+                        }
+                    }
+                    else
+                    {
+                        s += "httpContext.Features is null.";
+                    }
+                }
+                else
+                {
+                    s = "http context is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                stateValues[dumpContextDimensionName] = s;
+            }
+#endif
+            try
+            {
+                s = string.Empty;
+                var request = context?.Request;
+                if (request != null)
+                {
+                    s += $"Request method: {request.Method}, host: {request.Host}, pathbase: {request.PathBase}, path: {request.Path}\r\n";
+                    if (request.Headers != null && request.Headers.Any())
+                    {
+                        s += "Headers:\r\n";
+                        foreach (var header in request.Headers)
+                        {
+                            if (!header.Key.Contains("Authorization", StringComparison.OrdinalIgnoreCase))
+                            {
+                                s += header.ToString();
+                                s += "\r\n";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        s += "request headers is null or empty.";
+                    }
+
+                    if (request.RouteValues != null && request.RouteValues.Any())
+                    {
+                        s += "RouteValues:\r\n";
+                        foreach (var rv in request.RouteValues)
+                        {
+                            s += rv.ToString();
+                            s += "\r\n";
+                        }
+                    }
+                    else
+                    {
+                        s += "request reouteValues is null or empty.";
+                    }
+                }
+                else
+                {
+                    s += "httpcontext or httprequest is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                _logger.LogInformation(s);
+            }
+
+            s = string.Empty;
+            try
+            {
+                var response = _httpContextAccessor.HttpContext?.Response;
+                if (response != null)
+                {
+                    s += $"Response status code: {response.StatusCode}, has started: {response.HasStarted}\r\n";
+                    if (response.Headers != null && response.Headers.Any())
+                    {
+                        s += "Headers:\r\n";
+                        foreach (var header in response.Headers)
+                        {
+                            if (!header.Key.Contains("Authorization", StringComparison.OrdinalIgnoreCase))
+                            {
+                                s += header.ToString();
+                                s += "\r\n";
+                            }
+                        }
+                    }
+                    else
+                    {
+                        s += "response headers is null or empty.";
+                    }
+                }
+                else
+                {
+                    s += "httpcontext or httprequest is null.";
+                }
+            }
+            catch (Exception ex)
+            {
+                s = ex.ToString();
+            }
+            finally
+            {
+                _logger.LogInformation(s);
+            }
         }
     }
 }
