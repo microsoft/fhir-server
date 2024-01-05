@@ -266,6 +266,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         [HttpGet]
+        [ValidateResourceFilter]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
