@@ -337,6 +337,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append("/* HASH ");
                 Parameters.AppendHash(StringBuilder);
+                Parameters.AppendHashedParameterNames(StringBuilder);
                 StringBuilder.AppendLine(" */");
             }
         }

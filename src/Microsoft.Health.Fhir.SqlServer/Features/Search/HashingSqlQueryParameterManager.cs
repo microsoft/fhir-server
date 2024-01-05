@@ -190,6 +190,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             stringBuilder.Append(hashChars[..hashCharsLength]);
         }
 
+        /// <summary>
+        /// Appends comma delimited list of names of hashed parameters
+        /// </summary>
+        /// <param name="stringBuilder">A string builder to append the list to.</param>
+        public void AppendHashedParameterNames(IndentedStringBuilder stringBuilder)
+        {
+            var first = true;
+            foreach (var param in _setToHash)
+            {
+                stringBuilder.Append($"{(first ? " params=" : ",")}{param}");
+                first = false;
+            }
+        }
+
         private static void WriteAndAdvance<T>(Span<byte> buffer, ref int currentIndex, ref IncrementalHash incrementalHash, T element)
             where T : struct
         {
