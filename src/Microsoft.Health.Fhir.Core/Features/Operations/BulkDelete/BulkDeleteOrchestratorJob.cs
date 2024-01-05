@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
@@ -38,25 +40,62 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             BulkDeleteDefinition definition = jobInfo.DeserializeDefinition<BulkDeleteDefinition>();
 
-            var definitions = new List<BulkDeleteDefinition>();
+            BulkDeleteDefinition processingDefinition = null;
+
             if (string.IsNullOrEmpty(definition.Type))
             {
                 IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
 
-                foreach (var resourceType in resourceTypes)
-                {
-                    var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, resourceType, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
-                    definitions.Add(processingDefinition);
-                }
+                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>(resourceTypes), cancellationToken);
             }
             else
             {
-                var processingDefinition = new BulkDeleteDefinition(JobType.BulkDeleteProcessing, definition.DeleteOperation, definition.Type, definition.SearchParameters, definition.Url, definition.BaseUrl, definition.ParentRequestId);
-                definitions.Add(processingDefinition);
+                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>() { definition.Type }, cancellationToken);
             }
 
-            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: definitions.ToArray());
+            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
             return OperationCompleted;
+        }
+
+        // Creates a bulk delete processing job.
+        // Each processing job only deletes one resource type, but it contains a comma seperated list of all resource types to be deleted. Once one type is deleted it will start a new job to delete the next one.
+        internal static async Task<BulkDeleteDefinition> CreateProcessingDefinition(BulkDeleteDefinition baseDefinition, ISearchService searchService, IList<string> resourceTypes, CancellationToken cancellationToken)
+        {
+            var searchParameters = new List<Tuple<string, string>>()
+                {
+                    new Tuple<string, string>(KnownQueryParameterNames.Summary, "count"),
+                };
+
+            if (baseDefinition.SearchParameters != null)
+            {
+                searchParameters.AddRange(baseDefinition.SearchParameters);
+            }
+
+            while (resourceTypes.Count > 0)
+            {
+                int numResources = (await searchService.SearchAsync(resourceTypes[0], searchParameters, cancellationToken, resourceVersionTypes: baseDefinition.VersionType)).TotalCount.GetValueOrDefault();
+
+                if (numResources == 0)
+                {
+                    resourceTypes.RemoveAt(0);
+                    continue;
+                }
+
+                string resourceType = resourceTypes.JoinByOrSeparator();
+
+                return new BulkDeleteDefinition(
+                    JobType.BulkDeleteProcessing,
+                    baseDefinition.DeleteOperation,
+                    resourceType,
+                    baseDefinition.SearchParameters,
+                    baseDefinition.Url,
+                    baseDefinition.BaseUrl,
+                    baseDefinition.ParentRequestId,
+                    numResources,
+                    baseDefinition.VersionType);
+            }
+
+            return null;
         }
     }
 }
