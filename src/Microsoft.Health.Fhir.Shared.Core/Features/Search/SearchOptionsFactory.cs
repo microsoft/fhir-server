@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
-        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId, KnownQueryParameterNames.OptimizeConcurrency };
+        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
