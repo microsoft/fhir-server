@@ -229,15 +229,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
-        public virtual Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken)
+        /*
+        public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
+            string resourceType,
+            DateTime start,
+            DateTime end,
+            int rangeSize,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellation)
         {
-            throw new NotImplementedException();
-        }
+            // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
 
-        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
+            // Add gt and lt lastUpdated query paraemters
+            // Get count on the search
+            // If count = rangeSize+-10% add time range to list
+            // Else if count > rangeSize+10% remove half the previous add
+            // Else if count < rangeSize-10% add half the previous cut back
+            // Once till time > end time, till = end and make it the last entry in the list
+            // Return list
         }
+        */
+
+        public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        public abstract Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(
@@ -248,5 +263,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-     }
+    }
 }

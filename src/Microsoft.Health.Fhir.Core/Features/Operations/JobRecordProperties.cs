@@ -174,5 +174,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string BaseUrl = "baseUrl";
 
         public const string ParentRequestId = "parentRequestId";
+
+        public const string ExpectedResourceCount = "expectedResourceCount";
+
+        public const string VersionType = "versionType";
     }
 }
