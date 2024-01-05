@@ -87,8 +87,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string BulkDelete = "$bulk-delete";
         public const string BulkDeleteResourceType = ResourceType + "/" + BulkDelete;
+        public const string BulkDeleteSoftDeleted = "$bulk-delete-soft-deleted";
+        public const string BulkDeleteSoftDeletedResourceType = ResourceType + "/" + BulkDeleteSoftDeleted;
         public const string BulkDeleteJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkDelete + "/" + IdRouteSegment;
         public const string BulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDelete;
         public const string ResourceTypeBulkDeleteOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceTypeBulkDelete;
+        public const string BulkDeleteSoftDeletedOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkDeleteSoftDeleted;
     }
 }
