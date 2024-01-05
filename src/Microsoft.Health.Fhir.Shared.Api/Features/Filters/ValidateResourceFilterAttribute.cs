@@ -26,22 +26,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId) &&
-                context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceType))
+            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var resourceId))
             {
-                ValidateIdAndResourceType((string)resourceId, (string)resourceType);
+                ValidateId((string)resourceId);
             }
         }
 
-        private static void ValidateIdAndResourceType(string resourceId, string resourceType)
+        private static void ValidateId(string resourceId)
         {
-            if (string.IsNullOrWhiteSpace(resourceId) || string.IsNullOrWhiteSpace(resourceType))
+            if (string.IsNullOrWhiteSpace(resourceId))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceAndIdRequired),
+                    new ValidationFailure("ResourceKey.Id", string.Format(Core.Resources.IdRequirements)),
                 });
             }
         }
     }
-    }
+}
