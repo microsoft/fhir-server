@@ -413,20 +413,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         // Telemetry currently shows that when there is a continuation token, then the query only hits one partition.
                         // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
-                        if (_requestContextAccessor.RequestContext.Properties.TryGetValue(KnownQueryParameterNames.OptimizeConcurrency, out object maxParallelAsObject))
-                        {
-                            if (maxParallelAsObject != null && Convert.ToBoolean(maxParallelAsObject))
-                            {
-                                feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
-                            }
-                        }
-
-                        // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
-                        // knows to add the individual ResponseMessages sent as part of this search.
 
                         fhirRequestContext = _requestContextAccessor.RequestContext;
                         if (fhirRequestContext != null)
                         {
+                            // Check if the "Optimize Concurrency" flag is present in the FHIR context, then Cosmos DB
+                            // will be able to maximize the number of concurrent operations.
+                            if (fhirRequestContext.Properties.TryGetValue(KnownQueryParameterNames.OptimizeConcurrency, out object maxParallelAsObject))
+                            {
+                                if (maxParallelAsObject != null && Convert.ToBoolean(maxParallelAsObject))
+                                {
+                                    feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+                                }
+                            }
+
+                            // Plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
+                            // knows to add the individual ResponseMessages sent as part of this search.
                             messagesList = new ConcurrentBag<CosmosResponseMessage>();
                             fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
                         }
