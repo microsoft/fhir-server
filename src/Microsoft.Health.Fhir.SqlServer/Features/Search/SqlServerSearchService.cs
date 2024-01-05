@@ -877,6 +877,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.AppendLine();
             }
 
+            sb.AppendLine("OPTION (RECOMPILE)"); // enables query compilation with provided parameter values in debugging
             sb.AppendLine($"-- execution timeout = {sqlCommandWrapper.CommandTimeout} sec.");
             _sqlRetryService.TryLogEvent("Search", "Start", sb.ToString(), null, CancellationToken.None);
             _logger.LogInformation("{SqlQuery}", sb.ToString());
