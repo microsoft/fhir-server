@@ -45,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: false,
                 count: 1,
-                maxParallelism: false,
                 mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
@@ -66,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: true,
                 count: 1,
-                maxParallelism: false,
                 mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
@@ -90,7 +88,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: false,
                 count: 1,
-                maxParallelism: false,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -108,7 +105,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 DefaultSearchParams,
                 hardDelete: false,
                 count: 100,
-                maxParallelism: false,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -125,7 +121,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             IReadOnlyList<Tuple<string, string>> list = null,
             bool hardDelete = false,
             int count = 1,
-            bool maxParallelism = false,
             params SearchResultEntry[] searchResults)
         {
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
