@@ -87,8 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             var searchOptions = new SearchOptions();
 
-            if (queryParameters != null &&
-                queryParameters.Any(x => _queryHintParameterNames.Contains(x.Item1) && x.Item2 != null))
+            if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
             {
                 var queryHint = new List<(string param, string value)>();
 

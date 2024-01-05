@@ -76,7 +76,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 do
                 {
                     var searchParameters = new List<Tuple<string, string>>(filteredParameters);
-
                     if (!string.IsNullOrEmpty(lastContinuationToken))
                     {
                         searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(lastContinuationToken)));

@@ -532,6 +532,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new FhirPathPatchPayload(paramsResource);
 
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
                 new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
