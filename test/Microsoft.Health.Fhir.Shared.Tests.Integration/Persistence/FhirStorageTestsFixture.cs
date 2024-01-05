@@ -46,6 +46,7 @@ using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -192,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             throttleController.GetThrottleBasedDelay().Returns(0);
             throttleController.GetThrottleBatchSize().Returns(1000u);
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), SubstituteHelpers.ScopedFunc(DataStore), SubstituteHelpers.ScopedFunc(SearchService), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, throttleController, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeFactory(), SearchService.CreateMockScopeFactory(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, throttleController, logger);
 
             var collection = new ServiceCollection();
 
