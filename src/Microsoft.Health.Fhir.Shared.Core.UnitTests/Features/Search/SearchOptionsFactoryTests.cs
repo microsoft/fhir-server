@@ -557,54 +557,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Single(options.UnsupportedSearchParams);
         }
 
-        [Fact]
-        public async void GivenASearchParamThatIsNotInEnabledState_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
+        [Theory]
+        [InlineData("_revinclude", "Account:Name")]
+        [InlineData("_include", "Account:Name")]
+        public async void GivenASearchParamThatIsNotInEnabledState_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList(string paramName, string paramValue)
         {
             const ResourceType resourceType = ResourceType.Account;
-            const string paramName = "name";
-            var queryParameters = new[]
-            {
-                Tuple.Create(paramName, ACCOUNTURI),
-            };
-            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(_accountNameSearchParameterInfo);
-            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
-            var referenceParser = Substitute.For<IReferenceSearchValueParser>();
-            var searchParameterParser = new SearchParameterExpressionParser(referenceParser);
-            var expressionParser = new ExpressionParser(() => searchParameterDefinitionManager, searchParameterParser);
-            var spDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            spDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(
-                new List<ResourceSearchParameterStatus>
-                {
-                    new ResourceSearchParameterStatus()
-                    {
-                        Status = SearchParameterStatus.Disabled,
-                        Uri = new Uri(ACCOUNTURI),
-                    },
-                });
-            var spStatusManager = new SearchParameterStatusManager(spDataStore, searchParameterDefinitionManager, Substitute.For<ISearchParameterSupportResolver>(), Substitute.For<IMediator>(), NullLogger<SearchParameterStatusManager>.Instance);
-            var factory = new SearchOptionsFactory(
-                expressionParser,
-                () => searchParameterDefinitionManager,
-                new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
-                contextAccessor,
-                _sortingValidator,
-                new ExpressionAccessControl(contextAccessor),
-                NullLogger<SearchOptionsFactory>.Instance,
-                spStatusManager);
-
-            SearchOptions options = await factory.Create(resourceType.ToString(), queryParameters, cancellationToken: default);
-            Assert.NotNull(options);
-            Assert.Equal(queryParameters, options.UnsupportedSearchParams);
-        }
-
-        [Fact]
-        public async void GivenASearchParamThatIsNotInEnabledStateInRevInclude_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedList()
-        {
-            const ResourceType resourceType = ResourceType.Account;
-            const string paramName = "_revinclude";
-            const string paramValue = "Account:Name";
             var queryParameters = new[]
             {
                 Tuple.Create(paramName, paramValue),
