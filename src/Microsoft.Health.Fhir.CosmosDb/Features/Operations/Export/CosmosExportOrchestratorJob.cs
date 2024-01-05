@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                                 resourceType: resourceType,
                                 feedRange: partitionRange);
 
-                        var definitions = new string[] { JsonConvert.SerializeObject(processingRecord) };
+                        string[] definitions = [JsonConvert.SerializeObject(processingRecord)];
 
                         await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
                     }
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                 container = $"export-{groupId}";
             }
 
-            var rec = new ExportJobRecord(
+            ExportJobRecord rec = new(
                         requestUri: record.RequestUri,
                         exportType: record.ExportType,
                         exportFormat: format,
@@ -135,10 +135,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
                         includeDeleted: record.IncludeDeleted,
                         schemaVersion: record.SchemaVersion,
                         typeId: (int)JobType.ExportProcessing,
-                        smartRequest: record.SmartRequest);
-
-            rec.Id = string.Empty;
-            rec.QueuedTime = record.QueuedTime; // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
+                        smartRequest: record.SmartRequest)
+            {
+                Id = string.Empty,
+                QueuedTime = record.QueuedTime, // preserve create date of coordinator job in form of queued time for all children, so same time is used on file names.
+            };
 
             return rec;
         }
