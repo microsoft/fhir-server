@@ -108,7 +108,7 @@ steps:
   inputs:
     userProvideBuildInfo: 'msBuildInfo'
     msBuildArchitecture: 'DotNetCore'
-    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net7.0'
+    msBuildCommandline: 'dotnet build $(Build.SourcesDirectory)/Microsoft.Health.Fhir.sln --configuration $(buildConfiguration) -p:ContinuousIntegrationBuild=true -f net8.0'
   
 - task: BinSkim@4
   inputs:

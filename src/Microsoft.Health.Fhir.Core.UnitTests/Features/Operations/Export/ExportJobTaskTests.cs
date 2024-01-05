@@ -17,10 +17,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -392,6 +392,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 arg.Any(x => x.Item1 == "ct" && x.Item2 == continuationToken);
         }
 
+#if NET8_0_OR_GREATER
+        [Fact]
+        public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
+        {
+            ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
+            exportJobConfiguration.StorageAccountConnection = "connection";
+            exportJobConfiguration.StorageAccountUri = string.Empty;
+
+            var exportJobRecordWithConnection = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
+
+            var exportJobTask = CreateExportJobTask(exportJobConfiguration);
+
+            _searchService.SearchAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    _cancellationToken,
+                    true)
+                .Returns(x => CreateSearchResult());
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
+            {
+                await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
+        }
+
         [Fact]
         public async Task GivenSearchSucceeds_WhenExecuted_ThenJobStatusShouldBeUpdatedToCompleted()
         {
@@ -404,7 +438,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -429,7 +463,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -439,6 +473,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
+#endif
 
         [Theory]
         [InlineData(typeof(OperationCanceledException))]
@@ -555,39 +590,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
-        {
-            ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
-            exportJobConfiguration.StorageAccountConnection = "connection";
-            exportJobConfiguration.StorageAccountUri = string.Empty;
-
-            var exportJobRecordWithConnection = CreateExportJobRecord(
-                exportJobType: ExportJobType.Patient,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
-
-            var exportJobTask = CreateExportJobTask(exportJobConfiguration);
-
-            _searchService.SearchAsync(
-               Arg.Any<string>(),
-               Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-               _cancellationToken,
-               true)
-               .Returns(x => CreateSearchResult());
-
-            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
-
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
-            {
-                await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-            }
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
 
         [Fact]

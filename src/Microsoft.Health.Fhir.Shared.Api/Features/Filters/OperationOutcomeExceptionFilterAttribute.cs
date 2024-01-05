@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.Gone;
                         if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
                         {
-                            operationOutcomeResult.Headers.Add(HeaderNames.ETag, WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId).ToString());
+                            operationOutcomeResult.Headers[HeaderNames.ETag] = WeakETag.FromVersionId(resourceGoneException.DeletedResource.VersionId).ToString();
                         }
 
                         break;
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         if (!string.IsNullOrEmpty(everythingOperationException.ContentLocationHeaderValue))
                         {
-                            operationOutcomeResult.Headers.Add(HeaderNames.ContentLocation, everythingOperationException.ContentLocationHeaderValue);
+                            operationOutcomeResult.Headers[HeaderNames.ContentLocation] = everythingOperationException.ContentLocationHeaderValue;
                         }
 
                         break;

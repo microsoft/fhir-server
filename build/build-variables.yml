@@ -3,7 +3,7 @@
 
 variables:
   buildConfiguration: 'Release' 
-  defaultBuildFramework: 'net7.0' 
+  defaultBuildFramework: 'net8.0' 
   azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'

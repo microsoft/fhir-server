@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
     /// </summary>
     public sealed class MissingDataFilterCriteria : IFilterCriteria
     {
-        private static readonly IDictionary<string, string> _requiredStatusElementsByResourceType = new Dictionary<string, string>()
+        private static readonly Dictionary<string, string> _requiredStatusElementsByResourceType = new()
         {
             { "AllergyIntolerance", "clinicalStatus" },
             { "Condition", "clinicalStatus" },
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
             _isSmartRequest = isSmartRequest;
         }
 
-        public static MissingDataFilterCriteria Default => new MissingDataFilterCriteria(isCriteriaEnabled: false, isSmartRequest: false);
+        public static MissingDataFilterCriteria Default => new(isCriteriaEnabled: false, isSmartRequest: false);
 
         public SearchResult Apply(SearchResult searchResult)
         {
@@ -62,8 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
                 return searchResult;
             }
 
-            List<SearchResultEntry> finalResults = new List<SearchResultEntry>();
-            List<OperationOutcomeIssue> searchIssues = new List<OperationOutcomeIssue>();
+            var finalResults = new List<SearchResultEntry>();
+            var searchIssues = new List<OperationOutcomeIssue>();
 
             foreach (SearchResultEntry resultEntry in searchResult.Results)
             {
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
         private static bool ContainsXmlStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
         {
-            XDocument doc = XDocument.Parse(resourceWrapper.RawResource.Data);
+            var doc = XDocument.Parse(resourceWrapper.RawResource.Data);
 
             List<XElement> elementsByName = doc.Root.Elements().Where(x => string.Equals(x.Name.LocalName, requiredStatusElementName, StringComparison.OrdinalIgnoreCase)).ToList();
 
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Filters
 
         private static bool ContainsJsonStatusElement(ResourceWrapper resourceWrapper, string requiredStatusElementName)
         {
-            JObject jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
+            var jsonResource = JObject.Parse(resourceWrapper.RawResource.Data);
             if (!jsonResource.ContainsKey(requiredStatusElementName))
             {
                 return false;

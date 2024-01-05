@@ -22,6 +22,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -105,10 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             try
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (currentResult.Progress == ImportOrchestratorJobProgress.Initialized)
                 {
