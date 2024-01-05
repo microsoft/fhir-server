@@ -10,8 +10,8 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid.Util;
 using EnsureThat;
-using Hl7.Fhir.ElementModel.Types;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Utility;
@@ -478,7 +478,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             _expressionAccess.CheckAndRaiseAccessExceptions(searchOptions.Expression);
-            await CheckForSearchParameterEnabled(searchExpressions, cancellationToken);
+            var notEnabledSearchParameters = await CheckForSearchParameterEnabled(searchExpressions, cancellationToken);
+            notEnabledSearchParameters.AddRange(searchOptions.UnsupportedSearchParams);
+            searchOptions.UnsupportedSearchParams = notEnabledSearchParameters;
             try
             {
                 LogExpresssionSearchParameters(searchOptions.Expression);
@@ -491,27 +493,74 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return searchOptions;
         }
 
-        private async Task CheckForSearchParameterEnabled(List<Expression> searchExpression, CancellationToken cancellationToken)
+        private async Task<List<Tuple<string, string>>> CheckForSearchParameterEnabled(List<Expression> searchExpressions, CancellationToken cancellationToken)
         {
-            var statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
+            IReadOnlyCollection<ResourceSearchParameterStatus> statuses = await _statusManager.GetAllSearchParameterStatus(cancellationToken);
+            return CheckEachExpressionForSearchParameterEnabled(searchExpressions, statuses);
+        }
+
+        private List<Tuple<string, string>> CheckEachExpressionForSearchParameterEnabled(List<Expression> searchExpression, IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            List<Tuple<string, string>> unsupportedSearchParameters = new List<Tuple<string, string>>();
             try
             {
                 foreach (var expression in searchExpression)
                 {
-                    if (expression.GetType() == typeof(SearchParameterExpression))
-                    {
-                        SearchParameterInfo sp = ((SearchParameterExpression)expression).Parameter;
-                        var searchParamInfo = _searchParameterDefinitionManager.GetSearchParameter(sp.Name, sp.Code);
-                        var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
+                    Uri url = null;
 
-                        if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
-                        {
-                            _contextAccessor.RequestContext?.BundleIssues.Add(
-                                new OperationOutcomeIssue(
-                                    OperationOutcomeConstants.IssueSeverity.Warning,
-                                    OperationOutcomeConstants.IssueType.Informational,
-                                    string.Format(Core.Resources.SearchParameterNotEnabledErrorMessage, searchParamInfo.Url.OriginalString, searchParamStatus.Status.ToString())));
-                        }
+                    switch (expression)
+                    {
+                        case SortExpression sortExpression:
+                            url = sortExpression.Parameter.Url;
+                            break;
+                        case SearchParameterExpression searchParameterExpression:
+                            url = searchParameterExpression.Parameter.Url;
+                            break;
+                        case MissingSearchParameterExpression missingSearchParameterExpression:
+                            url = missingSearchParameterExpression.Parameter.Url;
+                            break;
+                        case ChainedExpression chainedExpression:
+                            url = chainedExpression.ReferenceSearchParameter.Url;
+                            break;
+                        case SearchParameterExpressionBase searchParameterExpressionBase:
+                            url = searchParameterExpressionBase.Parameter.Url;
+                            break;
+                        case MultiaryExpression multiaryExpression:
+                            foreach (var subExpression in multiaryExpression.Expressions)
+                            {
+                                unsupportedSearchParameters.AddRange(CheckEachExpressionForSearchParameterEnabled(new List<Expression>() { subExpression }, statuses));
+                            }
+
+                            continue;
+                        case UnionExpression unionExpression:
+                            foreach (var subExpression in unionExpression.Expressions)
+                            {
+                                unsupportedSearchParameters.AddRange(CheckEachExpressionForSearchParameterEnabled(new List<Expression>() { subExpression }, statuses));
+                            }
+
+                            continue;
+                        case NotExpression notExpression:
+                            url = notExpression.Expression.GetPropertyValue("Parameter")?.GetPropertyValue("Url") as Uri;
+                            break;
+                        case IncludeExpression includeExpression:
+                            url = includeExpression.ReferenceSearchParameter.Url;
+                            break;
+
+                        default:
+                            continue;
+                    }
+
+                    _searchParameterDefinitionManager.TryGetSearchParameter(url.OriginalString, out SearchParameterInfo searchParamInfo);
+                    var searchParamStatus = searchParamInfo == null ? null : statuses.Where(sp => sp.Uri.OriginalString == searchParamInfo.Url.OriginalString).FirstOrDefault();
+
+                    if (searchParamStatus != null && searchParamStatus.Status != SearchParameterStatus.Enabled)
+                    {
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.SearchParameterNotEnabledErrorMessage, searchParamInfo.Url.OriginalString, searchParamStatus.Status.ToString())));
+                        unsupportedSearchParameters.Add(new Tuple<string, string>(searchParamInfo.Name, searchParamInfo.Code));
                     }
                 }
             }
@@ -520,6 +569,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // If there is an error, we will just ignore it and not check the status since it could be a base search parameter such as _type or a complex one with modifer _id:not..
                 _logger.LogWarning("Unable to check search parameter status. Error: {Exception}. Non actionable error.", e.ToString());
             }
+
+            return unsupportedSearchParameters;
         }
 
         private IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
