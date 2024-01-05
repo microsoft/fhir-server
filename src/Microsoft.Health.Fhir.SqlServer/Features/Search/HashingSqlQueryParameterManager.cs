@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Whether this parameter should be included in the hash of the overall parameters.
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
-        /// <returns>The SQL parameter.</returns>
+        /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
         public object AddParameter<T>(Column<T> column, T value, bool includeInHash)
         {
             return AddParameter((Column)column, value, includeInHash);
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Whether this parameter should be included in the hash of the overall parameters.
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
-        /// <returns>The SQL parameter.</returns>
+        /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
         public object AddParameter(Column column, object value, bool includeInHash)
         {
             if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name
