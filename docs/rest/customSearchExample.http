@@ -38,6 +38,13 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 < .\Data\CustomSearchSearchParameter2.json
 
+### Another search param example.
+PUT https://{{hostname}}/SearchParameter/resource-created-date
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\DateCustomSearchSearchParameter.json
+
 ### Composite custom search parameter (this test data requires R4 or higher)
 POST https://{{hostname}}/SearchParameter
 content-type: application/json
@@ -105,4 +112,24 @@ x-ms-use-partial-indices: true
 ### A search query showing the Composite custom search parameter with Use/Postcode pair.
 # The usecase would be to evaluate multiple values together in chained search queries
 GET https://{{hostname}}/Patient?address-use-postcode=home$74047
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### POST additional patient data to demonstrate sorting by a custom search parameter.
+# @name patientBundle
+POST https://{{hostname}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< ./Data/CustomSearchPatientsAdditional.json
+
+### A search query showing sorting by a custom search parameter.
+GET https://{{hostname}}/Patient?_sort=CreatedDate
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Same as above but does not include resources that do not have the extension.
+GET https://{{hostname}}/Patient?CreatedDate:missing=false&_sort=CreatedDate
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Same as above but reversed.
+GET https://{{hostname}}/Patient?CreatedDate:missing=false&_sort=-CreatedDate
 Authorization: Bearer {{bearer.response.body.access_token}}
