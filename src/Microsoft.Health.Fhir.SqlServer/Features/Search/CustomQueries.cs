@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public static string CheckQueryHash(IDbConnection connection, string hash, ILogger<SqlServerSearchService> logger)
         {
-            var now = Clock.UtcNow;
+            DateTimeOffset now = Clock.UtcNow;
             if (now > _lastUpdatedQueryCache.AddSeconds(WaitTime))
             {
                 lock (lockObject)

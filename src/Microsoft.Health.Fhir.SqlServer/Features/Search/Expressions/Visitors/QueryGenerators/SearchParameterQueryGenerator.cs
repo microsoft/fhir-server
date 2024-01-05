@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
+                .Append(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName)
+                .Append(" ");
 
             return context;
         }
@@ -76,7 +77,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
+                .Append(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName)
+                .Append(" ");
 
             return context;
         }
@@ -119,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 context.StringBuilder.Append(')');
             }
 
-            context.StringBuilder.AppendLine();
+            context.StringBuilder.Append(" "); // Replaced CR by space keeping code "protection".
 
             return context;
         }
@@ -284,7 +286,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            context.StringBuilder.AppendLine(")");
+            context.StringBuilder.Append(") "); // Replaced CR by space keeping code "protection".
 
             return context;
         }

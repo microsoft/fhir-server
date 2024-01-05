@@ -48,7 +48,7 @@ stages:
     majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
     nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
   jobs:
-  - job: Windows_dotnet7
+  - job: Windows_dotnet8
     pool:
       name: '$(DefaultWindowsPool)'
     steps:
@@ -65,6 +65,19 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: 'net6.0'
+  
+ 
+- stage: BuildArtifacts
+  displayName: 'Build artifacts'
+  dependsOn:
+  - UpdateVersion
+  variables:
+    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
+    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
+    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
+    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
+  jobs:
   - job: Linux_BuildAndPackage
     pool:
       name: '$(DefaultLinuxPool)'
@@ -77,11 +90,12 @@ stages:
         componentGovernance: true
         packageArtifacts: true
         packageIntegrationTests: true
-    
+
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
   - BuildUnitTests
+  - BuildArtifacts
   jobs:
   - job: Guardian
     pool:
@@ -145,6 +159,7 @@ stages:
   displayName: 'Deploy SQLServer'
   dependsOn:
   - setupEnvironment
+  - UpdateRandom
   jobs:
   - template: ./jobs/provision-sqlServer.yml
     parameters:
@@ -177,6 +192,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - UpdateRandom
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -218,6 +234,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - UpdateRandom
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -259,6 +276,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - UpdateRandom
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -300,6 +318,7 @@ stages:
   - DockerBuild
   - setupEnvironment
   - deploySqlServer
+  - UpdateRandom
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -320,7 +339,7 @@ stages:
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployStu3
   - deployStu3Sql
@@ -334,7 +353,7 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR4
   - deployR4Sql
@@ -348,7 +367,7 @@ stages:
 - stage: testR4B
   displayName: 'Run R4B Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR4B
   - deployR4BSql
@@ -362,7 +381,7 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - BuildUnitTests
+  - BuildArtifacts
   - setupEnvironment
   - deployR5
   - deployR5Sql

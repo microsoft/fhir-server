@@ -69,10 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             try
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);

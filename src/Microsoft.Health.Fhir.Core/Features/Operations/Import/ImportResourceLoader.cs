@@ -77,10 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
 #pragma warning restore CA2016
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        throw new OperationCanceledException();
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     if (offset > 0 && skipFirstLine) // skip first line
                     {
@@ -126,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, IList<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, List<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
         {
             return await Task.Run(() =>
             {
