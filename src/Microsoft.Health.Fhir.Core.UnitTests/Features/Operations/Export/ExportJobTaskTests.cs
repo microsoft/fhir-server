@@ -473,7 +473,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
         }
-#endif
 
         [Theory]
         [InlineData(typeof(OperationCanceledException))]
@@ -497,7 +496,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(endTimestamp)))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -506,6 +505,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Canceled, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
         }
+#endif
 
         [Fact]
         public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()

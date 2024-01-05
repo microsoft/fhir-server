@@ -252,7 +252,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
-        public abstract Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
+        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(

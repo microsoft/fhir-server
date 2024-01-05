@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             await CleanupTestResourceDocuments();
 
-            string[] resourceTypes = new string[] { "Patient", "Observation", "Claim" };
+            string[] resourceTypes = ["Patient", "Observation", "Claim"];
 
             for (int i = 0; i < numberOfResourcesToGenerate; i++)
             {
