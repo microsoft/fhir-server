@@ -44,7 +44,7 @@ namespace Microsoft.AspNetCore.Builder
 
             var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
 
-            var pathBase = config.Value.PathBase?.TrimEnd('/');
+            var pathBase = config.Value.PathBase;
             if (!string.IsNullOrWhiteSpace(pathBase))
             {
                 var pathString = new PathString(pathBase);
