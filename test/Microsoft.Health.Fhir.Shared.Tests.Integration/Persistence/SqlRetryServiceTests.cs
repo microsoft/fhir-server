@@ -314,7 +314,7 @@ END
                 }
                 else
                 {
-                    if (sqlEx.Number == 233)
+                    if (sqlEx.Number == 233 || sqlEx.Number == 10054)
                     {
                         // On Windows we get correct error number.
                         return true;
