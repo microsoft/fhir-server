@@ -13,13 +13,15 @@
     <NoWarn>$(NoWarn);NU5104;NU5100</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
     <None Remove="TestFiles\Normative\MemberMatch.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
   </ItemGroup>
   <ItemGroup>
-	<EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
