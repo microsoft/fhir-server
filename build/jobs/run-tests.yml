@@ -62,7 +62,7 @@ jobs:
     continueOnError: true
     inputs:
       targetPath: '$(Agent.TempDirectory)/TestResults'
-      artifactName: 'Integration Test Failures'
+      artifactName: '${{ parameters.version }} Integration Test Failures'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
