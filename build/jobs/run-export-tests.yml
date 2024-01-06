@@ -110,6 +110,15 @@ jobs:
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
 
+  # Publish the crash dump and XML files as build artifacts on failure only
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Export E2E Cosmos Test Failures'
+    condition: failed()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      artifactName: 'Export E2E Cosmos Test Failures'
+
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
@@ -214,3 +223,12 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+
+  # Publish the crash dump and XML files as build artifacts on failure only
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Export E2E SQL Test Failures'
+    condition: failed()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      artifactName: 'Export E2E SQL Test Failures'

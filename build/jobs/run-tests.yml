@@ -55,6 +55,15 @@ jobs:
       'CosmosDb:Key': $(CosmosDb--Key)
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
+  # Publish the crash dump and XML files as build artifacts on failure only
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Integration Test Failures'
+    condition: failed()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      artifactName: 'Integration Test Failures'
+
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:

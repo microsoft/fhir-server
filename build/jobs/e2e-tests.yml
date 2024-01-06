@@ -142,3 +142,12 @@ steps:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+
+  # Publish the crash dump and XML files as build artifacts on failure only
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish E2E ${{ parameters.version }} ${{parameters.appServiceType}} Failures'
+    condition: failed()
+    continueOnError: true
+    inputs:
+      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      artifactName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}} Test Failures'
