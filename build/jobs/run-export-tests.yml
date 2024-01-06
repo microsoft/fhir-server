@@ -116,7 +116,7 @@ jobs:
     condition: failed()
     continueOnError: true
     inputs:
-      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      targetPath: '$(Agent.TempDirectory)/TestResults'
       artifactName: 'Export E2E Cosmos Test Failures'
 
 - job: 'sqlE2eTests'
@@ -230,5 +230,5 @@ jobs:
     condition: failed()
     continueOnError: true
     inputs:
-      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      targetPath: '$(Agent.TempDirectory)/TestResults'
       artifactName: 'Export E2E SQL Test Failures'

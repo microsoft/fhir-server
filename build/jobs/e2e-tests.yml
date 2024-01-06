@@ -149,5 +149,5 @@ steps:
     condition: failed()
     continueOnError: true
     inputs:
-      targetPath: '$(Agent.TempDirectory)/**/*.dmp, $(Agent.TempDirectory)/**/*.xml, $(Agent.TempDirectory)/**/*.trx'
+      targetPath: '$(Agent.TempDirectory)/TestResults'
       artifactName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}} Test Failures'
