@@ -16,8 +16,6 @@ using Azure.Identity;
 
 namespace Microsoft.Health.Fhir.Importer;
 
-#pragma warning disable SA1010 // Opening square brackets should be spaced correctly. Fixed https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745 but not available yet.
-
 public class BearerTokenHandler : DelegatingHandler
 {
     private readonly Dictionary<string, AccessTokenCache> _accessTokenCaches = [];
