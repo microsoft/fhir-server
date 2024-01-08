@@ -338,52 +338,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
         {
-            try
-            {
-                var s = string.Empty;
-                routeValues?.ToList().ForEach(kv => s += kv.ToString());
+            var s = string.Empty;
+            routeValues?.ToList().ForEach(kv => s += kv.ToString());
 
-                var uriString = UrlHelper.RouteUrl(
+            var uriString = string.Empty;
+            if (httpContext == null)
+            {
+                // Keep it for UTs
+                uriString = UrlHelper.RouteUrl(
                     routeName,
                     routeValues,
                     scheme,
                     host);
                 _logger.LogInformation($"UrlHelper.RouteUrl: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
-
-                if (httpContext != null)
+            }
+            else
+            {
+                var pathBase = httpContext.Request?.PathBase.ToString();
+                if (!string.IsNullOrEmpty(pathBase) && (string.IsNullOrEmpty(httpContext.Request?.Path) || string.Equals(httpContext.Request?.Path, "/", StringComparison.Ordinal)))
                 {
-                    try
-                    {
-                        var uriString2 = _linkGenerator.GetUriByRouteValues(
-                            httpContext,
-                            routeName,
-                            routeValues,
-                            scheme,
-                            new HostString(host));
-                        _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString2)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {ex}");
-                    }
+                    pathBase += "/";
                 }
 
-                DumpHttpContext(httpContext);
-                return new Uri(uriString);
-            }
-            catch
-            {
-                var uriString = _linkGenerator.GetUriByRouteValues(
+                uriString = _linkGenerator.GetUriByRouteValues(
                     httpContext,
                     routeName,
                     routeValues,
                     scheme,
-                    new HostString(host));
-                var s = string.Empty;
-                routeValues?.ToList().ForEach(kv => s += kv.ToString());
-                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}");
-                return new Uri(uriString);
+                    new HostString(host),
+                    pathBase);
+                _logger.LogInformation($"_linkGenerator.GetUriByRouteValues: {SanitizeString(uriString)}, host: {SanitizeString(host)}, scheme: {SanitizeString(scheme)}, routeName: {SanitizeString(routeName)}, routeValue: {SanitizeString(s)}, pathBase: {SanitizeString(pathBase)}");
             }
+
+            DumpHttpContext(httpContext);
+            return new Uri(uriString);
         }
 
         private static string SanitizeString(string value)
