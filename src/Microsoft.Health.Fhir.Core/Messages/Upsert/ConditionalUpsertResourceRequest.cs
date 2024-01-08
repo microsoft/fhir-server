@@ -14,7 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalUpdate = true" };
 
-        public ConditionalUpsertResourceRequest(ResourceElement resource, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext = null)
+        public ConditionalUpsertResourceRequest(
+            ResourceElement resource,
+            IReadOnlyList<Tuple<string, string>> conditionalParameters,
+            BundleResourceContext bundleResourceContext = null)
             : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));

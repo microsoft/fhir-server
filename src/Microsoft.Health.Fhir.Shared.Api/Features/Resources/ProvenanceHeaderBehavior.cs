@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;

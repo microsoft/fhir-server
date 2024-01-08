@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(OperationOutcome.IssueType.Invalid, responseObject.Issue[0].Code);
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingAParallelBundleWithDuplicatedPatch_ThenServerShouldReturnAnError()
         {
@@ -89,8 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
 
-            // This test required sequential bundle processing.
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Parallel);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Parallel });
 
             Assert.Equal(HttpStatusCode.OK, fhirResponse.Response.StatusCode);
 
@@ -110,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "This test is skipped for STU3.")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithFhirPatch_ThenServerShouldPatchCorrectly()
         {
@@ -119,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var bundleWithPatch = Samples.GetJsonSample("Bundle-FhirPatch").ToPoco<Bundle>();
 
             // This test required sequential bundle processing.
-            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, processingLogic: FhirBundleProcessingLogic.Sequential);
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch, new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential });
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
 
