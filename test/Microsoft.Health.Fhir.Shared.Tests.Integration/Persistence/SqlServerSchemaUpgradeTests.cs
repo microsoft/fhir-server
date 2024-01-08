@@ -351,11 +351,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             return text.ToLowerInvariant()
-                       .Replace("\r\n", " ")
-                       .Replace("\n", " ")
-                       .Replace("\r", " ")
-                       .Replace("\t", " ")
-                       .Replace(";", " ")
+                       .Replace("\n", string.Empty)
+                       .Replace("\r", string.Empty)
+                       .Replace("\t", string.Empty)
+                       .Replace(";", string.Empty)
                        .Replace(" output,", " out,")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")

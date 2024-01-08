@@ -46,7 +46,7 @@ jobs:
       testAssemblyVer2: '**/*${{ parameters.version }}.Tests.Integration*.dll'
       searchFolder: '$(Agent.TempDirectory)/IntegrationTests/'
       testRunTitle: '${{ parameters.version }} Integration'
-      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Full;CollectHangDump;TestTimeout=7min;HangDumpType=Full"'
+      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Mini;CollectHangDump;TestTimeout=10min;HangDumpType=Mini"'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: 10
