@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         var definition = jobInfo.DeserializeDefinition<ExportJobRecord>();
 
                         // Checks that a follow up job has not already been made. Extra checks are needed for parallel jobs by parallelization factors.
-                        bool newerJobsExist = existingJobs.Any(existingJob =>
+                        bool newerJobsExist = existingJobs.Where(existingJob => existingJob.Definition is not null).Any(existingJob =>
                         {
                             var existingDefinition = existingJob.DeserializeDefinition<ExportJobRecord>();
                             return existingJob.Id > jobInfo.Id && existingDefinition.ResourceType == definition.ResourceType && existingDefinition.FeedRange == definition.FeedRange;
