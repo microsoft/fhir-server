@@ -332,12 +332,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private string Normalize(string text)
         {
             // remove inline comments
-            while (text.IndexOf("--") > 0)
+            while (text.Contains("--"))
             {
                 var indexStart = text.IndexOf("--");
-                var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
-                indexEnd = indexEnd < 0 ? text.Length : indexEnd;
-                text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
+                var indexEndNewLine = text.IndexOf("\n", indexStart);
+                var indexEndCarriageReturn = text.IndexOf("\r\n", indexStart);
+
+                var indexEnd = indexEndNewLine;
+
+                if (indexEndCarriageReturn != -1 && (indexEndNewLine == -1 || indexEndCarriageReturn < indexEndNewLine))
+                {
+                    indexEnd = indexEndCarriageReturn;
+                }
+
+                if (indexEnd == -1)
+                {
+                    // If there's no newline character, remove everything after the comment start.
+                    text = text.Substring(0, indexStart);
+                }
+                else
+                {
+                    // Adjust for length of newline characters.
+                    var lengthOfNewLineChars = (text[indexEnd] == '\r') ? 2 : 1;
+                    text = text.Substring(0, indexStart) + text.Substring(indexEnd + lengthOfNewLineChars);
+                }
             }
 
             return text.ToLowerInvariant()
