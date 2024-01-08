@@ -88,5 +88,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);
         }
+
+        [Theory]
+        [InlineData(" ")]
+        [InlineData(null)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenInvalidId_WhenGettingAResource_TheServerShouldReturnABadRequest(string id)
+        {
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(
+                () => _client.VReadAsync<Observation>(ResourceType.Observation, id, "1"));
+
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
+        }
     }
 }
