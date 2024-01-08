@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Profiling - In the Conditional Resource Handler");
             EnsureArg.IsNotNull(request, nameof(request));
 
             if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
@@ -55,12 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
+            _logger.LogInformation("Profiling - Started the conditional Search");
             var matchedResults = await _searchService.ConditionalSearchAsync(
                 request.ResourceType,
                 request.ConditionalParameters,
                 cancellationToken,
                 logger: _logger);
 
+            _logger.LogInformation("Profiling - Finished conditional Search");
             int count = matchedResults.Results.Count;
             if (count == 0)
             {

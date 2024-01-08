@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
+                    _logger.LogInformation("Profiling - Calling MergeInternalAsync");
                     var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
@@ -156,9 +157,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
+            _logger.LogInformation("Profiling - Checking if resource exists");
+
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+
+            _logger.LogInformation("Profiling - Finished checking if resource exists");
 
             // Assume that most likely case is that all resources should be updated.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -203,6 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // There is no previous version of this resource, check validations and then simply call SP to create new version
                 if (existingResource == null)
                 {
+                    _logger.LogInformation("Profiling - Validations started for new resource");
                     if (resource.IsDeleted && !keepAllDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
@@ -233,9 +239,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     resource.IsHistory = setAsHistory;
+                    _logger.LogInformation("Profiling - Validations ended for new resource");
                 }
                 else
                 {
+                    _logger.LogInformation("Profiling - Validations started for existing resource");
                     if (resourceExt.RequireETagOnUpdate && !eTag.HasValue)
                     {
                         // This is a versioned update and no version was specified
@@ -287,6 +295,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         resource.IsHistory = true;
                     }
+
+                    _logger.LogInformation("Profiling - Validations ended for existing resource");
                 }
 
                 long surrId;
@@ -313,6 +323,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
+                _logger.LogInformation("Profiling - Finished sorting for a resource");
             }
 
             if (mergeWrappers.Count > 0) // Do not call DB with empty input
@@ -350,6 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
             }
 
+            _logger.LogInformation("Profiling - Returning results from MergeInternalAsync");
             return results;
         }
 
@@ -386,6 +398,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Profiling - Starting UpsertAsync");
             bool isBundleOperation = _bundleOrchestrator.IsEnabled && resource.BundleResourceContext != null;
             if (isBundleOperation)
             {
@@ -395,6 +408,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             else
             {
                 var mergeOutcome = await MergeAsync(new[] { resource }, cancellationToken);
+                _logger.LogInformation("Profiling - Finished MergeAsync");
                 DataStoreOperationOutcome dataStoreOperationOutcome = mergeOutcome.First().Value;
 
                 if (dataStoreOperationOutcome.IsOperationSuccessful)

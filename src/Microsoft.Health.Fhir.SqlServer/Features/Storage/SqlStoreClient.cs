@@ -169,9 +169,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
+                _logger.LogInformation("Profiling - Executing MergeResourcesPutTransactionHeartbeat");
                 using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesPutTransactionHeartbeat", CommandType = CommandType.StoredProcedure, CommandTimeout = (heartbeatPeriod.Seconds / 3) + 1 }; // +1 to avoid = SQL default timeout value
                 cmd.Parameters.AddWithValue("@TransactionId", transactionId);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                _logger.LogInformation("Profiling - Executed MergeResourcesPutTransactionHeartbeat");
             }
             catch (Exception e)
             {
@@ -201,6 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
         {
+            _logger.LogInformation("Profiling - Executing MergeResourcesBeginTransactionAsync");
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
@@ -213,6 +216,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            _logger.LogInformation("Profiling - Executed MergeResourcesBeginTransactionAsync");
             return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
