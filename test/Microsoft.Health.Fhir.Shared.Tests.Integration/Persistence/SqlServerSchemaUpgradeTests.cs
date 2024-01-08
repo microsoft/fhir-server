@@ -336,6 +336,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 var indexStart = text.IndexOf("--");
                 var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
+                indexEnd = indexEnd < 0 ? text.Length : indexEnd;
                 text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
             }
 
