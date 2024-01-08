@@ -16,6 +16,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchAdvancedTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchTestsUtil.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkDeleteTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleEdgeCaseTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleTransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
@@ -26,7 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
@@ -123,7 +125,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />

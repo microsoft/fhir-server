@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// </summary>
         /// <param name="filterString">The _typeFilter parameter input.</param>
         /// <returns>A list of <see cref="ExportJobFilter"/></returns>
-        private static IList<ExportJobFilter> ParseFilter(string filterString)
+        private static List<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
 
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var filterArray = filterString.Split(",");
                 foreach (string filter in filterArray)
                 {
-                    var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+                    var parameterIndex = filter.IndexOf('?', StringComparison.Ordinal);
 
                     if (parameterIndex < 0 || parameterIndex == filter.Length - 1)
                     {

@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 
@@ -315,7 +316,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public async ValueTask DisposeAsync()
         {
-            _cancellationTokenSource.Cancel();
+            await _cancellationTokenSource.CancelAsync();
             await _samplingLoopTask;
             _cancellationTokenSource.Dispose();
             _samplingLoopTask.Dispose();

@@ -123,6 +123,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
+        public bool TryGetSearchParamId(Uri searchParamUri, out short id)
+        {
+            ThrowIfNotInitialized();
+            return _searchParamUriToId.TryGetValue(searchParamUri, out id);
+        }
+
         public void TryAddSearchParamIdToUriMapping(string searchParamUri, short searchParamId)
         {
             ThrowIfNotInitialized();

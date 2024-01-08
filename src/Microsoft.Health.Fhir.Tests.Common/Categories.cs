@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string ExportLongRunning = nameof(ExportLongRunning);
 
+        public const string ExportData = nameof(ExportData);
+
         public const string History = nameof(History);
 
         public const string Import = nameof(Import);
