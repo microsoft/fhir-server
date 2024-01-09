@@ -330,10 +330,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
         {
-            var s = string.Empty;
-            routeValues?.ToList().ForEach(kv => s += kv.ToString());
-
             var uriString = string.Empty;
+
             if (httpContext == null)
             {
                 // Keep it for UTs
