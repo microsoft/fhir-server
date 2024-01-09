@@ -89,8 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                             maxDeleteCount: null,
                             deleteAll: true,
                             versionType: definition.VersionType),
-                        cancellationToken,
-                        definition);
+                        cancellationToken);
                 }
                 catch (IncompleteOperationException<long> ex)
                 {

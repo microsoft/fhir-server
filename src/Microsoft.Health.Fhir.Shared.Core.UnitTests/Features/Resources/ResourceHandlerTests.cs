@@ -120,11 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
-            var throttleController = Substitute.For<IBackgroundJobThrottleController>();
-            throttleController.GetThrottleBasedDelay().Returns(0);
-            throttleController.GetThrottleBatchSize().Returns(1000u);
 
-            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeFactory(), _searchService.CreateMockScopeFactory(), _resourceIdProvider, contextAccessor, auditLogger, throttleController, logger);
+            var deleter = new DeletionService(_resourceWrapperFactory, lazyConformanceProvider, _fhirDataStore.CreateMockScopeFactory(), _searchService.CreateMockScopeFactory(), _resourceIdProvider, contextAccessor, auditLogger, logger);
 
             var conditionalCreateLogger = Substitute.For<ILogger<ConditionalCreateResourceHandler>>();
             var conditionalUpsertLogger = Substitute.For<ILogger<ConditionalUpsertResourceHandler>>();
