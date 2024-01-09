@@ -43,8 +43,11 @@ namespace Microsoft.AspNetCore.Builder
             EnsureArg.IsNotNull(app, nameof(app));
 
             var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
+            var pathBase = config.Value.PathBase;
 
-            var pathBase = config.Value.PathBase?.TrimEnd('/');
+            // Endpoint routing does not add trailing backslash if path is emtpy(e.g. for bundles)
+            pathBase = EnsureBackslashExists(pathBase);
+
             if (!string.IsNullOrWhiteSpace(pathBase))
             {
                 var pathString = new PathString(pathBase);
@@ -57,10 +60,6 @@ namespace Microsoft.AspNetCore.Builder
             app.UseRouting();
             useDevelopmentIdentityProvider?.Invoke(app);
             useHttpLoggingMiddleware?.Invoke(app);
-
-            app.UseCors(Constants.DefaultCorsPolicy);
-            app.UseAuthentication();
-            app.UseAuthorization();
 
             app.UseEndpoints(
                 endpoints =>
@@ -93,6 +92,16 @@ namespace Microsoft.AspNetCore.Builder
                 });
 
             return app;
+        }
+
+        private static string EnsureBackslashExists(string pathBase)
+        {
+            if (string.IsNullOrEmpty(pathBase))
+            {
+                return pathBase;
+            }
+
+            return pathBase.EndsWith('/') ? pathBase : pathBase + "/";
         }
 
         private class PathBaseMiddleware
