@@ -35,6 +35,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 #if !STU3
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 #endif
@@ -88,15 +89,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
+        private readonly ConditionalQueryProcessingLogic _conditionalQueryProcessingLogic;
 
         private int _requestCount;
         private BundleType? _bundleType;
         private bool _bundleProcessingTypeIsInvalid = false;
 
         /// <summary>
-        /// Headers to propagate the the from the inner actions to the outer HTTP request.
+        /// Headers to propagate from the inner actions to the outer HTTP request.
         /// </summary>
         private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
+
+        /// <summary>
+        /// Properties to propagate from the outer HTTP requests to the inner actions.
+        /// </summary>
+        private static readonly string[] PropertiesToAccumulate = new[] { KnownQueryParameterNames.OptimizeConcurrency };
 
         private IFhirRequestContext _originalFhirRequestContext;
 
@@ -146,7 +153,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
 
+            // Retrieve bundle processing logic.
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
+
+            // Set conditional-query processing logic.
+            _conditionalQueryProcessingLogic = SetRequestContextWithConditionalQueryProcessingLogic(outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -222,31 +233,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
+        private static ConditionalQueryProcessingLogic SetRequestContextWithConditionalQueryProcessingLogic(HttpContext outerHttpContext, IFhirRequestContext fhirRequestContext, ILogger<BundleHandler> logger)
         {
-            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            try
             {
-                string processingLogicAsString = headerValues.FirstOrDefault();
-                if (string.IsNullOrWhiteSpace(processingLogicAsString))
+                ConditionalQueryProcessingLogic conditionalQueryProcessingLogic = outerHttpContext.GetConditionalQueryProcessingLogic();
+
+                if (conditionalQueryProcessingLogic == ConditionalQueryProcessingLogic.Parallel)
                 {
-                    return DefaultBundleProcessingLogic;
+                    fhirRequestContext.DecorateRequestContextWithOptimizedConcurrency();
                 }
 
-                try
-                {
-                    BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString.Trim(), ignoreCase: true);
-                    return processingLogic;
-                }
-                catch (Exception e)
-                {
-                    _bundleProcessingTypeIsInvalid = true;
-                    logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
-
-                    return DefaultBundleProcessingLogic;
-                }
+                return conditionalQueryProcessingLogic;
+            }
+            catch (Exception e)
+            {
+                logger.LogWarning(e, "Error while extracting the Conditional-Query Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
             }
 
-            return DefaultBundleProcessingLogic;
+            return ConditionalQueryProcessingLogic.Sequential;
+        }
+
+        private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
+        {
+            try
+            {
+                return outerHttpContext.GetBundleProcessingLogic();
+            }
+            catch (Exception e)
+            {
+                _bundleProcessingTypeIsInvalid = true;
+                logger.LogWarning(e, "Error while extracting the Bundle Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
+
+                return DefaultBundleProcessingLogic;
+            }
         }
 
         private async Task ProcessAllResourcesInABundleAsRequestsAsync(Hl7.Fhir.Model.Bundle responseBundle, BundleProcessingLogic processingLogic, CancellationToken cancellationToken)
@@ -510,8 +530,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownHeaders.Prefer, preferValue, httpContext);
             }
 
-            if (requestMethod == HTTPVerb.POST
-                || requestMethod == HTTPVerb.PUT)
+            if (requestMethod == HTTPVerb.POST || requestMethod == HTTPVerb.PUT)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
 
@@ -595,7 +614,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
 
-                        SetupContexts(resourceContext.Context, httpContext);
+                        SetupContexts(resourceContext, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
@@ -723,42 +742,107 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return entryComponent;
         }
 
-        private void SetupContexts(RouteContext request, HttpContext httpContext)
+        /// <summary>
+        /// Reference implementation of 'SetupContexts'. Originally created to support sequential operations and run manipulations on local
+        /// attributes. This is a non-thread safe method. Not to be used in parallel-operation under the same HTTP request context.
+        /// </summary>
+        private void SetupContexts(ResourceExecutionContext resourceExecutionContext, HttpContext httpContext)
+        {
+            SetupContexts(
+                request: resourceExecutionContext.Context,
+                httpVerb: resourceExecutionContext.HttpVerb,
+                httpContext: httpContext,
+                bundleOrchestratorOperation: null, // Set to null because this is not running in the context of a parallel-bundle.
+                requestContext: _originalFhirRequestContext,
+                auditEventTypeMapping: _auditEventTypeMapping,
+                requestContextAccessor: _fhirRequestContextAccessor,
+                bundleHttpContextAccessor: _bundleHttpContextAccessor,
+                logger: _logger);
+        }
+
+        /// <summary>
+        /// This method setups new FHIR Request Contexts for downstream requests created by during the bundle processing.
+        /// In this method, data in memory from HttpContext, RouteContext, RequestContext and RequestContextAcessor are set to be reused
+        /// by the nested requests.
+        ///
+        /// Static implementation of 'SetupContexts'. Originally created to support parallel operations and avoid the manipulation of local
+        /// attributes, that would cause non-thread safe issues.
+        /// </summary>
+        private static void SetupContexts(
+            RouteContext request,
+            HTTPVerb httpVerb,
+            HttpContext httpContext,
+            IBundleOrchestratorOperation bundleOrchestratorOperation,
+            IFhirRequestContext requestContext,
+            IAuditEventTypeMapping auditEventTypeMapping,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            ILogger<BundleHandler> logger)
         {
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
             request.RouteData.Values.TryGetValue("action", out object actionName);
             request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
+
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
                 httpContext.Request.GetDisplayUrl(),
-                _originalFhirRequestContext.BaseUri.OriginalString,
-                _originalFhirRequestContext.CorrelationId,
+                requestContext.BaseUri.OriginalString,
+                requestContext.CorrelationId,
                 httpContext.Request.Headers,
                 httpContext.Response.Headers)
             {
-                Principal = _originalFhirRequestContext.Principal,
+                Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
-                AuditEventType = _auditEventTypeMapping.GetAuditEventType(
+                AuditEventType = auditEventTypeMapping.GetAuditEventType(
                     controllerName?.ToString(),
                     actionName?.ToString()),
                 ExecutingBatchOrTransaction = true,
-                AccessControlContext = _originalFhirRequestContext.AccessControlContext.Clone() as AccessControlContext,
+                AccessControlContext = requestContext.AccessControlContext.Clone() as AccessControlContext,
             };
-            foreach (var scopeRestriction in _originalFhirRequestContext.AccessControlContext.AllowedResourceActions)
+
+            // Copy allowed resource actions to the new FHIR Request Context.
+            foreach (var scopeRestriction in requestContext.AccessControlContext.AllowedResourceActions)
             {
                 newFhirRequestContext.AccessControlContext.AllowedResourceActions.Add(scopeRestriction);
             }
 
-            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = _originalFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl;
-            _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
-
-            _bundleHttpContextAccessor.HttpContext = httpContext;
-
-            foreach (string headerName in HeadersToAccumulate)
+            // Copy allowed properties from the existing FHIR Request Context property bag to the new FHIR Request Context.
+            if (requestContext.Properties.Any())
             {
-                if (_originalFhirRequestContext.ResponseHeaders.TryGetValue(headerName, out var values))
+                foreach (string propertyName in PropertiesToAccumulate)
                 {
-                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
+                    if (requestContext.Properties.TryGetValue(propertyName, out object value))
+                    {
+                        newFhirRequestContext.Properties.Add(propertyName, value);
+                    }
+                }
+            }
+
+            // Propagate Fine Grained Access Control to the new FHIR Request Context.
+            newFhirRequestContext.AccessControlContext.ApplyFineGrainedAccessControl = requestContext.AccessControlContext.ApplyFineGrainedAccessControl;
+
+            // Bundle Orchestrator Operation should not be null for parallel-bundles.
+            if (bundleOrchestratorOperation != null)
+            {
+                // Assign the current Bundle Orchestrator Operation ID as part of the downstream request.
+                newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOrchestratorOperation.Id.ToString());
+
+                // Assign the HTTP Verb operation associated with the request as part of the downstream request.
+                newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
+            }
+
+            requestContextAccessor.RequestContext = newFhirRequestContext;
+            bundleHttpContextAccessor.HttpContext = httpContext;
+
+            // Copy allowed headers from the FHIR Request Context response header.
+            if (requestContext.ResponseHeaders.Any())
+            {
+                foreach (string headerName in HeadersToAccumulate)
+                {
+                    if (requestContext.ResponseHeaders.TryGetValue(headerName, out var values))
+                    {
+                        newFhirRequestContext.ResponseHeaders.Add(headerName, values);
+                    }
                 }
             }
         }
@@ -827,7 +911,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
         {
-            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _requestCount);
+            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _conditionalQueryProcessingLogic, _requestCount);
 
             statistics.StartCollectingResults();
 

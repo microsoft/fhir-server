@@ -51,8 +51,6 @@ namespace Microsoft.Health.Fhir.Importer
         private static HttpClient httpClient = new();
         private static DelegatingHandler handler;
 
-#pragma warning disable SA1010 // Opening square brackets should be spaced correctly. Fixed https://github.com/DotNetAnalyzers/StyleCopAnalyzers/pull/3745 but not available yet.
-
         internal static void Run()
         {
             if (string.IsNullOrEmpty(Endpoints))

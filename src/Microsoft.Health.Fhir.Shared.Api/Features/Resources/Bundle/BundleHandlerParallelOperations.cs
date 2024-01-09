@@ -278,7 +278,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         resourceIdProvider.Create = () => persistedId;
                     }
 
-                    SetupContexts(request, httpVerb, httpContext, bundleOperation, originalFhirRequestContext, auditEventTypeMapping, requestContext, bundleHttpContextAccessor);
+                    SetupContexts(
+                        request,
+                        httpVerb,
+                        httpContext,
+                        bundleOperation,
+                        originalFhirRequestContext,
+                        auditEventTypeMapping,
+                        requestContext,
+                        bundleHttpContextAccessor,
+                        logger);
 
                     // Attempt 1.
                     await request.Handler.Invoke(httpContext);
@@ -354,55 +363,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             responseBundle.Entry[entryIndex] = entryComponent;
 
             return entryComponent;
-        }
-
-        private static void SetupContexts(
-            RouteContext request,
-            HTTPVerb httpVerb,
-            HttpContext httpContext,
-            IBundleOrchestratorOperation bundleOperation,
-            IFhirRequestContext requestContext,
-            IAuditEventTypeMapping auditEventTypeMapping,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
-        {
-            request.RouteData.Values.TryGetValue("controller", out object controllerName);
-            request.RouteData.Values.TryGetValue("action", out object actionName);
-            request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
-
-            var newFhirRequestContext = new FhirRequestContext(
-                httpContext.Request.Method,
-                httpContext.Request.GetDisplayUrl(),
-                requestContext.BaseUri.OriginalString,
-                requestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
-            {
-                Principal = requestContext.Principal,
-                ResourceType = resourceType?.ToString(),
-                AuditEventType = auditEventTypeMapping.GetAuditEventType(
-                    controllerName?.ToString(),
-                    actionName?.ToString()),
-                ExecutingBatchOrTransaction = true,
-            };
-
-            // Assign the current Bundle Orchestrator Operation ID as part of the downstream request.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderOperationTag, bundleOperation.Id.ToString());
-
-            // Assign the HTTP Verb operation associated with the request as part of the downstream request.
-            newFhirRequestContext.RequestHeaders.Add(BundleOrchestratorNamingConventions.HttpHeaderBundleResourceHttpVerb, httpVerb.ToString());
-
-            requestContextAccessor.RequestContext = newFhirRequestContext;
-
-            bundleHttpContextAccessor.HttpContext = httpContext;
-
-            foreach (string headerName in HeadersToAccumulate)
-            {
-                if (requestContext.ResponseHeaders.TryGetValue(headerName, out var values))
-                {
-                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
-                }
-            }
         }
 
         private struct ResourceExecutionContext
