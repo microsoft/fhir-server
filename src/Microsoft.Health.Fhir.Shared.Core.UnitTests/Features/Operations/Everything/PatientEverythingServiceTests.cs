@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
                 Arg.Any<int?>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
+                Arg.Any<string>(),
                 CancellationToken.None,
                 Arg.Any<bool>()).Returns(searchResult);
 

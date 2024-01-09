@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -77,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime since,
             PartialDateTime before,
             int? count,
+            string summary,
             string continuationToken,
             string sort,
             CancellationToken cancellationToken,
@@ -156,6 +158,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (count.HasValue && count > 0)
             {
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
+            }
+            else
+            {
+                if ((count.HasValue && count == 0) || summary.Equals(SummaryType.Count.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Summary, SummaryType.Count.ToString()));
+                }
             }
 
             if (!string.IsNullOrEmpty(sort))

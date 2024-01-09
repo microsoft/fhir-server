@@ -294,6 +294,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Before,
                 historyModel.At,
                 historyModel.Count,
+                historyModel.Summary,
                 historyModel.ContinuationToken,
                 historyModel.Sort,
                 HttpContext.RequestAborted);
@@ -319,6 +320,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Before,
                 historyModel.At,
                 historyModel.Count,
+                historyModel.Summary,
                 historyModel.ContinuationToken,
                 historyModel.Sort,
                 HttpContext.RequestAborted);
@@ -347,6 +349,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Before,
                 historyModel.At,
                 historyModel.Count,
+                historyModel.Summary,
                 historyModel.ContinuationToken,
                 historyModel.Sort,
                 HttpContext.RequestAborted);
