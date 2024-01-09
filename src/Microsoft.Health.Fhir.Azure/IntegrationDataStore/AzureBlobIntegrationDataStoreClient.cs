@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to create container for {Container}:{File}", containerId, fileName);
+                Exception exception = HandleRequestFailedException(se, $"Failed to create container for {containerId}:{fileName}", containerId, fileName);
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to upload data for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to upload data for {resourceUri}", resourceUri);
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to commit for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to commit for {resourceUri}", resourceUri);
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to append commit for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to append commit for {resourceUri}", resourceUri);
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to get properties of blob {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to get properties of blob {resourceUri}", resourceUri);
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                HandleRequestFailedException(se, "Failed to acquire lease on the blob {Url}", resourceUri);
+                HandleRequestFailedException(se, $"Failed to acquire lease on the blob {resourceUri}", resourceUri);
 
                 return null;
             }
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                HandleRequestFailedException(se, "Failed to release lease on the blob {Url}", resourceUri);
+                HandleRequestFailedException(se, $"Failed to release lease on the blob {resourceUri}", resourceUri);
             }
         }
 
