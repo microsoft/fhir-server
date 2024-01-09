@@ -122,7 +122,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlBackgroundJobThrottlingController>()
+            services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

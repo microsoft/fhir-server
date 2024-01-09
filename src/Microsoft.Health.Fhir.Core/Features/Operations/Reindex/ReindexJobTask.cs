@@ -34,13 +34,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public sealed class ReindexJobTask : IReindexJobTask, IDisposable
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IReindexUtilities _reindexUtilities;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IBackgroundJobThrottleController _throttleController;
+        private readonly IReindexJobThrottleController _throttleController;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
@@ -51,17 +52,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
-            IBackgroundJobThrottleController throttleController,
+            IReindexJobThrottleController throttleController,
             IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger,
             SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -72,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
@@ -117,7 +121,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _contextAccessor.RequestContext = fhirRequestContext;
 
-                await _throttleController.Initialize(_reindexJobRecord, _cancellationToken);
+                if (reindexJobRecord.TargetDataStoreUsagePercentage != null &&
+                    reindexJobRecord.TargetDataStoreUsagePercentage > 0)
+                {
+                    using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+                    {
+                        var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(_cancellationToken);
+                        _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                    }
+                }
+                else
+                {
+                    _throttleController.Initialize(_reindexJobRecord, null);
+                }
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job

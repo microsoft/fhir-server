@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
 
-        private readonly IBackgroundJobThrottleController _throttleController = Substitute.For<IBackgroundJobThrottleController>();
+        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
@@ -940,6 +940,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             return new ReindexJobTask(
                 () => _scopedOperationDataStore,
+                () => _scopedDataStore,
                 Options.Create(_jobConfiguration),
                 () => _searchService,
                 _supportedSearchParameterDefinitionManager,

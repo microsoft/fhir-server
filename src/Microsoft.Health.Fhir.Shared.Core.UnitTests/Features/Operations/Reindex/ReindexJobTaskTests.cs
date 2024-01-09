@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
-        private readonly IBackgroundJobThrottleController _throttleController = Substitute.For<IBackgroundJobThrottleController>();
+        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _reindexJobTaskFactory = () =>
                  new ReindexJobTask(
                      () => _fhirOperationDataStore.CreateMockScope(),
+                     () => _fhirDataStore.CreateMockScope(),
                      Options.Create(_reindexJobConfiguration),
                      () => _searchService.CreateMockScope(),
                      supportedSearchDefinitionManager,

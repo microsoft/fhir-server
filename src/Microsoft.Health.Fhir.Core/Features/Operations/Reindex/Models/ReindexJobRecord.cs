@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// <summary>
     /// Class to hold metadata for an individual reindex job.
     /// </summary>
-    public class ReindexJobRecord : JobRecord, IThrottleableJobRecord
+    public class ReindexJobRecord : JobRecord
     {
         public const ushort MaxMaximumConcurrency = 10;
         public const ushort MinMaximumConcurrency = 1;
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ICollection<string> SearchParams { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery { get; set; }
+        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
 
         /// <summary>
         /// Controls the time between queries of resources to be reindexed
