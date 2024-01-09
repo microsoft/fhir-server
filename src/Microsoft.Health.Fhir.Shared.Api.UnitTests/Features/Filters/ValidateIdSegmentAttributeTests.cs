@@ -22,6 +22,9 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Validate)]
+    [Trait(Traits.Category, Categories.Web)]
     public class ValidateIdSegmentAttributeTests
     {
         [Theory]
