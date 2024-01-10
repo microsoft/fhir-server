@@ -40,6 +40,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateContentTypeFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttributeTests.cs" />

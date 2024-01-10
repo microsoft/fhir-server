@@ -54,6 +54,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateIdSegmentAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\WeakETagBinder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatter.cs" />
