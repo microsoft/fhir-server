@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var expectedSearchOptions = new SearchOptions();
 
             _searchOptionsFactory.Create(
-                null,
+                Arg.Any<string>(),
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(list => list.Any(item => item.Item1 == KnownQueryParameterNames.Summary && item.Item2 == SummaryType.Count.ToString())),
                 resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted).Returns(expectedSearchOptions);
 
@@ -148,10 +148,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 return expectedSearchResult;
             };
 
-            SearchResult actual = await _searchService.SearchHistoryAsync(null, null, null, null, null, 0, null, null, null, CancellationToken.None);
-            SearchResult actual2 = await _searchService.SearchHistoryAsync(null, null, null, null, null, null, "count", null, null, CancellationToken.None);
-            Assert.Same(expectedSearchResult, actual);
-            Assert.Same(expectedSearchResult, actual2);
+            var observation = new Observation { Id = "123" }.ToResourceElement();
+            _fhirDataStore.GetAsync(
+                Arg.Is<ResourceKey>(key => key.ResourceType == observation.InstanceType && key.Id == observation.Id),
+                Arg.Any<CancellationToken>()).Returns(new ResourceWrapper(observation, _rawResourceFactory.Create(observation, keepMeta: true), _resourceRequest, false, null, null, null));
+
+            SearchResult allCountZero = await _searchService.SearchHistoryAsync(null, null, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult allSummaryCount = await _searchService.SearchHistoryAsync(null, null, null, null, null, null, "count", null, null, CancellationToken.None);
+            SearchResult allPatientCountZero = await _searchService.SearchHistoryAsync(observation.InstanceType, null, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult allPatientSummaryCount = await _searchService.SearchHistoryAsync(observation.InstanceType, null, null, null, null, null, "count", null, null, CancellationToken.None);
+            SearchResult singlePatientCountZero = await _searchService.SearchHistoryAsync(observation.InstanceType, observation.Id, null, null, null, 0, null, null, null, CancellationToken.None);
+            SearchResult singlePatientSummaryCount = await _searchService.SearchHistoryAsync(observation.InstanceType, observation.Id, null, null, null, null, "count", null, null, CancellationToken.None);
+            Assert.Same(expectedSearchResult, allCountZero);
+            Assert.Same(expectedSearchResult, allPatientCountZero);
+            Assert.Same(expectedSearchResult, allPatientCountZero);
+            Assert.Same(expectedSearchResult, allPatientSummaryCount);
+            Assert.Same(expectedSearchResult, singlePatientCountZero);
+            Assert.Same(expectedSearchResult, singlePatientSummaryCount);
         }
 
         [Theory]
