@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else
             {
-                if ((count.HasValue && count == 0) || summary.Equals(SummaryType.Count.ToString(), StringComparison.OrdinalIgnoreCase))
+                if ((count.HasValue && count == 0) || (summary is not null && summary.Equals(SummaryType.Count.ToString(), StringComparison.OrdinalIgnoreCase)))
                 {
                     queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Summary, SummaryType.Count.ToString()));
                 }

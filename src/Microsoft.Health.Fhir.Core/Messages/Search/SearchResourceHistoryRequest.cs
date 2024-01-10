@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
         }
 
         public SearchResourceHistoryRequest(string resourceType, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string summary = null, string continuationToken = null, string sort = null)
-            : this(since, before, at, count, continuationToken, sort)
+            : this(since, before, at, count, summary, continuationToken, sort)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
         }
 
         public SearchResourceHistoryRequest(string resourceType, string resourceId, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string summary = null, string continuationToken = null, string sort = null)
-            : this(resourceType, since, before, at, count, continuationToken, sort)
+            : this(resourceType, since, before, at, count, summary, continuationToken, sort)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
