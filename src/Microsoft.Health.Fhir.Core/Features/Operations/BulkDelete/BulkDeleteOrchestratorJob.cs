@@ -53,7 +53,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>() { definition.Type }, cancellationToken);
             }
 
-            await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+            // Processing Definition can be null if bulk delete was requested on criteria that didn't match any resources. If there is nothing to delete, just finish the job.
+            if (processingDefinition != null)
+            {
+                await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+            }
+
             return OperationCompleted;
         }
 
