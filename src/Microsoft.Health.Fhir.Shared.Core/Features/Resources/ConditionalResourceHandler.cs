@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Profiling - In the Conditional Resource Handler");
             EnsureArg.IsNotNull(request, nameof(request));
 
             if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
