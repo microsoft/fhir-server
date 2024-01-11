@@ -289,6 +289,16 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                             throw new ArgumentException("Incorrect resource returned");
                         }
                     }
+                    else if (_callType == "HttpGet")
+                    {
+                        var typeId = resourceId.Item2.First().ResourceTypeId;
+                        var id = resourceId.Item2.First().ResourceId;
+                        var status = GetResource(_nameFilter, id); // apply true translation to type name
+                        if (status != "OK")
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
+                    }
                     else if (_callType == "HardDeleteNoChangeCapture")
                     {
                         var typeId = resourceId.Item2.First().ResourceTypeId;
@@ -613,6 +623,71 @@ END
                         case HttpStatusCode.OK:
                         case HttpStatusCode.Created:
                         case HttpStatusCode.Conflict:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static string GetResource(string resourceType, string resourceId)
+        {
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId);
+                bad = false;
+                try
+                {
+                    var response = _httpClient.GetAsync(uri).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
                         case HttpStatusCode.InternalServerError:
                             break;
                         default:
