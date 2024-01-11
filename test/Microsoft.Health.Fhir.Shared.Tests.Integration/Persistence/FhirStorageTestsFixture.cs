@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,6 +45,8 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -187,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var auditLogger = Substitute.For<IAuditLogger>();
             var logger = Substitute.For<ILogger<DeletionService>>();
 
-            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore, SearchService, _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
+            var deleter = new DeletionService(resourceWrapperFactory, new Lazy<IConformanceProvider>(() => ConformanceProvider), DataStore.CreateMockScopeFactory(), SearchService.CreateMockScopeFactory(), _resourceIdProvider, new FhirRequestContextAccessor(), auditLogger, logger);
 
             var collection = new ServiceCollection();
 
@@ -221,6 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
             IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
             IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
+            LinkGenerator linkGenerator = Substitute.For<LinkGenerator>();
 
             var httpContext = new DefaultHttpContext();
             var actionContext = new ActionContext();
@@ -246,7 +250,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 urlHelperFactory,
                 httpContextAccessor,
                 actionContextAccessor,
-                bundleHttpContextAccessor);
+                bundleHttpContextAccessor,
+                linkGenerator);
         }
     }
 }

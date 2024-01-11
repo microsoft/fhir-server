@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             string resourceType,
             PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
-            BundleResourceContext bundleResourceContext,
+            BundleResourceContext bundleResourceContext = null,
             WeakETag weakETag = null)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {

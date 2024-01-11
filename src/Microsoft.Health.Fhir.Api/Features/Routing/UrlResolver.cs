@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     {
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
+        private readonly LinkGenerator _linkGenerator;
 
         // If we update the search implementation to not use these, we should remove
         // the registration since enabling these accessors has performance implications.
@@ -49,12 +50,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
+        /// <param name="linkGenerator">The ASP.NET Core link generator.</param>
         public UrlResolver(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
-            IBundleHttpContextAccessor bundleHttpContextAccessor)
+            IBundleHttpContextAccessor bundleHttpContextAccessor,
+            LinkGenerator linkGenerator)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
@@ -67,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
+            _linkGenerator = linkGenerator;
         }
 
         private HttpRequest Request
@@ -96,13 +100,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add("system", true);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 RouteNames.Metadata,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
@@ -134,13 +137,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
@@ -213,26 +215,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
         {
             var routeValueDictionary = new RouteValueDictionary(routeValues);
 
-            var uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValueDictionary,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationResultUrl(string operationName, string id)
@@ -268,13 +268,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 { KnownActionParameterNames.Id, id },
             };
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
-
-            return new Uri(uriString);
         }
 
         public Uri ResolveOperationDefinitionUrl(string operationName)
@@ -321,11 +320,45 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
 
-            string uriString = UrlHelper.RouteUrl(
+            return GetRouteUri(
+                ActionContext.HttpContext,
                 routeName,
-                values: null,
+                null,
                 Request.Scheme,
                 Request.Host.Value);
+        }
+
+        private Uri GetRouteUri(HttpContext httpContext, string routeName, RouteValueDictionary routeValues, string scheme, string host)
+        {
+            var uriString = string.Empty;
+
+            if (httpContext == null)
+            {
+                // Keep it for UTs
+                uriString = UrlHelper.RouteUrl(
+                    routeName,
+                    routeValues,
+                    scheme,
+                    host);
+            }
+            else
+            {
+                // NOTE: Append "/" to the end of the path base to workaround a known bug in UrlHelper.RouteUrl for endpoint routing.
+                //       Remove the workaround when we pick up the fix. (https://github.com/dotnet/aspnetcore/issues/53177)
+                var pathBase = httpContext.Request?.PathBase.ToString();
+                if (!string.IsNullOrEmpty(pathBase) && !pathBase.EndsWith('/') && (string.IsNullOrEmpty(httpContext.Request?.Path) || string.Equals(httpContext.Request?.Path, "/", StringComparison.Ordinal)))
+                {
+                    pathBase += "/";
+                }
+
+                uriString = _linkGenerator.GetUriByRouteValues(
+                    httpContext,
+                    routeName,
+                    routeValues,
+                    scheme,
+                    new HostString(host),
+                    pathBase);
+            }
 
             return new Uri(uriString);
         }
