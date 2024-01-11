@@ -17,15 +17,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal enum SqlSearchType
     {
         // Set if we do not need to consider history, deleted resources, or re-indexing
-        Latest = 0,
+        Latest = 1,
 
         // Set if we are including previous resource versions without deleted resources
-        History = 1,
+        History = 2,
 
         // Set if the search parameter hash value needs to be considered in a search
-        Reindex = 2,
+        Reindex = 4,
 
         // Set if we are including deleted resource versions
-        SoftDeleted = 4,
+        SoftDeleted = 8,
     }
 }
