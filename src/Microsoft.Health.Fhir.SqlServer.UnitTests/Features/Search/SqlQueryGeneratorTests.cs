@@ -55,7 +55,7 @@ public class SqlQueryGeneratorTests
     }
 
     [Fact]
-    public void GivenASearchTypeLatestResources_WhenSqlGenerated_ThenSqlFiltersHistoryAndSoftDeletes()
+    public void GivenASearchTypeLatestResources_WhenSqlGenerated_ThenSqlFiltersForLatestOnly()
     {
         Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
         SqlRootExpression sqlExpression = new([new(null, predicate, SearchParamTableExpressionKind.All)], new List<SearchParameterExpressionBase>());
@@ -118,5 +118,22 @@ public class SqlQueryGeneratorTests
 
         Assert.DoesNotContain("IsHistory =", _strBuilder.ToString());
         Assert.DoesNotContain("IsDeleted =", _strBuilder.ToString());
+    }
+
+    [Fact]
+    public void GivenASearchTypeForHistorySoftDeleted_WhenSqlGenerated_ThenSqlFiltersOutLatest()
+    {
+        Expression predicate = Expression.And([new SearchParameterExpression(new SearchParameterInfo("_type", "_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false))]);
+        SqlRootExpression sqlExpression = new([new(null, predicate, SearchParamTableExpressionKind.All)], new List<SearchParameterExpressionBase>());
+        SearchOptions searchOptions = new()
+        {
+            Sort = [],
+            ResourceVersionTypes = ResourceVersionType.History | ResourceVersionType.SoftDeleted,
+        };
+
+        var output = _queryGenerator.VisitSqlRoot(sqlExpression, searchOptions);
+
+        Assert.Contains("IsHistory = 1", _strBuilder.ToString());
+        Assert.Contains("IsDeleted = 1", _strBuilder.ToString());
     }
 }
