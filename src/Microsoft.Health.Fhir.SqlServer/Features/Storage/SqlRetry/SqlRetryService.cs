@@ -417,17 +417,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder);
 
-                    if (replicaTrafficRatio == 0)
+                    if (replicaTrafficRatio < 0.5) // it does not make sense to use replica less than master at all
                     {
                         conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                     }
-                    else if (replicaTrafficRatio == 1)
+                    else if (replicaTrafficRatio > 0.99)
                     {
                         conn = await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                     }
                     else
                     {
-                        var useWriteConnection = Interlocked.Increment(ref _usageCounter) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
+                        var useWriteConnection = unchecked(Interlocked.Increment(ref _usageCounter)) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
                         conn = useWriteConnection
                                 ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
                                 : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
@@ -444,14 +444,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder)
             {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                const int trafficRatioCacheDurationSec = 600;
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
                 {
                     return _replicaTrafficRatio;
                 }
 
                 lock (_databaseAccessLocker)
                 {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < trafficRatioCacheDurationSec)
                     {
                         return _replicaTrafficRatio;
                     }
