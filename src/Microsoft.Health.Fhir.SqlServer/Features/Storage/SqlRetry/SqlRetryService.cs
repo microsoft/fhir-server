@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private int _retryMillisecondsDelay;
         private int _commandTimeout;
         private static ReplicaHandler _replicaHandler;
-        private static object _flagLocker = new object();
+        private static object _initLocker = new object();
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(isReadOnly, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
                     sqlConnection.RetryLogicProvider = null;
                     await sqlConnection.OpenAsync(cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(isReadOnly, cancellationToken);
+                    using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
 
                     // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
                     // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
@@ -392,56 +392,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private void InitReplicaHandler()
+        private static void InitReplicaHandler()
         {
             if (_replicaHandler == null) // this is needed, strictly speaking, only if SqlRetryService is not singleton, but it works either way.
             {
-                lock (_flagLocker)
+                lock (_initLocker)
                 {
-                    _replicaHandler ??= new ReplicaHandler(_sqlConnectionBuilder);
+                    _replicaHandler ??= new ReplicaHandler();
                 }
             }
         }
 
         private class ReplicaHandler
         {
-            private ISqlConnectionBuilder _sqlConnectionBuilder;
             private DateTime? _lastUpdated;
             private object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
             private long _usageCounter = 0;
 
-            public ReplicaHandler(ISqlConnectionBuilder sqlConnectionBuilder)
+            public ReplicaHandler()
             {
-                _sqlConnectionBuilder = sqlConnectionBuilder;
             }
 
-            public async Task<SqlConnection> GetConnection(bool isReadOnly, CancellationToken cancel)
+            public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, CancellationToken cancel)
             {
                 if (!isReadOnly)
                 {
-                    return await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    return await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
 
-                var replicaTrafficRatio = GetReplicaTrafficRatio();
+                var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder);
 
                 if (replicaTrafficRatio == 0)
                 {
-                    return await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    return await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
 
                 if (replicaTrafficRatio == 1)
                 {
-                    return await _sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    return await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
 
                 var useWriteConnection = Interlocked.Increment(ref _usageCounter) % (int)(1 / (1 - _replicaTrafficRatio)) == 1;
                 return useWriteConnection
-                        ? await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
-                        : await _sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                        ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
+                        : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
             }
 
-            private double GetReplicaTrafficRatio()
+            private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder)
             {
                 if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
                 {
@@ -455,18 +453,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         return _replicaTrafficRatio;
                     }
 
-                    _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase();
+                    _replicaTrafficRatio = GetReplicaTrafficRatioFromDatabase(sqlConnectionBuilder);
                     _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _replicaTrafficRatio;
             }
 
-            private double GetReplicaTrafficRatioFromDatabase()
+            private static double GetReplicaTrafficRatioFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
             {
                 try
                 {
-                    using var conn = _sqlConnectionBuilder.GetSqlConnection();
+                    using var conn = sqlConnectionBuilder.GetSqlConnection();
                     conn.RetryLogicProvider = null;
                     conn.Open();
                     using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'ReplicaTrafficRatio'", conn);
