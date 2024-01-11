@@ -81,10 +81,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             // #conditionalQueryParallelism
 
             // In this test the following steps are executed/validated:
-            // 1 - When the created HTTP request contains the header "x-conditionalquery-processing-logic" set as "parallel".
+            // 1 - When the created HTTP request contains the header "x-ms-query-processing-logic" set as "parallel".
             // 2 - BundleHandler's constructor recognizes the presence of the header and adds "_optimizeConcurrency" to FHIR Request Context property bag.
             // 3 - A validation is executed to ensure that the FHIR Request Context property bag contains the key "_optimizeConcurrency" as it's set with the expected value.
-            // 4 - If the created HTTP request does not contain the header "x-conditionalquery-processing-logic" set as "parallel", then the key "_optimizeConcurrency"
+            // 4 - If the created HTTP request does not contain the header "x-ms-query-processing-logic" set as "parallel", then the key "_optimizeConcurrency"
             // is not expected in the FHIR Request Context property bag.
 
             var bundleHandlerComponents = GetBundleHandlerComponents(new BundleRequestOptions() { MaxParallelism = maxParallelism });
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             if (options.MaxParallelism)
             {
-                httpContext.Request.Headers[KnownHeaders.ConditionalQueryProcessingLogic] = new StringValues("parallel");
+                httpContext.Request.Headers[KnownHeaders.QueryProcessingLogic] = new StringValues("parallel");
             }
 
             httpContextAccessor.HttpContext.Returns(httpContext);

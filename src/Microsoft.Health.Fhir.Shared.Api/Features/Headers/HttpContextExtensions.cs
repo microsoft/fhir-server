@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                 return defaultValue;
             }
 
-            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalQueryProcessingLogic, out StringValues headerValues))
+            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.QueryProcessingLogic, out StringValues headerValues))
             {
                 string processingLogicAsString = headerValues.FirstOrDefault();
                 if (string.IsNullOrWhiteSpace(processingLogicAsString))

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Client
     public class FhirClient : IFhirClient
     {
         private const string BundleProcessingLogicHeader = "x-bundle-processing-logic";
-        private const string ConditionalQueryProcessingLogicHeader = "x-conditionalquery-processing-logic";
+        private const string QueryProcessingLogicHeader = "x-ms-query-processing-logic";
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
@@ -508,7 +508,7 @@ namespace Microsoft.Health.Fhir.Client
             // Conditional query processing logic.
             if (bundleOptions.MaximizeConditionalQueryParallelism)
             {
-                message.Headers.Add(ConditionalQueryProcessingLogicHeader, "parallel");
+                message.Headers.Add(QueryProcessingLogicHeader, "parallel");
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);

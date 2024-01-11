@@ -32,6 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string FhirUserHeader = "x-ms-fhiruser";
 
         // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
-        public const string ConditionalQueryProcessingLogic = "x-conditionalquery-processing-logic";
+        public const string QueryProcessingLogic = "x-ms-query-processing-logic";
     }
 }
