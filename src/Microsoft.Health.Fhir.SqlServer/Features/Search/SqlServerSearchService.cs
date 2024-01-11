@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Latest, null, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Latest, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -702,7 +702,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory) && searchOptions.Sort.Any())
+            if (sqlSearchType.HasFlag(SqlSearchType.History) && searchOptions.Sort.Any())
             {
                 // history is always sorted by _lastUpdated (except for export).
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();

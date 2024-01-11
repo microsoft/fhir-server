@@ -46,17 +46,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (ResourceVersionTypes.HasFlag(ResourceVersionType.Latest))
             {
-                searchType |= SqlSearchType.Default;
+                searchType |= SqlSearchType.Latest;
             }
 
             if (ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy))
             {
-                searchType |= SqlSearchType.IncludeHistory;
+                searchType |= SqlSearchType.History;
             }
 
             if (ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted))
             {
-                searchType |= SqlSearchType.IncludeDeleted;
+                searchType |= SqlSearchType.SoftDeleted;
             }
 
             return searchType;

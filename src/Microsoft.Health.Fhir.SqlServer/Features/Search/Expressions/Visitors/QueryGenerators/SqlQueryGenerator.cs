@@ -224,8 +224,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
                 if (expression.SearchParamTableExpressions.Count == 0 &&
-                    !_searchType.HasFlag(SqlSearchType.IncludeHistory) &&
-                    !_searchType.HasFlag(SqlSearchType.IncludeDeleted) &&
+                    !_searchType.HasFlag(SqlSearchType.History) &&
+                    !_searchType.HasFlag(SqlSearchType.SoftDeleted) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
@@ -1317,21 +1317,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.IncludeDeleted))
+            if (_searchType.HasFlag(SqlSearchType.Latest) && !_searchType.HasFlag(SqlSearchType.SoftDeleted))
             {
                 delimited.BeginDelimitedElement();
-
                 StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0 ");
+            }
+            else if (_searchType.HasFlag(SqlSearchType.SoftDeleted) && !_searchType.HasFlag(SqlSearchType.Latest))
+            {
+                delimited.BeginDelimitedElement();
+                StringBuilder.Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 1 ");
             }
         }
 
         private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_searchType.HasFlag(SqlSearchType.IncludeHistory))
+            if (_searchType.HasFlag(SqlSearchType.Latest) && !_searchType.HasFlag(SqlSearchType.History))
             {
                 delimited.BeginDelimitedElement();
-
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0 ");
+            }
+            else if (_searchType.HasFlag(SqlSearchType.History) && !_searchType.HasFlag(SqlSearchType.Latest))
+            {
+                delimited.BeginDelimitedElement();
+                StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 1 ");
             }
         }
 
