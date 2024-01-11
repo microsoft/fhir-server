@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [InlineData(false)]
         public void GivenABundle_WhenProcessedWithConditionalQueryMaxParallelism_TheFhirContextPropertyBagsShouldBePopulatedAsExpected(bool maxParallelism)
         {
-            // #conditionalQueryParallelism
+            // #maxQueryParallelism
 
             // In this test the following steps are executed/validated:
             // 1 - When the created HTTP request contains the header "x-ms-query-processing-logic" set as "parallel".

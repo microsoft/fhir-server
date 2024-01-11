@@ -272,6 +272,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             RawResourceElement response = await _mediator.GetResourceAsync(
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
@@ -290,6 +292,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.HistorySystem)]
         public async Task<IActionResult> SystemHistory(HistoryModel historyModel)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(
                 historyModel.Since,
                 historyModel.Before,
@@ -314,6 +318,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string typeParameter,
             HistoryModel historyModel)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(
                 typeParameter,
                 historyModel.Since,
@@ -341,6 +347,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string idParameter,
             HistoryModel historyModel)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(
                 typeParameter,
                 idParameter,
@@ -367,6 +375,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.VRead)]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             RawResourceElement response = await _mediator.GetResourceAsync(
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter, vidParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
@@ -554,6 +564,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchSystem)]
         public async Task<IActionResult> Search()
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             return await SearchByResourceType(typeParameter: null);
         }
 
@@ -566,6 +578,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.SearchType)]
         public async Task<IActionResult> SearchByResourceType(string typeParameter)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             return await PerformSearch(typeParameter, GetQueriesForSearch());
         }
 
@@ -585,6 +599,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Search)]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentTypeParameter, string idParameter, string typeParameter)
         {
+            SetupRequestContextWithConditionalQueryMaxParallelism();
+
             IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
             return await PerformCompartmentSearch(compartmentTypeParameter, idParameter, typeParameter, queries);
         }

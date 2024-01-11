@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallelOnCosmosDb()
         {
-            // #conditionalQueryParallelism
+            // #maxQueryParallelism
 
             var bundleOptions = new FhirBundleOptions() { MaximizeConditionalQueryParallelism = true, BundleProcessingLogic = FhirBundleProcessingLogic.Parallel };
 

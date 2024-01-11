@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
         public const string FhirUserHeader = "x-ms-fhiruser";
 
-        // #conditionalQueryParallelism - Header used to activate parallel conditional-query processing.
+        // #maxQueryParallelism - Header used to activate parallel conditional-query processing.
         public const string QueryProcessingLogic = "x-ms-query-processing-logic";
     }
 }
