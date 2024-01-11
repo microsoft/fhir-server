@@ -79,14 +79,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    var length = Encoding.UTF8.GetByteCount(content);
+                    if (content.EndsWith(Environment.NewLine, StringComparison.OrdinalIgnoreCase))
+                    {
+                        length += EndOfLineLength;
+                    }
+
+                    currentBytesRead += length;
+
                     if (offset > 0 && skipFirstLine) // skip first line
                     {
                         skipFirstLine = false;
                         continue;
                     }
-
-                    var length = Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
-                    currentBytesRead += length;
 
                     currentIndex++;
 
