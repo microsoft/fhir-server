@@ -436,8 +436,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return await _sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
 
-                var usageCounter = Interlocked.Increment(ref _usageCounter);
-                return usageCounter % (int)(1 / (1 - _replicaTrafficRatio)) == 1
+                var useWriteConnection = Interlocked.Increment(ref _usageCounter) % (int)(1 / (1 - _replicaTrafficRatio)) == 1;
+                return useWriteConnection
                         ? await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
                         : await _sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
             }
@@ -476,8 +476,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException)
                 {
-                    throw;
-                    ////return 0;
+                    return 0;
                 }
             }
         }
