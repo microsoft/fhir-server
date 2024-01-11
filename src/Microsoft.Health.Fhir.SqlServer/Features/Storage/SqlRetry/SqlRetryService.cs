@@ -213,8 +213,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
-                    sqlConnection.RetryLogicProvider = null;
-                    await sqlConnection.OpenAsync(cancellationToken);
                     await action(sqlConnection, cancellationToken, sqlException);
                     return;
                 }
@@ -267,13 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 try
                 {
                     using SqlConnection sqlConnection = await _replicaHandler.GetConnection(_sqlConnectionBuilder, isReadOnly, cancellationToken);
-
-                    // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
-                    // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
-                    sqlConnection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                    await sqlConnection.OpenAsync(cancellationToken);
-
-                    // only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
+                    //// only change if not default 30 seconds. This should allow to handle any explicitly set timeouts correctly.
                     sqlCommand.CommandTimeout = sqlCommand.CommandTimeout == 30 ? _commandTimeout : sqlCommand.CommandTimeout;
                     sqlCommand.Connection = sqlConnection;
 
@@ -416,27 +408,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             public async Task<SqlConnection> GetConnection(ISqlConnectionBuilder sqlConnectionBuilder, bool isReadOnly, CancellationToken cancel)
             {
+                SqlConnection conn;
                 if (!isReadOnly)
                 {
-                    return await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
                 }
-
-                var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder);
-
-                if (replicaTrafficRatio == 0)
+                else
                 {
-                    return await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    var replicaTrafficRatio = GetReplicaTrafficRatio(sqlConnectionBuilder);
+
+                    if (replicaTrafficRatio == 0)
+                    {
+                        conn = await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    }
+                    else if (replicaTrafficRatio == 1)
+                    {
+                        conn = await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        var useWriteConnection = Interlocked.Increment(ref _usageCounter) % (int)(1 / (1 - _replicaTrafficRatio)) == 1; // examples for ratio -> % divider = { 0.9 -> 10, 0.8 -> 5, 0.75 - 4, 0.67 - 3, 0.5 -> 2, <0.5 -> 1}
+                        conn = useWriteConnection
+                                ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
+                                : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                    }
                 }
 
-                if (replicaTrafficRatio == 1)
-                {
-                    return await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
-                }
+                // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, deprecated retry implementation. According to the .NET spec, RetryLogicProvider
+                // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
+                conn.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
+                await conn.OpenAsync(cancel);
 
-                var useWriteConnection = Interlocked.Increment(ref _usageCounter) % (int)(1 / (1 - _replicaTrafficRatio)) == 1;
-                return useWriteConnection
-                        ? await sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false)
-                        : await sqlConnectionBuilder.GetReadOnlySqlConnectionAsync(initialCatalog: null, cancellationToken: cancel).ConfigureAwait(false);
+                return conn;
             }
 
             private double GetReplicaTrafficRatio(ISqlConnectionBuilder sqlConnectionBuilder)
