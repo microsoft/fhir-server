@@ -114,14 +114,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             extraResource3.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
             await _client.UpdateAsync(extraResource3.Resource);
 
-            var sinceTime = _createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(-1);
+            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(-1).ToString("o"));
 
-            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_summary=count");
-            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_count=0");
-            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_summary=count");
-            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_count=0");
-            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime:O}&_summary=count");
-            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime:O}&_count=0");
+            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_count=0");
 
             // 9 versions total for all resources.
             Assert.Equal(9, allSummaryCountResult.Resource.Total);
