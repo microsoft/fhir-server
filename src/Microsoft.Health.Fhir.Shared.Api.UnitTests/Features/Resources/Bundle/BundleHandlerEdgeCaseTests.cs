@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Azure;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification.Navigation;
@@ -76,6 +77,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        public void GivenABundle_WhenProcessedWithQueryLatencyOverEfficiency_TheFhirContextPropertyBagsShouldBePopulatedAsExpected(bool queryLatencyOverEfficiency)
+        {
+            // Create HTTP request with the flag "x-ms-query-latency-over-efficiency".
+            // If the flag is set to true, then the FHIR Request Context property bag contains the key "_optimizeConcurrency" as it's set with the expected value.
+            // Otherwise, the FHIR Request Context property bag will not contain the key "_optimizeConcurrency".
+
+            var requestContext = CreateRequestContextForBundleHandlerProcessing(new BundleRequestOptions() { QueryLatencyOverEfficiency = queryLatencyOverEfficiency });
+
+            var fhirContextPropertyBag = requestContext.Properties;
+
+            if (queryLatencyOverEfficiency)
+            {
+                Assert.True(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
+                Assert.Equal(true, fhirContextPropertyBag[KnownQueryParameterNames.OptimizeConcurrency]);
+            }
+            else
+            {
+                Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
+            }
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         public void GivenABundle_WhenProcessedWithConditionalQueryMaxParallelism_TheFhirContextPropertyBagsShouldBePopulatedAsExpected(bool maxParallelism)
         {
             // #conditionalQueryParallelism
@@ -87,9 +112,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             // 4 - If the created HTTP request does not contain the header "x-conditionalquery-processing-logic" set as "parallel", then the key "_optimizeConcurrency"
             // is not expected in the FHIR Request Context property bag.
 
-            var bundleHandlerComponents = GetBundleHandlerComponents(new BundleRequestOptions() { MaxParallelism = maxParallelism });
+            var requestContext = CreateRequestContextForBundleHandlerProcessing(new BundleRequestOptions() { MaxParallelism = maxParallelism });
 
-            var fhirContextPropertyBag = bundleHandlerComponents.FhirRequestContext.Properties;
+            var fhirContextPropertyBag = requestContext.Properties;
 
             if (maxParallelism)
             {
@@ -102,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             }
         }
 
-        private (IRouter Router, BundleConfiguration BundleConfiguration, IMediator Mediator, BundleHandler BundleHandler, IFhirRequestContext FhirRequestContext) GetBundleHandlerComponents(BundleRequestOptions options)
+        private IFhirRequestContext CreateRequestContextForBundleHandlerProcessing(BundleRequestOptions options)
         {
             IRouter router = Substitute.For<IRouter>();
 
@@ -147,6 +172,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 httpContext.Request.Headers[KnownHeaders.ConditionalQueryProcessingLogic] = new StringValues("parallel");
             }
 
+            if (options.QueryLatencyOverEfficiency)
+            {
+                httpContext.Request.Headers[KnownHeaders.QueryLatencyOverEfficiency] = new StringValues("true");
+            }
+
             httpContextAccessor.HttpContext.Returns(httpContext);
 
             var transactionHandler = Substitute.For<ITransactionHandler>();
@@ -175,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 router,
                 NullLogger<BundleHandler>.Instance);
 
-            return (router, bundleConfiguration, mediator, bundleHandler, fhirRequestContextAccessor.RequestContext);
+            return fhirRequestContextAccessor.RequestContext;
         }
 
         private IFeatureCollection CreateFeatureCollection(IRouter router)
@@ -215,6 +245,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private sealed class BundleRequestOptions()
         {
             public bool MaxParallelism { get; set; } = false;
+
+            public bool QueryLatencyOverEfficiency { get; set; } = false;
         }
     }
 }

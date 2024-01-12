@@ -100,8 +100,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [InlineData("PARALLEL", BundleProcessingLogic.Parallel)]
         public void WhenHttpContextHasCustomHeaders_ReturnIfBundleProcessingLogicIsSet(string value, BundleProcessingLogic processingLogic)
         {
-            // #conditionalQueryParallelism
-
             var httpHeaders = new Dictionary<string, string>() { { BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, value } };
             HttpContext httpContext = GetFakeHttpContext(httpHeaders);
 
