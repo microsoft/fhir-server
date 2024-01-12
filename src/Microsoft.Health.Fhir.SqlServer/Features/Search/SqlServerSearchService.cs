@@ -122,9 +122,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            SqlSearchType searchType = sqlSearchOptions.GetSearchTypeFromOptions();
 
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
 
             if (!sqlSearchOptions.IsSortWithFilter &&
@@ -159,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -188,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -203,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
             Expression searchExpression = sqlSearchOptions.Expression;
 
@@ -271,7 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
-            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression, searchType);
+            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
             if (clonedSearchOptions.CountOnly)
             {
@@ -332,7 +331,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
-                                searchType,
                                 _schemaInformation,
                                 currentSearchParameterHash,
                                 sqlException);
@@ -554,7 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
         }
 
         private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
@@ -697,12 +695,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         /// <param name="searchOptions">The input SearchOptions</param>
         /// <param name="searchExpression">The searchExpression</param>
-        /// <param name="sqlSearchType">The type of search being performed</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
+        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory) && searchOptions.Sort.Any())
+            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && searchOptions.Sort.Any())
             {
                 // history is always sorted by _lastUpdated (except for export).
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();

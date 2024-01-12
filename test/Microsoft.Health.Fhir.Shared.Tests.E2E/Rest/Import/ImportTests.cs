@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using IdentityServer4.Models;
 using MediatR;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
@@ -469,6 +470,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 Assert.Equal(resourceCount, notification.SucceededCount);
                 Assert.Equal(0, notification.FailedCount);
             }
+        }
+
+        [Fact]
+        public async Task GivenImportTriggered_WithAndWithoutETag_Then2ImportsShouldBeRegistered()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+            var checkLocation1 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var checkLocation2 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            Assert.Equal(checkLocation1, checkLocation2); // idempotent registration
+
+            request.Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient", Etag = etag } };
+            var checkLocation3 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            Assert.NotEqual(checkLocation1, checkLocation3);
         }
 
         [Fact]

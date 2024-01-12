@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: true)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
