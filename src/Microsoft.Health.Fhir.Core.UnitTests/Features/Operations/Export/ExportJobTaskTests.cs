@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient, includeHistory: true, includeDeleted: true)),
                 _cancellationToken,
                 true,
-                ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)
+                ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted)
                 .Returns(x =>
                 {
                     capturedSearch = true;
