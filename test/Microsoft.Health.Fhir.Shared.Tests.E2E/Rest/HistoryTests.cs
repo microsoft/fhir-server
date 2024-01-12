@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATypeAndId_WhenGettingResourceHistoryCount_TheServerShouldReturnTheCorrectCountSuccessfully()
+        public async Task GivenAResourceThatHasBeenUpdatedAndDeleted_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
             UpdateObservation(_createdResource.Resource);
             await _client.UpdateAsync(_createdResource.Resource);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var allObservationSummaryCountZeroDeleted = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_count=0");
             var observationSummaryCountResultDeleted = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime:O}&_summary=count");
             var observationSummaryCountZeroDeleted = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime:O}&_count=0");
-            
+
             Assert.Equal(2, allSummaryCountResult.Resource.Total);
             Assert.Equal(2, allSummaryCountZero.Resource.Total);
             Assert.Equal(2, allObservationSummaryCountResult.Resource.Total);
