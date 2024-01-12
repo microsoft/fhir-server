@@ -13,6 +13,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,13 +26,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     [Trait(Traits.Category, Categories.Web)]
     public sealed class QueryLatencyOverEfficiencyFilterAttributeTests
     {
+        private readonly IFhirRuntimeConfiguration _azureApiForFhirConfiguration = new AzureApiForFhirRuntimeConfiguration();
+        private readonly IFhirRuntimeConfiguration _azureHealthDataServicesFhirConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
+
         [Fact]
-        public void GivenAValidHttpContext_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsDecorated()
+        public void GivenAValidHttpContextForAzureApiForFhir_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsDecorated()
         {
             var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: true);
 
-            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext);
-            filter.OnActionExecuted(httpRequest.ActionContext);
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureApiForFhirConfiguration);
+            filter.OnActionExecuting(httpRequest.ActionContext);
 
             var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;
 
@@ -40,19 +44,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAValidHttpContext_WhenItDoesNotContainALatencyOverEfficiencyFlag_ThenFhirContextIsClean()
+        public void GivenAValidHttpContextForAzureHealthDataService_WhenItContainsALatencyOverEfficiencyFlag_ThenFhirContextIsNotDecorated()
         {
-            var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: false);
+            // The latency-over-efficiency flag is only applicable to Azure API for FHIR.
 
-            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext);
-            filter.OnActionExecuted(httpRequest.ActionContext);
+            var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: true);
+
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureHealthDataServicesFhirConfiguration);
+            filter.OnActionExecuting(httpRequest.ActionContext);
 
             var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;
 
             Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
         }
 
-        private static (RequestContextAccessor<IFhirRequestContext> RequestContext, ActionExecutedContext ActionContext) GetFakeHttpContext(bool isLatencyOverEfficiencyEnabled)
+        [Fact]
+        public void GivenAValidHttpContext_WhenItDoesNotContainALatencyOverEfficiencyFlag_ThenFhirContextIsClean()
+        {
+            var httpRequest = GetFakeHttpContext(isLatencyOverEfficiencyEnabled: false);
+
+            var filter = new QueryLatencyOverEfficiencyFilterAttribute(httpRequest.RequestContext, _azureApiForFhirConfiguration);
+            filter.OnActionExecuting(httpRequest.ActionContext);
+
+            var fhirContextPropertyBag = httpRequest.RequestContext.RequestContext.Properties;
+
+            Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
+        }
+
+        private static (RequestContextAccessor<IFhirRequestContext> RequestContext, ActionExecutingContext ActionContext) GetFakeHttpContext(bool isLatencyOverEfficiencyEnabled)
         {
             var httpContext = new DefaultHttpContext();
 
@@ -61,12 +80,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 httpContext.Request.Headers[KnownHeaders.QueryLatencyOverEfficiency] = "true";
             }
 
-            ActionExecutedContext context = new ActionExecutedContext(
+            ActionExecutingContext context = new ActionExecutingContext(
                 new ActionContext(
                     httpContext,
                     new RouteData(),
                     new ActionDescriptor()),
                 new List<IFilterMetadata>(),
+                actionArguments: new Dictionary<string, object>(),
                 FilterTestsHelper.CreateMockFhirController());
 
             DefaultFhirRequestContext fhirRequestContext = new DefaultFhirRequestContext();
