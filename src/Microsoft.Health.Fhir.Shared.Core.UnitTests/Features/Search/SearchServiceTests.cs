@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchOptionsFactory.Create(
                 Arg.Any<string>(),
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(list => list.Any(item => item.Item1 == KnownQueryParameterNames.Summary && item.Item2 == SummaryType.Count.ToString())),
-                resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted).Returns(expectedSearchOptions);
+                resourceVersionTypes: ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted).Returns(expectedSearchOptions);
 
             var expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
 
