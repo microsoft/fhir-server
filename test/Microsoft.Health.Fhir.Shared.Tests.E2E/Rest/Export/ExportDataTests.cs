@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
 
         // No need to test both code paths for testing container is written to.
         [Fact]
-        public async Task GivenFhirServer_WhenSummarizingHistoricalData_ThenCountIsReturnedWethHistory()
+        public async Task GivenFhirServer_WhenSummarizingHistoricalData_ThenCountIsReturnedWithHistory()
         {
             var allSummaryCountResult = await _fixture.TestFhirClient.SearchAsync($"/_history?_since={_fixture.TestDataInsertionTime:O}&_summary=count");
             var allSummaryCountZero = await _fixture.TestFhirClient.SearchAsync($"/_history?_since={_fixture.TestDataInsertionTime:O}&_count=0");
