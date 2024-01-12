@@ -267,6 +267,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
@@ -361,6 +362,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         /// <param name="vidParameter">The versionId.</param>
         [HttpGet]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
         [AuditEventType(AuditEventSubType.VRead)]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
@@ -381,6 +383,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
         [HttpDelete]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
@@ -401,6 +404,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         [HttpDelete]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
         [AuditEventType(AuditEventSubType.PurgeHistory)]
         public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
@@ -455,6 +459,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="patchDocument">The JSON patch document.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
         [Consumes("application/json-patch+json")]
@@ -504,6 +509,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="paramsResource">The JSON FHIR Parameters Resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
+        [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
         [Consumes("application/fhir+json")]
