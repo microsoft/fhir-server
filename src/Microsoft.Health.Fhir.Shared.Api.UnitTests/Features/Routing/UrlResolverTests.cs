@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Endpoint = Microsoft.AspNetCore.Http.Endpoint;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
 {
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private readonly IUrlHelper _urlHelper = Substitute.For<IUrlHelper>();
         private readonly DefaultHttpContext _httpContext = new DefaultHttpContext();
         private readonly ActionContext _actionContext = new ActionContext();
+        private readonly LinkGenerator _linkGenerator = Substitute.For<LinkGenerator>();
 
         private readonly UrlResolver _urlResolver;
 
@@ -58,7 +60,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _urlHelperFactory,
                 _httpContextAccessor,
                 _actionContextAccessor,
-                _bundleHttpContextAccessor);
+                _bundleHttpContextAccessor,
+                _linkGenerator);
 
             _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 

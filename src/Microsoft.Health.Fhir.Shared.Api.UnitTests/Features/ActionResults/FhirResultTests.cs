@@ -90,9 +90,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.ActionResults
             ServiceProvider provider = collection.BuildServiceProvider();
             context.HttpContext.RequestServices = provider;
 
-            result.Headers.Add("testKey1", "3");
-            result.Headers.Add("testKey2", "2");
-            context.HttpContext.Response.Headers.Add("testKey2", "1");
+            result.Headers["testKey1"] = "3";
+            result.Headers["testKey2"] = "2";
+            context.HttpContext.Response.Headers["testKey2"] = "1";
 
             result.ExecuteResultAsync(context);
 

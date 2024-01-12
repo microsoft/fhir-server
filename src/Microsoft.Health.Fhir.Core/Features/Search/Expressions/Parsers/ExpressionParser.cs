@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseSearchValueExpression(searchParameter, modifier.ToString(), value);
         }
 
-        private Expression ParseChainedExpression(string[] resourceTypes, SearchParameterInfo searchParameter, string[] targetResourceTypes, ReadOnlySpan<char> remainingKey, string value, bool reversed)
+        private ChainedExpression ParseChainedExpression(string[] resourceTypes, SearchParameterInfo searchParameter, string[] targetResourceTypes, ReadOnlySpan<char> remainingKey, string value, bool reversed)
         {
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.

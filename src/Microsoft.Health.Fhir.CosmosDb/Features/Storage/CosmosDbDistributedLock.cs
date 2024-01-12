@@ -12,6 +12,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -140,7 +141,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _keepAliveCancellationSource.Cancel();
+                await _keepAliveCancellationSource.CancelAsync();
+
                 try
                 {
                     await _keepAliveTask;

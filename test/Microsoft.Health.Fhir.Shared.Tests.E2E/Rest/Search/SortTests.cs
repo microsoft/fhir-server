@@ -89,6 +89,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Theory]
         [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatients_WhenSearchedWithSortParamAndMissingIdentifier_SearchResultsReturnedShouldHonorMissingIdentifier(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedPatientsWithMissingBirthDates(tag);
+
+            // Search without missing modifier should return all Patients
+            var returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&_sort={sortParameterName}");
+            Assert.Equal(12, returnedResults.Count());
+
+            // Search with missing modifier false should return only Patients with Birth dates
+            returnedResults = await GetResultsFromAllPagesAsync($"Patient?_tag={tag}&birthdate:missing=false&_sort={sortParameterName}");
+            Assert.Equal(10, returnedResults.Count());
+        }
+
+        [Theory]
+        [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
         {
@@ -191,6 +209,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             SortTestsAssert.AssertNumberOfResources(patients, returnedResults);
             SortTestsAssert.AssertPatientFamilyNamesAreEqualInRange(0, patients.OrderBy(x => x.Name.Min(n => n.Family)).ToList(), returnedResults);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithTextSortAndInclude_ThenPatientsAreReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+            Assert.True(patients.Count() > 3);
+
+            // this tests pagination too
+            var results = await GetResultsFromAllPagesAsync($"Patient?_count=2&_tag={tag}&_sort=family&_include=Observation:performer");
+            SortTestsAssert.AssertNumberOfResources(patients, results);
         }
 
         [Fact]
@@ -1104,7 +1135,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, new DateTime(1940, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "Williamas", tag, new DateTime(1942, 01, 15)),
                 p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
-                p => SetPatientInfo(p, "Seatt;e", "Alex", tag, new DateTime(1943, 11, 23)),
+                p => SetPatientInfo(p, "Seattle", "Alex", tag, new DateTime(1943, 11, 23)),
+                p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
+                p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Lone", tag, new DateTime(1950, 05, 12)),
+                p => SetPatientInfo(p, "Seattle", "Sophie", tag, new DateTime(1953, 05, 12)),
+                p => SetPatientInfo(p, "Portland", "Peter", tag, new DateTime(1956, 06, 12)),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
+
+            return patients;
+        }
+
+        private async Task<Patient[]> CreatePaginatedPatientsWithMissingBirthDates(string tag)
+        {
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfoWithMissingBirthDate(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfoWithMissingBirthDate(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
+                p => SetPatientInfo(p, "Seattle", "Alex", tag, new DateTime(1943, 11, 23)),
                 p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
                 p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
                 p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
@@ -1162,6 +1213,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
+        }
+
+        private void SetPatientInfoWithMissingBirthDate(Patient patient, string city, string family, string tag)
+        {
+            SetPatientInfoInternal(patient, city, family, tag, null);
         }
 
         private void SetPatientInfo(Patient patient, string city, List<string> familyNames, string tag)

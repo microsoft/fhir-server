@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete.Messages;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
@@ -30,15 +31,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
+        private readonly ISearchService _searchService;
+        private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IMediator mediator)
+            IMediator mediator,
+            ISearchService searchService,
+            IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -58,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                     method: "BulkDelete",
                     uriString: definition.Url,
                     baseUriString: definition.BaseUrl,
-                    correlationId: jobInfo.Id.ToString(),
+                    correlationId: jobInfo.Id.ToString() + '-' + jobInfo.GroupId.ToString(),
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
                 {
@@ -67,37 +74,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 _contextAccessor.RequestContext = fhirRequestContext;
                 var result = new BulkDeleteResult();
-                IReadOnlySet<string> itemsDeleted;
+                long numDeleted;
                 using IScoped<IDeletionService> deleter = _deleterFactory.Invoke();
                 Exception exception = null;
+                List<string> types = definition.Type.SplitByOrSeparator().ToList();
 
                 try
                 {
-                    itemsDeleted = await deleter.Value.DeleteMultipleAsync(
+                    numDeleted = await deleter.Value.DeleteMultipleAsync(
                         new ConditionalDeleteResourceRequest(
-                            definition.Type,
+                            types[0],
                             (IReadOnlyList<Tuple<string, string>>)definition.SearchParameters,
                             definition.DeleteOperation,
                             maxDeleteCount: null,
-                            deleteAll: true),
+                            deleteAll: true,
+                            versionType: definition.VersionType),
                         cancellationToken);
                 }
-                catch (IncompleteOperationException<IReadOnlySet<string>> ex)
+                catch (IncompleteOperationException<long> ex)
                 {
-                    itemsDeleted = ex.PartialResults;
+                    numDeleted = ex.PartialResults;
                     result.Issues.Add(ex.Message);
                     exception = ex;
                 }
 
-                result.ResourcesDeleted.Add(definition.Type, itemsDeleted.Count);
+                result.ResourcesDeleted.Add(types[0], numDeleted);
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, itemsDeleted.Count), cancellationToken);
+                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
 
                 if (exception != null)
                 {
                     var jobException = new JobExecutionException($"Exception encounted while deleting resources: {result.Issues.First()}", result, exception);
                     jobException.RequestCancellationOnFailure = true;
                     throw jobException;
+                }
+
+                if (types.Count > 1)
+                {
+                    types.RemoveAt(0);
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, _searchService, types, cancellationToken);
+
+                    if (processingDefinition != null)
+                    {
+                        await _queueClient.EnqueueAsync(QueueType.BulkDelete, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+                    }
                 }
 
                 return JsonConvert.SerializeObject(result);

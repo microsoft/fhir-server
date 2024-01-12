@@ -123,7 +123,11 @@ namespace Microsoft.Health.JobManagement
                 if (jobInfo.CancelRequested)
                 {
                     // For cancelled job, try to execute it for potential cleanup.
+#if NET6_0
                     jobCancellationToken.Cancel();
+#else
+                    await jobCancellationToken.CancelAsync();
+#endif
                 }
 
                 var progress = new Progress<string>((result) => { jobInfo.Result = result; });
@@ -237,7 +241,11 @@ namespace Microsoft.Health.JobManagement
                 var cancel = await queueClient.PutJobHeartbeatAsync(jobInfo, cancellationTokenSource.Token);
                 if (cancel)
                 {
+#if NET6_0
                     cancellationTokenSource.Cancel();
+#else
+                    await cancellationTokenSource.CancelAsync();
+#endif
                 }
             }
             catch
