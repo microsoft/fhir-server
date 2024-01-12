@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private const int DefaultChannelMaxCapacity = 500;
         private const int DefaultMaxBatchSize = 1000;
-        private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -67,26 +66,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
                 using var reader = new StreamReader(stream);
 
-                string content = null;
                 long currentIndex = 0;
                 long currentBytesRead = 0;
                 var buffer = new List<(string content, long index, int length)>();
 
+                var endOfStream = false;
+                StringBuilder line = new StringBuilder();
+                int calcultedEndOfLineLength = 0;
                 var skipFirstLine = true;
+
 #pragma warning disable CA2016
-                while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
+                while ((currentBytesRead <= bytesToRead) && !endOfStream)
 #pragma warning restore CA2016
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var length = Encoding.UTF8.GetByteCount(content);
-                    if (content.EndsWith(Environment.NewLine, StringComparison.OrdinalIgnoreCase))
+                    line = new StringBuilder();
+                    char[] c = new char[1];
+                    while (await reader.ReadAsync(c, 0, c.Length) > 0)
                     {
-                        length += EndOfLineLength;
+                        char currentChar = c[0];
+
+                        if (currentChar == '\n')
+                        {
+                            calcultedEndOfLineLength = 1;
+                            break;
+                        }
+                        else if (currentChar == '\r')
+                        {
+                            char nextChar = (char)reader.Peek();
+                            if (nextChar == '\n')
+                            {
+                                calcultedEndOfLineLength = 2;
+                                await reader.ReadAsync(c, 0, c.Length);
+                                break;
+                            }
+                        }
+
+                        line.Append(c[0]);
                     }
 
-                    currentBytesRead += length;
+                    if (string.IsNullOrEmpty(line.ToString()))
+                    {
+                        endOfStream = true;
+                        continue;
+                    }
 
+                    var length = Encoding.UTF8.GetByteCount(line.ToString()) + calcultedEndOfLineLength;
+                    currentBytesRead += length;
                     if (offset > 0 && skipFirstLine) // skip first line
                     {
                         skipFirstLine = false;
@@ -95,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     currentIndex++;
 
-                    buffer.Add((content, currentIndex, length));
+                    buffer.Add((line.ToString(), currentIndex, length));
 
                     if (buffer.Count < MaxBatchSize)
                     {
