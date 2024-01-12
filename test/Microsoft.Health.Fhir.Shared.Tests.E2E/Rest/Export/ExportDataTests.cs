@@ -188,28 +188,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Export
             await ExportAndSoftDeleteTestHelper(parallel: false, history: true, deletes: true);
         }
 
-        // No need to test both code paths for testing container is written to.
-        [Fact]
-        public async Task GivenFhirServer_WhenSummarizingHistoricalData_ThenCountIsReturnedWithHistory()
-        {
-            var allSummaryCountResult = await _fixture.TestFhirClient.SearchAsync($"/_history?_since={_fixture.TestDataInsertionTime:O}&_summary=count");
-            var allSummaryCountZero = await _fixture.TestFhirClient.SearchAsync($"/_history?_since={_fixture.TestDataInsertionTime:O}&_count=0");
-            var allObservationSummaryCountResult = await _fixture.TestFhirClient.SearchAsync($"/Observation/_history?_since={_fixture.TestDataInsertionTime:O}&_summary=count");
-            var allObservationSummaryCountZero = await _fixture.TestFhirClient.SearchAsync($"/Observation/_history?_since={_fixture.TestDataInsertionTime:O}&_count=0");
-
-            var observationId = _fixture.TestResourcesWithHistoryAndDeletes.First(r => r.Key.resourceType == "Observation").Key.resourceId;
-            var observationSummaryCountResult = await _fixture.TestFhirClient.SearchAsync($"/Observation/{observationId}/_history?_since={_fixture.TestDataInsertionTime:O}&_summary=count");
-            var observationSummaryCountZero = await _fixture.TestFhirClient.SearchAsync($"/Observation/{observationId}/_history?_since={_fixture.TestDataInsertionTime:O}&_count=0");
-
-            // Assert both data are equal
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count, allSummaryCountResult.Resource.Total);
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count, allSummaryCountZero.Resource.Total);
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count(r => r.Key.resourceType == "Observation"), allObservationSummaryCountResult.Resource.Total);
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count(r => r.Key.resourceType == "Observation"), allObservationSummaryCountZero.Resource.Total);
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count(r => r.Key.resourceType == "Observation" && r.Key.resourceId == observationId), observationSummaryCountResult.Resource.Total);
-            Assert.Equal(_fixture.TestResourcesWithHistoryAndDeletes.Count(r => r.Key.resourceType == "Observation" && r.Key.resourceId == observationId), observationSummaryCountZero.Resource.Total);
-        }
-
         // _tag filter cannot be used with history or deleted export. Using isParallel to test both SQL code paths.
         private async Task ExportAndSoftDeleteTestHelper(bool parallel, bool history, bool deletes)
         {

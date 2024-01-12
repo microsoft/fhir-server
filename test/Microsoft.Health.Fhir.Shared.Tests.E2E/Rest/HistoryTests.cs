@@ -95,6 +95,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATypeAndId_WhenGettingResourceHistoryCount_TheServerShouldReturnTheCorrectCountSuccessfully()
+        {
+            UpdateObservation(_createdResource.Resource);
+            await _client.UpdateAsync(_createdResource.Resource);
+
+            var sinceTime = _createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(-1);
+
+            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{observationId}/_history?_since={sinceTime:O}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{observationId}/_history?_since={sinceTime:O}&_count=0");
+
+            await _client.DeleteAsync(_createdResource.Resource);
+
+            var allSummaryCountResultDeleted = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_summary=count");
+            var allSummaryCountZeroDeleted = await _client.SearchAsync($"/_history?_since={sinceTime:O}&_count=0");
+            var allObservationSummaryCountResultDeleted = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_summary=count");
+            var allObservationSummaryCountZeroDeleted = await _client.SearchAsync($"/Observation/_history?_since={sinceTime:O}&_count=0");
+            var observationSummaryCountResultDeleted = await _client.SearchAsync($"/Observation/{observationId}/_history?_since={sinceTime:O}&_summary=count");
+            var observationSummaryCountZeroDeleted = await _client.SearchAsync($"/Observation/{observationId}/_history?_since={sinceTime:O}&_count=0");
+            
+            Assert.Equal(2, allSummaryCountResult.Resource.Total);
+            Assert.Equal(2, allSummaryCountZero.Resource.Total);
+            Assert.Equal(2, allObservationSummaryCountResult.Resource.Total);
+            Assert.Equal(2, allObservationSummaryCountZero.Resource.Total);
+            Assert.Equal(2, observationSummaryCountResult.Resource.Total);
+            Assert.Equal(2, observationSummaryCountZero.Resource.Total);
+
+            Assert.Equal(3, allSummaryCountResultDeleted.Resource.Total);
+            Assert.Equal(3, allSummaryCountZeroDeleted.Resource.Total);
+            Assert.Equal(3, allObservationSummaryCountResultDeleted.Resource.Total);
+            Assert.Equal(3, allObservationSummaryCountZeroDeleted.Resource.Total);
+            Assert.Equal(3, observationSummaryCountResultDeleted.Resource.Total);
+            Assert.Equal(3, observationSummaryCountZeroDeleted.Resource.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistoryWithAlternateSort_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
             UpdateObservation(_createdResource.Resource);
