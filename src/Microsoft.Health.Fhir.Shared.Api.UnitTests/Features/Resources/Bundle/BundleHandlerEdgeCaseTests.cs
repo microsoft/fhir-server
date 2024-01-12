@@ -77,30 +77,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public void GivenABundle_WhenProcessedWithQueryLatencyOverEfficiency_TheFhirContextPropertyBagsShouldBePopulatedAsExpected(bool queryLatencyOverEfficiency)
-        {
-            // Create HTTP request with the flag "x-ms-query-latency-over-efficiency".
-            // If the flag is set to true, then the FHIR Request Context property bag contains the key "_optimizeConcurrency" as it's set with the expected value.
-            // Otherwise, the FHIR Request Context property bag will not contain the key "_optimizeConcurrency".
-
-            var requestContext = CreateRequestContextForBundleHandlerProcessing(new BundleRequestOptions() { QueryLatencyOverEfficiency = queryLatencyOverEfficiency });
-
-            var fhirContextPropertyBag = requestContext.Properties;
-
-            if (queryLatencyOverEfficiency)
-            {
-                Assert.True(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
-                Assert.Equal(true, fhirContextPropertyBag[KnownQueryParameterNames.OptimizeConcurrency]);
-            }
-            else
-            {
-                Assert.False(fhirContextPropertyBag.ContainsKey(KnownQueryParameterNames.OptimizeConcurrency));
-            }
-        }
-
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
         public void GivenABundle_WhenProcessedWithConditionalQueryMaxParallelism_TheFhirContextPropertyBagsShouldBePopulatedAsExpected(bool maxParallelism)
         {
             // #conditionalQueryParallelism

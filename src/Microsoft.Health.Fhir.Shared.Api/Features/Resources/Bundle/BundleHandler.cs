@@ -250,21 +250,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 logger.LogWarning(e, "Error while extracting the Conditional-Query Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
             }
 
-            try
-            {
-                bool latencyOverEfficiency = outerHttpContext.IsLatencyOverEfficiencyEnabled();
-
-                if (latencyOverEfficiency)
-                {
-                    fhirRequestContext.DecorateRequestContextWithOptimizedConcurrency();
-                    return true;
-                }
-            }
-            catch (Exception e)
-            {
-                logger.LogWarning(e, "Error while extracting the Latency Over Efficiency out of the HTTP Header: {ErrorMessage}", e.Message);
-            }
-
             return false;
         }
 
