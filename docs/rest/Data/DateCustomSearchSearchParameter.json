@@ -1,0 +1,17 @@
+{
+    "resourceType" : "SearchParameter",
+    "id" : "resource-created-date",
+    "url" : "http://mycompany.org/fhir/SearchParameter/resource-created-date",
+    "version" : "1.0.0",
+    "name" : "ResourceCreatedDate",
+    "status" : "active",
+    "date" : "2023-12-12",
+    "publisher" : "My Company",
+    "description" : "Returns the created date on resources.",
+    "code" : "CreatedDate",
+    "base" : [
+      "DomainResource"
+    ],
+    "type" : "date",
+    "expression" : "DomainResource.extension.where(url='http://mycompany.org/fhir/StructureDefinition/resource-created-date').value"
+  }

@@ -618,6 +618,24 @@ END
                 _allRetriesFail = allRetriesFail;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                _retryCount++;
+                if (_allRetriesFail || _retryCount == 1)
+                {
+                    var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = "FHIRINTEGRATIONTEST_DATABASE_DOES_NOT_EXIST",
+                    };
+                    sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                }
+
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
@@ -633,6 +651,11 @@ END
 
                 return sqlConnection;
             }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class SqlConnectionBuilderNoPooling : ISqlConnectionBuilder
@@ -644,6 +667,19 @@ END
                 _sqlConnectionBuilder = sqlConnectionBuilder;
             }
 
+            public string DefaultDatabase => _sqlConnectionBuilder.DefaultDatabase;
+
+            public SqlConnection GetSqlConnection(string initialCatalog = null, int? maxPoolSize = null)
+            {
+                SqlConnection sqlConnection = _sqlConnectionBuilder.GetSqlConnection(initialCatalog, null);
+                var sqlConnectionStringBuilder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                {
+                    Pooling = false,
+                };
+                sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
+                return sqlConnection;
+            }
+
             public async Task<SqlConnection> GetSqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
             {
                 SqlConnection sqlConnection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog, null, cancellationToken);
@@ -653,6 +689,11 @@ END
                 };
                 sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 return sqlConnection;
+            }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
             }
         }
 

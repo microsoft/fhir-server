@@ -19,7 +19,7 @@ namespace Microsoft.Health.Internal.Fhir.EventsReader
 
         public static void Main()
         {
-            ISqlConnectionBuilder iSqlConnectionBuilder = new SqlConnectionBuilder(_connectionString);
+            ISqlConnectionBuilder iSqlConnectionBuilder = new Sql.SqlConnectionBuilder(_connectionString);
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 

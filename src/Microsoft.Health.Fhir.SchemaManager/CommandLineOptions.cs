@@ -13,7 +13,9 @@ public class CommandLineOptions
 
     public string? ConnectionString { get; set; }
 
+#pragma warning disable CS0618 // Type or member is obsolete
     public SqlServerAuthenticationType? AuthenticationType { get; set; }
+#pragma warning restore CS0618 // Type or member is obsolete
 
     public string? ManagedIdentityClientId { get; set; }
 }

@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -22,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     public class ConditionalPatchResourceHandler : ConditionalResourceHandler<ConditionalPatchResourceRequest, UpsertResourceResponse>
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<ConditionalPatchResourceHandler> _logger;
 
         public ConditionalPatchResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -30,11 +33,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
-            : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            ILogger<ConditionalPatchResourceHandler> logger)
+            : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService, logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _mediator = mediator;
+            _logger = logger;
         }
 
         public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest request, CancellationToken cancellationToken)
@@ -51,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             if (request.WeakETag != null && request.WeakETag.VersionId != match.Resource.Version)
             {
+                _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
             }
 

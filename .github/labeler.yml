@@ -1,0 +1,3 @@
+SQL Scripts:
+- changed-files:
+  - any-glob-to-any-file: 'src/Microsoft.Health.Fhir.SqlServer/Features/Schema/SchemaVersionConstants.cs'

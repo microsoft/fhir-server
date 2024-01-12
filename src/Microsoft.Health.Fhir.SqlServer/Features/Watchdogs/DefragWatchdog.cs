@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
         private CancellationToken _cancellationToken;
+        private static readonly string[] Definitions = { "Defrag" };
 
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlQueueClient _sqlQueueClient;
@@ -208,7 +209,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             try
             {
-                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, new[] { "Defrag" }, null, true, false, cancellationToken);
+                var jobs = await _sqlQueueClient.EnqueueAsync(QueueType, Definitions, null, true, false, cancellationToken);
 
                 if (jobs.Count > 0)
                 {
@@ -308,7 +309,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @ThreadsId, 4
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatPeriodSecId, 60
 INSERT INTO dbo.Parameters (Id,Number) SELECT @HeartbeatTimeoutSecId, 600
 INSERT INTO dbo.Parameters (Id,Char) SELECT name, 'LogEvent' FROM sys.objects WHERE type = 'p' AND name LIKE '%defrag%'
-INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 1
+INSERT INTO dbo.Parameters (Id,Number) SELECT @IsEnabledId, 0
             ");
             cmd.Parameters.AddWithValue("@ThreadsId", ThreadsId);
             cmd.Parameters.AddWithValue("@HeartbeatPeriodSecId", HeartbeatPeriodSecId);

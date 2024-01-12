@@ -10,22 +10,28 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlQueueClient : IQueueClient, INotificationHandler<StorageInitializedNotification>
+    public class SqlQueueClient : IQueueClient
     {
+        private readonly SchemaInformation _schemaInformation;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<SqlQueueClient> _logger;
-        private bool _storageReady;
+
+        public SqlQueueClient(SchemaInformation schemaInformation, ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
+        {
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+        }
 
         public SqlQueueClient(ISqlRetryService sqlRetryService, ILogger<SqlQueueClient> logger)
         {
@@ -203,17 +209,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await cmd.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken, "GetJobsByIdsAsync failed.");
         }
 
-        // should repurpose to check storage ready
         public bool IsInitialized()
         {
-            return _storageReady;
-        }
+            if (_schemaInformation == null)
+            {
+                throw new InvalidOperationException("This method cannot be called with schema information = null");
+            }
 
-        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("SqlQueueClient: Storage initialized");
-            _storageReady = true;
-            return Task.CompletedTask;
+            return _schemaInformation.Current != null && _schemaInformation.Current != 0;
         }
 
         public async Task ArchiveJobsAsync(byte queueType, CancellationToken cancellationToken)

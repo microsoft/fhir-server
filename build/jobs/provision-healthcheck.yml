@@ -4,7 +4,8 @@ parameters:
 
 steps:
 - powershell: |
-    $healthCheckUrl = "https://${{ parameters.webAppName }}.azurewebsites.net/health/check"
+    $webAppName = "${{ parameters.webAppName }}".ToLower()
+    $healthCheckUrl = "https://$webAppName.azurewebsites.net/health/check"
     $healthStatus = 0
     Do {
       Start-Sleep -s 5

@@ -75,31 +75,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
+            uint maxCount = request.MaxCount > 0 ? request.MaxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery;
+
             var jobRecord = new ExportJobRecord(
-                request.RequestUri,
-                request.RequestType,
-                formatConfiguration.Format,
-                request.ResourceType,
-                filters,
-                "N/A",
-                _exportJobConfiguration.RollingFileSizeInMB,
-                requestorClaims,
-                request.Since,
-                request.Till,
-                null,
-                null,
-                null,
-                null,
-                request.GroupId,
-                storageAccountConnectionHash,
-                _exportJobConfiguration.StorageAccountUri,
-                request.AnonymizationConfigurationCollectionReference,
-                request.AnonymizationConfigurationLocation,
-                request.AnonymizationConfigurationFileETag,
-                _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                _exportJobConfiguration.NumberOfPagesPerCommit,
-                request.ContainerName,
-                request.IsParallel,
+                requestUri: request.RequestUri,
+                exportType: request.RequestType,
+                exportFormat: formatConfiguration.Format,
+                resourceType: request.ResourceType,
+                filters: filters,
+                hash: "N/A",
+                rollingFileSizeInMB: _exportJobConfiguration.RollingFileSizeInMB,
+                requestorClaims: requestorClaims,
+                since: request.Since,
+                till: request.Till,
+                groupId: request.GroupId,
+                storageAccountConnectionHash: storageAccountConnectionHash,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                anonymizationConfigurationCollectionReference: request.AnonymizationConfigurationCollectionReference,
+                anonymizationConfigurationLocation: request.AnonymizationConfigurationLocation,
+                anonymizationConfigurationFileETag: request.AnonymizationConfigurationFileETag,
+                maximumNumberOfResourcesPerQuery: maxCount > 0 ? maxCount : _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+                storageAccountContainerName: request.ContainerName,
+                isParallel: request.IsParallel,
+                includeHistory: request.IncludeHistory,
+                includeDeleted: request.IncludeDeleted,
                 smartRequest: _contextAccessor?.RequestContext?.AccessControlContext?.ApplyFineGrainedAccessControl == true);
 
             var outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// </summary>
         /// <param name="filterString">The _typeFilter parameter input.</param>
         /// <returns>A list of <see cref="ExportJobFilter"/></returns>
-        private static IList<ExportJobFilter> ParseFilter(string filterString)
+        private static List<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
 
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var filterArray = filterString.Split(",");
                 foreach (string filter in filterArray)
                 {
-                    var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+                    var parameterIndex = filter.IndexOf('?', StringComparison.Ordinal);
 
                     if (parameterIndex < 0 || parameterIndex == filter.Length - 1)
                     {

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -44,9 +45,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
-            bool isAsyncOperation = false)
+            bool isAsyncOperation = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -174,9 +176,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation);
+            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted;
 
-            SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, historyResourceVersionTypes);
+
+            SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
 
             // If no results are returned from the _history search
             // determine if the resource actually exists or if the results were just filtered out.
@@ -225,6 +229,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        /*
+        public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
+            string resourceType,
+            DateTime start,
+            DateTime end,
+            int rangeSize,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellation)
+        {
+            // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
+
+            // Add gt and lt lastUpdated query paraemters
+            // Get count on the search
+            // If count = rangeSize+-10% add time range to list
+            // Else if count > rangeSize+10% remove half the previous add
+            // Else if count < rangeSize-10% add half the previous cut back
+            // Once till time > end time, till = end and make it the last entry in the list
+            // Return list
+        }
+        */
+
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />
@@ -232,13 +257,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        protected abstract Task<SearchResult> SearchHistoryInternalAsync(
-            SearchOptions searchOptions,
-            CancellationToken cancellationToken);
-
         protected abstract Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-     }
+    }
 }

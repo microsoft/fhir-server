@@ -12,8 +12,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
     {
         QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions = null);
 
-        QueryDefinition GenerateHistorySql(SearchOptions searchOptions);
-
         QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash);
     }
 }

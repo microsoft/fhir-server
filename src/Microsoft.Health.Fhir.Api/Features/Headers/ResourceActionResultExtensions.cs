@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
             var url = urlResolver.ResolveOperationResultUrl(operationName, id);
 
-            result.Headers.Add(HeaderNames.ContentLocation, url.ToString());
+            result.Headers[HeaderNames.ContentLocation] = url.ToString();
             return result;
         }
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             EnsureArg.IsNotNull(result, nameof(result));
             EnsureArg.IsNotNullOrWhiteSpace(contentTypeValue, nameof(contentTypeValue));
 
-            result.Headers.Add(HeaderNames.ContentType, contentTypeValue);
+            result.Headers[HeaderNames.ContentType] = contentTypeValue;
             return result;
         }
     }

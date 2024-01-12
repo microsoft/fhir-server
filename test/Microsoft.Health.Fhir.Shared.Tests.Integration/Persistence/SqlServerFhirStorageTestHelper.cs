@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
         }
 
+        internal bool DropDatabase => true;
+
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
@@ -102,13 +104,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
             });
-            await InitWatchdogsParameters();
+            await InitWatchdogsParameters(databaseName);
+            await EnableDatabaseLogging(databaseName);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
         }
 
-        public async Task InitWatchdogsParameters()
+        public async Task EnableDatabaseLogging(string databaseName)
         {
-            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(cancellationToken: CancellationToken.None);
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
+                await connection.OpenAsync(CancellationToken.None);
+                await using SqlCommand sqlCommand = connection.CreateCommand();
+                sqlCommand.CommandText = @"
+INSERT INTO Parameters (Id,Char) SELECT name,'LogEvent' FROM sys.objects WHERE type = 'p'
+INSERT INTO Parameters (Id,Char) SELECT 'Search','LogEvent'
+                    ";
+                await sqlCommand.ExecuteNonQueryAsync(CancellationToken.None);
+                await connection.CloseAsync();
+            });
+        }
+
+        public async Task InitWatchdogsParameters(string databaseName)
+        {
+            await using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, cancellationToken: CancellationToken.None);
             await conn.OpenAsync(CancellationToken.None);
             using var cmd = new SqlCommand(
                 @"
@@ -182,6 +201,11 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
+            if (!DropDatabase)
+            {
+                return;
+            }
+
             SqlConnection.ClearAllPools();
 
             await _dbSetupRetryPolicy.ExecuteAsync(async () =>
@@ -308,18 +332,17 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             SqlRetryLogicBaseProvider sqlRetryLogicBaseProvider = SqlConfigurableRetryFactory.CreateFixedRetryProvider(new SqlClientRetryOptions().Settings);
 
             var sqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration() { ConnectionString = testConnectionString };
-            ISqlConnectionStringProvider sqlConnectionString = new DefaultSqlConnectionStringProvider(Options.Create(sqlServerDataStoreConfiguration));
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(new SqlTransactionHandler(), sqlConnection, sqlRetryLogicBaseProvider, config);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionWrapperFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(new ScriptProvider<SchemaVersion>(), new BaseScriptProvider(), NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionWrapperFactory, schemaManagerDataStore);
 
-            Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProvider = p => sqlConnectionString;
+            ////Func<IServiceProvider, ISqlConnectionStringProvider> sqlConnectionStringProvider = p => sqlConnectionString;
             Func<IServiceProvider, SqlConnectionWrapperFactory> sqlConnectionWrapperFactoryFunc = p => sqlConnectionWrapperFactory;
             Func<IServiceProvider, SchemaUpgradeRunner> schemaUpgradeRunnerFactory = p => schemaUpgradeRunner;
             Func<IServiceProvider, IReadOnlySchemaManagerDataStore> schemaManagerDataStoreFactory = p => schemaManagerDataStore;
 
             var collection = new ServiceCollection();
-            collection.AddScoped(sqlConnectionStringProvider);
+            ////collection.AddScoped(sqlConnectionStringProvider);
             collection.AddScoped(sqlConnectionWrapperFactoryFunc);
             collection.AddScoped(schemaManagerDataStoreFactory);
             collection.AddScoped(schemaUpgradeRunnerFactory);

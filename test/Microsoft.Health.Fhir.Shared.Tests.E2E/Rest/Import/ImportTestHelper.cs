@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Resource = Hl7.Fhir.Model.Resource;
@@ -62,13 +63,49 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             VerifyBundle(result, resources);
         }
 
+        public static async Task VerifyHistoryResultAsync(TestFhirClient client, params Resource[] resources)
+        {
+            var historyUrls = resources.Select(r => $"/{r.TypeName}/{r.Id}/_history").Distinct().ToArray();
+
+            foreach (string url in historyUrls)
+            {
+                Bundle result = await client.SearchAsync(url);
+                VerifyBundleWithMeta(result, resources.Where(r => url.StartsWith($"/{r.TypeName}/{r.Id}")).ToArray());
+            }
+        }
+
         public static void VerifyBundle(Bundle result, params Resource[] resources)
         {
-            Assert.Equal(resources.Length, result.Entry.Count);
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
 
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
             {
-                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource {resultResource.Id} with verson {resultResource.VersionId} not found in input resources.");
+            }
+        }
+
+        public static void VerifyBundleWithMeta(Bundle result, params Resource[] resources)
+        {
+            Assert.True(
+                resources.Length == result.Entry.Count,
+                $"Count differs. Test resource count: {resources.Length} Imported resource count: {result.Entry.Count}");
+
+            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            {
+                Assert.True(
+                    resources.Any(expectedResource => expectedResource.Id.Equals(resultResource.Id)),
+                    $"Resource with id {resultResource.Id} not found in result set.");
+
+                Assert.True(
+                    resources.Any(expectedResource =>
+                    expectedResource.Id.Equals(resultResource.Id) &&
+                    expectedResource.Meta.LastUpdated.Equals(resultResource.Meta.LastUpdated) &&
+                    expectedResource.Meta.VersionId.Equals(resultResource.Meta.VersionId)),
+                    $"Resource with id {resultResource.Id} does not have matching meta in result set.");
             }
         }
 
@@ -154,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public static T AddTestTag<T>(this T input, string tag)
             where T : Resource
         {
-            input.Meta = new Meta();
+            input.Meta = input.Meta ?? new();
             input.Meta.Tag.Add(new Coding("http://e2e-test", tag));
 
             return input;

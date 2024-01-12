@@ -66,6 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private ReindexJobConfiguration _jobConfiguration;
         private CreateReindexRequestHandler _createReindexRequestHandler;
+        private ReindexSingleResourceRequestHandler _reindexSingleResourceRequestHandler;
         private ReindexUtilities _reindexUtilities;
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
@@ -137,6 +138,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                 optionsReindexConfig,
                                                 _searchParameterDefinitionManager,
                                                 _searchParameterOperations);
+
+            _reindexSingleResourceRequestHandler = new ReindexSingleResourceRequestHandler(
+                                                    DisabledFhirAuthorizationService.Instance,
+                                                    _scopedDataStore.Value,
+                                                    _searchIndexer,
+                                                    Deserializers.ResourceDeserializer,
+                                                    _searchParameterOperations,
+                                                    _searchParameterDefinitionManager);
 
             _reindexUtilities = new ReindexUtilities(
                 () => _scopedDataStore,
@@ -269,6 +278,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
+        }
+
+        [Fact]
+        public async Task GivenSingleResourceReindex_ThenReindexJobShouldComplete()
+        {
+            string observationId = Guid.NewGuid().ToString();
+            UpsertOutcome observationSample = await CreateObservationResource(observationId);
+            var request = GetReindexRequest("POST", observationId, "Observation");
+
+            ReindexSingleResourceResponse response = await _reindexSingleResourceRequestHandler.Handle(request, CancellationToken.None);
+
+            Assert.NotNull(response);
+        }
+
+        private ReindexSingleResourceRequest GetReindexRequest(string httpMethod, string resourceId = null, string resourceType = null)
+        {
+            resourceId = resourceId ?? Guid.NewGuid().ToString();
+            resourceType = resourceType ?? "Observation";
+
+            return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
         }
 
         [Fact]

@@ -231,13 +231,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             else
             {
-                return await InternalUpsertAsync(
-                    resource.Wrapper,
-                    resource.WeakETag,
-                    resource.AllowCreate,
-                    resource.KeepHistory,
-                    cancellationToken,
-                    resource.RequireETagOnUpdate);
+                try
+                {
+                    return await InternalUpsertAsync(
+                        resource.Wrapper,
+                        resource.WeakETag,
+                        resource.AllowCreate,
+                        resource.KeepHistory,
+                        cancellationToken,
+                        resource.RequireETagOnUpdate);
+                }
+                catch (FhirException fhirException)
+                {
+                    // This block catches only FhirExceptions. FhirException can be thrown by the data store layer
+                    // in different situations, like: Failed pre-conditions, bad requests, resource not found, etc.
+
+                    _logger.LogInformation("Upserting failed. {ExceptionType}: {ExceptionMessage}", fhirException.GetType().ToString(), fhirException.Message);
+
+                    throw;
+                }
             }
         }
 
@@ -262,7 +274,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
-            _logger.LogDebug("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
+            _logger.LogInformation("Upserting {ResourceType}/{ResourceId}, ETag: \"{Tag}\", AllowCreate: {AllowCreate}, KeepHistory: {KeepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
@@ -295,9 +307,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
                 if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                 {
+                    _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
                     throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                 }
 
+                _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
                 throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
             }
 
@@ -322,11 +336,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     if (weakETag != null)
                     {
+                        _logger.LogInformation("ResourceNotFound: ResourceNotFoundByIdAndVersion");
                         throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                     }
 
                     if (!allowCreate)
                     {
+                        _logger.LogInformation("MethodNotAllowed: ResourceCreationNotAllowed");
                         throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                     }
 
@@ -338,9 +354,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                     if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                     {
+                        _logger.LogInformation("ResourceConflict: ResourceVersionConflict");
                         throw new ResourceConflictException(weakETag);
                     }
 
+                    _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                     throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 

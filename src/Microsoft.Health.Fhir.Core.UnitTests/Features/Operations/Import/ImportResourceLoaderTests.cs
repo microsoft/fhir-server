@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(index, 0, 0, false, false, resourceWrapper);
+                    return new ImportResource(index, 0, 0, false, false, false, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();

@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool? DidWeSearchForSortValue { get; internal set; }
 
         /// <summary>
+        /// Keeps track of whether missing modifier is specified for search parameter used in sort.
+        /// </summary>
+        public bool SortHasMissingModifier { get; internal set; }
+
+        /// <summary>
         /// Performs a shallow clone of this instance
         /// </summary>
         public SqlSearchOptions CloneSqlSearchOptions() => (SqlSearchOptions)MemberwiseClone();

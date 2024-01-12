@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Store.Utils
             }
         }
 
-        private static void AddToQueueWithTrapping<T>(BlockingCollection<Tuple<int, IList<T>>> queue, int batchId, IList<T> batchList, CancelRequest cancel, ICollection<Task> workers, int maxWorkers, Action<int> workerAction)
+        private static void AddToQueueWithTrapping<T>(BlockingCollection<Tuple<int, IList<T>>> queue, int batchId, IList<T> batchList, CancelRequest cancel, List<Task> workers, int maxWorkers, Action<int> workerAction)
         {
             try
             {

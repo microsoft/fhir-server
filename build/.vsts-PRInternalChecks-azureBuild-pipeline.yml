@@ -32,7 +32,7 @@ jobs:
     displayName: dotnet build
     inputs:
       projects: '**/*.sln'
-      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror -f net7.0      
+      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror -f net8.0      
   - task: AutoApplicability@1
     displayName: Run AutoApplicability
     continueOnError: True

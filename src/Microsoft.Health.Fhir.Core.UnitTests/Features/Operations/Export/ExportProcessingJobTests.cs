@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(status);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient());
             await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
@@ -104,6 +104,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.Single(queueClient.JobInfos);
             Assert.Contains(_progressToken, queueClient.JobInfos[0].Definition);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndAFollowupJobExists_ThenANewProgressJobIsNotQueued()
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var expectedResults = GenerateJobRecord(OperationStatus.Running);
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+
+            var runningJob = GenerateJobInfo(expectedResults);
+            var followUpJob = GenerateJobInfo(expectedResults);
+            followUpJob.Id = runningJob.Id + 1;
+            queueClient.JobInfos.Add(followUpJob);
+
+            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+
+            Assert.Single(queueClient.JobInfos);
+            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
+            Assert.Equal(followUpJob, queueClient.JobInfos[0]);
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null)
@@ -140,6 +167,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
             {
                 return mockJob.UpdateExportJob(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1), x.ArgAt<CancellationToken>(2));
+            });
+
+            return mockJob;
+        }
+
+        private IExportJobTask MakeMockJobThatReturnsImmediately()
+        {
+            var mockJob = Substitute.For<IExportJobTask>();
+            mockJob.ExecuteAsync(Arg.Any<ExportJobRecord>(), Arg.Any<WeakETag>(), Arg.Any<CancellationToken>()).Returns(x =>
+            {
+                return Task.FromResult(new ExportJobOutcome(x.ArgAt<ExportJobRecord>(0), x.ArgAt<WeakETag>(1)));
             });
 
             return mockJob;

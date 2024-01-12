@@ -385,6 +385,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The export parameter &quot;includeAssociatedData&quot; contains an invalid value. Supported values are: {0}. .
+        /// </summary>
+        public static string InvalidExportAssociatedDataParameter {
+            get {
+                return ResourceManager.GetString("InvalidExportAssociatedDataParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid launch context parameters..
         /// </summary>
         public static string InvalidLaunchContext {
@@ -705,6 +714,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TransactionFailed {
             get {
                 return ResourceManager.GetString("TransactionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The request &quot;_typeFilter&quot; cannot be used with an export request with historical or soft deleted resources..
+        /// </summary>
+        public static string TypeFilterNotSupportedWithHistoryOrDeletedExport {
+            get {
+                return ResourceManager.GetString("TypeFilterNotSupportedWithHistoryOrDeletedExport", resourceCulture);
             }
         }
         

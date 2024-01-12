@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public bool HasParametersToHash => _setToHash.Count > 0;
 
         /// <summary>
-        /// Add a parameter to the SQL command.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
         /// </summary>
         /// <typeparam name="T">The CLR column type</typeparam>
         /// <param name="column">The table column the parameter is bound to.</param>
@@ -44,14 +45,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Whether this parameter should be included in the hash of the overall parameters.
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
-        /// <returns>The SQL parameter.</returns>
-        public SqlParameter AddParameter<T>(Column<T> column, T value, bool includeInHash)
+        /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
+        public object AddParameter<T>(Column<T> column, T value, bool includeInHash)
         {
             return AddParameter((Column)column, value, includeInHash);
         }
 
         /// <summary>
-        /// Add a parameter to the SQL command.
+        /// Add a parameter to the SQL command if it is not ResourceTypeId and not SearchParamId.
         /// </summary>
         /// <param name="column">The table column the parameter is bound to.</param>
         /// <param name="value">The parameter value</param>
@@ -59,9 +60,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Whether this parameter should be included in the hash of the overall parameters.
         /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
         /// </param>
-        /// <returns>The SQL parameter.</returns>
-        public SqlParameter AddParameter(Column column, object value, bool includeInHash)
+        /// <returns>SQL parameter or input value depending on whether input was added to the list of parameters.</returns>
+        public object AddParameter(Column column, object value, bool includeInHash)
         {
+            if (column.Metadata.Name == VLatest.Resource.ResourceTypeId.Metadata.Name // logic uses "ResourceTypeId" string value. Resource table is chosen arbitrarily.
+                    || column.Metadata.Name == VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name
+                    || column.Metadata.Name == VLatest.TokenSearchParam.SearchParamId.Metadata.Name) // logic uses "SearchParamId" string value. We don't have cross table column sharing concept yet, so to avoid hardcoding TokenSearchParam is arbitrarily chosen.
+            {
+                return value;
+            }
+
             SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash)
             {
@@ -182,6 +190,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             stringBuilder.Append(hashChars[..hashCharsLength]);
         }
 
+        /// <summary>
+        /// Appends comma delimited list of names of hashed parameters
+        /// </summary>
+        /// <param name="stringBuilder">A string builder to append the list to.</param>
+        public void AppendHashedParameterNames(IndentedStringBuilder stringBuilder)
+        {
+            var first = true;
+            foreach (var param in _setToHash)
+            {
+                stringBuilder.Append($"{(first ? " params=" : ",")}{param}");
+                first = false;
+            }
+        }
+
         private static void WriteAndAdvance<T>(Span<byte> buffer, ref int currentIndex, ref IncrementalHash incrementalHash, T element)
             where T : struct
         {
@@ -195,7 +217,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 Debug.Assert(buffer.Length >= elementLength, "Initial buffer size is not large enough for the datatypes we are trying to write to it");
             }
 
+#if NET8_0_OR_GREATER
+            MemoryMarshal.Write(buffer[currentIndex..], in element);
+#else
             MemoryMarshal.Write(buffer[currentIndex..], ref element);
+#endif
             currentIndex += elementLength;
         }
 
