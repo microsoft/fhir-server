@@ -10,7 +10,7 @@ using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    internal static class BatchTestsUtil
+    internal static class BundleTestsUtil
     {
         public static void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
         {
