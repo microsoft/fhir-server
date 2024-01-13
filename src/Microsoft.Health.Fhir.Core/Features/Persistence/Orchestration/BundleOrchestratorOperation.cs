@@ -145,7 +145,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     var ingestedResourcesById = ingestedResources.Where(i => i.Key.ResourceType == identifier.ResourceType && i.Key.Id == identifier.Id).ToList();
 
                     int countOfResourcesFound = ingestedResourcesById.Count;
-                    if (countOfResourcesFound == 0)
+                    if (countOfResourcesFound == 1)
+                    {
+                        // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
+                        dataStoreOperationOutcome = ingestedResourcesById[0].Value;
+                    }
+                    else if (countOfResourcesFound == 0)
                     {
                         _logger.LogWarning(
                             "Bundle Operation {Id}. There wasn't a valid instance of '{ClassName}' for the enqueued resource. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted.",
@@ -156,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 
                         throw new BundleOrchestratorException($"There wasn't a valid instance of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource. This is not an expected scenario.");
                     }
-                    else if (countOfResourcesFound > 1)
+                    else // (countOfResourcesFound > 1)
                     {
                         _logger.LogWarning(
                             "Bundle Operation {Id}. More than two instances of '{ClassName}' for the same resource were found. This is not an expected scenario. There are {NumberOfResource} in the operation. {PersistedResources} resources were persisted. {ResourceFound} outcomes were found for the same resource.",
@@ -167,10 +172,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                             countOfResourcesFound);
 
                         throw new BundleOrchestratorException($"More than two instances of '{nameof(DataStoreOperationOutcome)}' for the enqueued resource were found. This is not an expected scenario.");
-                    }
-                    else
-                    {
-                        dataStoreOperationOutcome = ingestedResourcesById[0].Value;
                     }
                 }
 
