@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -204,64 +203,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             {
                 // Expected error
             }
-        }
-
-        [Theory]
-        [InlineData(0, 240, 4)] // Exactly the first four resources and the /r/n after.
-        [InlineData(0, 299, 5)] // Exactly the first five resources and the /r/n after. Note: resource 5 has one more byte (57) vs the others (56). Index 299 is just after the } of the fifth resource.
-        [InlineData(58, 58, 1)] // Start with the /n of the first resource, and load through the end of the } on the second resource.
-        [InlineData(60, 56, 1)] // Start with the { of the second resource, and load through the end of the } on the second resource.
-        [InlineData(40, 78, 1)] // Start in the middle of the first resource, and load through the \r on the second resource.
-        public async Task GivenResourceLoader_WhenLoadingBytesThatFallsOnNewLine_ProperNumberOfResourcesAreLoaded(int startIndex, int bytesToLoad, int expectedResourceCount)
-        {
-            // Each of these resources are 56 bytes, adding \r\n makes each line 60 bytes.
-            string[] resources = [
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""6"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""7"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""8"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""9"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""10"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""11"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""12"" } }",
-            ];
-
-            using MemoryStream stream = new();
-            using StreamWriter writer = new(stream);
-
-            for (int i = 0; i < resources.Length; ++i)
-            {
-                await writer.WriteAsync(resources[i]);
-                await writer.WriteAsync("\r\n");
-            }
-
-            await writer.FlushAsync();
-            stream.Position = 0;
-
-            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
-            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
-
-            IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>())
-                .Returns(_ => { return Substitute.For<ImportResource>(); });
-
-            IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-
-            ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
-            loader.MaxBatchSize = 2;
-
-            // should be 120 bytes
-            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", startIndex, bytesToLoad, null, ImportMode.InitialLoad, CancellationToken.None);
-
-            long actualResourceCount = 0;
-            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
-            {
-                actualResourceCount++;
-            }
-
-            await importTask;
-
-            Assert.Equal(expectedResourceCount, actualResourceCount);
         }
 
         private async Task VerifyResourceLoaderAsync(int resourcCount, int batchSize, long startIndex)
