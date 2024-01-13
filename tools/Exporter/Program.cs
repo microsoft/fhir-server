@@ -17,6 +17,7 @@ using Azure.Storage.Blobs.Specialized;
 using Microsoft.Health.Fhir.SqlServer.Features;
 using Microsoft.Health.Fhir.Store.Export;
 using Microsoft.Health.Fhir.Store.Utils;
+using Microsoft.Health.Internal.Fhir.Sql;
 
 namespace Microsoft.Health.Internal.Fhir.Exporter
 {

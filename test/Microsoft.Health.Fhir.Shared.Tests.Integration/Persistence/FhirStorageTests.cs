@@ -16,7 +16,6 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Abstractions.Features.Transactions;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -217,11 +216,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+#if NET8_0_OR_GREATER
         [Fact]
         public async Task GivenAResource_WhenUpserting_ThenTheNewResourceHasMetaSet()
         {
             var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(instant)))
             {
                 var versionId = Guid.NewGuid().ToString();
                 var resource = Samples.GetJsonSample("Weight").UpdateVersion(versionId);
@@ -243,6 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.NotEqual(versionId, deserialized.VersionId);
             }
         }
+#endif
 
         [Fact(Skip = "Not valid for merge")]
         public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()

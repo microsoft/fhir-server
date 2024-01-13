@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to create container for {Container}:{File}", containerId, fileName);
+                Exception exception = HandleRequestFailedException(se, $"Failed to create container for {containerId}:{fileName}");
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to upload data for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to upload data for {resourceUri}");
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to commit for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to commit for {resourceUri}");
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to append commit for {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to append commit for {resourceUri}");
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                Exception exception = HandleRequestFailedException(se, "Failed to get properties of blob {Url}", resourceUri);
+                Exception exception = HandleRequestFailedException(se, $"Failed to get properties of blob {resourceUri}");
 
                 throw new IntegrationDataStoreException(exception, (HttpStatusCode)se.Status);
             }
@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                HandleRequestFailedException(se, "Failed to acquire lease on the blob {Url}", resourceUri);
+                HandleRequestFailedException(se, $"Failed to acquire lease on the blob {resourceUri}");
 
                 return null;
             }
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException se)
             {
-                HandleRequestFailedException(se, "Failed to release lease on the blob {Url}", resourceUri);
+                HandleRequestFailedException(se, $"Failed to release lease on the blob {resourceUri}");
             }
         }
 
@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             await blob.CommitBlockListAsync(blockIds, null, cancellationToken);
         }
 
-        private Exception HandleRequestFailedException(RequestFailedException requestFailedException, string message, params object[] args)
+        private Exception HandleRequestFailedException(RequestFailedException requestFailedException, string message)
         {
             Exception finalException = requestFailedException;
 
@@ -253,10 +253,10 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             // As 'RequestFailedException' is too generic, a more specific type of exception needs to be used to identify non-actionable scenarios.
             if (string.Equals(requestFailedException.ErrorCode, "AuthorizationPermissionMismatch", StringComparison.OrdinalIgnoreCase) || requestFailedException.Status == (int)HttpStatusCode.Forbidden)
             {
-                finalException = new InsufficientAccessException(string.Format(message, args), requestFailedException);
+                finalException = new InsufficientAccessException(message, requestFailedException);
             }
 
-            _logger.LogInformation(finalException, message, args);
+            _logger.LogInformation(finalException, message);
 
             return finalException;
         }

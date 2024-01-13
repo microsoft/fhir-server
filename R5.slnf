@@ -1,0 +1,41 @@
+{
+  "solution": {
+    "path": "Microsoft.Health.Fhir.sln",
+    "projects": [
+      "samples\\apps\\SmartLauncher\\SmartLauncher.csproj",
+      "src\\Microsoft.Health.Extensions.Xunit\\Microsoft.Health.Extensions.Xunit.csproj",
+      "src\\Microsoft.Health.Fhir.Api.UnitTests\\Microsoft.Health.Fhir.R5.Api.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.Api\\Microsoft.Health.Fhir.Api.csproj",
+      "src\\Microsoft.Health.Fhir.Azure.UnitTests\\Microsoft.Health.Fhir.Azure.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.Azure\\Microsoft.Health.Fhir.Azure.csproj",
+      "src\\Microsoft.Health.Fhir.Core.UnitTests\\Microsoft.Health.Fhir.Core.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.Core\\Microsoft.Health.Fhir.Core.csproj",
+      "src\\Microsoft.Health.Fhir.CosmosDb.UnitTests\\Microsoft.Health.Fhir.CosmosDb.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.CosmosDb\\Microsoft.Health.Fhir.CosmosDb.csproj",
+      "src\\Microsoft.Health.Fhir.R5.Api\\Microsoft.Health.Fhir.R5.Api.csproj",
+      "src\\Microsoft.Health.Fhir.R5.Client\\Microsoft.Health.Fhir.R5.Client.csproj",
+      "src\\Microsoft.Health.Fhir.R5.Core.UnitTests\\Microsoft.Health.Fhir.R5.Core.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.R5.Core\\Microsoft.Health.Fhir.R5.Core.csproj",
+      "src\\Microsoft.Health.Fhir.R5.Web\\Microsoft.Health.Fhir.R5.Web.csproj",
+      "src\\Microsoft.Health.Fhir.Shared.Api.UnitTests\\Microsoft.Health.Fhir.Shared.Api.UnitTests.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Api\\Microsoft.Health.Fhir.Shared.Api.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Client\\Microsoft.Health.Fhir.Shared.Client.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Core.UnitTests\\Microsoft.Health.Fhir.Shared.Core.UnitTests.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Core\\Microsoft.Health.Fhir.Shared.Core.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Tests\\Microsoft.Health.Fhir.Shared.Tests.Common.shproj",
+      "src\\Microsoft.Health.Fhir.Shared.Web\\Microsoft.Health.Fhir.Shared.Web.shproj",
+      "src\\Microsoft.Health.Fhir.SqlServer.UnitTests\\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj",
+      "src\\Microsoft.Health.Fhir.SqlServer\\Microsoft.Health.Fhir.SqlServer.csproj",
+      "src\\Microsoft.Health.Fhir.Tests.Common\\Microsoft.Health.Fhir.Tests.Common.csproj",
+      "src\\Microsoft.Health.Fhir.ValueSets\\Microsoft.Health.Fhir.ValueSets.csproj",
+      "src\\Microsoft.Health.TaskManagement.UnitTests\\Microsoft.Health.TaskManagement.UnitTests.csproj",
+      "src\\Microsoft.Health.TaskManagement\\Microsoft.Health.TaskManagement.csproj",
+      "test\\Microsoft.Health.Fhir.R5.Tests.E2E\\Microsoft.Health.Fhir.R5.Tests.E2E.csproj",
+      "test\\Microsoft.Health.Fhir.R5.Tests.Integration\\Microsoft.Health.Fhir.R5.Tests.Integration.csproj",
+      "test\\Microsoft.Health.Fhir.Shared.Tests.Crucible\\Microsoft.Health.Fhir.Shared.Tests.Crucible.shproj",
+      "test\\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.shproj",
+      "test\\Microsoft.Health.Fhir.Shared.Tests.E2E\\Microsoft.Health.Fhir.Shared.Tests.E2E.shproj",
+      "test\\Microsoft.Health.Fhir.Shared.Tests.Integration\\Microsoft.Health.Fhir.Shared.Tests.Integration.shproj"
+    ]
+  }
+}

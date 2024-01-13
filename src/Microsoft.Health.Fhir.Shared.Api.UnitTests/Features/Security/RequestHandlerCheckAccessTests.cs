@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -107,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 
             static object CreateObject(Type type)
             {
-                return FormatterServices.GetSafeUninitializedObject(type);
+                return RuntimeHelpers.GetUninitializedObject(type);
             }
         }
     }

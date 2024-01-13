@@ -522,12 +522,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [Theory]
         [InlineData(ResourceVersionType.Latest)]
-        [InlineData(ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.History)]
         [InlineData(ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History)]
         [InlineData(ResourceVersionType.Latest | ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
-        [InlineData(ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
+        [InlineData(ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted)]
         public void GivenIncludeHistoryAndDeletedParameters_WhenCreated_ThenSearchParametersShouldMatchInput(ResourceVersionType resourceVersionTypes)
         {
             SearchOptions options = CreateSearchOptions(ResourceType.Patient.ToString(), new List<Tuple<string, string>>(), resourceVersionTypes);

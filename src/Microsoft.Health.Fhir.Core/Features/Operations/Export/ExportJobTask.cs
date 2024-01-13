@@ -22,6 +22,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 var exportResourceVersionTypes = ResourceVersionType.Latest |
-                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0) |
+                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.History : 0) |
                     (_exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0);
 
                 ExportJobProgress progress = _exportJobRecord.Progress;

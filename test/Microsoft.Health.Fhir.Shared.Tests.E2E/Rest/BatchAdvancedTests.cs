@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic: processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
             using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponseAfterPostingSameBundle);
             Assert.Equal(HttpStatusCode.OK, fhirResponseAfterPostingSameBundle.StatusCode);

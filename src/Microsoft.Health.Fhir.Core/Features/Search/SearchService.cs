@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -175,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted;
+            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted;
 
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, historyResourceVersionTypes);
 
@@ -228,6 +229,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             throw new NotImplementedException();
         }
 
+        /*
+        public virtual Task<IReadOnlyList<(DateTime since, DateTime till)>> GetResourceTimeRanges(
+            string resourceType,
+            DateTime start,
+            DateTime end,
+            int rangeSize,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellation)
+        {
+            // Remove _lastUpdated=gt and _lastUpdated=lt query parameters
+
+            // Add gt and lt lastUpdated query paraemters
+            // Get count on the search
+            // If count = rangeSize+-10% add time range to list
+            // Else if count > rangeSize+10% remove half the previous add
+            // Else if count < rangeSize-10% add half the previous cut back
+            // Once till time > end time, till = end and make it the last entry in the list
+            // Return list
+        }
+        */
+
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
 
         /// <inheritdoc />
@@ -239,5 +261,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             string searchParameterHash,
             CancellationToken cancellationToken);
-     }
+    }
 }
