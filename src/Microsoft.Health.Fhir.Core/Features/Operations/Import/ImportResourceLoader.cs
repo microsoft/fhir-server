@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private const int DefaultChannelMaxCapacity = 500;
         private const int DefaultMaxBatchSize = 1000;
-        private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -67,30 +66,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
                 using var reader = new StreamReader(stream);
 
-                string content = null;
                 long currentIndex = 0;
                 long currentBytesRead = 0;
-                var buffer = new List<(string content, long index, int length)>();
+                var buffer = new List<(string line, long index, int length)>();
 
                 var skipFirstLine = true;
-#pragma warning disable CA2016
-                while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
-#pragma warning restore CA2016
+                while ((currentBytesRead <= bytesToRead) && !reader.EndOfStream)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (offset > 0 && skipFirstLine) // skip first line
+                    var (line, endOfLineLength) = await ReadLine(reader);
+
+                    var length = Encoding.UTF8.GetByteCount(line) + endOfLineLength;
+                    currentBytesRead += length;
+
+                    if (offset > 0 && skipFirstLine) // skip first line but make sure that its length is counted above to avoid processing same records twice
                     {
                         skipFirstLine = false;
                         continue;
                     }
 
-                    var length = Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
-                    currentBytesRead += length;
-
                     currentIndex++;
 
-                    buffer.Add((content, currentIndex, length));
+                    buffer.Add((line, currentIndex, length));
 
                     if (buffer.Count < MaxBatchSize)
                     {
@@ -121,6 +119,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 _logger.LogInformation("Load resource from store complete.");
             }
+        }
+
+        private static async Task<(string line, int endOfLineLength)> ReadLine(StreamReader reader)
+        {
+            var endOfLineLength = 0;
+            var line = new StringBuilder();
+            var buffer = new char[1];
+            while (await reader.ReadAsync(buffer, 0, 1) > 0)
+            {
+                var currentChar = buffer[0];
+                if (currentChar == '\n')
+                {
+                    endOfLineLength = 1;
+                    break;
+                }
+                else if (currentChar == '\r')
+                {
+                    var nextChar = (char)reader.Peek();
+                    if (nextChar == '\n')
+                    {
+                        endOfLineLength = 2;
+                        await reader.ReadAsync(buffer, 0, 1);
+                        break;
+                    }
+                }
+
+                line.Append(currentChar);
+            }
+
+            return (line.ToString(), endOfLineLength); // output line is never null
         }
 
         private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, List<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
