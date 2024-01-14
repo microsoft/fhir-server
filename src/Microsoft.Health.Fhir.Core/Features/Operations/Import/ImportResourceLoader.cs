@@ -121,6 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
+        // This hadles both \n and \r\n line ends. It does not work with \r.
         private static async Task<(string line, int endOfLineLength)> ReadLine(StreamReader reader)
         {
             var endOfLineLength = 0;
