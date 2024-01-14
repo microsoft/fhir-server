@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportResourceLoader : IImportResourceLoader
     {
         private const int DefaultChannelMaxCapacity = 500;
-        private const int DefaultMaxBatchSize = 1000;
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -36,8 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
-
-        public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
@@ -88,22 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     currentIndex++;
 
-                    buffer.Add((line, currentIndex, length));
-
-                    if (buffer.Count < MaxBatchSize)
-                    {
-                        continue;
-                    }
-
-                    foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
-                    {
-                        await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
-                    }
-                }
-
-                foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
-                {
-                    await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
+                    await outputChannel.Writer.WriteAsync(ParseImportRawContent(resourceType, (line, currentIndex, length), offset, importMode), cancellationToken);
                 }
 
                 _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
@@ -152,36 +134,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return (line.ToString(), endOfLineLength); // output line is never null
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, List<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
+        private ImportResource ParseImportRawContent(string resourceType, (string Content, long Index, int Length) rawContent, long offset, ImportMode importMode)
         {
-            return await Task.Run(() =>
+            ImportResource importResource;
+            try
             {
-                var results = new List<ImportResource>();
+                importResource = _importResourceParser.Parse(rawContent.Index, offset, rawContent.Length, rawContent.Content, importMode);
 
-                foreach ((string content, long index, int length) in rawContents)
+                if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
                 {
-                    try
-                    {
-                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content, importMode);
-
-                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
-                        {
-                            throw new FormatException("Resource type not match.");
-                        }
-
-                        results.Add(importResource);
-                    }
-                    catch (Exception ex)
-                    {
-                        // May contains customer's data, no error logs here.
-                        results.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
-                    }
+                    throw new FormatException("Resource type not match.");
                 }
+            }
+            catch (Exception ex)
+            {
+                // May contains customer's data, no error logs here.
+                importResource = new ImportResource(rawContent.Index, offset, _importErrorSerializer.Serialize(rawContent.Index, ex, offset));
+            }
 
-                rawContents.Clear();
-
-                return results;
-            });
+            return importResource;
         }
     }
 }

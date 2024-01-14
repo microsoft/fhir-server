@@ -249,7 +249,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
 
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
-            loader.MaxBatchSize = batchSize;
 
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, (int)1e9, null, ImportMode.InitialLoad, CancellationToken.None);
 
