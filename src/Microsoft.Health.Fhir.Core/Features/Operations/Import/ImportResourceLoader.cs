@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             string leaseId = null;
+            long currentIndex = 0;
 
             try
             {
@@ -63,10 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
                 using var reader = new StreamReader(stream);
 
-                long currentIndex = 0;
                 long currentBytesRead = 0;
-                var buffer = new List<(string line, long index, int length)>();
-
                 var skipFirstLine = true;
                 while ((currentBytesRead <= bytesToRead) && !reader.EndOfStream)
                 {
@@ -87,11 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     await outputChannel.Writer.WriteAsync(ParseImportRawContent(resourceType, (line, currentIndex, length), offset, importMode), cancellationToken);
                 }
-
-                _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
             }
             finally
             {
+                _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
+
                 outputChannel.Writer.Complete();
 
                 if (!string.IsNullOrEmpty(leaseId))
