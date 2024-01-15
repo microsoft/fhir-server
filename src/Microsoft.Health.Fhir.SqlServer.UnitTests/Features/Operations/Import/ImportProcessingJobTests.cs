@@ -35,7 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         {
             foreach (var endOfLine in new[] { "\n", "\r\n" })
             {
-                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}E123456789{endOfLine}";
+                // extra empty line is supposed to be ignored
+                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}{endOfLine}E123456789{endOfLine}";
                 var blobLength = 50L + (5 * endOfLine.Length);
                 for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
                 {
