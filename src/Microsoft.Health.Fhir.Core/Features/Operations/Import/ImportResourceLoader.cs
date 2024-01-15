@@ -64,26 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
                 using var reader = new StreamReader(stream);
 
-                long currentBytesRead = 0;
-                var skipFirstLine = true;
-                while ((currentBytesRead <= bytesToRead) && !reader.EndOfStream)
+                foreach (var item in ReadLines(offset, bytesToRead, reader))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var (line, endOfLineLength) = await ReadLine(reader);
-
-                    var length = Encoding.UTF8.GetByteCount(line) + endOfLineLength;
-                    currentBytesRead += length;
-
-                    if (offset > 0 && skipFirstLine) // skip first line but make sure that its length is counted above to avoid processing same records twice
-                    {
-                        skipFirstLine = false;
-                        continue;
-                    }
-
                     currentIndex++;
-
-                    await outputChannel.Writer.WriteAsync(ParseImportRawContent(resourceType, (line, currentIndex, length), offset, importMode), cancellationToken);
+                    await outputChannel.Writer.WriteAsync(ParseImportRawContent(resourceType, (item.Line, currentIndex, item.Length), offset, importMode), cancellationToken);
                 }
             }
             finally
@@ -101,13 +85,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
+        internal static IEnumerable<(string Line, int Length)> ReadLines(long offset, long bytesToRead, StreamReader reader)
+        {
+            long currentBytesRead = 0;
+            var skipFirstLine = true;
+            while ((currentBytesRead <= bytesToRead) && !reader.EndOfStream)
+            {
+                var (line, endOfLineLength) = ReadLine(reader);
+
+                var length = Encoding.UTF8.GetByteCount(line) + endOfLineLength;
+                currentBytesRead += length;
+
+                if (offset > 0 && skipFirstLine) // skip first line but make sure that its length is counted above to avoid processing same records twice
+                {
+                    skipFirstLine = false;
+                    continue;
+                }
+
+                yield return (line, length);
+            }
+        }
+
         // This hadles both \n and \r\n line ends. It does not work with \r.
-        private static async Task<(string line, int endOfLineLength)> ReadLine(StreamReader reader)
+        internal static (string line, int endOfLineLength) ReadLine(StreamReader reader)
         {
             var endOfLineLength = 0;
             var line = new StringBuilder();
             var buffer = new char[1];
-            while (await reader.ReadAsync(buffer, 0, 1) > 0)
+            while (reader.Read(buffer, 0, 1) > 0)
             {
                 var currentChar = buffer[0];
                 if (currentChar == '\n')
@@ -121,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     if (nextChar == '\n')
                     {
                         endOfLineLength = 2;
-                        await reader.ReadAsync(buffer, 0, 1);
+                        reader.Read(buffer, 0, 1);
                         break;
                     }
                 }
