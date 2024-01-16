@@ -35,8 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         {
             foreach (var endOfLine in new[] { "\n", "\r\n" })
             {
-                // extra empty line is supposed to be ignored
-                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}{endOfLine}E123456789{endOfLine}";
+                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}E123456789{endOfLine}";
                 var blobLength = 50L + (5 * endOfLine.Length);
                 for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
                 {
@@ -56,57 +55,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     Assert.Equal(input.Replace(endOfLine, string.Empty), outputString.ToString());
                     Assert.Equal(5, outputLines);
                 }
-            }
-        }
-
-        [Fact]
-        public void GivenText_WhenAccessingByOffsetsIncorrectly_NotAllLinesAreRead()
-        {
-            var endOfLine = "\r\n";
-            var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}E123456789{endOfLine}";
-            var blobLength = 50L + (5 * endOfLine.Length);
-            var bytesToRead = 17;
-            var outputLines = 0;
-            var outputString = new StringBuilder();
-            foreach (var offset in ImportOrchestratorJob.GetOffsets(blobLength, bytesToRead))
-            {
-                using var reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input)));
-                reader.BaseStream.Position = offset;
-                foreach (var line in ReadLinesIncorrectly(offset, bytesToRead, reader))
-                {
-                    outputLines++;
-                    outputString.Append(line.Line);
-                }
-            }
-
-            Assert.NotEqual(input.Replace(endOfLine, string.Empty), outputString.ToString());
-        }
-
-        internal static IEnumerable<(string Line, int Length)> ReadLinesIncorrectly(long offset, long bytesToRead, StreamReader reader)
-        {
-            long currentBytesRead = 0;
-            var skipFirstLine = true;
-            var endOfStream = false;
-            while ((currentBytesRead <= bytesToRead) && !endOfStream)
-            {
-                var (line, endOfLineLength) = ImportResourceLoader.ReadLine(reader);
-
-                if (string.IsNullOrEmpty(line.ToString()))
-                {
-                    endOfStream = true;
-                    continue;
-                }
-
-                var length = Encoding.UTF8.GetByteCount(line) + endOfLineLength;
-                currentBytesRead += length;
-
-                if (offset > 0 && skipFirstLine) // skip first line but make sure that its length is counted above to avoid processing same records twice
-                {
-                    skipFirstLine = false;
-                    continue;
-                }
-
-                yield return (line, length);
             }
         }
 
