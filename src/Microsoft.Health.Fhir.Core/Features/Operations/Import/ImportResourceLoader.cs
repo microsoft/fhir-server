@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        // This hadles both \n and \r\n line ends. It does not work with \r.
+        // This handles both \n and \r\n line ends. It does not work with single \r.
         internal static (string line, int endOfLineLength) ReadLine(StreamReader reader)
         {
             var endOfLineLength = 0;
