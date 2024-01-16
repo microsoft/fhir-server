@@ -328,6 +328,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (mergeWrappers.Count > 0) // Do not call DB with empty input
             {
+                _logger.LogInformation("Profiling - MergeWrappers has resoures");
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
                     var retries = 0;
@@ -336,7 +337,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
+                            _logger.LogInformation("Profiling - Calling MergeResourcesWrapperAsync");
                             await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappers, enlistInTransaction, timeoutRetries, cancellationToken);
+                            _logger.LogInformation("Profiling - Finished MergeResourcesWrapperAsync");
                             break;
                         }
                         catch (Exception e)
@@ -346,10 +349,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             {
                                 _logger.LogWarning(e, $"Error on {nameof(MergeInternalAsync)} retries={{Retries}} timeoutRetries={{TimeoutRetries}}", retries, timeoutRetries);
                                 await _sqlRetryService.TryLogEvent(nameof(MergeInternalAsync), "Warn", $"retries={retries} timeoutRetries={timeoutRetries} error={e}", null, cancellationToken);
+                                _logger.LogInformation("Profiling - Errored so Waiting");
                                 await Task.Delay(5000, cancellationToken);
                                 continue;
                             }
 
+                            _logger.LogInformation("Profiling - Calling MergeResourcesCommitTransactionAsync");
                             await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, e.Message, cancellationToken);
                             throw;
                         }
@@ -358,7 +363,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
+                _logger.LogInformation("Profiling - Calling MergeResourcesCommitTransactionAsync");
                 await StoreClient.MergeResourcesCommitTransactionAsync(transactionId, "0 resources", cancellationToken);
+                _logger.LogInformation("Profiling - Finished MergeResourcesCommitTransactionAsync");
             }
 
             _logger.LogInformation("Profiling - Returning results from MergeInternalAsync");
