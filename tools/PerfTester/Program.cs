@@ -278,7 +278,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     {
                         var typeId = resourceId.Item2.First().ResourceTypeId;
                         var id = resourceId.Item2.First().ResourceId;
-                        var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), CancellationToken.None).Result.FirstOrDefault();
+                        var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), true, CancellationToken.None).Result.FirstOrDefault();
                         if (first == null)
                         {
                             Interlocked.Increment(ref errors);
