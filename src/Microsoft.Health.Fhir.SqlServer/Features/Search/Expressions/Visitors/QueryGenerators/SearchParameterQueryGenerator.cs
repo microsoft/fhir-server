@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName)
+                .Append(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true)).AppendLine()
                 .Append("AND ");
 
             return expression.Expression.AcceptVisitor(this, context);
@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
+                .Append(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true))
+                .Append(" ");
 
             return context;
         }
@@ -76,7 +77,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
+                .Append(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true))
+                .Append(" ");
 
             return context;
         }
@@ -119,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 context.StringBuilder.Append(')');
             }
 
-            context.StringBuilder.AppendLine();
+            context.StringBuilder.Append(" "); // Replaced CR by space keeping code "protection".
 
             return context;
         }
@@ -185,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(binaryOperator.ToString());
             }
 
-            context.StringBuilder.Append(context.Parameters.AddParameter(column, value, includeInParameterHash).ParameterName);
+            context.StringBuilder.Append(context.Parameters.AddParameter(column, value, includeInParameterHash));
 
             return context;
         }
@@ -202,17 +204,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 case StringOperator.Contains:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter containsParameter = context.Parameters.AddParameter(column, $"%{value}%", true);
-                    context.StringBuilder.Append(" LIKE ").Append(containsParameter.ParameterName);
+                    context.StringBuilder.Append(" LIKE ").Append(context.Parameters.AddParameter(column, $"%{value}%", true));
                     break;
                 case StringOperator.EndsWith:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter endWithParameter = context.Parameters.AddParameter(column, $"%{value}", true);
-                    context.StringBuilder.Append(" LIKE ").Append(endWithParameter.ParameterName);
+                    context.StringBuilder.Append(" LIKE ").Append(context.Parameters.AddParameter(column, $"%{value}", true));
                     break;
                 case StringOperator.Equals:
-                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value, true);
-                    context.StringBuilder.Append(" = ").Append(equalsParameter.ParameterName);
+                    context.StringBuilder.Append(" = ").Append(context.Parameters.AddParameter(column, value, true));
                     break;
                 case StringOperator.NotContains:
                     context.StringBuilder.Append(" NOT ");
@@ -225,13 +224,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     goto case StringOperator.StartsWith;
                 case StringOperator.StartsWith:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{value}%", true);
-                    context.StringBuilder.Append(" LIKE ").Append(startsWithParameter.ParameterName);
+                    context.StringBuilder.Append(" LIKE ").Append(context.Parameters.AddParameter(column, $"{value}%", true));
                     break;
                 case StringOperator.LeftSideStartsWith:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter leftParameter = context.Parameters.AddParameter(column, $"{value}", true);
-                    context.StringBuilder.Append(leftParameter.ParameterName).Append(" LIKE ");
+                    context.StringBuilder.Append(context.Parameters.AddParameter(column, $"{value}", true)).Append(" LIKE ");
                     AppendColumnName(context, column, expression);
                     context.StringBuilder.Append("+'%'");
                     break;
@@ -257,8 +254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     context.StringBuilder.Append(" AND ");
                     AppendColumnName(context, column, expression);
-                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value, true);
-                    context.StringBuilder.Append(" = ").Append(equalsParameter.ParameterName);
+                    context.StringBuilder.Append(" = ").Append(context.Parameters.AddParameter(column, value, true));
                 }
 
                 context.StringBuilder.Append(" COLLATE ").Append(expression.IgnoreCase ? DefaultCaseInsensitiveCollation : DefaultCaseSensitiveCollation);
@@ -284,7 +280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
-            context.StringBuilder.AppendLine(")");
+            context.StringBuilder.Append(") "); // Replaced CR by space keeping code "protection".
 
             return context;
         }

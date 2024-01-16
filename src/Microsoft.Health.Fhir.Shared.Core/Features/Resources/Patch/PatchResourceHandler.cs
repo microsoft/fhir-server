@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -22,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, UpsertResourceResponse>
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<PatchResourceHandler> _logger;
 
         public PatchResourceHandler(
             IMediator mediator,
@@ -29,11 +31,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            ILogger<PatchResourceHandler> logger)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _mediator = mediator;
+            _logger = logger;
         }
 
         public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
@@ -65,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             if (request.WeakETag != null && request.WeakETag.VersionId != currentDoc.Version)
             {
+                _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
             }
 

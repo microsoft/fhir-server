@@ -232,7 +232,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 partitionEliminationRewriter,
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
-                SqlConnectionBuilder,
                 SqlRetryService,
                 SqlServerDataStoreConfiguration,
                 SchemaInformation,

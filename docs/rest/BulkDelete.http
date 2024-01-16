@@ -28,7 +28,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ### Record Bulk Delete content location
 @bulkDeleteLocation = {{bulkDelete.response.headers.Content-Location}}
 
-### Bulk Delete with search parameteres
+### Bulk Delete with search parameteres. This also sets data up for the soft deleted sample below.
 # @name bulkDelete
 DELETE https://{{hostname}}/$bulk-delete?_tag=oldData
 Prefer: respond-async
@@ -46,9 +46,16 @@ DELETE https://{{hostname}}/$bulk-delete?_tag=oldData&_purgeHistory=true
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 
-### Bulk Delete Encounters with hard delete
+### Bulk Delete Patient with hard delete
 # @name bulkDelete
-DELETE https://{{hostname}}/Encounter/$bulk-delete?_hardDelete=true
+DELETE https://{{hostname}}/Patient/$bulk-delete?_tag=oldData&_hardDelete=true
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Bulk Delete soft deleted resources. Run the $bulk-delete sample above to setup data for this test.
+# Since this test can't use _tag it will delete all soft deleted data in the database.
+# @name bulkDelete
+DELETE https://{{hostname}}/$bulk-delete-soft-deleted
 Prefer: respond-async
 Authorization: Bearer {{bearer.response.body.access_token}}
 

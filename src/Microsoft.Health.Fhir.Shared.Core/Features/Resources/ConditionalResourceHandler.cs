@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -26,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
         where TRequest : ConditionalResourceRequest<TResponse>
     {
         private readonly ISearchService _searchService;
+        private readonly ILogger<ConditionalResourceHandler<TRequest, TResponse>> _logger;
 
         protected ConditionalResourceHandler(
              ISearchService searchService,
@@ -33,12 +35,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
              Lazy<IConformanceProvider> conformanceProvider,
              IResourceWrapperFactory resourceWrapperFactory,
              ResourceIdProvider resourceIdProvider,
-             IAuthorizationService<DataActions> authorizationService)
+             IAuthorizationService<DataActions> authorizationService,
+             ILogger<ConditionalResourceHandler<TRequest, TResponse>> logger)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchService = searchService;
+            _logger = logger;
         }
 
         public async Task<TResponse> Handle(TRequest request, CancellationToken cancellationToken)
@@ -50,20 +55,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                 throw new UnauthorizedFhirActionException();
             }
 
-            var matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
+            var matchedResults = await _searchService.ConditionalSearchAsync(
+                request.ResourceType,
+                request.ConditionalParameters,
+                cancellationToken,
+                logger: _logger);
 
             int count = matchedResults.Results.Count;
             if (count == 0)
             {
-                return await HandleNoMatch(request,  cancellationToken);
+                _logger.LogInformation("Conditional handler: Not Match. ResourceType={ResourceType}", request.ResourceType);
+                return await HandleNoMatch(request, cancellationToken);
             }
             else if (count == 1)
             {
+                _logger.LogInformation("Conditional handler: One Match Found. ResourceType={ResourceType}", request.ResourceType);
                 return await HandleSingleMatch(request, matchedResults.Results.First(), cancellationToken);
             }
             else
             {
                 // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
+                _logger.LogInformation("PreconditionFailed - Conditional handler: Multiple Matches Found. ResourceType={ResourceType}, NumberOfMatches={NumberOfMatches}", request.ResourceType, count);
                 throw new PreconditionFailedException(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalOperationNotSelectiveEnough, request.ResourceType));
             }
         }

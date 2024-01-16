@@ -133,6 +133,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpGet]
+        [Route(KnownRoutes.BulkDeleteSoftDeletedOperationDefinition, Name = RouteNames.BulkDeleteSoftDeletedDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> BulkDeleteSoftDeletedOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.BulkDeleteSoftDeleted);
+        }
+
+        [HttpGet]
         [Route(KnownRoutes.SearchParametersStatusQueryDefintion, Name = RouteNames.SearchParameterStatusOperationDefinition)]
         [AllowAnonymous]
         public async Task<IActionResult> SearchParameterStatusOperationDefintion()

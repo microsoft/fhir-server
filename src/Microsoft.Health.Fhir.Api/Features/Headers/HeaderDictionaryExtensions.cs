@@ -22,15 +22,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         {
             retryAfterTimeSpan ??= TimeSpan.FromSeconds(1); // in case this is missing, provide some value so we that the header is always there
 
-            responseHeaders.Add(
-                KnownHeaders.RetryAfterMilliseconds,
-                ((int)retryAfterTimeSpan.Value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+            responseHeaders[KnownHeaders.RetryAfterMilliseconds] = ((int)retryAfterTimeSpan.Value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture);
 
             int retryAfterSeconds = retryAfterTimeSpan == default ? 0 : Math.Max(1, (int)Math.Round(retryAfterTimeSpan.Value.TotalSeconds));
 
-            responseHeaders.Add(
-                KnownHeaders.RetryAfter,
-                retryAfterSeconds.ToString(CultureInfo.InvariantCulture));
+            responseHeaders[KnownHeaders.RetryAfter] = retryAfterSeconds.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

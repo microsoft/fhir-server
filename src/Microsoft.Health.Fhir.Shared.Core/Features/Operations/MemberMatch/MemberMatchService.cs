@@ -124,14 +124,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             return result;
         }
 
-        private Expression CreateSearchExpression(ResourceElement coverage, ResourceElement patient)
+        private MultiaryExpression CreateSearchExpression(ResourceElement coverage, ResourceElement patient)
         {
-            var coverageValues = _searchIndexer.Extract(coverage);
-            var patientValues = _searchIndexer.Extract(patient);
+            IReadOnlyCollection<SearchIndexEntry> coverageValues = _searchIndexer.Extract(coverage);
+            IReadOnlyCollection<SearchIndexEntry> patientValues = _searchIndexer.Extract(patient);
             var expressions = new List<Expression>();
             var reverseChainExpressions = new List<Expression>();
             expressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.Patient, false)));
-            foreach (var patientValue in patientValues)
+            foreach (SearchIndexEntry patientValue in patientValues)
             {
                 if (IgnoreInSearch(patientValue))
                 {
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     reverseChainedExpression = Expression.And(reverseChainExpressions);
                 }
 
-                var expression = Expression.Chained(new[] { KnownResourceTypes.Coverage }, _coverageBeneficiaryParameter, new[] { KnownResourceTypes.Patient }, true, reverseChainedExpression);
+                ChainedExpression expression = Expression.Chained(new[] { KnownResourceTypes.Coverage }, _coverageBeneficiaryParameter, new[] { KnownResourceTypes.Patient }, true, reverseChainedExpression);
                 expressions.Add(expression);
             }
 

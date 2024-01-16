@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -367,6 +366,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                     expectStartTimeValue ? dateTimeSearchValue.Start : dateTimeSearchValue.End));
         }
 
+#if NET8_0_OR_GREATER
         [Theory]
         [InlineData("2016", "2015-11-25T12:00:00.0000000+00:00", "2017-02-06T11:59:59.9999999+00:00")]
         [InlineData("2016-02", "2015-11-25T21:36:00.0000000+00:00", "2016-05-07T02:23:59.9999999+00:00")]
@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("2220-02-01T10:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
         public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string dateTimeInput, string expectedStartValue, string expectedEndValue)
         {
-            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
+            using (Mock.Property(() => ClockResolver.TimeProvider, new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.Parse("2018-01-01T00:00Z"))))
             {
                 var partialDateTime = PartialDateTime.Parse(dateTimeInput);
                 var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
@@ -396,6 +396,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                         e1 => ValidateDateTimeBinaryOperatorExpression(e1, FieldName.DateTimeEnd, BinaryOperator.LessThanOrEqual, DateTimeOffset.Parse(expectedEndValue))));
             }
         }
+#endif
 
         [Theory]
         [MemberData(nameof(GetAllModifiersExceptMissing))]

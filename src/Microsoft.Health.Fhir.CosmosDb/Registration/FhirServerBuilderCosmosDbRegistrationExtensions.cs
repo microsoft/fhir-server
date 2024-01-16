@@ -217,11 +217,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<QueryPartitionStatisticsCache>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();

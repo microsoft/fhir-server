@@ -219,7 +219,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirRequestContextAccessor,
                 _cosmosDataStoreConfiguration,
                 cosmosDbPhysicalPartitionInfo,
-                new QueryPartitionStatisticsCache(),
                 compartmentSearchRewriter,
                 smartCompartmentSearchRewriter,
                 NullLogger<FhirCosmosSearchService>.Instance);
