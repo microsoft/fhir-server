@@ -31,11 +31,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
     public class ImportProcessingJobTests
     {
         [Fact]
+        public void GivenTextWithDifferentEndOfLines_WhenAccessingByOffsets_AllLinesAreRead()
+        {
+            var input = $"A123456789{"\n"}B123456789{"\r\n"}C123456789{"\n"}D123456789{"\r\n"}E123456789{"\n"}F123456789{"\r\n"}";
+            var blobLength = input.Length;
+            for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
+            {
+                var outputLines = 0;
+                var outputString = new StringBuilder();
+                foreach (var offset in ImportOrchestratorJob.GetOffsets(blobLength, bytesToRead))
+                {
+                    using var reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input)));
+                    reader.BaseStream.Position = offset;
+                    foreach (var line in ImportResourceLoader.ReadLines(offset, bytesToRead, reader))
+                    {
+                        outputLines++;
+                        outputString.Append(line.Line);
+                    }
+                }
+
+                Assert.Equal(input.Replace("\r\n", string.Empty).Replace("\n", string.Empty), outputString.ToString());
+                Assert.Equal(6, outputLines);
+            }
+        }
+
+        [Fact]
         public void GivenText_WhenAccessingByOffsets_AllLinesAreRead()
         {
             foreach (var endOfLine in new[] { "\n", "\r\n" })
             {
-                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}E123456789{endOfLine}";
+                // this will also check that empty lines are not read
+                var input = $"A123456789{endOfLine}B123456789{endOfLine}C123456789{endOfLine}D123456789{endOfLine}{endOfLine}E123456789{endOfLine}";
                 var blobLength = 50L + (5 * endOfLine.Length);
                 for (var bytesToRead = 1; bytesToRead < 100; bytesToRead++)
                 {

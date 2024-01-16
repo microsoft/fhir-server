@@ -102,7 +102,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     continue;
                 }
 
-                yield return (line, length);
+                if (line.Length > 0) // skip empty lines
+                {
+                    yield return (line, length);
+                }
             }
         }
 
