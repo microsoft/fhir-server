@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public sealed class BundleOrchestratorOperation : IBundleOrchestratorOperation
     {
-        private const int EscapeConditionInSeconds = 120;
+        private const int EscapeConditionInSeconds = 100;
         private const int DelayTimeInMilliseconds = 10;
 
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
@@ -149,6 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     if (countOfResourcesFound == 1)
                     {
                         // Edge Case scenario: resource was updated by another bundle concurrently, but it was also updated by the current bundle, increasing its version.
+                        _logger.LogWarning($"Edge Case scenario: resource was updated by another request concurrently.");
                         dataStoreOperationOutcome = ingestedResourcesById[0].Value;
                     }
                     else if (countOfResourcesFound == 0)
@@ -255,8 +256,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             try
             {
-                // Adding an escape condition to stop the looping just in case something goes wrong.
-                // It gives an additional level of security limiting this looping from running forever.
+                // 1 - Wait for pending resources to be appended to the operation.
                 using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(EscapeConditionInSeconds)))
                 {
                     var escapeConditionCancellationToken = cancellationTokenSource.Token;
@@ -264,6 +264,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     {
                         if (escapeConditionCancellationToken.IsCancellationRequested)
                         {
+                            // Escape condition to stop the looping in case something goes wrong.
+                            // It gives an additional level of security limiting this looping from running forever.
+                            SetStatusSafe(BundleOrchestratorOperationStatus.Canceled);
+
                             _logger.LogError($"Escape condition reached. Looping running for at least {EscapeConditionInSeconds} seconds.");
                             escapeConditionCancellationToken.ThrowIfCancellationRequested();
                         }
@@ -311,10 +315,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                     // Bundle Orchestrator operations will not enlist to C# transactions.
                     // The database will be responsible for handling it internally.
                     MergeOptions mergeOptions = new MergeOptions(enlistTransaction: false);
+
+                    // 2 - Merge all resources in the data base.
                     IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome> response = await _dataStore.MergeAsync(_resources.Values.ToList(), mergeOptions, cancellationToken);
 
                     SetStatusSafe(BundleOrchestratorOperationStatus.Completed);
 
+                    // 3 - Return all resources processed during the operation.
                     return response;
                 }
             }

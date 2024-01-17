@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             const int numberOfParallelBundles = 4;
             const int numberOfPatientsPerBundle = 4;
+            const int maxExpectedVersion = numberOfParallelBundles + 1;
             const int totalNumberOfExpectedPatients = numberOfParallelBundles * numberOfPatientsPerBundle;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -182,6 +183,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     {
                         uniquePatientIds.Add(item.Resource.Id);
                     }
+
+                    long version = Convert.ToInt64(item.Resource.VersionId);
+                    Assert.True(
+                        version >= 2 && version <= maxExpectedVersion,
+                        $"Versions are expected to be >= than 2 and <= than {maxExpectedVersion} at this point. Current version is {version}.");
                 }
             }
 
