@@ -125,8 +125,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_count=0");
 
             // 9 versions total for all resources.
+            if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
+            {
+                Console.Write(await GetSummaryMessage($"/_history?_since={sinceTime}"));
+            }
+
             Assert.Equal(9, allSummaryCountResult.Resource.Total);
             Assert.Equal(9, allSummaryCountZero.Resource.Total);
+
+            if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
+            {
+                Console.Write(await GetSummaryMessage($"/Observation/_history?_since={sinceTime}"));
+            }
 
             // 5 versions across only observations (first one create, update, delete - second create, update).
             Assert.Equal(5, allObservationSummaryCountResult.Resource.Total);
@@ -138,6 +148,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Cleanup
             await _client.DeleteAsync(thirdTestResource);
+
+            async Task<string> GetSummaryMessage(string url)
+            {
+                var resources = await _client.SearchAsync(url);
+                string output = "Resource count doesn't match:" + Environment.NewLine;
+
+                foreach (var resource in resources.Resource.Entry)
+                {
+                    output += $"Type: {resource.Resource.TypeName}, Id: {resource.Resource.Id}, Last Updated: {resource.Resource.Meta.LastUpdated.Value.ToString("o")}, Version: {resource.Resource.Meta.VersionId}." + Environment.NewLine;
+                }
+
+                return output;
+            }
         }
 
         [Fact]
