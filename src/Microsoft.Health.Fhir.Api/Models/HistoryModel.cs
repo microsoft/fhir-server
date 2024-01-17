@@ -23,6 +23,9 @@ public class HistoryModel
     [FromQuery(Name = KnownQueryParameterNames.Count)]
     public int? Count { get; set; }
 
+    [FromQuery(Name = KnownQueryParameterNames.Summary)]
+    public string Summary { get; set; }
+
     [FromQuery(Name = KnownQueryParameterNames.ContinuationToken)]
     public string ContinuationToken { get; set; }
 
