@@ -525,13 +525,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-    if (HasTypeReference(searchParamTableExpression))
-    {
-     AppendHistoryClause(delimited, context.ResourceVersionTypes);
-    }
+                if (HasTypeReference(searchParamTableExpression))
+                {
+                     AppendHistoryClause(delimited, context.ResourceVersionTypes);
+                }
 
-
-    if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
+                if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
                     // if chainLevel > 0 or if in sort mode or if we need to simplify the query, the intersection is already handled in a JOIN
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
