@@ -525,7 +525,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes);
+                if (!searchParamTableExpression.QueryGenerator.Table.TableName.EndsWith("SearchParam", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes);
+                }
 
                 if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
@@ -736,8 +739,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
                     .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url), true));
 
+                // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
                 AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceSourceTableAlias);
 
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                     .Append(" IN (")
