@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             extraResource3.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
             await _client.UpdateAsync(extraResource3.Resource);
 
-            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(-1).ToString("o"));
+            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.ToString("o"));
 
             var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
             var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
