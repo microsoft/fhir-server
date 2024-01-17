@@ -35,9 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallelOnCosmosDb()
+        public async Task GivenABundleWithConditionalUpdateByReference_WhenExecutedWithMaximizedConditionalQueryParallelism_RunsTheQueryInParallel()
         {
             // #conditionalQueryParallelism
 
@@ -98,7 +97,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task WhenProcessingMultipleBundlesWithTheSameResource_AndIncreasingTheExpectedVersionInParallel_ThenUpdateTheResourcesAsExpected()
         {

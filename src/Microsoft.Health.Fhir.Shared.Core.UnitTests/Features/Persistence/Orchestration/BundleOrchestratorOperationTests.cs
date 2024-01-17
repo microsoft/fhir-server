@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             // Long running test.
 
-            // A security exit clause in Bundle Orchestrator Operation throws a TaskCanceledException after 100 seconds waiting for recourses.
+            // A security exit clause in Bundle Orchestrator Operation throws a TaskCanceledException after 100 seconds waiting for resources.
             // This security exit clause was added to avoid a looping running forever, while resources are not appended.
 
             // In this test, to simulate that scenario, a bundle operation is created expecting 10 resources, but only one is appended.
