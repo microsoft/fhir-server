@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
 {
     public sealed class BundleOrchestratorOperation : IBundleOrchestratorOperation
     {
+        private const int EscapeConditionInSeconds = 120;
         private const int DelayTimeInMilliseconds = 10;
 
         private static readonly BundleResourceContextComparer _contextComparer = new BundleResourceContextComparer();
@@ -254,13 +255,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
         {
             try
             {
-                do
+                // Adding an escape condition to stop the looping just in case something goes wrong.
+                // It gives an additional level of security limiting this looping from running forever.
+                using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(EscapeConditionInSeconds)))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    var escapeConditionCancellationToken = cancellationTokenSource.Token;
+                    do
+                    {
+                        if (escapeConditionCancellationToken.IsCancellationRequested)
+                        {
+                            _logger.LogError($"Escape condition reached. Looping running for at least {EscapeConditionInSeconds} seconds.");
+                            escapeConditionCancellationToken.ThrowIfCancellationRequested();
+                        }
 
-                    await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        await Task.Delay(millisecondsDelay: DelayTimeInMilliseconds, cancellationToken);
+                    }
+                    while (_resources.Count != CurrentExpectedNumberOfResources);
                 }
-                while (_resources.Count != CurrentExpectedNumberOfResources);
 
                 if (CurrentExpectedNumberOfResources == 0)
                 {
