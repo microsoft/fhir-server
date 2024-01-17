@@ -97,31 +97,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
-            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.ToString("o"));
+            var firstTestResource = (await _client.ReadAsync<Observation>($"/Observation/{_createdResource.Resource.Id}")).Resource;
+            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.ToString("o"));
 
             // 3 versions, 2 history 1 delete
-            _createdResource.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
-            await _client.UpdateAsync(_createdResource.Resource);
-            await _client.DeleteAsync(_createdResource.Resource);
+            firstTestResource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
+            await _client.UpdateAsync(firstTestResource);
+            await _client.DeleteAsync(firstTestResource);
 
             // 3 base exta resources
             await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
-            var extraResource2 = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
-            var extraResource3 = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            var secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
+            var thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
 
             // 3 more versions on the extras
-            extraResource2.Resource.BirthDate = "2022-12-02";
-            await _client.UpdateAsync(extraResource2.Resource);
-            await _client.DeleteAsync(extraResource2.Resource);
-            extraResource3.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
-            await _client.UpdateAsync(extraResource3.Resource);
+            secondTestResource.BirthDate = "2022-12-02";
+            await _client.UpdateAsync(secondTestResource);
+            await _client.DeleteAsync(secondTestResource);
+            thirdTestResource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
+            await _client.UpdateAsync(thirdTestResource);
 
             var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
             var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
             var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_summary=count");
             var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_count=0");
-            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_summary=count");
-            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_count=0");
 
             // 9 versions total for all resources.
             Assert.Equal(9, allSummaryCountResult.Resource.Total);
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(3, observationSummaryCountZero.Resource.Total);
 
             // Cleanup
-            await _client.DeleteAsync(extraResource3.Resource);
+            await _client.DeleteAsync(thirdTestResource);
         }
 
         [Fact]
