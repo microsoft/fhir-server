@@ -128,19 +128,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
             {
                 Console.Write(await GetSummaryMessage($"/_history?_since={sinceTime}"));
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. allSummaryCountZero {allSummaryCountZero.Resource.Total}");
             }
-
-            Assert.Equal(9, allSummaryCountResult.Resource.Total);
-            Assert.Equal(9, allSummaryCountZero.Resource.Total);
 
             if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
             {
                 Console.Write(await GetSummaryMessage($"/Observation/_history?_since={sinceTime}"));
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}");
             }
-
-            // 5 versions across only observations (first one create, update, delete - second create, update).
-            Assert.Equal(5, allObservationSummaryCountResult.Resource.Total);
-            Assert.Equal(5, allObservationSummaryCountZero.Resource.Total);
 
             // 3 versions across single observation (create, update, delete).
             Assert.Equal(3, observationSummaryCountResult.Resource.Total);
