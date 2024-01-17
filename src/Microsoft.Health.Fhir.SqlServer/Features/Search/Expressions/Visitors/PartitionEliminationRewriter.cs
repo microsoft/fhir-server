@@ -71,7 +71,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // Look for primary key continuation token (PrimaryKeyParameter) or _type parameters
+
             int primaryKeyValueIndex = -1;
+            bool hasTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
                 SearchParameterInfo parameter = expression.ResourceTableExpressions[i].Parameter;
@@ -80,16 +82,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     primaryKeyValueIndex = i;
                 }
+                else if (ReferenceEquals(parameter, _resourceTypeSearchParameter))
+                {
+                    hasTypeRestriction = true;
+                }
             }
 
             if (primaryKeyValueIndex < 0)
             {
-                return expression;
+                // no continuation token
+
+                if (hasTypeRestriction)
+                {
+                    // This is already constrained to be one or more resource types.
+                    return expression;
+                }
+
+                // Explicitly allow all resource types. SQL tends to create far better query plans than when there is no filter on ResourceTypeId.
+
+                var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
+                updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
+                updatedResourceTableExpressions.Add(GetAllTypesExpression());
+
+                return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
             }
 
             // There is a primary key continuation token.
             // Now look at the _type restrictions to construct a PrimaryKeyRange
             // that has only the allowed types.
+
             var primaryKeyParameter = (SearchParameterExpression)expression.ResourceTableExpressions[primaryKeyValueIndex];
 
             (short? singleAllowedResourceTypeId, BitArray allowedTypes) = TypeConstraintVisitor.Instance.Visit(expression, _model);
