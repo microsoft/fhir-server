@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
+            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.ToString("o"));
+
             // 3 versions, 2 history 1 delete
             _createdResource.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
             await _client.UpdateAsync(_createdResource.Resource);
@@ -113,8 +115,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.DeleteAsync(extraResource2.Resource);
             extraResource3.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
             await _client.UpdateAsync(extraResource3.Resource);
-
-            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.ToString("o"));
 
             var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
             var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
@@ -134,6 +134,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // 3 versions across single observation (create, update, delete).
             Assert.Equal(3, observationSummaryCountResult.Resource.Total);
             Assert.Equal(3, observationSummaryCountZero.Resource.Total);
+
+            // Cleanup
+            await _client.DeleteAsync(extraResource3.Resource);
         }
 
         [Fact]
