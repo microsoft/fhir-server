@@ -40,7 +40,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, false, 1, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: false,
+                count: 1,
+                mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -55,7 +60,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, true, 1, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(
+                KnownResourceTypes.Observation,
+                DefaultSearchParams,
+                hardDelete: true,
+                count: 1,
+                mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -126,7 +136,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapperOperation>(0).Wrapper, SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count, bundleResourceContext: null);
+            var message = new ConditionalDeleteResourceRequest(
+                resourceType,
+                list,
+                hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
+                count,
+                bundleResourceContext: null);
 
             return message;
         }

@@ -14,6 +14,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\AzureStorageBlobHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkDeleteTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleEdgeCaseTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleTransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
@@ -24,7 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\StartupWithTraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\TraceAuditLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\BasicAuthTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\BatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\BundleBatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CompartmentTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
@@ -32,10 +34,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\EverythingOperationTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportDataValidationTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportDataValidationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportDataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportDataTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportRebuildIndexesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestStorageAccount.cs" />
@@ -68,7 +70,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\ExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HealthTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HistoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\HttpIntegrationTestFixture.cs" />
@@ -116,12 +118,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\StartupForExportTestProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Export\StartupForExportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />

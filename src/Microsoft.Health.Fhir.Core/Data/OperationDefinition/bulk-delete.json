@@ -25,7 +25,7 @@
             "use": "in",
             "min": 0,
             "max": "1",
-            "documentation": "A boolean flag to indicate whether the resources' historical versions should be removed from the database. Setting this flag removes the affected resources' historical records but leaves the current verisons. Must be used with the hardDelete parameter.",
+            "documentation": "A boolean flag to indicate whether the resources' historical versions should be removed from the database. Setting this flag removes the affected resources' historical records but leaves the current verisons.",
             "type": "boolean"
         }
     ]

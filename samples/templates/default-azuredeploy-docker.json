@@ -283,7 +283,8 @@
         "sqlSkuCapacity": "[if(variables('isSqlHyperscaleTier'), 2, 50)]",
         "sqlSkuFamily": "[if(variables('isSqlHyperscaleTier'), 'Gen5', '')]",
         "sqlSkuName": "[if(variables('isSqlHyperscaleTier'), 'HS_Gen5', 'Standard')]",
-        "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]"
+        "sqlSkuTier": "[if(variables('isSqlHyperscaleTier'), 'Hyperscale', 'Standard')]",
+        "keyVaultRoleName": "[concat('Key Vault Secrets Officer-', variables('serviceName'))]"
     },
     "resources": [
         {
@@ -497,7 +498,7 @@
         {
             "type": "Microsoft.KeyVault/vaults",
             "name": "[variables('serviceName')]",
-            "apiVersion": "2015-06-01",
+            "apiVersion": "2022-07-01",
             "location": "[resourceGroup().location]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
@@ -521,11 +522,36 @@
                         }
                     }
                 ],
+                "enableRbacAuthorization": true,
                 "enabledForDeployment": false
             },
             "dependsOn": [
                 "[variables('appServiceResourceId')]"
             ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString(variables('keyVaultRoleName'), parameters('fhirVersion'), variables('serviceName'))))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
+                "principalId": "[reference(variables('appServiceResourceId'), '2015-08-01', 'Full').Identity.principalId]"
+            }
+        },
+                {
+            "type": "Microsoft.KeyVault/vaults/providers/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[concat(variables('serviceName'), '/Microsoft.Authorization/', guid(uniqueString('Reader', parameters('fhirVersion'), variables('serviceName'))))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
+                "principalId": "b542f965-4eec-4682-8999-78dd501df864"
+            }
         },
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",

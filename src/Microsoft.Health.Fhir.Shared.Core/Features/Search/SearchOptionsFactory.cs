@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly CoreFeatureConfiguration _featureConfiguration;
-        private readonly List<string> _timeTravelParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
+        private readonly HashSet<string> _queryHintParameterNames = new() { KnownQueryParameterNames.GlobalEndSurrogateId, KnownQueryParameterNames.EndSurrogateId, KnownQueryParameterNames.GlobalStartSurrogateId, KnownQueryParameterNames.StartSurrogateId };
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -82,14 +82,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
             bool isAsyncOperation = false,
-            bool useSmartCompartmentDefinition = false)
+            bool useSmartCompartmentDefinition = false,
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
         {
             var searchOptions = new SearchOptions();
 
             if (queryParameters != null && queryParameters.Any(_ => _.Item1 == KnownQueryParameterNames.GlobalEndSurrogateId && _.Item2 != null))
             {
                 var queryHint = new List<(string param, string value)>();
-                foreach (var par in queryParameters.Where(_ => _.Item1 == KnownQueryParameterNames.Type || _timeTravelParameterNames.Contains(_.Item1)))
+
+                foreach (var par in queryParameters.Where(x => x.Item1 == KnownQueryParameterNames.Type || _queryHintParameterNames.Contains(x.Item1)))
                 {
                     queryHint.Add((par.Item1, par.Item2));
                 }
@@ -107,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             // Exclude time travel parameters from evaluation to avoid warnings about unsupported parameters
-            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_timeTravelParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
+            foreach (Tuple<string, string> query in queryParameters?.Where(_ => !_queryHintParameterNames.Contains(_.Item1)) ?? Enumerable.Empty<Tuple<string, string>>())
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
@@ -182,6 +184,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     else
                     {
                         throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, SupportedTotalTypes));
+                    }
+                }
+                else if (query.Item1 == KnownQueryParameterNames.Count && Convert.ToInt32(query.Item2) == 0)
+                {
+                    try
+                    {
+                        searchParams.Add(KnownQueryParameterNames.Summary, SummaryType.Count.ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new BadRequestException(ex.Message);
                     }
                 }
                 else
@@ -420,6 +433,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
             }
+
+            searchOptions.ResourceVersionTypes = resourceVersionTypes;
 
             // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
             // depending on the state of the "Prefer" header.

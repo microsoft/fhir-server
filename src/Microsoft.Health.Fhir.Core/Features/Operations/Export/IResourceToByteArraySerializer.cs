@@ -19,6 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// <returns>The serialized bytes.</returns>
         byte[] Serialize(ResourceElement resourceElement);
 
-        string StringSerialize(ResourceElement resourceElement);
+        string StringSerialize(ResourceElement resourceElement, bool addSoftDeletedExtension = false);
     }
 }

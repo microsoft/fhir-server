@@ -14,8 +14,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportUsingAcrTests.cs" Link="Rest\AnonymizedExportUsingAcrTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportUsingAcrTests.cs" Link="Rest\Export\AnonymizedExportUsingAcrTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\Export\AnonymizedExportTests.cs" Link="Rest\Export\AnonymizedExportTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
