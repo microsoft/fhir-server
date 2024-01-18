@@ -129,7 +129,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
                 _mediator,
-                _router,
                 NullLogger<BundleHandler>.Instance);
         }
 
