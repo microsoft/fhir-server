@@ -5094,37 +5094,6 @@ BEGIN CATCH
 END CATCH
 
 GO
-DECLARE @Objects TABLE (
-    Name VARCHAR (100) PRIMARY KEY);
-
-INSERT INTO @Objects
-SELECT name
-FROM   sys.objects
-WHERE  type = 'u'
-       AND name LIKE '%SearchParam';
-
-DECLARE @Tbl AS VARCHAR (100), @TblTable AS VARCHAR (100), @SQL AS VARCHAR (MAX);
-
-WHILE EXISTS (SELECT *
-              FROM   @Objects)
-    BEGIN
-        SET @Tbl = (SELECT TOP 1 Name
-                    FROM   @Objects);
-        SET @TblTable = @Tbl + '_Table';
-        SET @SQL = '';
-        SELECT   TOP 100 @SQL = @SQL + CASE WHEN @SQL <> '' THEN ',' ELSE '' END + CASE WHEN name = 'IsHistory' THEN 'IsHistory = convert(bit,0)' ELSE name END
-        FROM     sys.columns
-        WHERE    object_id = object_id(@Tbl)
-        ORDER BY column_id;
-        SET @SQL = 'CREATE VIEW ' + @Tbl + ' AS SELECT ' + @SQL + ' FROM ' + @TblTable;
-        BEGIN TRANSACTION;
-        EXECUTE sp_rename @Tbl, @TblTable;
-        EXECUTE (@SQL);
-        COMMIT TRANSACTION;
-        DELETE @Objects
-        WHERE  Name = @Tbl;
-    END
-
 GO
 CREATE OR ALTER PROCEDURE dbo.UpdateEventAgentCheckpoint
 @CheckpointId VARCHAR (64), @LastProcessedDateTime DATETIMEOFFSET (7)=NULL, @LastProcessedIdentifier VARCHAR (64)=NULL
