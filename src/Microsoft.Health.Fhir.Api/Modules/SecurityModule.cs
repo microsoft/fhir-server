@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     var policy = new AuthorizationPolicyBuilder()
                         .RequireAuthenticatedUser()
                         .Build();
+
                     mvcOptions.Filters.Add(new AuthorizeFilter(policy));
                 });
 

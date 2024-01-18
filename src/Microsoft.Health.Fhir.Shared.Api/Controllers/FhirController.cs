@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
+    [ServiceFilter(typeof(QueryLatencyOverEfficiencyFilterAttribute))]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
     public class FhirController : Controller
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
 
-            SetupRequestContextWithConditionalQueryMaxParallelism();
+            SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
@@ -230,7 +231,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
-            SetupRequestContextWithConditionalQueryMaxParallelism();
+            SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
@@ -435,7 +436,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            SetupRequestContextWithConditionalQueryMaxParallelism();
+            SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             DeleteResourceResponse response = await _mediator.Send(
                 new ConditionalDeleteResourceRequest(
@@ -496,7 +497,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new JsonPatchPayload(patchDocument);
 
-            SetupRequestContextWithConditionalQueryMaxParallelism();
+            SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
                 new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
@@ -541,7 +542,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
             var payload = new FhirPathPatchPayload(paramsResource);
 
-            SetupRequestContextWithConditionalQueryMaxParallelism();
+            SetupConditionalRequestWithQueryOptimizeConcurrency();
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(
                 new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, GetBundleResourceContext(), ifMatchHeader),
@@ -690,7 +691,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return null;
         }
 
-        private void SetupRequestContextWithConditionalQueryMaxParallelism()
+        private void SetupConditionalRequestWithQueryOptimizeConcurrency()
         {
             if (HttpContext?.Request?.Headers != null && _fhirRequestContextAccessor != null)
             {

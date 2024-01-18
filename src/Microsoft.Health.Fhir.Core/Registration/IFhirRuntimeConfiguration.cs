@@ -28,5 +28,10 @@ namespace Microsoft.Health.Fhir.Core.Registration
         /// Support to transactions.
         /// </summary>
         bool IsTransactionSupported { get; }
+
+        /// <summary>
+        /// Supports the 'latency-over-efficiency' HTTP header.
+        /// </summary>
+        bool IsLatencyOverEfficiencySupported { get; }
     }
 }
