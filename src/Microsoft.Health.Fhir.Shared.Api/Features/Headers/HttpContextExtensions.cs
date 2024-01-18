@@ -19,19 +19,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
     public static class HttpContextExtensions
     {
         /// <summary>
-        /// Retrieves from the HTTP header information about the conditional-query processing logic to be adopted.
+        /// Retrieves from the HTTP header if "Latency over efficiency" is enabled.
         /// </summary>
         /// <param name="outerHttpContext">HTTP context</param>
-        public static ConditionalQueryProcessingLogic GetConditionalQueryProcessingLogic(this HttpContext outerHttpContext)
+        public static bool IsLatencyOverEfficiencyEnabled(this HttpContext outerHttpContext)
         {
-            var defaultValue = ConditionalQueryProcessingLogic.Sequential;
+            const bool defaultValue = false;
 
             if (outerHttpContext == null)
             {
                 return defaultValue;
             }
 
-            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.ConditionalQueryProcessingLogic, out StringValues headerValues))
+            if (outerHttpContext.Request.Headers.TryGetValue(KnownHeaders.QueryLatencyOverEfficiency, out StringValues headerValues))
             {
                 string processingLogicAsString = headerValues.FirstOrDefault();
                 if (string.IsNullOrWhiteSpace(processingLogicAsString))
@@ -39,11 +39,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                     return defaultValue;
                 }
 
-                ConditionalQueryProcessingLogic processingLogic = (ConditionalQueryProcessingLogic)Enum.Parse(typeof(ConditionalQueryProcessingLogic), processingLogicAsString.Trim(), ignoreCase: true);
-                return processingLogic;
+                if (bool.TryParse(headerValues.ToString().Trim(), out bool result))
+                {
+                    return result;
+                }
             }
 
             return defaultValue;
+        }
+
+        /// <summary>
+        /// Retrieves from the HTTP header information about the conditional-query processing logic to be adopted.
+        /// </summary>
+        /// <param name="outerHttpContext">HTTP context</param>
+        public static ConditionalQueryProcessingLogic GetConditionalQueryProcessingLogic(this HttpContext outerHttpContext)
+        {
+            return ExtractEnumerationFlagFromHttpHeader(
+                outerHttpContext,
+                httpHeaderName: KnownHeaders.ConditionalQueryProcessingLogic,
+                defaultValue: ConditionalQueryProcessingLogic.Sequential);
         }
 
         /// <summary>
@@ -52,14 +66,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// <param name="outerHttpContext">HTTP context</param>
         public static BundleProcessingLogic GetBundleProcessingLogic(this HttpContext outerHttpContext)
         {
-            var defaultValue = BundleProcessingLogic.Sequential;
+            return ExtractEnumerationFlagFromHttpHeader(
+                outerHttpContext,
+                httpHeaderName: BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic,
+                defaultValue: BundleProcessingLogic.Sequential);
+        }
 
+        public static TEnum ExtractEnumerationFlagFromHttpHeader<TEnum>(HttpContext outerHttpContext, string httpHeaderName, TEnum defaultValue)
+            where TEnum : struct, Enum
+        {
             if (outerHttpContext == null)
             {
                 return defaultValue;
             }
 
-            if (outerHttpContext.Request.Headers.TryGetValue(BundleOrchestratorNamingConventions.HttpHeaderBundleProcessingLogic, out StringValues headerValues))
+            if (outerHttpContext.Request.Headers.TryGetValue(httpHeaderName, out StringValues headerValues))
             {
                 string processingLogicAsString = headerValues.FirstOrDefault();
                 if (string.IsNullOrWhiteSpace(processingLogicAsString))
@@ -67,8 +88,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
                     return defaultValue;
                 }
 
-                BundleProcessingLogic processingLogic = (BundleProcessingLogic)Enum.Parse(typeof(BundleProcessingLogic), processingLogicAsString.Trim(), ignoreCase: true);
-                return processingLogic;
+                if (Enum.TryParse(processingLogicAsString.Trim(), ignoreCase: true, out TEnum result) && Enum.IsDefined(result))
+                {
+                    return result;
+                }
             }
 
             return defaultValue;

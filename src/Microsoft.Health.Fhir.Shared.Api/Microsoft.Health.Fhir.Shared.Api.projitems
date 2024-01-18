@@ -26,6 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationSmartConfigurationResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\QueryLatencyOverEfficiencyFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatParametersValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttribute.cs" />

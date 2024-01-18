@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateImportRequestFilterAttribute>();
             services.AddSingleton<ValidateAsyncRequestFilterAttribute>();
             services.AddSingleton<ValidateParametersResourceAttribute>();
+            services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
 
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();

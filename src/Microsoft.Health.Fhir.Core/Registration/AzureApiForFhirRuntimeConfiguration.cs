@@ -18,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Registration
         public bool IsCustomerKeyValidationBackgroundWorkerSupported => false;
 
         public bool IsTransactionSupported => false;
+
+        public bool IsLatencyOverEfficiencySupported => true;
     }
 }
