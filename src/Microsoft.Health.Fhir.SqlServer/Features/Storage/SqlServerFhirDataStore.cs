@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
@@ -157,13 +158,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return results;
             }
 
+            Stopwatch stopwatch = new Stopwatch();
             _logger.LogInformation("Profiling - Checking if resource exists");
+            stopwatch.Start();
 
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
             var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
-            _logger.LogInformation("Profiling - Finished checking if resource exists");
+            _logger.LogInformation($"Profiling - Finished checking if resource exists {stopwatch.ElapsedMilliseconds}");
+            stopwatch.Stop();
 
             // Assume that most likely case is that all resources should be updated.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
@@ -374,6 +378,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            _logger.LogInformation("Profiling - Generating MergeResourcesWrapperAsync");
+            stopwatch.Start();
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
             using var cmd = conn.CreateNonRetrySqlCommand();
 
@@ -400,7 +407,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             new TokenStringCompositeSearchParamListTableValuedParameterDefinition("@TokenStringCompositeSearchParams").AddParameter(cmd.Parameters, new TokenStringCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new StringSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             new TokenNumberNumberCompositeSearchParamListTableValuedParameterDefinition("@TokenNumberNumberCompositeSearchParams").AddParameter(cmd.Parameters, new TokenNumberNumberCompositeSearchParamListRowGenerator(_model, new TokenSearchParamListRowGenerator(_model, _searchParameterTypeMap), new NumberSearchParamListRowGenerator(_model, _searchParameterTypeMap), _searchParameterTypeMap).GenerateRows(mergeWrappers));
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
+            _logger.LogInformation($"Profiling - Generating MergeResourcesWrapperAsync {stopwatch.ElapsedMilliseconds}");
+            stopwatch.Stop();
+            _logger.LogInformation("Profiling - Calling DB MergeResourcesWrapperAsync");
+            stopwatch.Start();
             await cmd.ExecuteNonQueryAsync(cancellationToken);
+            _logger.LogInformation($"Profiling - Finished calling DB MergeResourcesWrapperAsync {stopwatch.ElapsedMilliseconds}");
+            stopwatch.Stop();
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)

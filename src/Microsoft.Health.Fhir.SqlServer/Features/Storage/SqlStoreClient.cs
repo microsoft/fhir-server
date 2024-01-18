@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -203,7 +204,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
         {
+            Stopwatch stopwatch = new Stopwatch();
             _logger.LogInformation("Profiling - Executing MergeResourcesBeginTransactionAsync");
+            stopwatch.Start();
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
             var transactionIdParam = new SqlParameter("@TransactionId", SqlDbType.BigInt) { Direction = ParameterDirection.Output };
@@ -216,7 +219,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            _logger.LogInformation("Profiling - Executed MergeResourcesBeginTransactionAsync");
+            _logger.LogInformation($"Profiling - Executed MergeResourcesBeginTransactionAsync {stopwatch.ElapsedMilliseconds}");
+            stopwatch.Stop();
             return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
         }
 
