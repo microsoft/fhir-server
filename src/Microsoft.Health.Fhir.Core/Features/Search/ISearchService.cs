@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime since,
             PartialDateTime before,
             int? count,
+            string summary,
             string continuationToken,
             string sort,
             CancellationToken cancellationToken,

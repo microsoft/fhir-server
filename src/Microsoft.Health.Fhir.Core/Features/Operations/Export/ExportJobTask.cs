@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 var exportResourceVersionTypes = ResourceVersionType.Latest |
-                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.Histoy : 0) |
+                    (_exportJobRecord.IncludeHistory ? ResourceVersionType.History : 0) |
                     (_exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0);
 
                 ExportJobProgress progress = _exportJobRecord.Progress;

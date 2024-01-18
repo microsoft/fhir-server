@@ -13,7 +13,6 @@ using Hl7.FhirPath;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
@@ -109,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateImportRequestFilterAttribute>();
             services.AddSingleton<ValidateAsyncRequestFilterAttribute>();
             services.AddSingleton<ValidateParametersResourceAttribute>();
+            services.AddSingleton<QueryLatencyOverEfficiencyFilterAttribute>();
 
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
@@ -156,9 +156,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
             services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
-
-            // Register a router for Bundle requests.
-            services.AddSingleton<IRouter, BundleRouter>();
 
             services.AddLazy();
             services.AddScoped();

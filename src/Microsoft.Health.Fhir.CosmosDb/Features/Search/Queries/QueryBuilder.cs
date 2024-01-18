@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         (KnownResourceWrapperProperties.IsHistory, true));
                 }
 
-                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy))
+                if (!searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History))
                 {
                     AppendFilterCondition(
                         "AND",

@@ -323,12 +323,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 currentResult.TotalBytes += blobLength;
-                var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
-                numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
-                for (var stream = 0; stream < numberOfStreams; stream++)
+                foreach (var offset in GetOffsets(blobLength, BytesToRead))
                 {
                     var newInput = input.Clone();
-                    newInput.Offset = (long)stream * BytesToRead; // make sure that arithmetic on long is used
+                    newInput.Offset = offset;
                     newInput.BytesToRead = BytesToRead;
                     lock (inputs)
                     {
@@ -343,6 +341,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             currentResult.CreatedJobs = jobIds.Count;
 
             await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
+        }
+
+        internal static IEnumerable<long> GetOffsets(long blobLength, int bytesToRead)
+        {
+            var numberOfStreams = (int)Math.Ceiling((double)blobLength / bytesToRead);
+            numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
+            for (var stream = 0; stream < numberOfStreams; stream++)
+            {
+                yield return (long)stream * bytesToRead; // make sure that arithmetic on long is used
+            }
         }
 
         private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
