@@ -13,6 +13,7 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -452,7 +453,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _progress.Report("Updating search parameter statuses complete.");
         }
 
-        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        private HashSet<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
         {
             var completeResourceList = new HashSet<string>(resourceTypes);
 
