@@ -129,14 +129,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // 9 versions total for all resources.
             if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
             {
-                Console.Write(await GetSummaryMessage($"/_history?_since={sinceTime}&_before={beforeTime}"));
-                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. allSummaryCountZero {allSummaryCountZero.Resource.Total}");
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
+                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"/_history?_since={sinceTime}&_before={beforeTime}")}.");
             }
 
             if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
             {
-                Console.Write(await GetSummaryMessage($"/Observation/_history?_since={sinceTime}&_before={beforeTime}"));
-                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}");
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
+                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"/Observation/_history?_since={sinceTime}&_before={beforeTime}")}.");
             }
 
             // 3 versions across single observation (create, update, delete).
