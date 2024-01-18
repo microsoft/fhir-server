@@ -97,7 +97,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
-            Observation firstTestResource = _createdResource.Resource;
+            Thread.Sleep(5000); // summary count queries can't be filtered by tag. wait to ensure previous tests are done writing to db.
+            Observation firstTestResource = (await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
             var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
 
             // 3 versions, 2 history 1 delete
