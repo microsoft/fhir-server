@@ -97,43 +97,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
-            var firstTestResource = (await _client.ReadAsync<Observation>($"/Observation/{_createdResource.Resource.Id}")).Resource;
-            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.ToString("o"));
+            Observation firstTestResource = _createdResource.Resource;
+            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
 
             // 3 versions, 2 history 1 delete
-            firstTestResource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
+            firstTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
             await _client.UpdateAsync(firstTestResource);
             await _client.DeleteAsync(firstTestResource);
 
             // 3 base exta resources
-            await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
-            var secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
-            var thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            Patient secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
+            Observation thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            Organization fourthTestResource = (await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
 
             // 3 more versions on the extras
             secondTestResource.BirthDate = "2022-12-02";
             await _client.UpdateAsync(secondTestResource);
             await _client.DeleteAsync(secondTestResource);
-            thirdTestResource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
-            await _client.UpdateAsync(thirdTestResource);
+            thirdTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
+            thirdTestResource = await _client.UpdateAsync(thirdTestResource);
 
-            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
-            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
-            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_summary=count");
-            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_count=0");
-            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_summary=count");
-            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_count=0");
+            var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
+
+            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
 
             // 9 versions total for all resources.
             if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
             {
-                Console.Write(await GetSummaryMessage($"/_history?_since={sinceTime}"));
+                Console.Write(await GetSummaryMessage($"/_history?_since={sinceTime}&_before={beforeTime}"));
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. allSummaryCountZero {allSummaryCountZero.Resource.Total}");
             }
 
             if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
             {
-                Console.Write(await GetSummaryMessage($"/Observation/_history?_since={sinceTime}"));
+                Console.Write(await GetSummaryMessage($"/Observation/_history?_since={sinceTime}&_before={beforeTime}"));
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}");
             }
 
@@ -143,6 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Cleanup
             await _client.DeleteAsync(thirdTestResource);
+            await _client.DeleteAsync(fourthTestResource);
 
             async Task<string> GetSummaryMessage(string url)
             {
