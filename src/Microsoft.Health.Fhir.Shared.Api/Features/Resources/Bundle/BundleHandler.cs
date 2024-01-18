@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly string _originalRequestBase;
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
-        private readonly ConditionalQueryProcessingLogic _conditionalQueryProcessingLogic;
+        private readonly bool _optimizedQuerySet;
 
         private int _requestCount;
         private BundleType? _bundleType;
@@ -166,8 +166,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Retrieve bundle processing logic.
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
 
-            // Set conditional-query processing logic.
-            _conditionalQueryProcessingLogic = SetRequestContextWithConditionalQueryProcessingLogic(outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
+            // Set optimized-query processing logic.
+            _optimizedQuerySet = SetRequestContextWithOptimizedQuerying(outerHttpContext, fhirRequestContextAccessor.RequestContext, _logger);
         }
 
         public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
@@ -243,7 +243,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static ConditionalQueryProcessingLogic SetRequestContextWithConditionalQueryProcessingLogic(HttpContext outerHttpContext, IFhirRequestContext fhirRequestContext, ILogger<BundleHandler> logger)
+        private static bool SetRequestContextWithOptimizedQuerying(HttpContext outerHttpContext, IFhirRequestContext fhirRequestContext, ILogger<BundleHandler> logger)
         {
             try
             {
@@ -252,16 +252,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (conditionalQueryProcessingLogic == ConditionalQueryProcessingLogic.Parallel)
                 {
                     fhirRequestContext.DecorateRequestContextWithOptimizedConcurrency();
+                    return true;
                 }
-
-                return conditionalQueryProcessingLogic;
             }
             catch (Exception e)
             {
                 logger.LogWarning(e, "Error while extracting the Conditional-Query Processing Logic out of the HTTP Header: {ErrorMessage}", e.Message);
             }
 
-            return ConditionalQueryProcessingLogic.Sequential;
+            return false;
         }
 
         private BundleProcessingLogic GetBundleProcessingLogic(HttpContext outerHttpContext, ILogger<BundleHandler> logger)
@@ -921,7 +920,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private BundleHandlerStatistics CreateNewBundleHandlerStatistics(BundleProcessingLogic processingLogic)
         {
-            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _conditionalQueryProcessingLogic, _requestCount);
+            BundleHandlerStatistics statistics = new BundleHandlerStatistics(_bundleType, processingLogic, _optimizedQuerySet, _requestCount);
 
             statistics.StartCollectingResults();
 
