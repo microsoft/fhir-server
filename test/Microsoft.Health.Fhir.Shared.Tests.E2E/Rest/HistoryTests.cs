@@ -97,43 +97,69 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
+            Thread.Sleep(5000); // summary count queries can't be filtered by tag. wait to ensure previous tests are done writing to db.
+            Observation firstTestResource = (await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
+
             // 3 versions, 2 history 1 delete
-            _createdResource.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
-            await _client.UpdateAsync(_createdResource.Resource);
-            await _client.DeleteAsync(_createdResource.Resource);
+            firstTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
+            await _client.UpdateAsync(firstTestResource);
+            await _client.DeleteAsync(firstTestResource);
 
             // 3 base exta resources
-            await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
-            var extraResource2 = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
-            var extraResource3 = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Patient secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
+            Observation thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            Organization fourthTestResource = (await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
 
             // 3 more versions on the extras
-            extraResource2.Resource.BirthDate = "2022-12-02";
-            await _client.UpdateAsync(extraResource2.Resource);
-            await _client.DeleteAsync(extraResource2.Resource);
-            extraResource3.Resource.Effective = new FhirDateTime(DateTimeOffset.UtcNow);
-            await _client.UpdateAsync(extraResource3.Resource);
+            secondTestResource.BirthDate = "2022-12-02";
+            await _client.UpdateAsync(secondTestResource);
+            await _client.DeleteAsync(secondTestResource);
+            thirdTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
+            thirdTestResource = await _client.UpdateAsync(thirdTestResource);
 
-            var sinceTime = HttpUtility.UrlEncode(_createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(-1).ToString("o"));
+            var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
 
-            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_summary=count");
-            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_count=0");
-            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_summary=count");
-            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_count=0");
-            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_summary=count");
-            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{_createdResource.Resource.Id}/_history?_since={sinceTime}&_count=0");
+            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
 
             // 9 versions total for all resources.
-            Assert.Equal(9, allSummaryCountResult.Resource.Total);
-            Assert.Equal(9, allSummaryCountZero.Resource.Total);
+            if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
+            {
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
+                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"/_history?_since={sinceTime}&_before={beforeTime}")}.");
+            }
 
-            // 5 versions across only observations (first one create, update, delete - second create, update).
-            Assert.Equal(5, allObservationSummaryCountResult.Resource.Total);
-            Assert.Equal(5, allObservationSummaryCountZero.Resource.Total);
+            if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
+            {
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
+                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"/Observation/_history?_since={sinceTime}&_before={beforeTime}")}.");
+            }
 
             // 3 versions across single observation (create, update, delete).
             Assert.Equal(3, observationSummaryCountResult.Resource.Total);
             Assert.Equal(3, observationSummaryCountZero.Resource.Total);
+
+            // Cleanup
+            await _client.DeleteAsync(thirdTestResource);
+            await _client.DeleteAsync(fourthTestResource);
+
+            async Task<string> GetSummaryMessage(string url)
+            {
+                var resources = await _client.SearchAsync(url);
+                string output = "Resource count doesn't match:" + Environment.NewLine;
+
+                foreach (var resource in resources.Resource.Entry)
+                {
+                    output += $"Type: {resource.Resource.TypeName}, Id: {resource.Resource.Id}, Last Updated: {resource.Resource.Meta.LastUpdated.Value.ToString("o")}, Version: {resource.Resource.Meta.VersionId}." + Environment.NewLine;
+                }
+
+                return output;
+            }
         }
 
         [Fact]
