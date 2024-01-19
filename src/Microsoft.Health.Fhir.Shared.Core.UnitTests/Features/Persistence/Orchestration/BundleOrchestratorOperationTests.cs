@@ -115,10 +115,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
 
             // In this test, to simulate that scenario, a bundle operation is created expecting 10 resources, but only one is appended.
             // The other 9 resources are never appened, forcing the looping to keep waiting for the remaining resources.
-            // This security exit clause will be activated after 120 seconds, cancelling the operation.
+            // This security exit clause will be activated after 100 seconds, cancelling the operation.
 
             const int numberOfResources = 10;
-            const int maxWaitingTimeInSeconds = 150;
+            const int maxWaitingTimeInSeconds = 120;
 
             BundleOrchestratorOperationType operationType = BundleOrchestratorOperationType.Batch;
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(maxWaitingTimeInSeconds));
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
             }
 
             // Test should fail if the security exit clause is removed or if it does not raise a TaskCanceledException.
-            Assert.Fail("There is a security exit clause in Bundle Orchestrator Operation. This clause was not activated.");
+            Assert.Fail("There is a security exit clause in Bundle Orchestrator Operation. This clause was not activated: internal cancellation was supposed to happen before the external cancellation.");
         }
 
         [Theory]
