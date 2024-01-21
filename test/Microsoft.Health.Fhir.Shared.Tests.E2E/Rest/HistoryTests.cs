@@ -120,24 +120,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
 
-            var allSummaryCountResult = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
-            var allSummaryCountZero = await _client.SearchAsync($"/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
-            var allObservationSummaryCountResult = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
-            var allObservationSummaryCountZero = await _client.SearchAsync($"/Observation/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
-            var observationSummaryCountResult = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
-            var observationSummaryCountZero = await _client.SearchAsync($"/Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"Observation/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
 
             // 9 versions total for all resources.
             if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
-                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"/_history?_since={sinceTime}&_before={beforeTime}")}.");
+                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"_history?_since={sinceTime}&_before={beforeTime}")}.");
             }
 
             if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
-                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"/Observation/_history?_since={sinceTime}&_before={beforeTime}")}.");
+                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.");
             }
 
             // 3 versions across single observation (create, update, delete).
