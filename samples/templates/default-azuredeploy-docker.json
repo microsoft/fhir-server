@@ -409,6 +409,7 @@
             "apiVersion": "2022-10-01",
             "name": "[variables('appInsightsWorkspaceName')]",
             "location": "[parameters('applicationInsightsLocation')]",
+            "condition": "[variables('deployAppInsights')]",
             "tags": {
                 "Privacy.Asset.NonPersonal": ""
             }
