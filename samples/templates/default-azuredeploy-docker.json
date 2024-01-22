@@ -242,6 +242,7 @@
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
         "deployAppInsights": "[parameters('deployApplicationInsights')]",
+        "appInsightsWorkspaceName": "[concat('AppInsights-', variables('serviceName'), '-ws')]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
@@ -404,20 +405,34 @@
             ]
         },
         {
-            "apiVersion": "2015-05-01",
-            "name": "[variables('appInsightsName')]",
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2022-10-01",
+            "name": "[variables('appInsightsWorkspaceName')]",
+            "location": "[parameters('applicationInsightsLocation')]",
+            "tags": {
+                "Privacy.Asset.NonPersonal": ""
+            }
+        },
+        {
             "type": "Microsoft.Insights/components",
+            "apiVersion": "2020-02-02",
+            "name": "[variables('appInsightsName')]",
             "location": "[parameters('applicationInsightsLocation')]",
             "condition": "[variables('deployAppInsights')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('appInsightsWorkspaceName'))]"
+            ],
             "kind": "web",
             "tags": {
                 "[concat('hidden-link:', variables('appServiceResourceId'))]": "Resource",
                 "displayName": "AppInsightsComponent",
-                "FhirServerSolution": "[parameters('solutionType')]"
+                "FhirServerSolution": "[parameters('solutionType')]",
+                "Privacy.Asset.NonPersonal": ""
             },
             "properties": {
                 "Application_Type": "web",
-                "ApplicationId": "[variables('serviceName')]"
+                "ApplicationId": "[variables('serviceName')]",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('appInsightsWorkspaceName'))]"
             }
         },
         {
