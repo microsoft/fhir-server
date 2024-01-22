@@ -8,9 +8,12 @@ using System.Collections.Generic;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Namotion.Reflection;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -26,7 +29,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId) &&
+            bool foundActionId = context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId);
+
+            if (!foundActionId)
+            {
+                actionId = GetActionIdFromRoutingFeature(context.HttpContext, KnownActionParameterNames.Id);
+            }
+
+            if (actionId != null &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
                 var resource = ParseResource((Resource)parsedModel);
@@ -59,6 +69,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         new ValidationFailure(location, Api.Resources.UrlResourceIdMismatch),
                     });
             }
+        }
+
+        private static string GetActionIdFromRoutingFeature(HttpContext context, string id)
+        {
+            if (context.Features[typeof(IRoutingFeature)] is IRoutingFeature routingFeature)
+            {
+                var routeValues = routingFeature.RouteData.Values;
+
+                routeValues.TryGetValue(id, out var actionId);
+
+                return actionId?.ToString();
+            }
+
+            return null;
         }
     }
 }
