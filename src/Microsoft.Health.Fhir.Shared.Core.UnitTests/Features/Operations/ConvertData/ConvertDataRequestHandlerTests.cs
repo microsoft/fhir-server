@@ -119,10 +119,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetDefaultTemplateProvider().Returns(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(convertDataConfiguration, new NullLoggerFactory());
 
             var convertDataEngine = new ConvertDataEngine(
                 templateProviderFactory,
-                convertDataConfiguration,
+                convertProcessorFactory,
                 new NullLogger<ConvertDataEngine>());
 
             IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();

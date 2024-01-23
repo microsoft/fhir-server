@@ -24,6 +24,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddConvertDataEngine(this IFhirServerBuilder fhirServerBuilder)
         {
+            fhirServerBuilder.Services.AddSingleton<IConvertProcessorFactory, ConvertProcessorFactory>();
             fhirServerBuilder.Services.AddSingleton<IConvertDataEngine, ConvertDataEngine>();
 
             return fhirServerBuilder;

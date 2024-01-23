@@ -24,23 +24,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
     public class ConvertDataEngine : IConvertDataEngine
     {
         private readonly ITemplateProviderFactory _templateProviderFactory;
-        private readonly ConvertDataConfiguration _convertDataConfiguration;
+        private readonly IConvertProcessorFactory _convertProcessorFactory;
         private readonly ILogger<ConvertDataEngine> _logger;
 
+        // Local cache of IFhirConverter instance.
         private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
 
         public ConvertDataEngine(
             ITemplateProviderFactory templateProviderFactory,
-            IOptions<ConvertDataConfiguration> convertDataConfiguration,
+            IConvertProcessorFactory convertProcessorFactory,
             ILogger<ConvertDataEngine> logger)
         {
-            EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
-            EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _templateProviderFactory = templateProviderFactory;
-            _convertDataConfiguration = convertDataConfiguration.Value;
-            _logger = logger;
+            _templateProviderFactory = EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
+            _convertProcessorFactory = EnsureArg.IsNotNull(convertProcessorFactory, nameof(convertProcessorFactory));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             InitializeConvertProcessors();
         }
@@ -120,15 +117,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// </summary>
         private void InitializeConvertProcessors()
         {
-            var processorSetting = new ProcessorSettings
-            {
-                TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
-            };
-
-            _converterMap.Add(DataType.Hl7v2, new Hl7v2Processor(processorSetting));
-            _converterMap.Add(DataType.Ccda, new CcdaProcessor(processorSetting));
-            _converterMap.Add(DataType.Json, new JsonProcessor(processorSetting));
-            _converterMap.Add(DataType.Fhir, new FhirProcessor(processorSetting));
+            _converterMap.Add(DataType.Ccda, _convertProcessorFactory.GetProcessor(DataType.Ccda));
+            _converterMap.Add(DataType.Fhir, _convertProcessorFactory.GetProcessor(DataType.Fhir));
+            _converterMap.Add(DataType.Hl7v2, _convertProcessorFactory.GetProcessor(DataType.Hl7v2));
+            _converterMap.Add(DataType.Json, _convertProcessorFactory.GetProcessor(DataType.Json));
         }
     }
 }
