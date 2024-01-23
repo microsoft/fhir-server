@@ -162,13 +162,12 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
 
-            services.RegisterModule<AnonymizationModule>();
-            services.RegisterModule<FhirModule>();
-            services.RegisterModule<MediationModule>();
-            services.RegisterModule<OperationsModule>();
-            services.RegisterModule<PersistenceModule>();
-            services.RegisterModule<SearchModule>();
-            services.RegisterModule<ValidationModule>();
+            services.RegisterModule<FhirModule>(fhirServerConfiguration);
+            services.RegisterModule<MediationModule>(fhirServerConfiguration);
+            services.RegisterModule<OperationsModule>(fhirServerConfiguration);
+            services.RegisterModule<PersistenceModule>(fhirServerConfiguration);
+            services.RegisterModule<SearchModule>(fhirServerConfiguration);
+            services.RegisterModule<ValidationModule>(fhirServerConfiguration);
 
             services.AddHttpClient(Options.Options.DefaultName)
                 .AddTransientHttpErrorPolicy(builder =>
