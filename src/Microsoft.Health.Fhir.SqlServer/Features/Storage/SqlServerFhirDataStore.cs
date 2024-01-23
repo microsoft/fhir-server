@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
-            // Resources with keepVersion=true must be in seaparate call, and not mixed with keepVersion=false ones.
+            // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
             // Sort them in groups by resource id and order by version.
             // In each group find the smallest version higher then existing
             prevResourceId = string.Empty;
