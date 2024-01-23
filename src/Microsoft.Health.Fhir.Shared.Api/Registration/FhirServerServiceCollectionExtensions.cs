@@ -140,6 +140,71 @@ namespace Microsoft.Extensions.DependencyInjection
             return fhirServerBuilder;
         }
 
+        /// <summary>
+        /// Adds services for enabling a FHIR server lite.
+        /// </summary>
+        /// <param name="services">The services collection.</param>
+        /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
+        /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
+        /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
+        public static IFhirServerBuilder AddFhirServerLite(
+            this IServiceCollection services,
+            IConfiguration configurationRoot = null,
+            Action<FhirServerConfiguration> configureAction = null)
+        {
+            EnsureArg.IsNotNull(services, nameof(services));
+
+            services.AddOptions();
+            var fhirServerConfiguration = new FhirServerConfiguration();
+
+            string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
+            configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
+            configureAction?.Invoke(fhirServerConfiguration);
+
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Security));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Features));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.CoreFeatures));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Reindex));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.ConvertData));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.IntegrationDataStore));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Import));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
+            services.AddSingleton(provider =>
+            {
+                var throttlingOptions = Options.Options.Create(fhirServerConfiguration.Throttling);
+                throttlingOptions.Value.DataStore = dataStore;
+                return throttlingOptions;
+            });
+
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
+
+            services.AddHttpClient(Options.Options.DefaultName)
+                .AddTransientHttpErrorPolicy(builder =>
+                    builder.OrResult(m => m.StatusCode == HttpStatusCode.TooManyRequests)
+                        .WaitAndRetryAsync(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
+
+            var multipleRegisteredServices = services
+                .GroupBy(x => (x.ServiceType, x.ImplementationType, x.ImplementationInstance, x.ImplementationFactory))
+                .Where(x => x.Count() > 1)
+                .ToArray();
+
+            if (multipleRegisteredServices.Any())
+            {
+                foreach (var service in multipleRegisteredServices)
+                {
+                    Debug.WriteLine($"** IoC Config Warning: Service implementation '{service.Key.ImplementationType ?? service.Key.ImplementationInstance ?? service.Key.ImplementationFactory}' was registered multiple times.");
+                }
+            }
+
+            return new FhirServerBuilder(services);
+        }
+
         public static IFhirServerBuilder AddBundleOrchestrator(
             this IFhirServerBuilder fhirServerBuilder,
             IConfiguration configuration)
