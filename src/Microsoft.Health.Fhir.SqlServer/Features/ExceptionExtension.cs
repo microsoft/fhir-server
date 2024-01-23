@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
                     || str.Contains("Login failed for user", StringComparison.OrdinalIgnoreCase)
+                    || str.Contains("RetriableExceptionTest", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("The timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase);
 
             ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.
