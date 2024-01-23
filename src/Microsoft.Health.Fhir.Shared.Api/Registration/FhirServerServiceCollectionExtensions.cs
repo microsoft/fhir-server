@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -118,29 +119,6 @@ namespace Microsoft.Extensions.DependencyInjection
         }
 
         /// <summary>
-        /// Adds background worker services.
-        /// </summary>
-        /// <param name="fhirServerBuilder">FHIR server builder.</param>
-        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
-        /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddBackgroundWorkers(
-            this IFhirServerBuilder fhirServerBuilder,
-            IFhirRuntimeConfiguration runtimeConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
-
-            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-
-            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
-            {
-                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
-            }
-
-            return fhirServerBuilder;
-        }
-
-        /// <summary>
         /// Adds services for enabling a FHIR server lite.
         /// </summary>
         /// <param name="services">The services collection.</param>
@@ -184,6 +162,14 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
 
+            services.RegisterModule<AnonymizationModule>();
+            services.RegisterModule<FhirModule>();
+            services.RegisterModule<MediationModule>();
+            services.RegisterModule<OperationsModule>();
+            services.RegisterModule<PersistenceModule>();
+            services.RegisterModule<SearchModule>();
+            services.RegisterModule<ValidationModule>();
+
             services.AddHttpClient(Options.Options.DefaultName)
                 .AddTransientHttpErrorPolicy(builder =>
                     builder.OrResult(m => m.StatusCode == HttpStatusCode.TooManyRequests)
@@ -203,6 +189,29 @@ namespace Microsoft.Extensions.DependencyInjection
             }
 
             return new FhirServerBuilder(services);
+        }
+
+        /// <summary>
+        /// Adds background worker services.
+        /// </summary>
+        /// <param name="fhirServerBuilder">FHIR server builder.</param>
+        /// <param name="runtimeConfiguration">FHIR Runtime Configuration</param>
+        /// <returns>The builder.</returns>
+        public static IFhirServerBuilder AddBackgroundWorkers(
+            this IFhirServerBuilder fhirServerBuilder,
+            IFhirRuntimeConfiguration runtimeConfiguration)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+            EnsureArg.IsNotNull(runtimeConfiguration, nameof(runtimeConfiguration));
+
+            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
+
+            if (runtimeConfiguration.IsExportBackgroundWorkerSupported)
+            {
+                fhirServerBuilder.Services.AddHostedService<LegacyExportJobWorkerBackgroundService>();
+            }
+
+            return fhirServerBuilder;
         }
 
         public static IFhirServerBuilder AddBundleOrchestrator(
