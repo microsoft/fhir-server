@@ -37,6 +37,7 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -52,12 +53,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.IndexAndReindex)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
+    [Collection("FhirStorageTestsCollection")]
     public class ReindexJobTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
         private readonly IFhirStorageTestHelper _testHelper;
         private IFhirOperationDataStore _fhirOperationDataStore;
-        private IScoped<IFhirOperationDataStore> _scopedOperationDataStore;
         private IScoped<IFhirDataStore> _scopedDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -66,7 +67,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ReindexJobConfiguration _jobConfiguration;
         private CreateReindexRequestHandler _createReindexRequestHandler;
         private ReindexSingleResourceRequestHandler _reindexSingleResourceRequestHandler;
-        private ReindexUtilities _reindexUtilities;
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISearchParameterOperations _searchParameterOperations = null;
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+        private IOptions<ReindexJobConfiguration> _optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
@@ -101,12 +102,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _fhirOperationDataStore = _fixture.OperationDataStore;
             _fhirStorageTestHelper = _fixture.TestHelper;
-            _scopedOperationDataStore = _fhirOperationDataStore.CreateMockScope();
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
 
             _jobConfiguration = new ReindexJobConfiguration();
-            IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
-            optionsReindexConfig.Value.Returns(_jobConfiguration);
+            _optionsReindexConfig.Value.Returns(_jobConfiguration);
 
             _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
             _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
@@ -132,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
                                                 DisabledFhirAuthorizationService.Instance,
-                                                optionsReindexConfig,
+                                                _optionsReindexConfig,
                                                 _searchParameterDefinitionManager,
                                                 _searchParameterOperations);
 
@@ -144,17 +143,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                     _searchParameterOperations,
                                                     _searchParameterDefinitionManager);
 
-            _reindexUtilities = new ReindexUtilities(
-                () => _scopedDataStore,
-                _searchParameterStatusManager,
-                wrapperFactory);
-
             _searchService = _fixture.SearchService.CreateMockScope();
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
             // Initialize second FHIR service
-            await InitialieSecondFHIRService();
+            await InitializeSecondFHIRService();
         }
 
         public Task DisposeAsync()
@@ -324,7 +318,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenJobConflictExceptionThrown()
         {
             var request = new CreateReindexRequest(new List<string>(), new List<string>());
-
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
             Assert.NotNull(response);
@@ -968,7 +961,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return await _scopedDataStore.Value.UpsertAsync(new ResourceWrapperOperation(CreateObservationResourceWrapper(observationId), true, true, null, false, false, bundleResourceContext: null), CancellationToken.None);
         }
 
-        private async Task InitialieSecondFHIRService()
+        private async Task InitializeSecondFHIRService()
         {
             var collection = new ServiceCollection();
             ServiceProvider services = collection.BuildServiceProvider();
