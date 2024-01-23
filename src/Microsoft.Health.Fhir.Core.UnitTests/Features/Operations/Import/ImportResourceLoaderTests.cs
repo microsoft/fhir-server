@@ -214,15 +214,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         public async Task GivenResourceLoader_WhenLoadingBytesThatFallsOnNewLine_ProperNumberOfResourcesAreLoaded(int startIndex, int bytesToLoad, int expectedResourceCount)
         {
             // Each of these resources are 56 bytes, adding \r\n makes each line 60 bytes.
-            string[] resources = [
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""6"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""7"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""8"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""9"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""10"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""11"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""12"" } }",
-            ];
+            string[] resources =
+                [
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""6"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""7"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""8"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""9"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""10"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""11"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""12"" } }",
+                ];
 
             using MemoryStream stream = new();
             using StreamWriter writer = new(stream);
@@ -271,15 +272,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         public async Task GivenResourceLoader_WhenLoadingBytesThatFallsOnDifferentNewLineChars_ProperNumberOfResourcesAreLoaded(int startIndex, int bytesToLoad, int expectedResourceCount)
         {
             // Each of these resources are 56 bytes, adding \r\n makes each line 60 bytes.
-            string[] resources = [
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""6"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""7"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""8"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""9"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""10"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""11"" } }",
-                @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""12"" } }",
-            ];
+            string[] resources =
+                [
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""6"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""7"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""8"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""9"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""10"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""11"" } }",
+                    @"{ ""resourceType"": ""Observation"", ""meta"": { ""id"": ""12"" } }",
+                ];
 
             using MemoryStream stream = new();
             using StreamWriter writer = new(stream);
