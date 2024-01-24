@@ -162,6 +162,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
 
+            services.RegisterModule<OperationsModule>(fhirServerConfiguration);
             services.RegisterModule<SearchModule>(fhirServerConfiguration);
 
             services.AddHttpClient(Options.Options.DefaultName)
