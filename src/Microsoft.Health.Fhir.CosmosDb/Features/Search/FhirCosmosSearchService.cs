@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, _) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(includeExpressions)),
+                _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(includeExpressions, searchOptions.OnlyIds ? QueryProjection.IdAndType : QueryProjection.Default)),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 null,

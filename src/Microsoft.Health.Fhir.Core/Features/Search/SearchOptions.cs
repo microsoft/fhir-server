@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ContinuationToken = other.ContinuationToken;
             CountOnly = other.CountOnly;
             IncludeTotal = other.IncludeTotal;
+            OnlyIds = other.OnlyIds;
 
             MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
             Expression = other.Expression;
@@ -134,6 +135,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
 
         public IReadOnlyList<(string Param, string Value)> QueryHints { get; set; }
+
+        public bool OnlyIds { get; set; }
 
         /// <summary>
         /// Performs a shallow clone of this instance
