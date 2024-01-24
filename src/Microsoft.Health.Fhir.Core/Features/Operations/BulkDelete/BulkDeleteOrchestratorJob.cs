@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.JobManagement;
 
@@ -19,12 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
     public class BulkDeleteOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchService;
         private const string OperationCompleted = "Completed";
 
         public BulkDeleteOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService)
+            Func<IScoped<ISearchService>> searchService)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
@@ -42,15 +43,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
             BulkDeleteDefinition processingDefinition = null;
 
+            using var searchService = _searchService.Invoke();
             if (string.IsNullOrEmpty(definition.Type))
             {
-                IReadOnlyList<string> resourceTypes = await _searchService.GetUsedResourceTypes(cancellationToken);
+                IReadOnlyList<string> resourceTypes = await searchService.Value.GetUsedResourceTypes(cancellationToken);
 
-                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>(resourceTypes), cancellationToken);
+                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, new List<string>(resourceTypes), cancellationToken);
             }
             else
             {
-                processingDefinition = await CreateProcessingDefinition(definition, _searchService, new List<string>() { definition.Type }, cancellationToken);
+                processingDefinition = await CreateProcessingDefinition(definition, searchService.Value, new List<string>() { definition.Type }, cancellationToken);
             }
 
             // Processing Definition can be null if bulk delete was requested on criteria that didn't match any resources. If there is nothing to delete, just finish the job.

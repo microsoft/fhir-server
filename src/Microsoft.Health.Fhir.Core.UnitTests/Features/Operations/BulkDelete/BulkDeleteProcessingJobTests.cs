@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -43,9 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 .Returns(Task.FromResult(new SearchResult(5, new List<Tuple<string, string>>())));
             _queueClient = Substitute.For<IQueueClient>();
             _deleter = Substitute.For<IDeletionService>();
-            var deleter = Substitute.For<IScoped<IDeletionService>>();
-            deleter.Value.Returns(_deleter);
-            _processingJob = new BulkDeleteProcessingJob(() => deleter, Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService, _queueClient);
+            _processingJob = new BulkDeleteProcessingJob(_deleter.CreateMockScopeFactory(), Substitute.For<RequestContextAccessor<IFhirRequestContext>>(), Substitute.For<IMediator>(), _searchService.CreateMockScopeFactory(), _queueClient);
 
             _progress = new Progress<string>((result) => { });
         }
