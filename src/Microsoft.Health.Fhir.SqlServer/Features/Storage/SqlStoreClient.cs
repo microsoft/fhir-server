@@ -85,6 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
+
+                    throw;
                 }
             }
         }
