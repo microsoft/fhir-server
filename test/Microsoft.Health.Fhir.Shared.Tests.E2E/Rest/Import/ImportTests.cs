@@ -98,16 +98,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var id = Guid.NewGuid().ToString("N");
 
             // set existing
-            var ndJson = PrepareResource(id, "100", "2000");
+            var ndJson = PrepareResource(id, "10000", "2000");
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null);
 
-            // set input
-            ndJson = PrepareResource(id, "10100", "2001");
-            var ndJson2 = PrepareResource(id, "10200", "2002");
+            // set input. something before and something after existing
+            ndJson = PrepareResource(id, "9000", "1999");
+            var ndJson2 = PrepareResource(id, "10100", "2001");
             var ndJson3 = PrepareResource(id, "10300", "2003");
-            location = (await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount)).location;
+
+            // note order of records
+            location = (await ImportTestHelper.UploadFileAsync(ndJson2 + ndJson + ndJson3, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null);
 
@@ -117,12 +119,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
 
             // check history
-            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "100");
-            Assert.Equal(GetLastUpdated("2000"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "9000");
+            Assert.Equal(GetLastUpdated("1999"), result.Resource.Meta.LastUpdated);
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "10100");
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
-            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "10200");
-            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "10000");
+            Assert.Equal(GetLastUpdated("2000"), result.Resource.Meta.LastUpdated);
         }
 
         [Fact]
