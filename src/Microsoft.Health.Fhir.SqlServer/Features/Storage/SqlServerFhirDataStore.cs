@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
-            var mergeWrappersPlus = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
+            var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
             var singleTransaction = enlistInTransaction;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappersPlus.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
@@ -321,23 +321,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // In each group find the smallest version higher then existing
             prevResourceId = string.Empty;
             var notSetInResoureGroup = false;
-            foreach (var mergeWrapperPlus in mergeWrappersPlus.Where(_ => _.KeepVersion && _.ExistingVersion != 0).OrderBy(_ => _.Wrapper.ResourceWrapper.ResourceId).ThenBy(_ => _.ResourceVersion))
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(_ => _.KeepVersion && _.ExistingVersion != 0).OrderBy(_ => _.Wrapper.ResourceWrapper.ResourceId).ThenBy(_ => _.ResourceVersion))
             {
-                if (prevResourceId != mergeWrapperPlus.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
+                if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
                 {
                     notSetInResoureGroup = true;
                 }
 
-                prevResourceId = mergeWrapperPlus.Wrapper.ResourceWrapper.ResourceId;
+                prevResourceId = mergeWrapper.Wrapper.ResourceWrapper.ResourceId;
 
-                if (notSetInResoureGroup && mergeWrapperPlus.ResourceVersion > mergeWrapperPlus.ExistingVersion)
+                if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
                 {
-                    mergeWrapperPlus.Wrapper.HasVersionToCompare = true;
+                    mergeWrapper.Wrapper.HasVersionToCompare = true;
                     notSetInResoureGroup = false;
                 }
             }
 
-            if (mergeWrappersPlus.Count > 0) // Do not call DB with empty input
+            if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -347,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersPlus.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
                         catch (Exception e)
