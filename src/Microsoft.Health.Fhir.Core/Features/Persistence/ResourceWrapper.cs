@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
-            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
             ResourceId = resourceId;
             Version = versionId;
