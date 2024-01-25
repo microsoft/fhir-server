@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 #endif
             }
 
+            if ((modules & KnownModuleNames.Fhir) == KnownModuleNames.Fhir)
+            {
+                services.RegisterModule<FhirModule>(configuration);
+            }
+
             if ((modules & KnownModuleNames.Mediation) == KnownModuleNames.Mediation)
             {
                 services.RegisterModule<MediationModule>(configuration);
