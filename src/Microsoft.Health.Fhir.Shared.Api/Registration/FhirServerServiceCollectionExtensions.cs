@@ -123,18 +123,21 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         /// <param name="services">The services collection.</param>
         /// <param name="configurationRoot">An optional configuration root object. This method uses "FhirServer" section.</param>
+        /// <param name="modulesToRegister">An optional flag for which modules to register. None by default.</param>
         /// <param name="configureAction">An optional delegate to set <see cref="FhirServerConfiguration"/> properties after values have been loaded from configuration</param>
         /// <returns>A <see cref="IFhirServerBuilder"/> object.</returns>
+        /// <remarks>Call <see cref="AddFhirServer(IServiceCollection, IConfiguration, Action{FhirServerConfiguration})"/> if you need Asp.Net Mvc features for web application. </remarks>
         public static IFhirServerBuilder AddFhirServerLite(
             this IServiceCollection services,
             IConfiguration configurationRoot = null,
+            KnownModuleNames modulesToRegister = KnownModuleNames.None,
             Action<FhirServerConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddOptions();
-            var fhirServerConfiguration = new FhirServerConfiguration();
 
+            var fhirServerConfiguration = new FhirServerConfiguration();
             string dataStore = configurationRoot == null ? string.Empty : configurationRoot["DataStore"];
             configurationRoot?.GetSection(FhirServerConfigurationSectionName).Bind(fhirServerConfiguration);
             configureAction?.Invoke(fhirServerConfiguration);
@@ -162,8 +165,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ArtifactStore));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.ImplementationGuides));
 
-            services.RegisterModule<OperationsModule>(fhirServerConfiguration);
-            services.RegisterModule<SearchModule>(fhirServerConfiguration);
+            services.RegisterModules(fhirServerConfiguration, modulesToRegister);
 
             services.AddHttpClient(Options.Options.DefaultName)
                 .AddTransientHttpErrorPolicy(builder =>
