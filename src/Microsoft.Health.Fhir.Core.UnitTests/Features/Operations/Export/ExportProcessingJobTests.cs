@@ -161,8 +161,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(followUpJob, queueClient.JobInfos[0]);
         }
 
-        [Fact]
-        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued()
+        [Theory]
+        [InlineData(JobStatus.Cancelled, false)]
+        [InlineData(JobStatus.Running, true)]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued(JobStatus existingJobStatus, bool cancellationRequested)
         {
             string progressResult = string.Empty;
 
@@ -177,22 +179,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
 
             var existingCanceledJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
-            existingCanceledJob.Id = runningJob.Id - 2;
-            existingCanceledJob.Status = JobStatus.Cancelled;
+            existingCanceledJob.Id = runningJob.Id - 1;
+            existingCanceledJob.Status = existingJobStatus;
+            existingCanceledJob.CancelRequested = cancellationRequested;
             queueClient.JobInfos.Add(existingCanceledJob);
-
-            var existingCanceledPendingJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
-            existingCanceledPendingJob.Id = runningJob.Id - 1;
-            existingCanceledPendingJob.CancelRequested = true;
-            queueClient.JobInfos.Add(existingCanceledPendingJob);
 
             var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
 
-            Assert.True(queueClient.JobInfos.Count == 2);
+            Assert.True(queueClient.JobInfos.Count == 1);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
-            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[1].Definition);
             Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
-            Assert.Equal(existingCanceledPendingJob, queueClient.JobInfos[1]);
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)
