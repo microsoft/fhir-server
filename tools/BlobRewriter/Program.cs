@@ -161,9 +161,9 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 {
                     if (AddMeta)
                     {
-                        var date = DateTime.UtcNow.AddDays(-SourceBlobs).AddDays(blobIndex).AddMilliseconds(lines);
+                        var date = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex).AddMilliseconds(lines);
                         var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
-                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{\"versionId\":\"" + seconds + "\",\"lastUpdated\":\"" + date.ToString("s") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
+                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{\"versionId\":\"" + seconds + "\",\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
                         writer.WriteLine(lineWithMeta);
                     }
                     else
