@@ -45,6 +45,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly int _skipBlobs = int.Parse(ConfigurationManager.AppSettings["SkipBlobs"]);
         private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool _writesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
+        private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
 
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient<SqlServerFhirDataStore> _store;
@@ -267,56 +268,70 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0;
             var errors = 0;
             long sumLatency = 0;
-            BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, 1, (thread, resourceId) =>
+            for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                Interlocked.Increment(ref calls);
-                var swLatency = Stopwatch.StartNew();
-                if (_callType == "GetAsync")
+                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, 1, (thread, resourceId) =>
                 {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), CancellationToken.None).Result.FirstOrDefault();
-                    if (first == null)
+                    Interlocked.Increment(ref calls);
+                    var swLatency = Stopwatch.StartNew();
+                    if (_callType == "GetAsync")
                     {
-                        Interlocked.Increment(ref errors);
-                    }
-
-                    if (first.ResourceId != id)
-                    {
-                        throw new ArgumentException("Incorrect resource returned");
-                    }
-                }
-                else if (_callType == "HardDeleteNoChangeCapture")
-                {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
-                }
-                else if (_callType == "HardDeleteWithChangeCapture")
-                {
-                    var typeId = resourceId.Item2.First().ResourceTypeId;
-                    var id = resourceId.Item2.First().ResourceId;
-                    _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
-
-                Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
-
-                if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
-                {
-                    lock (swReport)
-                    {
-                        if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                        var typeId = resourceId.Item2.First().ResourceTypeId;
+                        var id = resourceId.Item2.First().ResourceId;
+                        var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), true, CancellationToken.None).Result.FirstOrDefault();
+                        if (first == null)
                         {
-                            Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
-                            swReport.Restart();
+                            Interlocked.Increment(ref errors);
+                        }
+
+                        if (first.ResourceId != id)
+                        {
+                            throw new ArgumentException("Incorrect resource returned");
                         }
                     }
-                }
-            });
+                    else if (_callType == "HttpGet")
+                    {
+                        var typeId = resourceId.Item2.First().ResourceTypeId;
+                        var id = resourceId.Item2.First().ResourceId;
+                        var status = GetResource(_nameFilter, id); // apply true translation to type name
+                        if (status != "OK")
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
+                    }
+                    else if (_callType == "HardDeleteNoChangeCapture")
+                    {
+                        var typeId = resourceId.Item2.First().ResourceTypeId;
+                        var id = resourceId.Item2.First().ResourceId;
+                        _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
+                    }
+                    else if (_callType == "HardDeleteWithChangeCapture")
+                    {
+                        var typeId = resourceId.Item2.First().ResourceTypeId;
+                        var id = resourceId.Item2.First().ResourceId;
+                        _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+
+                    Interlocked.Add(ref sumLatency, (long)Math.Round(swLatency.Elapsed.TotalMilliseconds * 1000, 0));
+
+                    if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > _reportingPeriodSec)
+                            {
+                                Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
+                                swReport.Restart();
+                            }
+                        }
+                    }
+                });
+            }
+
             Console.WriteLine($"{tableOrView} type={_callType} threads={_threads} calls={calls} errors={errors} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
@@ -608,6 +623,71 @@ END
                         case HttpStatusCode.OK:
                         case HttpStatusCode.Created:
                         case HttpStatusCode.Conflict:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
+        private static string GetResource(string resourceType, string resourceId)
+        {
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "/" + resourceId);
+                bad = false;
+                try
+                {
+                    var response = _httpClient.GetAsync(uri).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
                         case HttpStatusCode.InternalServerError:
                             break;
                         default:

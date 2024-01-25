@@ -51,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 request.Since,
                 request.Before,
                 request.Count,
+                request.Summary,
                 request.ContinuationToken,
                 request.Sort,
                 cancellationToken);

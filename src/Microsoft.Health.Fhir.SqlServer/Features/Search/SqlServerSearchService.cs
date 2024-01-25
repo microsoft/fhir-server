@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
-        private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private const string SortValueColumnName = "SortValue";
@@ -82,7 +81,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             PartitionEliminationRewriter partitionEliminationRewriter,
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
-            ISqlConnectionBuilder sqlConnectionBuilder,
             ISqlRetryService sqlRetryService,
             IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration,
             SchemaInformation schemaInformation,
@@ -94,7 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
-            EnsureArg.IsNotNull(sqlConnectionBuilder, nameof(sqlConnectionBuilder));
             EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
@@ -111,7 +108,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _compartmentSearchRewriter = compartmentSearchRewriter;
             _smartCompartmentSearchRewriter = smartCompartmentSearchRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
-            _sqlConnectionBuilder = sqlConnectionBuilder;
             _sqlRetryService = sqlRetryService;
             _queryHashCalculator = queryHashCalculator;
             _logger = logger;
@@ -126,9 +122,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
-            SqlSearchType searchType = sqlSearchOptions.GetSearchTypeFromOptions();
 
-            SearchResult searchResult = await SearchImpl(sqlSearchOptions, searchType, null, cancellationToken);
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
 
             if (!sqlSearchOptions.IsSortWithFilter &&
@@ -163,7 +158,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.SortQuerySecondPhase = true;
                         sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        searchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -192,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -207,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return searchResult;
         }
 
-        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
             Expression searchExpression = sqlSearchOptions.Expression;
 
@@ -275,7 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
-            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression, searchType);
+            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression);
 
             if (clonedSearchOptions.CountOnly)
             {
@@ -314,23 +309,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             SearchResult searchResult = null;
             await _sqlRetryService.ExecuteSql(
-                async (cancellationToken, sqlException) =>
+                async (connection, cancellationToken, sqlException) =>
                 {
-                    using (SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false))
                     using (SqlCommand sqlCommand = connection.CreateCommand()) // WARNING, this code will not set sqlCommand.Transaction. Sql transactions via C#/.NET are not supported in this method.
                     {
-                        // NOTE: connection is created by SqlConnectionHelper.GetBaseSqlConnectionAsync differently, depending on the _sqlConnectionBuilder implementation.
-                        // Connection is never opened by the _sqlConnectionBuilder but RetryLogicProvider is set to the old, depreciated retry implementation. According to the .NET spec, RetryLogicProvider
-                        // must be set before opening connection to take effect. Therefore we must reset it to null here before opening the connection.
-                        connection.RetryLogicProvider = null; // To remove this line _sqlConnectionBuilder in healthcare-shared-components must be modified.
-                        await connection.OpenAsync(cancellationToken);
-
                         sqlCommand.CommandTimeout = (int)_sqlServerDataStoreConfiguration.CommandTimeout.TotalSeconds;
 
-                        var exportTimeTravel = clonedSearchOptions.QueryHints != null &&
-                                               _schemaInformation.Current >= SchemaVersionConstants.ExportTimeTravel &&
-                                               ContainsGlobalEndSurrogateId(clonedSearchOptions);
-
+                        var exportTimeTravel = clonedSearchOptions.QueryHints != null && ContainsGlobalEndSurrogateId(clonedSearchOptions);
                         if (exportTimeTravel)
                         {
                             PopulateSqlCommandFromQueryHints(clonedSearchOptions, sqlCommand);
@@ -346,7 +331,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 stringBuilder,
                                 new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommand.Parameters)),
                                 _model,
-                                searchType,
                                 _schemaInformation,
                                 currentSearchParameterHash,
                                 sqlException);
@@ -568,7 +552,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             var globalStartId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalStartSurrogateId).Value);
             var globalEndId = long.Parse(hints.First(x => x.Param == KnownQueryParameterNames.GlobalEndSurrogateId).Value);
 
-            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.Histoy), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
+            PopulateSqlCommandFromQueryHints(command, resourceTypeId, startId, endId, globalEndId, options.ResourceVersionTypes.HasFlag(ResourceVersionType.History), options.ResourceVersionTypes.HasFlag(ResourceVersionType.SoftDeleted));
         }
 
         private static void PopulateSqlCommandFromQueryHints(SqlCommand command, short resourceTypeId, long startId, long endId, long? globalEndId, bool? includeHistory, bool? includeDeleted)
@@ -711,12 +695,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         /// <param name="searchOptions">The input SearchOptions</param>
         /// <param name="searchExpression">The searchExpression</param>
-        /// <param name="sqlSearchType">The type of search being performed</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
+        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression)
         {
             SqlSearchOptions newSearchOptions = searchOptions;
-            if (sqlSearchType.HasFlag(SqlSearchType.IncludeHistory) && searchOptions.Sort.Any())
+            if (searchOptions.ResourceVersionTypes.HasFlag(ResourceVersionType.History) && searchOptions.Sort.Any())
             {
                 // history is always sorted by _lastUpdated (except for export).
                 newSearchOptions = searchOptions.CloneSqlSearchOptions();
@@ -882,6 +865,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sb.AppendLine();
             }
 
+            sb.AppendLine("OPTION (RECOMPILE)"); // enables query compilation with provided parameter values in debugging
             sb.AppendLine($"-- execution timeout = {sqlCommandWrapper.CommandTimeout} sec.");
             _sqlRetryService.TryLogEvent("Search", "Start", sb.ToString(), null, CancellationToken.None);
             _logger.LogInformation("{SqlQuery}", sb.ToString());
