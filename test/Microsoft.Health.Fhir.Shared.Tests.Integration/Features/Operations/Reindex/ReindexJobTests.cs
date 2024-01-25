@@ -180,7 +180,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency - 1)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery - 1)]
         [InlineData("Foo", 4)]
-        [Collection("FhirStorageTestsCollection")]
         public async Task GivenOutOfRangeReindexParameter_WhenCreatingAReindexJob_ThenExceptionShouldBeThrown(string jobRecordProperty, int value)
         {
             string errorMessage = "Test error message";
