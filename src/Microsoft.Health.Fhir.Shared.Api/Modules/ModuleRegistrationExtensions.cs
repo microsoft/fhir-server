@@ -21,7 +21,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             if ((modules & KnownModuleNames.Anonymization) == KnownModuleNames.Anonymization)
             {
+#if R4 && !R4B
                 services.RegisterModule<AnonymizationModule>(configuration);
+#endif
             }
 
             if ((modules & KnownModuleNames.Mediation) == KnownModuleNames.Mediation)
