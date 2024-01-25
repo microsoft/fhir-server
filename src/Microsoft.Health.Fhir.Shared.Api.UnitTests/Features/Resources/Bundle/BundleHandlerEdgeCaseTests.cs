@@ -178,6 +178,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
                 mediator,
+                router,
                 NullLogger<BundleHandler>.Instance);
 
             return fhirRequestContextAccessor.RequestContext;

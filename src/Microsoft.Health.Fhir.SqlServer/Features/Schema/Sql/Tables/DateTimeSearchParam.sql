@@ -24,14 +24,12 @@ ON dbo.DateTimeSearchParam
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
+CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
 ON dbo.DateTimeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     StartDateTime,
-    EndDateTime,
-    ResourceSurrogateId
+    EndDateTime -- TODO: Should it be in INCLUDE?
 )
 INCLUDE
 (
@@ -39,17 +37,14 @@ INCLUDE
     IsMin,
     IsMax
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
+CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
 ON dbo.DateTimeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     EndDateTime,
-    StartDateTime,
-    ResourceSurrogateId
+    StartDateTime -- TODO: Should it be in INCLUDE?
 )
 INCLUDE
 (
@@ -57,40 +52,35 @@ INCLUDE
     IsMin,
     IsMax
 )
-WHERE IsHistory = 0
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
 ON dbo.DateTimeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     StartDateTime,
-    EndDateTime,
-    ResourceSurrogateId
+    EndDateTime -- TODO: Should it be in INCLUDE?
 )
 INCLUDE
 (
     IsMin,
     IsMax
 )
-WHERE IsHistory = 0 AND IsLongerThanADay = 1
+WHERE IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
 ON dbo.DateTimeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     EndDateTime,
-    StartDateTime,
-    ResourceSurrogateId
+    StartDateTime -- TODO: Should it be in INCLUDE?
 )
 INCLUDE
 (
     IsMin,
     IsMax
 )
-WHERE IsHistory = 0 AND IsLongerThanADay = 1
+WHERE IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
