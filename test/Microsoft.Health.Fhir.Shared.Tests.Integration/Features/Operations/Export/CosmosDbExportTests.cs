@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly CosmosDbFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _testOutputHelper;
-        private readonly ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchServiceScopeFactory;
         private readonly CosmosFhirOperationDataStore _operationDataStore;
         private readonly IQueueClient _queueClient;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             _fixture = fixture;
             _testOutputHelper = testOutputHelper;
-            _searchService = _fixture.GetService<ISearchService>();
+            _searchServiceScopeFactory = _fixture.GetService<Func<IScoped<ISearchService>>>();
             _operationDataStore = _fixture.GetService<CosmosFhirOperationDataStore>();
             _queueClient = _fixture.GetService<IQueueClient>();
             _fhirStorageTestHelper = _fixture.GetService<IFhirStorageTestHelper>();
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await PrepareData(3333); // 1111 patients + 1111 observations + 1111 claims.
 
-                var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchService);
+                var coordJob = new CosmosExportOrchestratorJob(_queueClient, _searchServiceScopeFactory);
 
                 await RunExportWithCancel("Patient", coordJob, 2); // 2=coord+1 resource type
 

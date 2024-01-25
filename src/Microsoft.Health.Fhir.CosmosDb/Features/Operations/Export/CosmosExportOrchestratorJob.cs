@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -24,14 +25,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
-        private ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchServiceScopeFactory;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            ISearchService searchService)
+            Func<IScoped<ISearchService>> searchServiceScopeFactory)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            _searchService = EnsureArg.IsNotNull(searchService, nameof(searchService));
+            _searchServiceScopeFactory = EnsureArg.IsNotNull(searchServiceScopeFactory, nameof(searchServiceScopeFactory));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -47,11 +48,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             // Parallel system level export is parallelized by resource type and CosmosDB physical partitions feed range.
             if (record.ExportType == ExportJobType.All && record.IsParallel && (record.Filters == null || record.Filters.Count == 0))
             {
+                using var searchService = _searchServiceScopeFactory.Invoke();
+
                 var resourceTypes = string.IsNullOrEmpty(record.ResourceType)
-                                 ? (await _searchService.GetUsedResourceTypes(cancellationToken))
+                                 ? (await searchService.Value.GetUsedResourceTypes(cancellationToken))
                                  : record.ResourceType.Split(',');
 
-                var physicalPartitionFeedRanges = await _searchService.GetFeedRanges(cancellationToken);
+                var physicalPartitionFeedRanges = await searchService.Value.GetFeedRanges(cancellationToken);
 
                 var enqueuedRangesByResourceType = groupJobs.Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
                                                     .Where(x => x.ResourceType is not null)
