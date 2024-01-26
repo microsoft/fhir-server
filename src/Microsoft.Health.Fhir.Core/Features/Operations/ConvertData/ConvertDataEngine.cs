@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
     {
         private readonly ITemplateProviderFactory _templateProviderFactory;
         private readonly IConvertProcessorFactory _convertProcessorFactory;
+        private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
         // Local cache of IFhirConverter instance.
@@ -33,10 +34,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         public ConvertDataEngine(
             ITemplateProviderFactory templateProviderFactory,
             IConvertProcessorFactory convertProcessorFactory,
+            IOptions<ConvertDataConfiguration> convertDataConfiguration,
             ILogger<ConvertDataEngine> logger)
         {
             _templateProviderFactory = EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
             _convertProcessorFactory = EnsureArg.IsNotNull(convertProcessorFactory, nameof(convertProcessorFactory));
+            _convertDataConfiguration = EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration)).Value;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             InitializeConvertProcessors();
@@ -117,10 +120,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         /// </summary>
         private void InitializeConvertProcessors()
         {
-            _converterMap.Add(DataType.Ccda, _convertProcessorFactory.GetProcessor(DataType.Ccda));
-            _converterMap.Add(DataType.Fhir, _convertProcessorFactory.GetProcessor(DataType.Fhir));
-            _converterMap.Add(DataType.Hl7v2, _convertProcessorFactory.GetProcessor(DataType.Hl7v2));
-            _converterMap.Add(DataType.Json, _convertProcessorFactory.GetProcessor(DataType.Json));
+            var processorSetting = new ProcessorSettings
+            {
+                TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
+                EnableTelemetryLogger = _convertDataConfiguration.EnableTelemetryLogger,
+            };
+
+            _converterMap.Add(DataType.Ccda, _convertProcessorFactory.GetProcessor(DataType.Ccda, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Fhir, _convertProcessorFactory.GetProcessor(DataType.Fhir, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Hl7v2, _convertProcessorFactory.GetProcessor(DataType.Hl7v2, ConvertDataOutputFormat.Fhir, processorSetting));
+            _converterMap.Add(DataType.Json, _convertProcessorFactory.GetProcessor(DataType.Json, ConvertDataOutputFormat.Fhir, processorSetting));
         }
     }
 }

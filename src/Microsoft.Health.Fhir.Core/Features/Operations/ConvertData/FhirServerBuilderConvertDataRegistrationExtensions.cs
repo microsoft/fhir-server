@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.Liquid.Converter.Processors;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
