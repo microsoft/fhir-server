@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Theory]
         [InlineData("Patient", "Observation", null, null)]
         [InlineData(null, null, "range1", "range2")]
-        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string resourceType1, string resourceType2, string feedRange1, string feedRange2)
+        public async Task GivenAnExportJob_WhenItFinishesAPageAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string testRunningJobResourceType, string laterParallelJobResourceType, string testRunningJobFeedRange, string laterParallelJobFeedRange)
         {
             string progressResult = string.Empty;
 
@@ -148,17 +148,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var queueClient = new TestQueueClient();
             var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
 
-            var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: resourceType1, feedRange: feedRange1));
+            // Note: Feed ranges are different which means testRunningJob should queue the next job even though.
+            var testRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: testRunningJobResourceType, feedRange: testRunningJobFeedRange));
+            var laterParallelRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: laterParallelJobResourceType, feedRange: laterParallelJobFeedRange));
 
-            var followUpJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: resourceType2, feedRange: feedRange2));
-            followUpJob.Id = runningJob.Id + 1;
-            queueClient.JobInfos.Add(followUpJob);
+            testRunningJob.Id = 1;
+            laterParallelRunningJob.Id = 2;
+            queueClient.JobInfos.Add(laterParallelRunningJob);
 
-            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+            await processingJob.ExecuteAsync(testRunningJob, progress, CancellationToken.None);
 
-            Assert.True(queueClient.JobInfos.Count == 2);
-            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
-            Assert.Equal(followUpJob, queueClient.JobInfos[0]);
+            Assert.True(queueClient.JobInfos.Count == 2); // laterParallelRunningJob + follow up job for testRunningJob.
+            Assert.Equal(laterParallelRunningJob, queueClient.JobInfos[0]);
+
+            var followUpJobDefinition = queueClient.JobInfos[1].DeserializeDefinition<ExportJobRecord>();
+
+            Assert.Equal(testRunningJobResourceType, followUpJobDefinition.ResourceType);
+            Assert.Equal(testRunningJobFeedRange, followUpJobDefinition.FeedRange);
+            Assert.Contains(_progressToken, queueClient.JobInfos[1].Definition); // This is a follow up job, not our orig testRunningJob.
         }
 
         [Theory]
