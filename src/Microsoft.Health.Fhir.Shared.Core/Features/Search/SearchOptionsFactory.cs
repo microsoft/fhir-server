@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool isAsyncOperation = false, ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest, bool onlyIds = false)
         {
-            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes);
+            return Create(null, null, resourceType, queryParameters, isAsyncOperation, resourceVersionTypes: resourceVersionTypes, onlyIds: onlyIds);
         }
 
         [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
@@ -83,7 +83,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             bool isAsyncOperation = false,
             bool useSmartCompartmentDefinition = false,
-            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -252,6 +253,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 // The search parameters _elements and _summarize cannot be specified for the same request.
                 throw new BadRequestException(string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements));
             }
+
+            searchOptions.OnlyIds = onlyIds;
 
             // Check to see if only the count should be returned
             searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
