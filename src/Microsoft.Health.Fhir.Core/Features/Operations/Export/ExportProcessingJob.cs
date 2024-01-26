@@ -118,6 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
                     }
 
+                    // TODO: Ideally we would process predefined pages of data like SQL vs pagination through continuation tokens/this exception.
                     throw new JobSegmentCompletedException();
                 }
 

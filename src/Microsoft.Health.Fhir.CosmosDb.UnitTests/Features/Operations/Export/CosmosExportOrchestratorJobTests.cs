@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
-    public class ExportOrchestratorJobTests
+    public class CosmosExportOrchestratorJobTests
     {
         private ISearchService _mockSearchService = Substitute.For<ISearchService>();
         private IQueueClient _mockQueueClient = Substitute.For<IQueueClient>();
