@@ -106,5 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken);
 
         Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken);
     }
 }

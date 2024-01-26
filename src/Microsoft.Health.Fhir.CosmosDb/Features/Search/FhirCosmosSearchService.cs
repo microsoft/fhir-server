@@ -95,6 +95,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return await _fhirDataStore.ExecutePagedQueryAsync<string>(sqlQuerySpec, requestOptions, cancellationToken: cancellationToken);
         }
 
+        public override async Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            var ranges = await _fhirDataStore.GetFeedRanges(cancellationToken);
+            return ranges.Select(x => x.ToJsonString());
+        }
+
         public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
@@ -446,23 +452,62 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
                     string.IsNullOrEmpty(searchOptions.ContinuationToken) &&
                     string.IsNullOrEmpty(continuationToken) &&
-                    searchEnumerationTimeoutOverrideIfSequential == null)
+                    searchEnumerationTimeoutOverrideIfSequential == null &&
+                    searchOptions.IsLargeAsyncOperation != true)
                 {
                     searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
 
                     // Executing query sequentially until the timeout
-                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, searchEnumerationTimeoutOverrideIfSequential, cancellationToken);
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                        sqlQuerySpec: sqlQuerySpec,
+                        feedOptions: feedOptions,
+                        mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
+                        searchEnumerationTimeoutOverride: searchEnumerationTimeoutOverrideIfSequential,
+                        cancellationToken: cancellationToken);
 
                     // check if we need to restart the query in parallel
                     if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
-                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, null, cancellationToken);
+                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                            sqlQuerySpec: sqlQuerySpec,
+                            feedOptions: feedOptions,
+                            mustNotExceedMaxItemCount: searchOptions.MaxItemCountSpecifiedByClient,
+                            cancellationToken: cancellationToken);
                     }
                 }
                 else
                 {
-                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                    var mustNotExceedMaxItemCount = searchOptions.MaxItemCountSpecifiedByClient;
+                    FeedRange queryFeedRange = null;
+
+                    // Large async operations also need the full result set. Accounting for the till factor to achieve that.
+                    if (searchOptions.IsLargeAsyncOperation)
+                    {
+                        mustNotExceedMaxItemCount = false;
+                        feedOptions.MaxItemCount = (int)(feedOptions.MaxItemCount / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
+
+                        try
+                        {
+                            if (searchOptions.FeedRange is not null)
+                            {
+                                queryFeedRange = FeedRange.FromJsonString(searchOptions.FeedRange);
+                            }
+                        }
+                        catch (ArgumentException)
+                        {
+                            throw new BadRequestException(Resources.InvalidFeedRange);
+                        }
+                    }
+
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(
+                        sqlQuerySpec: sqlQuerySpec,
+                        feedOptions: feedOptions,
+                        feedRange: queryFeedRange,
+                        continuationToken: continuationToken,
+                        mustNotExceedMaxItemCount: mustNotExceedMaxItemCount,
+                        searchEnumerationTimeoutOverride: feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null,
+                        cancellationToken: cancellationToken);
                 }
 
                 if (messagesList != null)
