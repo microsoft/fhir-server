@@ -112,7 +112,7 @@ namespace Microsoft.Health.JobManagement
 
             if (job == null)
             {
-                _logger.LogWarning("Not supported job type");
+                _logger.LogWarning("Job {JobId}. Not supported job type", jobInfo.Id);
                 return;
             }
 
