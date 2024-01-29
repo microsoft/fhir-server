@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string endSurrogateId = null,
             string globalStartSurrogateId = null,
             string globalEndSurrogateId = null,
+            string feedRange = null,
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
@@ -90,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             EndSurrogateId = endSurrogateId;
             GlobalStartSurrogateId = globalStartSurrogateId;
             GlobalEndSurrogateId = globalEndSurrogateId;
+
+            FeedRange = feedRange;
 
             SmartRequest = smartRequest;
 
@@ -167,6 +170,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.GlobalStartSurrogateId)]
         public string GlobalStartSurrogateId { get; private set; }
+
+        [JsonProperty(JobRecordProperties.FeedRange)]
+        public string FeedRange { get; private set; }
 
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }

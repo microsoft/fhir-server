@@ -133,16 +133,82 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(followUpJob, queueClient.JobInfos[0]);
         }
 
-        private string GenerateJobRecord(OperationStatus status, string failureReason = null)
+        [Theory]
+        [InlineData("Patient", "Observation", null, null)]
+        [InlineData(null, null, "range1", "range2")]
+        public async Task GivenAnExportJob_WhenItFinishesAPageAndNewerParallelJobExists_ThenANewProgressJobIsQueued(string testRunningJobResourceType, string laterParallelJobResourceType, string testRunningJobFeedRange, string laterParallelJobFeedRange)
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+
+            // Note: Feed ranges are different which means testRunningJob should queue the next job even though.
+            var testRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: testRunningJobResourceType, feedRange: testRunningJobFeedRange));
+            var laterParallelRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: laterParallelJobResourceType, feedRange: laterParallelJobFeedRange));
+
+            testRunningJob.Id = 1;
+            laterParallelRunningJob.Id = 2;
+            queueClient.JobInfos.Add(laterParallelRunningJob);
+
+            await processingJob.ExecuteAsync(testRunningJob, progress, CancellationToken.None);
+
+            Assert.True(queueClient.JobInfos.Count == 2); // laterParallelRunningJob + follow up job for testRunningJob.
+            Assert.Equal(laterParallelRunningJob, queueClient.JobInfos[0]);
+
+            var followUpJobDefinition = queueClient.JobInfos[1].DeserializeDefinition<ExportJobRecord>();
+
+            Assert.Equal(testRunningJobResourceType, followUpJobDefinition.ResourceType);
+            Assert.Equal(testRunningJobFeedRange, followUpJobDefinition.FeedRange);
+            Assert.Contains(_progressToken, queueClient.JobInfos[1].Definition); // This is a follow up job, not our orig testRunningJob.
+        }
+
+        [Theory]
+        [InlineData(JobStatus.Cancelled, false)]
+        [InlineData(JobStatus.Running, true)]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultAndCanceledGroupJobInQueue_ThenANewProgressJobIsNotQueued(JobStatus existingJobStatus, bool cancellationRequested)
+        {
+            string progressResult = string.Empty;
+
+            Progress<string> progress = new Progress<string>((result) =>
+            {
+                progressResult = result;
+            });
+
+            var queueClient = new TestQueueClient();
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+
+            var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+
+            var existingCanceledJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+            existingCanceledJob.Id = runningJob.Id - 1;
+            existingCanceledJob.Status = existingJobStatus;
+            existingCanceledJob.CancelRequested = cancellationRequested;
+            queueClient.JobInfos.Add(existingCanceledJob);
+
+            var taskResult = await processingJob.ExecuteAsync(runningJob, progress, CancellationToken.None);
+
+            Assert.True(queueClient.JobInfos.Count == 1);
+            Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
+            Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
+        }
+
+        private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)
         {
             var record = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                ExportFormatTags.ResourceName,
-                null,
-                null,
-                "hash",
-                0);
+                requestUri: new Uri("https://localhost/ExportJob/"),
+                exportType: ExportJobType.All,
+                exportFormat: ExportFormatTags.ResourceName,
+                resourceType: resourceType,
+                filters: null,
+                hash: "hash",
+                rollingFileSizeInMB: 0,
+                feedRange: feedRange);
             record.Status = status;
             if (failureReason != null)
             {
