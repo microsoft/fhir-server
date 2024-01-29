@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // In each group find the smallest version higher then existing
             prevResourceId = string.Empty;
             var notSetInResoureGroup = false;
-            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(_ => _.KeepVersion && _.ExistingVersion != 0).OrderBy(_ => _.Wrapper.ResourceWrapper.ResourceId).ThenBy(_ => _.ResourceVersion))
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ResourceId).ThenBy(x => x.ResourceVersion))
             {
                 if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
                 {
