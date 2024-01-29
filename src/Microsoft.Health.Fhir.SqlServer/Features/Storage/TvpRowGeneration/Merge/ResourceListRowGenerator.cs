@@ -47,20 +47,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 // Specify the file path
                 _logger.LogInformation("Profiling - Starting the compression and writing to file");
                 stopwatch.Start();
-                string filePath = "compressed_data.txt";
 
                 // Write compressed data to file
-                _compressedRawResourceConverter.WriteCompressedDataToFile(filePath, wrapper.RawResource.Data);
+                // _compressedRawResourceConverter.WriteCompressedDataToFile("compressed_data.txt", wrapper.RawResource.Data);
                 _logger.LogInformation($"Profiling - Ending the compression and writing to file {stopwatch.ElapsedMilliseconds}");
                 stopwatch.Stop();
 
                 // Specify the file path
                 _logger.LogInformation("Profiling - Starting the compression and writing to file with Bytes");
                 stopwatch.Start();
-                string filePath1 = "compressed_data1.txt";
 
                 // Write compressed data to file
-                _compressedRawResourceConverter.CompressAndWriteToFileWithBytes(filePath1, wrapper.RawResource.Data);
+                // _compressedRawResourceConverter.CompressAndWriteToFileWithBytes("compressed_data1.txt", wrapper.RawResource.Data);
                 _logger.LogInformation($"Profiling - Ending the compression and writing to file with Bytes {stopwatch.ElapsedMilliseconds}");
                 stopwatch.Stop();
 
