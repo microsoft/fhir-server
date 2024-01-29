@@ -22,47 +22,55 @@ ON dbo.QuantitySearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
 ON dbo.QuantitySearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
-    SingleValue
+    SingleValue,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId
 )
-WHERE SingleValue IS NOT NULL
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+WHERE IsHistory = 0 AND SingleValue IS NOT NULL
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_QuantityCodeId_LowValue_HighValue_INCLUDE_SystemId
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
 ON dbo.QuantitySearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
     LowValue,
-    HighValue
+    HighValue,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId
 )
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+WHERE IsHistory = 0
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
+CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
 ON dbo.QuantitySearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     QuantityCodeId,
     HighValue,
-    LowValue
+    LowValue,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId
 )
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+WHERE IsHistory = 0
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

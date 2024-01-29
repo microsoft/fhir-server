@@ -272,15 +272,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (IsPrimaryKeySort(searchOptions))
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
-                        {
-                            Column column = sort.searchParameterInfo.Name switch
                             {
-                                SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
-                                SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
-                                _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
-                            };
-                            sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                        })
+                                Column column = sort.searchParameterInfo.Name switch
+                                {
+                                    SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
+                                    SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
+                                    _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                                };
+                                sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                            })
                             .AppendLine();
                     }
                     else if (IsSortValueNeeded(searchOptions))
@@ -442,7 +442,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes);
 
                 if (searchParamTableExpression.Predicate != null)
                 {
@@ -525,7 +525,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes);
 
                 if (searchParamTableExpression.ChainLevel == 0 && !IsInSortMode(context) && !CheckAppendWithJoin())
                 {
@@ -603,7 +603,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes);
 
                     delimited.BeginDelimitedElement();
                     searchParamTableExpression.Predicate.AcceptVisitor(searchParamTableExpression.QueryGenerator, GetContext());
@@ -736,8 +736,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
                     .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url), true));
 
-                // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceSourceTableAlias);
 
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                     .Append(" IN (")
@@ -823,8 +823,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                // We should remove IsHistory from ReferenceSearchParam (Source) only but keep on Resource (Target)
-                AppendHistoryClause(delimited, context.ResourceVersionTypes, null, referenceTargetResourceTableAlias);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
+                AppendHistoryClause(delimited, context.ResourceVersionTypes, referenceSourceTableAlias);
 
                 AppendDeletedClause(delimited, context.ResourceVersionTypes, referenceTargetResourceTableAlias);
 
@@ -891,7 +891,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                if (includeExpression.Reversed && includeExpression.SourceResourceType != "*")
+                if (includeExpression.Reversed)
                 {
                     delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
                         .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType), true));
@@ -1064,7 +1064,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes);
                     AppendMinOrMax(delimited, context);
 
                     if (searchParamTableExpression.Predicate != null)
@@ -1113,7 +1113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                 {
-                    AppendHistoryClause(delimited, context.ResourceVersionTypes, searchParamTableExpression);
+                    AppendHistoryClause(delimited, context.ResourceVersionTypes);
                     AppendMinOrMax(delimited, context);
 
                     if (searchParamTableExpression.Predicate != null)
@@ -1326,13 +1326,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
         }
 
-        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, SearchParamTableExpression expression = null, string tableAlias = null)
+        private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, ResourceVersionType resourceVersionType, string tableAlias = null)
         {
-            if (expression != null && expression.QueryGenerator.Table.TableName.EndsWith("SearchParam", StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
             if (resourceVersionType.HasFlag(ResourceVersionType.Latest) && !resourceVersionType.HasFlag(ResourceVersionType.History))
             {
                 delimited.BeginDelimitedElement();

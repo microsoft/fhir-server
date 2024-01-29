@@ -22,35 +22,40 @@ ON dbo.StringSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_StringSearchParam_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
-    Text
+    Text,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    TextOverflow, -- will not be needed when all servers are targeting at least this version. TODO: What?
+    TextOverflow, -- will not be needed when all servers are targeting at least this version.
     IsMin,
     IsMax
 )
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Text_INCLUDE_IsMin_IsMax_WHERE_TextOverflow_NOT_NULL
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
-    Text
+    Text,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     IsMin,
     IsMax
 )
-WHERE TextOverflow IS NOT NULL
+WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

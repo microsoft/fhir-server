@@ -30,39 +30,43 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_SingleValue2_SingleValue3_INCLUDE_SystemId1_WHERE_HasRange_0
+CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     SingleValue2,
-    SingleValue3 -- TODO: Do we need this as key column?
+    SingleValue3,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1
 )
-WHERE HasRange = 0
+WHERE IsHistory = 0 AND HasRange = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3_INCLUDE_SystemId1_WHERE_HasRange_1
+CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
-    LowValue2, 
-    HighValue2, -- TODO: Do we need this as key column?
-    LowValue3, -- TODO: Do we need this as key column?
-    HighValue3 -- TODO: Do we need this as key column?
+    LowValue2,
+    HighValue2,
+    LowValue3,
+    HighValue3,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1
 )
-WHERE HasRange = 1
+WHERE IsHistory = 0 AND HasRange = 1
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

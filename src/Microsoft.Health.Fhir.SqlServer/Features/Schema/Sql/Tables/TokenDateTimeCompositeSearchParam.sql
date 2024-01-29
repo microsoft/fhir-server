@@ -26,69 +26,79 @@ ON dbo.TokenDateTimeCompositeSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     StartDateTime2,
-    EndDateTime2
+    EndDateTime2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1,
     IsLongerThanADay2
 )
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     EndDateTime2,
-    StartDateTime2
+    StartDateTime2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1,
     IsLongerThanADay2
 )
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     StartDateTime2,
-    EndDateTime2
+    EndDateTime2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1
 )
-WHERE IsLongerThanADay2 = 1
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
+CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     EndDateTime2,
-    StartDateTime2
+    StartDateTime2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     SystemId1
 )
-WHERE IsLongerThanADay2 = 1
+WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

@@ -24,27 +24,14 @@ ON dbo.DateTimeSearchParam
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     StartDateTime,
-    EndDateTime -- TODO: Should it be in INCLUDE?
-)
-INCLUDE
-(
-    IsLongerThanADay,
-    IsMin,
-    IsMax
-)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-
-CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
-ON dbo.DateTimeSearchParam
-(
-    SearchParamId,
     EndDateTime,
-    StartDateTime -- TODO: Should it be in INCLUDE?
+    ResourceSurrogateId
 )
 INCLUDE
 (
@@ -52,35 +39,58 @@ INCLUDE
     IsMin,
     IsMax
 )
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-
-CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
-ON dbo.DateTimeSearchParam
-(
-    SearchParamId,
-    StartDateTime,
-    EndDateTime -- TODO: Should it be in INCLUDE?
-)
-INCLUDE
-(
-    IsMin,
-    IsMax
-)
-WHERE IsLongerThanADay = 1
+WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_EndDateTime_StartDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     EndDateTime,
-    StartDateTime -- TODO: Should it be in INCLUDE?
+    StartDateTime,
+    ResourceSurrogateId
+)
+INCLUDE
+(
+    IsLongerThanADay,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    StartDateTime,
+    EndDateTime,
+    ResourceSurrogateId
 )
 INCLUDE
 (
     IsMin,
     IsMax
 )
-WHERE IsLongerThanADay = 1
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    EndDateTime,
+    StartDateTime,
+    ResourceSurrogateId
+)
+INCLUDE
+(
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

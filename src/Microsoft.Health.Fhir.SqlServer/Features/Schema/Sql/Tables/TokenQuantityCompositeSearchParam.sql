@@ -28,14 +28,16 @@ ON dbo.TokenQuantityCompositeSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_SingleValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_SingleValue2_NOT_NULL
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
-    SingleValue2
+    SingleValue2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
@@ -43,17 +45,19 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE SingleValue2 IS NOT NULL
+WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     LowValue2,
-    HighValue2 -- TODO: Do we need this as key column?
+    HighValue2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
@@ -61,17 +65,19 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE LowValue2 IS NOT NULL
+WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_HighValue2_LowValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
+CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     Code1,
     HighValue2,
-    LowValue2 -- TODO: Do we need this as key column?
+    LowValue2,
+    ResourceSurrogateId
 )
 INCLUDE
 (
@@ -79,7 +85,7 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE LowValue2 IS NOT NULL
+WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
