@@ -164,12 +164,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
-            var mergeWrappers = new List<MergeResourceWrapper>();
+            var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
             var singleTransaction = enlistInTransaction;
-            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
+            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
+                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId; // this assumes that first resource version is the latest one
                 prevResourceId = resourceExt.Wrapper.ResourceId;
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
@@ -178,9 +178,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 var resource = resourceExt.Wrapper;
                 var identifier = resourceExt.GetIdentifier();
-                var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
+                var existingVersion = 0;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    var existingVersion = int.Parse(existingResource.Version);
+                    existingVersion = int.Parse(existingResource.Version);
                     var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                     if (!resourceExt.KeepVersion) // version is set on input
                     {
@@ -310,12 +310,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // Do not call DB with empty input
+            // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
+            // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
+            // Sort them in groups by resource id and order by version.
+            // In each group find the smallest version higher then existing
+            prevResourceId = string.Empty;
+            var notSetInResoureGroup = false;
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ResourceId).ThenBy(x => x.ResourceVersion))
+            {
+                if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
+                {
+                    notSetInResoureGroup = true;
+                }
+
+                prevResourceId = mergeWrapper.Wrapper.ResourceWrapper.ResourceId;
+
+                if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
+                {
+                    mergeWrapper.Wrapper.HasVersionToCompare = true;
+                    notSetInResoureGroup = false;
+                }
+            }
+
+            if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -325,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappers, enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
                         catch (Exception e)
