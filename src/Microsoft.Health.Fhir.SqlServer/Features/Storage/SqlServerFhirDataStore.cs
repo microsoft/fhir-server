@@ -380,7 +380,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
         {
             Stopwatch stopwatch = new Stopwatch();
-            _logger.LogInformation("Profiling - Generating MergeResourcesWrapperAsync");
+            _logger.LogInformation("Profiling test1 - Generating MergeResourcesWrapperAsync");
             stopwatch.Start();
             using var conn = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, enlistInTransaction);
             using var cmd = conn.CreateNonRetrySqlCommand();
