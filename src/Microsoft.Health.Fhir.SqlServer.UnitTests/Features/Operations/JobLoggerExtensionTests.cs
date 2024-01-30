@@ -7,11 +7,15 @@ using System;
 using System.IO;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations
 {
+    [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
+    [Trait(Traits.Category, Categories.Operations)]
     public sealed class JobLoggerExtensionTests
     {
         [Fact]
@@ -41,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations
                 Id = 4321,
             };
 
-            logger.LogJobInformation(info, "Param1: {param1} / Param2: {param2} / Param3: {param3}.", "A", "b", "C3");
+            logger.LogJobError(info, "Param1: {param1} / Param2: {param2} / Param3: {param3}.", "A", "b", "C3");
         }
 
         [Fact]
@@ -56,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations
                 Id = 333,
             };
 
-            logger.LogJobInformation(info, "Param1: '{P1}' / Param2: {P2} / Param3: {P3} / Param4: '{P4}' / Param5: {P5}.", "A", "B", 3, "D", 55);
+            logger.LogJobWarning(info, "Param1: '{P1}' / Param2: {P2} / Param3: {P3} / Param4: '{P4}' / Param5: {P5}.", "A", "B", 3, "D", 55);
         }
 
         private sealed class CustomerTestingLogger : ILogger<JobLoggerExtensionTests>
