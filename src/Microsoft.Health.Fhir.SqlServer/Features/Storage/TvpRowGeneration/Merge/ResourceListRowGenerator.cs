@@ -39,28 +39,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 stopwatch.Start();
                 var wrapper = merge.ResourceWrapper;
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
-                _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
+                _compressedRawResourceConverter.WriteCompressedRawResource(stream, "test data");
                 stream.Seek(0, 0);
                 _logger.LogInformation($"Profiling - Ending the compression {stopwatch.ElapsedMilliseconds}");
                 stopwatch.Stop();
 
-                // Specify the file path
-                _logger.LogInformation("Profiling - Starting the compression and writing to file");
-                stopwatch.Start();
+                ////// Specify the file path
+                ////_logger.LogInformation("Profiling - Starting the compression and writing to file");
+                ////stopwatch.Start();
 
-                // Write compressed data to file
-                // _compressedRawResourceConverter.WriteCompressedDataToFile("compressed_data.txt", wrapper.RawResource.Data);
-                _logger.LogInformation($"Profiling - Ending the compression and writing to file {stopwatch.ElapsedMilliseconds}");
-                stopwatch.Stop();
+                ////// Write compressed data to file
+                ////// _compressedRawResourceConverter.WriteCompressedDataToFile("compressed_data.txt", wrapper.RawResource.Data);
+                ////_logger.LogInformation($"Profiling - Ending the compression and writing to file {stopwatch.ElapsedMilliseconds}");
+                ////stopwatch.Stop();
 
-                // Specify the file path
-                _logger.LogInformation("Profiling - Starting the compression and writing to file with Bytes");
-                stopwatch.Start();
+                ////// Specify the file path
+                ////_logger.LogInformation("Profiling - Starting the compression and writing to file with Bytes");
+                ////stopwatch.Start();
 
-                // Write compressed data to file
-                // _compressedRawResourceConverter.CompressAndWriteToFileWithBytes("compressed_data1.txt", wrapper.RawResource.Data);
-                _logger.LogInformation($"Profiling - Ending the compression and writing to file with Bytes {stopwatch.ElapsedMilliseconds}");
-                stopwatch.Stop();
+                ////// Write compressed data to file
+                ////// _compressedRawResourceConverter.CompressAndWriteToFileWithBytes("compressed_data1.txt", wrapper.RawResource.Data);
+                ////_logger.LogInformation($"Profiling - Ending the compression and writing to file with Bytes {stopwatch.ElapsedMilliseconds}");
+                ////stopwatch.Stop();
 
                 yield return new ResourceListRow(_model.GetResourceTypeId(wrapper.ResourceTypeName), merge.ResourceWrapper.ResourceSurrogateId, wrapper.ResourceId, int.Parse(wrapper.Version), merge.HasVersionToCompare, wrapper.IsDeleted, wrapper.IsHistory, merge.KeepHistory, stream, wrapper.RawResource.IsMetaSet, wrapper.Request?.Method, wrapper.SearchParameterHash);
             }
