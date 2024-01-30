@@ -101,12 +101,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     await loadTask;
                 }
-                catch (TaskCanceledException)
+                catch (TaskCanceledException tce)
                 {
+                    _logger.LogJobWarning(tce, jobInfo, nameof(TaskCanceledException));
                     throw;
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException oce)
                 {
+                    _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
                     throw;
                 }
                 catch (RequestFailedException ex) when (ex.Status == 403)
@@ -117,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogJobError(ex, jobInfo, "Failed to load data.");
+                    _logger.LogJobError(ex, jobInfo, "RetriableJobException. Generic exception. Failed to load data.");
                     throw new RetriableJobException("Failed to load data", ex);
                 }
 

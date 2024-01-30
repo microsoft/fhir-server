@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (RetriableJobException ex)
             {
-                _logger.LogJobInformation(ex, jobInfo, "Failed to process input resources.");
+                _logger.LogJobInformation(ex, jobInfo, "Failed with RetriableJobException.");
 
                 throw;
             }
@@ -415,7 +415,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     currentResult.CompletedJobs += completedJobIds.Count;
                     progress.Report(JsonConvert.SerializeObject(currentResult));
 
-                    _logger.LogJobInformation(orchestratorInfo, "Throttle to avoid high database utilization..");
+                    _logger.LogJobInformation(orchestratorInfo, "Throttle to avoid high database utilization.");
                     await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
                 }
                 else
@@ -488,6 +488,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 try
                 {
+                    _logger.LogJobInformation(jobInfo, nameof(WaitCancelledJobCompletedAsync));
+
                     IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None);
 
                     if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == jobInfo.Id))
@@ -497,7 +499,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogJobWarning(ex, jobInfo, "Failed to get jobs by groupId {GroupId}", jobInfo.GroupId);
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to get jobs by groupId {GroupId}.", jobInfo.GroupId);
                     throw new RetriableJobException(ex.Message, ex);
                 }
 
