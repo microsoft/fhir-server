@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -391,13 +392,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
                             var procesingJobResult = jobInfo.DeserializeResult<ImportProcessingJobErrorResult>();
-                            _logger.LogJobError(jobInfo, procesingJobResult.Message);
+                            _logger.LogJobError(jobInfo, "Job is set to 'Failed'. Message: {Message}.", procesingJobResult.Message);
                             throw new ImportProcessingException(procesingJobResult.Message);
                         }
                         else if (jobInfo.Status == JobStatus.Cancelled)
                         {
-                            _logger.LogJobError(jobInfo, "Import operation cancelled by customer.");
-                            throw new OperationCanceledException("Import operation cancelled by customer.");
+                            const string message = "Import operation cancelled by customer.";
+                            _logger.LogJobError(jobInfo, message);
+                            throw new OperationCanceledException(message);
                         }
 
                         completedJobIds.Add(jobInfo.Id);
@@ -456,8 +458,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (SqlException ex) when (ex.Number == 2627)
             {
-                _logger.LogJobError(ex, orchestratorInfo, "Duplicate file detected in list of files to import.");
-                throw new JobExecutionException("Duplicate file detected in list of files to import.", ex);
+                const string message = "Duplicate file detected in list of files to import.";
+                _logger.LogJobError(ex, orchestratorInfo, message);
+                throw new JobExecutionException(message, ex);
             }
             catch (Exception ex)
             {
@@ -476,7 +479,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobWarning(ex, jobInfo, "Failed to cancel Job Id {JobId} and Group Id {GroupId}.", jobInfo.Id, jobInfo.GroupId);
+                _logger.LogJobWarning(ex, jobInfo, "Failed to cancel job.");
             }
 
             await WaitCancelledJobCompletedAsync(jobInfo);
