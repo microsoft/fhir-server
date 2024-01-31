@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
+                            _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
                             await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                             atLeastOneWorkerJobRegistered = true;
                         }
