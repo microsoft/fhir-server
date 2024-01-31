@@ -76,8 +76,6 @@ namespace Microsoft.Health.JobManagement
                                 }
 
                                 nextJob ??= await _queueClient.DequeueAsync(queueType, workerName, JobHeartbeatTimeoutThresholdInSeconds, cancellationTokenSource.Token);
-
-                                _logger.LogJobInformation(nextJob, "Job dequeued.");
                             }
                             catch (Exception ex)
                             {
@@ -87,10 +85,12 @@ namespace Microsoft.Health.JobManagement
 
                         if (nextJob != null)
                         {
+                            _logger.LogJobInformation(nextJob, "Job dequeued.");
                             await ExecuteJobAsync(nextJob, useHeavyHeartbeats);
                         }
                         else
                         {
+                            _logger.LogInformation("Empty queue. Delaying until next iteration.");
                             await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                         }
                     }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.JobManagement
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job failed to execute");
+                _logger.LogError(ex, "Job failed to execute. Queue type: {QueueType}", queueType);
             }
         }
 
@@ -116,7 +116,7 @@ namespace Microsoft.Health.JobManagement
 
             if (job == null)
             {
-                _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type", jobInfo.Id);
+                _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
                 return;
             }
 
