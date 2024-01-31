@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Export)]
-    public class ExportOrchestratorJobTests
+    public class SqlExportOrchestratorJobTests
     {
         private ILogger<SqlExportOrchestratorJob> _logger = Substitute.For<ILogger<SqlExportOrchestratorJob>>();
         private ISearchService _mockSearchService = Substitute.For<ISearchService>();
@@ -215,7 +215,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Export
                     "Observation",
                     "Encounter",
                 };
-
                 return list;
             });
 

@@ -29,6 +29,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merg
         /// <summary>
         /// Flag indicating whether version in resource wrapper == (existing version in the database + 1)
         /// </summary>
-        public bool HasVersionToCompare { get; private set; }
+        public bool HasVersionToCompare { get; internal set; }
     }
 }

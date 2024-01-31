@@ -37,11 +37,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             EnsureArg.IsNotNull(container, nameof(container));
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
 
-            var documentQuery = container
-                .GetItemQueryIterator<T>(
+            FeedIterator<T> documentQuery;
+
+            if (queryContext.FeedRange is null)
+            {
+                documentQuery = container.GetItemQueryIterator<T>(
                     queryContext.SqlQuerySpec,
                     continuationToken: queryContext.ContinuationToken,
                     requestOptions: queryContext.FeedOptions);
+            }
+            else
+            {
+                documentQuery = container.GetItemQueryIterator<T>(
+                    queryContext.FeedRange,
+                    queryContext.SqlQuerySpec,
+                    continuationToken: queryContext.ContinuationToken,
+                    requestOptions: queryContext.FeedOptions);
+            }
 
             return new CosmosQuery<T>(
                 queryContext,

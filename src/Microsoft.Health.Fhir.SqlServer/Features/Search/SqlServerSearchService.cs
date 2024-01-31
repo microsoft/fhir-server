@@ -427,12 +427,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     continue;
                                 }
 
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                string rawResource = string.Empty;
+
+                                if (!clonedSearchOptions.OnlyIds)
+                                {
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                }
 
                                 _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
-                                if (string.IsNullOrEmpty(rawResource))
+                                if (string.IsNullOrEmpty(rawResource) && !clonedSearchOptions.OnlyIds)
                                 {
                                     rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
                                     _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
@@ -472,7 +477,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         resourceId,
                                         version.ToString(CultureInfo.InvariantCulture),
                                         _model.GetResourceTypeName(resourceTypeId),
-                                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                        clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                                         new ResourceRequest(requestMethod),
                                         new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                         isDeleted,

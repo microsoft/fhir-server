@@ -258,6 +258,7 @@
             "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
+            "CosmosDb__UseQueueClientJobs": "true",
             "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
             "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[if(equals(parameters('sqlSchemaAutomaticUpdatesEnabled'),'auto'), true(), false())]",
             "DataStore": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'CosmosDb', 'SqlServer')]",

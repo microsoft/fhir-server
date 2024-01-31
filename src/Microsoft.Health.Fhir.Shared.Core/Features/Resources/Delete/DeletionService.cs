@@ -113,9 +113,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
             var searchCount = 1000;
 
             IReadOnlyCollection<SearchResultEntry> matchedResults;
@@ -127,13 +124,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     request.ConditionalParameters,
                     cancellationToken,
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
-                    versionType: request.VersionType);
+                    versionType: request.VersionType,
+                    onlyIds: true);
             }
 
             long numDeleted = 0;
             long numQueuedForDeletion = 0;
-
-            var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
 
             var deleteTasks = new List<Task<long>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -175,12 +171,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         using (var searchService = _searchServiceFactory.Invoke())
                         {
                             (matchedResults, ct) = await searchService.Value.ConditionalSearchAsync(
-                            request.ResourceType,
-                            request.ConditionalParameters,
-                            cancellationToken,
-                            request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
-                            ct,
-                            request.VersionType);
+                                request.ResourceType,
+                                request.ConditionalParameters,
+                                cancellationToken,
+                                request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
+                                ct,
+                                request.VersionType,
+                                onlyIds: true);
                         }
                     }
                     else
