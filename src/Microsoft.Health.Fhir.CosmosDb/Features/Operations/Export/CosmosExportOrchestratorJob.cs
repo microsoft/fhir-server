@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -20,10 +22,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     public class CosmosExportOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
+        private readonly ILogger<CosmosExportOrchestratorJob> _logger;
 
-        public CosmosExportOrchestratorJob(IQueueClient queueClient)
+        public CosmosExportOrchestratorJob(IQueueClient queueClient, ILogger<CosmosExportOrchestratorJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -34,11 +38,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
 
+            _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             if (groupJobs.Count == 1)
             {
+                _logger.LogJobInformation(jobInfo, "Creating export record.");
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
+
+                _logger.LogJobInformation(jobInfo, "Enqueuing export job.");
                 await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 

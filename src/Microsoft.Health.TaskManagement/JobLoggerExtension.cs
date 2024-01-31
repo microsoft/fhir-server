@@ -5,15 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations;
-using Microsoft.Health.JobManagement;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
+namespace Microsoft.Health.JobManagement
 {
-    internal static class JobLoggerExtension
+    public static class JobLoggerExtension
     {
         public static void LogJobInformation<T>(this ILogger<T> logger, JobInfo jobInfo, string message, params object[] args)
         {
@@ -52,8 +48,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
 
             // Combine arguments.
             List<object> finalArgs = new List<object>();
-            finalArgs.Add(jobInfo.GroupId);
-            finalArgs.Add(jobInfo.Id);
+            finalArgs.Add(jobInfo?.GroupId);
+            finalArgs.Add(jobInfo?.Id);
             if (args != null)
             {
                 foreach (object messageArgument in args)

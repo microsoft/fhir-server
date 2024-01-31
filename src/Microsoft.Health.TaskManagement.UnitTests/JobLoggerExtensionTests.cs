@@ -6,18 +6,38 @@
 using System;
 using System.IO;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations
+namespace Microsoft.Health.JobManagement.UnitTests
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Operations)]
     public sealed class JobLoggerExtensionTests
     {
+        [Fact]
+        public void WhenLoggingANullJobInformation_PreFixLoggWithEmptyJobInformation()
+        {
+            const string expectedString = "[GroupId:(null)/JobId:(null)] Message: test.";
+            ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
+
+            JobInfo info = null;
+
+            logger.LogJobInformation(info, "Message: {message}.", "test");
+        }
+
+        [Fact]
+        public void WhenLoggingAEmptyJobInformation_PreFixLoggWithEmptyJobInformation()
+        {
+            const string expectedString = "[GroupId:0/JobId:0] Message: test.";
+            ILogger<JobLoggerExtensionTests> logger = new CustomerTestingLogger(expectedString);
+
+            JobInfo info = new JobInfo();
+
+            logger.LogJobInformation(info, "Message: {message}.", "test");
+        }
+
         [Fact]
         public void WhenLoggingAJobInformation_PreFixLoggWithJobInformation_AndLogOneParameter()
         {
