@@ -108,34 +108,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (currentResult.Progress == ImportOrchestratorJobProgress.Initialized)
-                {
-                    await ValidateResourcesAsync(inputData, cancellationToken);
+                await ValidateResourcesAsync(inputData, cancellationToken);
+                _logger.LogInformation("Input Resources Validated");
 
-                    currentResult.Progress = ImportOrchestratorJobProgress.InputResourcesValidated;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("Input Resources Validated");
-                }
-
-                if (currentResult.Progress == ImportOrchestratorJobProgress.InputResourcesValidated)
-                {
-                    await _importOrchestratorJobDataStoreOperation.PreprocessAsync(cancellationToken);
-
-                    currentResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("Preprocess Completed");
-                }
-
-                if (currentResult.Progress == ImportOrchestratorJobProgress.PreprocessCompleted)
-                {
-                    await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, cancellationToken);
-                    currentResult.Progress = ImportOrchestratorJobProgress.SubJobsCompleted;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("SubJobs Completed");
-                }
+                await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, cancellationToken);
+                _logger.LogInformation("SubJobs Completed");
             }
             catch (TaskCanceledException taskCanceledEx)
             {
@@ -224,27 +201,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-            }
-
-            // Post-process operation cannot be cancelled.
-            try
-            {
-                await _importOrchestratorJobDataStoreOperation.PostprocessAsync(CancellationToken.None);
-
-                _logger.LogInformation("Postprocess Completed");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Failed at postprocess step.");
-
-                ImportOrchestratorJobErrorResult postProcessErrorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.InternalServerError,
-                    ErrorMessage = ex.Message,
-                    ErrorDetails = ex.ToString(),
-                };
-
-                throw new RetriableJobException(JsonConvert.SerializeObject(postProcessErrorResult));
             }
 
             if (errorResult != null)
