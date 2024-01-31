@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IImportOrchestratorJobDataStoreOperation _importOrchestratorJobDataStoreOperation;
         private readonly IQueueClient _queueClient;
         private ImportTaskConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
@@ -52,7 +51,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         public ImportOrchestratorJob(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IImportOrchestratorJobDataStoreOperation importOrchestratorJobDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
             IOptions<ImportTaskConfiguration> importConfiguration,
@@ -61,7 +59,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(importOrchestratorJobDataStoreOperation, nameof(importOrchestratorJobDataStoreOperation));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(importConfiguration?.Value, nameof(importConfiguration));
@@ -70,7 +67,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             _mediator = mediator;
             _contextAccessor = contextAccessor;
-            _importOrchestratorJobDataStoreOperation = importOrchestratorJobDataStoreOperation;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
             _importConfiguration = importConfiguration.Value;

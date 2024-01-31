@@ -77,7 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJobAndWrongEtag_WhenOrchestratorJobStart_ThenJobShouldFailedWithDetails(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -109,7 +108,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -176,7 +174,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenIntegrationExceptionThrow_ThenJobShouldFailedWithDetails(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -204,7 +201,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -269,117 +265,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenFailedAtPreprocessStep_ThenJobExecutionExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
-        {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            IMediator mediator = Substitute.For<IMediator>();
-            ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
-            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
-
-            importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
-            var inputs = new List<InputResource>();
-            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
-
-            importOrchestratorJobInputData.Input = inputs;
-            importOrchestratorJobInputData.InputFormat = "ndjson";
-            importOrchestratorJobInputData.InputSource = new Uri("http://dummy");
-            importOrchestratorJobInputData.RequestUri = new Uri("http://dummy");
-            importOrchestratorJobInputData.ImportMode = importMode;
-
-            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    Dictionary<string, object> properties = new Dictionary<string, object>();
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
-                    return properties;
-                });
-
-            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
-                .Returns(_ =>
-                {
-                    throw new InvalidCastException();
-                });
-
-            TestQueueClient testQueueClient = new TestQueueClient();
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
-
-            ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
-                mediator,
-                contextAccessor,
-                fhirDataBulkImportOperation,
-                integrationDataStoreClient,
-                testQueueClient,
-                Options.Create(new ImportTaskConfiguration()),
-                loggerFactory,
-                auditLogger);
-            orchestratorJob.PollingPeriodSec = 0;
-
-            var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
-
-            Assert.Equal(HttpStatusCode.InternalServerError, resultDetails.HttpStatusCode);
-            Assert.NotEmpty(resultDetails.ErrorMessage);
-
-            _ = mediator.Received().Publish(
-                Arg.Is<ImportJobMetricsNotification>(
-                    notification => notification.Id == orchestratorJobInfo.Id.ToString() &&
-                    notification.Status == JobStatus.Failed.ToString() &&
-                    notification.CreateTime == orchestratorJobInfo.CreateDate &&
-                    notification.DataSize == 0 &&
-                    notification.SucceededCount == 0 &&
-                    notification.FailedCount == 0),
-                Arg.Any<CancellationToken>());
-
-            if (importMode == ImportMode.IncrementalLoad)
-            {
-                var incrementalImportProperties = new Dictionary<string, string>();
-                incrementalImportProperties["JobId"] = orchestratorJobInfo.Id.ToString();
-                incrementalImportProperties["SucceededResources"] = "0";
-                incrementalImportProperties["FailedResources"] = "0";
-
-                auditLogger.Received(1);
-                auditLogger.Received().LogAudit(
-                    auditAction: Arg.Any<AuditAction>(),
-                    operation: Arg.Any<string>(),
-                    resourceType: Arg.Any<string>(),
-                    requestUri: Arg.Any<Uri>(),
-                    statusCode: Arg.Any<HttpStatusCode?>(),
-                    correlationId: Arg.Any<string>(),
-                    callerIpAddress: Arg.Any<string>(),
-                    callerClaims: Arg.Any<IReadOnlyCollection<KeyValuePair<string, string>>>(),
-                    customHeaders: Arg.Any<IReadOnlyDictionary<string, string>>(),
-                    operationType: Arg.Any<string>(),
-                    callerAgent: Arg.Any<string>(),
-                    additionalProperties: Arg.Is<IReadOnlyDictionary<string, string>>(dict =>
-                                        dict.ContainsKey("JobId") && dict["JobId"].Equals(orchestratorJobInfo.Id.ToString()) &&
-                                        dict.ContainsKey("SucceededResources") && dict["SucceededResources"].Equals("0") &&
-                                        dict.ContainsKey("FailedResources") && dict["FailedResources"].Equals("0")));
-            }
-            else if (importMode == ImportMode.InitialLoad)
-            {
-                auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
-                               auditAction: default,
-                               operation: default,
-                               resourceType: default,
-                               requestUri: default,
-                               statusCode: default,
-                               correlationId: default,
-                               callerIpAddress: default,
-                               callerClaims: default);
-            }
-        }
-
-        [InlineData(ImportMode.InitialLoad)]
-        [InlineData(ImportMode.IncrementalLoad)]
-        [Theory]
         public async Task GivenAnOrchestratorJob_WhenRetriableExceptionThrow_ThenJobExecutionShuldFailedWithRetriableException(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -389,9 +276,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
 
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
-            var inputs = new List<InputResource>();
-            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
-
+            var inputs = new[] { new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") } };
             importOrchestratorInputData.Input = inputs;
             importOrchestratorInputData.InputFormat = "ndjson";
             importOrchestratorInputData.InputSource = new Uri("http://dummy");
@@ -401,16 +286,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    Dictionary<string, object> properties = new Dictionary<string, object>();
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
-                    return properties;
-                });
-
-            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
-                .Returns(_ =>
-                {
+                    var properties = new Dictionary<string, object>();
                     throw new RetriableJobException("test");
+                    #pragma warning disable CS0162 // Unreachable code detected
+                    return properties;
                 });
 
             TestQueueClient testQueueClient = new TestQueueClient();
@@ -419,7 +298,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -449,7 +327,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenLastSubJobFailed_ThenImportProcessingExceptionShouldBeThrowAndWaitForOtherSubJobsCancelledAndCompleted(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -491,7 +368,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             importOrchestratorInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
 
-            importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy/3") });
             inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy/4") });
             importOrchestratorInputData.Input = inputs;
@@ -513,7 +389,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -573,7 +448,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenSubJobFailedAndOthersRunning_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -648,7 +522,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -709,7 +582,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhneSubJobCancelledAfterThreeCalls_ThenOperationCanceledExceptionShouldBeThrowAndContextUpdate(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -753,7 +625,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -814,7 +685,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenSubJobFailedAfterThreeCalls_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -858,7 +728,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -920,7 +789,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenSubJobCancelled_ThenOperationCancelledExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -964,7 +832,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -1025,7 +892,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [Theory]
         public async Task GivenAnOrchestratorJob_WhenSubJobFailed_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -1069,7 +935,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new Core.Configs.ImportTaskConfiguration()),
@@ -1128,103 +993,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             }
         }
 
-        [InlineData(ImportMode.InitialLoad)]
-        [InlineData(ImportMode.IncrementalLoad)]
-        [Theory]
-        public async Task GivenAnOrchestratorJob_WhenFailedAtPostProcessStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
-        {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            IMediator mediator = Substitute.For<IMediator>();
-            ImportOrchestratorJobDefinition importOrchestratorJobInputData = new ImportOrchestratorJobDefinition();
-            TestQueueClient testQueueClient = new TestQueueClient();
-            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
-            testQueueClient.GetJobByIdFunc = (testQueueClient, id, _) =>
-            {
-                JobInfo jobInfo = testQueueClient.JobInfos.First(t => t.Id == id);
-
-                if (jobInfo == null)
-                {
-                    return null;
-                }
-
-                if (jobInfo.Status == JobManagement.JobStatus.Completed)
-                {
-                    return jobInfo;
-                }
-
-                ImportProcessingJobDefinition processingInput = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
-                ImportProcessingJobResult processingResult = new ImportProcessingJobResult();
-                processingResult.SucceededResources = 1;
-                processingResult.FailedResources = 1;
-                processingResult.ErrorLogLocation = "http://dummy/error";
-
-                jobInfo.Result = JsonConvert.SerializeObject(processingResult);
-                jobInfo.Status = JobManagement.JobStatus.Completed;
-                return jobInfo;
-            };
-
-            importOrchestratorJobInputData.BaseUri = new Uri("http://dummy");
-            var inputs = new List<InputResource>();
-            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
-
-            importOrchestratorJobInputData.Input = inputs;
-            importOrchestratorJobInputData.InputFormat = "ndjson";
-            importOrchestratorJobInputData.InputSource = new Uri("http://dummy");
-            importOrchestratorJobInputData.RequestUri = new Uri("http://dummy");
-            importOrchestratorJobInputData.ImportMode = importMode;
-
-            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    Dictionary<string, object> properties = new Dictionary<string, object>();
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
-                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
-                    return properties;
-                });
-
-            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<CancellationToken>())
-                .Returns(_ =>
-                {
-                    throw new InvalidCastException();
-                });
-
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
-
-            ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
-                mediator,
-                contextAccessor,
-                fhirDataBulkImportOperation,
-                integrationDataStoreClient,
-                testQueueClient,
-                Options.Create(new Core.Configs.ImportTaskConfiguration()),
-                loggerFactory,
-                auditLogger);
-            orchestratorJob.PollingPeriodSec = 0;
-
-            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, new Progress<string>(), CancellationToken.None));
-
-            _ = mediator.DidNotReceive().Publish(
-                Arg.Any<ImportJobMetricsNotification>(),
-                Arg.Any<CancellationToken>());
-
-            auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
-                               auditAction: default,
-                               operation: default,
-                               resourceType: default,
-                               requestUri: default,
-                               statusCode: default,
-                               correlationId: default,
-                               callerIpAddress: default,
-                               callerClaims: default);
-        }
-
         [Fact]
         public async Task GivenAnOrchestratorJob_WhenCancelledBeforeCompleted_ThenProcessingJobsShouldNotBeCancelled()
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -1274,7 +1045,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new Core.Configs.ImportTaskConfiguration()),
@@ -1291,7 +1061,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
         private static async Task VerifyJobStatusChangedAsync(int inputFileCount, JobStatus jobStatus, int succeedCount, int failedCount, int resumeFrom = -1, int completedCount = 0)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -1375,8 +1144,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
                         importOrchestratorJobResult.CreatedJobs += 1;
                     }
-
-                    importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
                 }
             }
 
@@ -1398,7 +1165,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new ImportTaskConfiguration()),
@@ -1421,7 +1187,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
         private static async Task VerifyCommonOrchestratorJobAsync(int inputFileCount, int resumeFrom = -1, int completedCount = 0)
         {
-            IImportOrchestratorJobDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorJobDataStoreOperation>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -1502,8 +1267,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
                         importOrchestratorJobResult.CreatedJobs += 1;
                     }
-
-                    importOrchestratorJobResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
                 }
             }
 
@@ -1528,7 +1291,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             var orchestratorJob = new ImportOrchestratorJob(
                 mediator,
                 contextAccessor,
-                fhirDataBulkImportOperation,
                 integrationDataStoreClient,
                 testQueueClient,
                 Options.Create(new Core.Configs.ImportTaskConfiguration()),
