@@ -178,6 +178,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                                 return result;
                             });
             }
+            catch (AggregateException ex) when (ex.InnerExceptions[0] is RequestFailedException)
+            {
+                var innerException = (RequestFailedException)ex.InnerExceptions[0];
+                _logger.LogInformation(innerException, "{Error}", innerException.Message);
+                Exception exception = HandleRequestFailedException(innerException, "Failed to get properties of blob {Url}");
+                throw new IntegrationDataStoreException(exception, (HttpStatusCode)innerException.Status);
+            }
             catch (RequestFailedException se)
             {
                 Exception exception = HandleRequestFailedException(se, $"Failed to get properties of blob {resourceUri}");
