@@ -286,10 +286,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    var properties = new Dictionary<string, object>();
                     throw new RetriableJobException("test");
                     #pragma warning disable CS0162 // Unreachable code detected
-                    return properties;
+                    return new Dictionary<string, object>();
                 });
 
             TestQueueClient testQueueClient = new TestQueueClient();
