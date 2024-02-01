@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
@@ -35,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             var securityConfiguration = new SecurityConfiguration();
             securityConfiguration.Authorization.Enabled = false;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Substitute.For<IHttpClientFactory>());
 
             OperationFailedException e = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, e.ResponseStatusCode);
@@ -51,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Substitute.For<IHttpClientFactory>());
 
             GetSmartConfigurationResponse response = await handler.Handle(request, CancellationToken.None);
 
@@ -76,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             securityConfiguration.Authorization.Enabled = true;
             securityConfiguration.Authentication.Authority = baseEndpoint;
 
-            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration));
+            var handler = new GetSmartConfigurationHandler(Options.Create(securityConfiguration), Substitute.For<IHttpClientFactory>());
 
             OperationFailedException exception = await Assert.ThrowsAsync<OperationFailedException>(() => handler.Handle(request, CancellationToken.None));
             Assert.Equal(HttpStatusCode.BadRequest, exception.ResponseStatusCode);

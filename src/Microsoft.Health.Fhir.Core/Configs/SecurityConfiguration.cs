@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public AuthenticationConfiguration Authentication { get; set; } = new AuthenticationConfiguration();
 
+        public SmartAuthenticationConfiguration SmartAuthentication { get; set; } = new SmartAuthenticationConfiguration();
+
         public virtual HashSet<string> PrincipalClaims { get; } = new HashSet<string>(StringComparer.Ordinal);
 
         public AuthorizationConfiguration Authorization { get; set; } = new AuthorizationConfiguration();
