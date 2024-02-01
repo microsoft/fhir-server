@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await ValidateResourcesAsync(inputData, cancellationToken);
                 _logger.LogInformation("Input Resources Validated");
 
-                await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, cancellationToken);
+                await ExecuteImportProcessingJobAsync(jobInfo, inputData, currentResult, cancellationToken);
                 _logger.LogInformation("SubJobs Completed");
             }
             catch (TaskCanceledException taskCanceledEx)
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
 
-        private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task ExecuteImportProcessingJobAsync(JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             currentResult.TotalBytes = 0;
             currentResult.FailedResources = 0;
@@ -288,11 +288,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             });
 
             var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
-            progress.Report(JsonConvert.SerializeObject(currentResult));
 
             currentResult.CreatedJobs = jobIds.Count;
 
-            await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
+            await WaitCompletion(jobIds, currentResult, cancellationToken);
         }
 
         internal static IEnumerable<long> GetOffsets(long blobLength, int bytesToRead)
@@ -305,7 +304,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task WaitCompletion(IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
 
@@ -361,7 +360,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     currentResult.CompletedJobs += completedJobIds.Count;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
 
                     await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
                 }
