@@ -86,7 +86,7 @@ namespace Microsoft.Health.JobManagement
                         if (nextJob != null)
                         {
                             _logger.LogJobInformation(nextJob, "Job dequeued.");
-                            await ExecuteJobAsync(nextJob, useHeavyHeartbeats);
+                            await ExecuteJobAsync(nextJob);
                         }
                         else
                         {
@@ -107,7 +107,7 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        private async Task ExecuteJobAsync(JobInfo jobInfo, bool useHeavyHeartbeats)
+        private async Task ExecuteJobAsync(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
