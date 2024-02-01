@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -28,19 +29,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
         private IQueueClient _queueClient;
         private ISearchService _searchService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
+        private readonly ILogger<SqlExportOrchestratorJob> _logger;
 
         public SqlExportOrchestratorJob(
             IQueueClient queueClient,
             ISearchService searchService,
-            IOptions<ExportJobConfiguration> exportJobConfiguration)
+            IOptions<ExportJobConfiguration> exportJobConfiguration,
+            ILogger<SqlExportOrchestratorJob> logger)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queueClient = queueClient;
             _searchService = searchService;
             _exportJobConfiguration = exportJobConfiguration.Value;
+            _logger = logger;
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -51,6 +56,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
             var surrogateIdRangeSize = (int)record.MaximumNumberOfResourcesPerQuery;
+
+            _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // for parallel case we enqueue in batches, so we should handle not completed registration
@@ -95,6 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                                 startId = range.EndId;
                             }
 
+                            _logger.LogJobInformation(jobInfo, "Creating export record (1).");
                             var processingRecord = CreateExportRecord(record, jobInfo.GroupId, resourceType: type, startSurrogateId: range.StartId.ToString(), endSurrogateId: range.EndId.ToString(), globalStartSurrogateId: globalStartId.ToString(), globalEndSurrogateId: globalEndId.ToString());
                             definitions.Add(processingRecord);
                         }
@@ -104,6 +112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
                         rows = definitions.Count;
                         if (rows > 0)
                         {
+                            _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
                             await _queueClient.EnqueueAsync(QueueType.Export, cancel, groupId: jobInfo.GroupId, definitions: definitions.ToArray());
                             atLeastOneWorkerJobRegistered = true;
                         }
@@ -112,13 +121,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
                 if (!atLeastOneWorkerJobRegistered)
                 {
+                    _logger.LogJobInformation(jobInfo, "Creating export record (2).");
                     var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
+
+                    _logger.LogJobInformation(jobInfo, "Enqueuing export job (2).");
                     await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
                 }
             }
             else if (groupJobs.Count == 1)
             {
+                _logger.LogJobInformation(jobInfo, "Creating export record (3).");
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
+
+                _logger.LogJobInformation(jobInfo, "Enqueuing export job (3).");
                 await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 

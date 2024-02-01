@@ -4,31 +4,24 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
@@ -42,6 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private readonly IQueueClient _queueClient;
         private readonly byte _queueType = (byte)QueueType.Export;
         private readonly CosmosExportOrchestratorJob _coordJob;
+        private readonly ILogger<CosmosExportOrchestratorJob> _logger;
 
         public CosmosDbExportTests(CosmosDbFhirExportTestFixture fixture)
         {
@@ -49,7 +43,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _searchServiceScopeFactory = _fixture.GetService<Func<IScoped<ISearchService>>>();
             _operationDataStore = _fixture.GetService<CosmosFhirOperationDataStore>();
             _queueClient = _fixture.GetService<IQueueClient>();
-            _coordJob = new(_queueClient, _searchServiceScopeFactory);
+            _logger = Substitute.For<ILogger<CosmosExportOrchestratorJob>>();
+
+            _coordJob = new(_queueClient, _searchServiceScopeFactory, _logger);
         }
 
         [Fact]
