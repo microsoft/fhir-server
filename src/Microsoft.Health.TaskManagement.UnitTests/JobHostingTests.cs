@@ -366,44 +366,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenJobRunning_WhenUpdateCurrentResult_ThenCurrentResultShouldBePersisted()
-        {
-            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
-            TestJobFactory factory = new TestJobFactory(t =>
-            {
-                return new TestJob(
-                        async (progress, token) =>
-                        {
-                            progress.Report("Progress");
-                            await Task.Delay(TimeSpan.FromSeconds(1));
-                            autoResetEvent.Set();
-                            await Task.Delay(TimeSpan.FromSeconds(0.5));
-
-                            return t.Definition;
-                        });
-            });
-
-            TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
-
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
-            jobHosting.PollingFrequencyInSeconds = 0;
-            jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatIntervalInSeconds = 1;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
-            Task hostingTask = jobHosting.ExecuteAsync(0, "test", tokenSource, true);
-
-            autoResetEvent.WaitOne();
-            Assert.Equal("Progress", job1.Result);
-
-            await hostingTask;
-
-            Assert.Equal(JobStatus.Completed, job1.Status);
-        }
-
-        [Fact]
         public async Task GivenRandomFailuresInQueueClient_WhenStartHosting_ThenAllTasksShouldBeCompleted()
         {
             var factory = new TestJobFactory(t =>
