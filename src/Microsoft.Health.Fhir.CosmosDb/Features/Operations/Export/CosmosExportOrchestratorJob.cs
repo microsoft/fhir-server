@@ -4,18 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
 
@@ -26,13 +24,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
     {
         private readonly IQueueClient _queueClient;
         private readonly Func<IScoped<ISearchService>> _searchServiceScopeFactory;
+        private readonly ILogger<CosmosExportOrchestratorJob> _logger;
 
         public CosmosExportOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<ISearchService>> searchServiceScopeFactory)
+            Func<IScoped<ISearchService>> searchServiceScopeFactory,
+            ILogger<CosmosExportOrchestratorJob> logger)
         {
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _searchServiceScopeFactory = EnsureArg.IsNotNull(searchServiceScopeFactory, nameof(searchServiceScopeFactory));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
             var record = jobInfo.DeserializeDefinition<ExportJobRecord>();
             record.QueuedTime = jobInfo.CreateDate; // get record of truth
 
+            _logger.LogJobInformation(jobInfo, "Loading job by Group Id.");
             var groupJobs = await _queueClient.GetJobByGroupIdAsync(QueueType.Export, jobInfo.GroupId, true, cancellationToken);
 
             // Parallel system level export is parallelized by resource type and CosmosDB physical partitions feed range.
@@ -71,6 +73,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                     foreach (var partitionRange in notEnqueued)
                     {
+                        _logger.LogJobInformation(jobInfo, "Creating export record (1).");
+
                         var processingRecord = CreateExportRecord(
                                 record,
                                 jobInfo.GroupId,
@@ -79,13 +83,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export
 
                         string[] definitions = [JsonConvert.SerializeObject(processingRecord)];
 
+                        _logger.LogJobInformation(jobInfo, "Enqueuing export job (1).");
                         await _queueClient.EnqueueAsync((byte)QueueType.Export, definitions, jobInfo.GroupId, false, false, cancellationToken);
                     }
                 }
             }
             else if (groupJobs.Count == 1)
             {
+                _logger.LogJobInformation(jobInfo, "Creating export record (2).");
                 var processingRecord = CreateExportRecord(record, jobInfo.GroupId);
+
+                _logger.LogJobInformation(jobInfo, "Enqueuing export job (2).");
                 await _queueClient.EnqueueAsync(QueueType.Export, cancellationToken, groupId: jobInfo.GroupId, definitions: processingRecord);
             }
 

@@ -2,9 +2,18 @@ name: "Code Scanning - Action"
 
 on:
   push:
-    branches-ignore:
-     - 'dependabot/**'
+    branches: main
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.json'
+      - '**/*.http'
+
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.json'
+      - '**/*.http'
+
   schedule:
     - cron: '0 0 * * 0'
 
@@ -13,6 +22,8 @@ jobs:
 
     strategy:
       fail-fast: false
+      matrix:
+        language: ['csharp', 'javascript']
 
     runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
 
@@ -23,43 +34,24 @@ jobs:
       run: |
         git fetch --prune --unshallow
 
-    # Set the custom working directory (e.g., /path/to/your/storage) using the environment file
-    #- name: Make working directory
-    #  run: |
-      
-      #  mkdir -p ${{ vars.CODEQLDBLOCATION }}
-     # shell: bash
-
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: csharp, javascript
-        # db-location: ${{ vars.CODEQLDBLOCATION }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
-        # queries: ./path/to/local/query, your-org/your-repo/queries@main
-      # Override language selection by uncommenting this and choosing your languages
-      # with:
-      #   languages: go, javascript, csharp, python, cpp, java
+        languages: ${{ matrix.language }}
+        config: |
+          queries:
+            - uses: security-and-quality
+          query-filters:
+            - exclude:
+                id:
+                  - cs/web/missing-function-level-access-control
 
     - name: dotnet restore
       run: dotnet restore
 
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
-
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 https://git.io/JvXDl
-
-    # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
-    #    and modify them (or add more) to build your code if your project
-    #    uses a compiled language
-
-    #- run: |
-    #   make bootstrap
-    #   make release
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to put job heartbeat.");
+                _logger.LogJobWarning(ex, jobInfo, "Failed to put job heartbeat.");
             }
 
             return cancel;
