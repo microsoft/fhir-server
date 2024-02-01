@@ -89,7 +89,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     currentResult.ProcessedBytes = importProgress.ProcessedBytes;
 
                     _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
                 }
                 catch (Exception ex)
                 {
