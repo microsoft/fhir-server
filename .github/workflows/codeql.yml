@@ -19,6 +19,11 @@ on:
 
 jobs:
   CodeQL-Build:
+    permissions:
+        actions: read
+        contents: read
+        pull-requests: write
+        security-events: write
 
     strategy:
       fail-fast: false
