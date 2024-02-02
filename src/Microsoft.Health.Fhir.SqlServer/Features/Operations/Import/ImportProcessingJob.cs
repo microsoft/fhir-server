@@ -46,10 +46,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
             var currentResult = new ImportProcessingJobResult();

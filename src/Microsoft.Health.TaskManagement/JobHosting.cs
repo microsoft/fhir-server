@@ -134,13 +134,12 @@ namespace Microsoft.Health.JobManagement
 #endif
                 }
 
-                var progress = new Progress<string>((result) => { jobInfo.Result = result; }); // Remove progress completely
                 var runningJob = ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    cancellationSource => job.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 

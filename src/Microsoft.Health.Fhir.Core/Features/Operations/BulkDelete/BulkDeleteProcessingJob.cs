@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
 
