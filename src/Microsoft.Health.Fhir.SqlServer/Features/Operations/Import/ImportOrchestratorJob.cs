@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
             });
 
-            var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
+            var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, cancellationToken);
 
             currentResult.CreatedJobs = jobIds.Count;
 
@@ -336,8 +336,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         if (jobInfo.Status == JobStatus.Completed)
                         {
                             var procesingJobResult = jobInfo.DeserializeResult<ImportProcessingJobResult>();
-                            currentResult.SucceededResources += procesingJobResult.SucceededResources == 0 ? procesingJobResult.SucceedCount : procesingJobResult.SucceededResources;
-                            currentResult.FailedResources += procesingJobResult.FailedResources == 0 ? procesingJobResult.FailedCount : procesingJobResult.FailedResources;
+                            currentResult.SucceededResources += procesingJobResult.SucceededResources;
+                            currentResult.FailedResources += procesingJobResult.FailedResources;
                             currentResult.ProcessedBytes += procesingJobResult.ProcessedBytes;
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
@@ -366,6 +366,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     currentResult.CompletedJobs += completedJobIds.Count;
+                    orchestratorInfo.Result = currentResult.ToString();
+                    await _queueClient.PutJobHeartbeatAsync(orchestratorInfo, cancellationToken); // remove when progress is reported by selecting results of children.
 
                     _logger.LogJobInformation(orchestratorInfo, "Throttle to avoid high database utilization.");
                     await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
@@ -379,7 +381,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             while (jobIds.Count > 0);
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, CancellationToken cancellationToken)
         {
             var definitions = new List<ImportProcessingJobDefinition>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
