@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var queueClient = new TestQueueClient();
             var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
-            var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None);
+            await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None);
 
             Assert.Single(queueClient.JobInfos);
             Assert.Contains(_progressToken, queueClient.JobInfos[0].Definition);
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             followUpJob.Id = runningJob.Id + 1;
             queueClient.JobInfos.Add(followUpJob);
 
-            var taskResult = await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
+            await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
 
             Assert.Single(queueClient.JobInfos);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             existingCanceledJob.CancelRequested = cancellationRequested;
             queueClient.JobInfos.Add(existingCanceledJob);
 
-            var taskResult = await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
+            await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
 
             Assert.True(queueClient.JobInfos.Count == 1);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
