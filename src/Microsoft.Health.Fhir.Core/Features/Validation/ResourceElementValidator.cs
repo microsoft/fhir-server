@@ -11,12 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ResourceElementValidator : AbstractValidator<ResourceElement>
     {
-        public ResourceElementValidator(AbstractValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public ResourceElementValidator(IValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
-              .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
+                .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
             RuleFor(x => x)
-                  .SetValidator(contentValidator);
+                .SetValidator(contentValidator);
             RuleFor(x => x)
                 .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
         }

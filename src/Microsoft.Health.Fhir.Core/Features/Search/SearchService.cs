@@ -47,9 +47,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false,
-            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -257,6 +258,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         */
 
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(

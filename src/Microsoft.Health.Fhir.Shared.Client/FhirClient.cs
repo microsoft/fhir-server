@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, url);
+            using var message = new HttpRequestMessage(HttpMethod.Get, url.TrimStart('/'));
             message.Headers.Accept.Add(_mediaType);
 
             if (customHeader != null)

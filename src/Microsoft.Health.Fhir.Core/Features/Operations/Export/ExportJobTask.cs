@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
-                // Add a request context so that bundle issues can be added by the SearchOptionFactory
+                // Add a request context so that bundle issues can be added by the SearchOptionsFactory
                 var fhirRequestContext = new FhirRequestContext(
                     method: "Export",
                     uriString: "$export",
@@ -192,6 +192,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var exportResourceVersionTypes = ResourceVersionType.Latest |
                     (_exportJobRecord.IncludeHistory ? ResourceVersionType.History : 0) |
                     (_exportJobRecord.IncludeDeleted ? ResourceVersionType.SoftDeleted : 0);
+
+                if (_exportJobRecord.FeedRange is not null)
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.FeedRange, _exportJobRecord.FeedRange));
+                }
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
@@ -275,6 +280,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Need to remove output records in order to make the export job record savable in the database.
                 _exportJobRecord.Output.Clear();
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(ex, "The job was canceled.");
+                await CompleteJobAsync(OperationStatus.Canceled, CancellationToken.None);
             }
             catch (Exception ex)
             {

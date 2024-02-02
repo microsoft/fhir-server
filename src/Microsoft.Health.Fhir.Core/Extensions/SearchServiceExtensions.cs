@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="count">The search Count.</param>
         /// <param name="continuationToken">An optional ContinuationToken</param>
         /// <param name="versionType">The versions of a resource to return</param>
+        /// <param name="onlyIds">Whether to return only resource ids or the full resource</param>
         /// <param name="logger">The logger</param>
         /// <returns>Search collection and a continuationToken</returns>
         /// <exception cref="PreconditionFailedException">Returns this exception when all passed in params match the search result unusedParams</exception>
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             int? count = 2, // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
             string continuationToken = null,
             ResourceVersionType versionType = ResourceVersionType.Latest,
+            bool onlyIds = false,
             ILogger logger = null)
         {
             // Filters search parameters that can limit the number of results (e.g. _count=1)
@@ -83,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
                     statistics.Iterate();
 
-                    SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken, resourceVersionTypes: versionType);
+                    SearchResult results = await searchService.SearchAsync(instanceType, searchParameters.ToImmutableList(), cancellationToken, resourceVersionTypes: versionType, onlyIds: onlyIds);
                     lastContinuationToken = results?.ContinuationToken;
 
                     // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results

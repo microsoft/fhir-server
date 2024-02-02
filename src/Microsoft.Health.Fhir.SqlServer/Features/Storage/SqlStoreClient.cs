@@ -86,6 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
+
+                    throw;
                 }
             }
         }
@@ -218,10 +220,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
             }
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+            // Code below has retries on execution timeouts.
+            // Reason: GP databases are created with single data file. When database is heavily loaded by writes, single data file leads to long (up to several minutes) IO waits.
+            // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
+            var start = DateTime.UtcNow;
+            var timeoutRetries = 0;
+            while (true)
+            {
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
             _logger.LogInformation($"Profiling - Executed MergeResourcesBeginTransactionAsync {stopwatch.ElapsedMilliseconds}");
             stopwatch.Stop();
-            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+                    return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+                }
+                catch (Exception e)
+                {
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
         }
 
         internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)

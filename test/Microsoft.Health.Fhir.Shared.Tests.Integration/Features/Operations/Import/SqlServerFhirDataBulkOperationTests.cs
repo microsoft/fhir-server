@@ -59,7 +59,7 @@ SELECT count(*)
             var cnt = await command.ExecuteScalarAsync(CancellationToken.None);
             if (isDisabled)
             {
-                Assert.Equal(27, cnt); // count of all disabled indexes
+                Assert.Equal(3, cnt); // count of all disabled indexes
             }
             else
             {
