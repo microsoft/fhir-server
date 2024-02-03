@@ -41,9 +41,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Processed size of blobs/files
         /// </summary>
         public long ProcessedBytes { get; set; }
-
-        public long SucceedImportCount { get; set; } // TODO: remove in stage 3
-
-        public long FailedImportCount { get; set; } // TODO: remove in stage 3
     }
 }
