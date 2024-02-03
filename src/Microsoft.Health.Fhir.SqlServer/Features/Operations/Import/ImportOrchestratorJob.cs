@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     currentResult.CompletedJobs += completedJobIds.Count;
-                    orchestratorInfo.Result = currentResult.ToString();
+                    orchestratorInfo.Result = JsonConvert.SerializeObject(currentResult);
                     await _queueClient.PutJobHeartbeatAsync(orchestratorInfo, cancellationToken); // remove when progress is reported by selecting results of children.
 
                     _logger.LogJobInformation(orchestratorInfo, "Throttle to avoid high database utilization.");
