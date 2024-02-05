@@ -305,8 +305,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData(false, false, false)]
         public async Task GivenASystemLevelExport_WhenRequestSentToMediator_CorrectIsParallelValueInRequest(bool isApiForFhir, bool expectedIsParallel, bool? inputIsParallelValue)
         {
+            // Get export controller with specific runtime configuration (if needed).
             IFhirRuntimeConfiguration fhirConfig = isApiForFhir ? Substitute.For<AzureApiForFhirRuntimeConfiguration>() : Substitute.For<IFhirRuntimeConfiguration>();
             var exportController = GetController(_exportEnabledJobConfiguration, _featureConfiguration, _artifactStoreConfig, fhirConfig);
+
+            // Setup additional dependencies needed for test execution.
             exportController.ControllerContext.HttpContext = new DefaultHttpContext();
 
             _fhirRequestContextAccessor.RequestContext = new FhirRequestContext(
@@ -321,6 +324,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 .ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new Uri("http://test.com/"));
 
+            // Mock mediator call for CreateExportRequest - throw exception to fail test if we get unexpected value.
             _mediator
                 .Send(Arg.Any<CreateExportRequest>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>

@@ -397,13 +397,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return isParallelFromRequest.Value;
             }
 
-            // We want Gen1 to not export parallel by default.
+            // Api For FHIR defaults to non-parallel export.
             if (fhirConfig is AzureApiForFhirRuntimeConfiguration)
             {
                 return false;
             }
 
-            // Else keep current behavior.
             return true;
         }
     }
