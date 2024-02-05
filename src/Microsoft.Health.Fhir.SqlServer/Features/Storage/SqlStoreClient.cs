@@ -229,9 +229,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
+                    _logger.LogInformation($"Profiling - Executing MergeResourcesBeginTransactionAsync");
                     await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            _logger.LogInformation($"Profiling - Executed MergeResourcesBeginTransactionAsync {stopwatch.ElapsedMilliseconds}");
-            stopwatch.Stop();
+                    _logger.LogInformation($"Profiling - Executed MergeResourcesBeginTransactionAsync {stopwatch.ElapsedMilliseconds}");
+                    stopwatch.Stop();
                     return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
                 }
                 catch (Exception e)

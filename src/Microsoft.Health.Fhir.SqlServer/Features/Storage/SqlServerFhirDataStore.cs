@@ -436,7 +436,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             cmd.CommandTimeout = 300 + (int)(3600.0 / 10000 * (timeoutRetries + 1) * mergeWrappers.Count);
             _logger.LogInformation($"Profiling - Generating MergeResourcesWrapperAsync {stopwatch.ElapsedMilliseconds}");
             stopwatch.Stop();
-            _logger.LogInformation("Profiling - Calling DB MergeResourcesWrapperAsync");
+            _logger.LogInformation($"Profiling - Calling DB MergeResourcesWrapperAsync for Transaction Id {transactionId}");
             stopwatch.Start();
             await cmd.ExecuteNonQueryAsync(cancellationToken);
             _logger.LogInformation($"Profiling - Finished calling DB MergeResourcesWrapperAsync {stopwatch.ElapsedMilliseconds}");
