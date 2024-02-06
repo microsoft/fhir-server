@@ -18,8 +18,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     public class ImportResourceLoader : IImportResourceLoader
     {
         private const int DefaultChannelMaxCapacity = 500;
-        private const int DefaultMaxBatchSize = 1000;
-        private static readonly int EndOfLineLength = Encoding.UTF8.GetByteCount(Environment.NewLine);
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IImportResourceParser _importResourceParser;
@@ -38,8 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
-
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
         public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
@@ -56,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long offset, int bytesToRead, string resourceType, ImportMode importMode, CancellationToken cancellationToken)
         {
             string leaseId = null;
+            long currentIndex = 0;
 
             try
             {
@@ -67,51 +64,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 using var stream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), offset, cancellationToken);
                 using var reader = new StreamReader(stream);
 
-                string content = null;
-                long currentIndex = 0;
-                long currentBytesRead = 0;
-                var buffer = new List<(string content, long index, int length)>();
-
-                var skipFirstLine = true;
-#pragma warning disable CA2016
-                while ((currentBytesRead <= bytesToRead) && !string.IsNullOrEmpty(content = await reader.ReadLineAsync()))
-#pragma warning restore CA2016
+                foreach (var item in ReadLines(offset, bytesToRead, reader))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (offset > 0 && skipFirstLine) // skip first line
-                    {
-                        skipFirstLine = false;
-                        continue;
-                    }
-
-                    var length = Encoding.UTF8.GetByteCount(content) + EndOfLineLength;
-                    currentBytesRead += length;
-
                     currentIndex++;
-
-                    buffer.Add((content, currentIndex, length));
-
-                    if (buffer.Count < MaxBatchSize)
-                    {
-                        continue;
-                    }
-
-                    foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
-                    {
-                        await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
-                    }
+                    await outputChannel.Writer.WriteAsync(ParseImportRawContent(resourceType, (item.Line, currentIndex, item.Length), offset, importMode), cancellationToken);
                 }
-
-                foreach (var importResource in await ParseImportRawContentAsync(resourceType, buffer, offset, importMode))
-                {
-                    await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
-                }
-
-                _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
             }
             finally
             {
+                _logger.LogInformation("{CurrentIndex} lines loaded.", currentIndex);
+
                 outputChannel.Writer.Complete();
 
                 if (!string.IsNullOrEmpty(leaseId))
@@ -123,36 +85,80 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, List<(string content, long index, int length)> rawContents, long offset, ImportMode importMode)
+        internal static IEnumerable<(string Line, int Length)> ReadLines(long offset, long bytesToRead, StreamReader reader)
         {
-            return await Task.Run(() =>
+            long currentBytesRead = 0;
+            var skipFirstLine = true;
+            while ((currentBytesRead <= bytesToRead) && !reader.EndOfStream)
             {
-                var results = new List<ImportResource>();
+                var (line, endOfLineLength) = ReadLine(reader);
 
-                foreach ((string content, long index, int length) in rawContents)
+                var length = Encoding.UTF8.GetByteCount(line) + endOfLineLength;
+                currentBytesRead += length;
+
+                if (offset > 0 && skipFirstLine) // skip first line but make sure that its length is counted above to avoid processing same records twice
                 {
-                    try
-                    {
-                        ImportResource importResource = _importResourceParser.Parse(index, offset, length, content, importMode);
+                    skipFirstLine = false;
+                    continue;
+                }
 
-                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
-                        {
-                            throw new FormatException("Resource type not match.");
-                        }
+                if (line.Length > 0) // skip empty lines
+                {
+                    yield return (line, length);
+                }
+            }
+        }
 
-                        results.Add(importResource);
-                    }
-                    catch (Exception ex)
+        // This handles both \n and \r\n line ends. It does not work with single \r.
+        internal static (string line, int endOfLineLength) ReadLine(StreamReader reader)
+        {
+            var endOfLineLength = 0;
+            var line = new StringBuilder();
+            var buffer = new char[1];
+            while (reader.Read(buffer, 0, 1) > 0)
+            {
+                var currentChar = buffer[0];
+                if (currentChar == '\n')
+                {
+                    endOfLineLength = 1;
+                    break;
+                }
+                else if (currentChar == '\r')
+                {
+                    var nextChar = (char)reader.Peek();
+                    if (nextChar == '\n')
                     {
-                        // May contains customer's data, no error logs here.
-                        results.Add(new ImportResource(index, offset, _importErrorSerializer.Serialize(index, ex, offset)));
+                        endOfLineLength = 2;
+                        reader.Read(buffer, 0, 1);
+                        break;
                     }
                 }
 
-                rawContents.Clear();
+                line.Append(currentChar);
+            }
 
-                return results;
-            });
+            return (line.ToString(), endOfLineLength); // output line is never null
+        }
+
+        private ImportResource ParseImportRawContent(string resourceType, (string Content, long Index, int Length) rawContent, long offset, ImportMode importMode)
+        {
+            ImportResource importResource;
+            try
+            {
+                importResource = _importResourceParser.Parse(rawContent.Index, offset, rawContent.Length, rawContent.Content, importMode);
+
+                if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.ResourceWrapper?.ResourceTypeName, StringComparison.Ordinal))
+                {
+                    throw new FormatException("Resource type not match.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // May contains customer's data, no error logs here.
+                importResource = new ImportResource(rawContent.Index, offset, _importErrorSerializer.Serialize(rawContent.Index, ex, offset));
+            }
+
+            return importResource;
         }
     }
 }

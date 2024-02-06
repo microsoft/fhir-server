@@ -53,12 +53,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await _sqlRetryService.TryLogEvent(process, status, text, startDate, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken, bool includeInvisible = false)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, Func<string, short> getResourceTypeId, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, CancellationToken cancellationToken, bool includeInvisible = false)
         {
-            return await GetAsync(keys.Select(_ => new ResourceDateKey(getResourceTypeId(_.ResourceType), _.Id, 0, _.VersionId)).ToList(), decompress, getResourceTypeName, cancellationToken, includeInvisible);
+            return await GetAsync(keys.Select(_ => new ResourceDateKey(getResourceTypeId(_.ResourceType), _.Id, 0, _.VersionId)).ToList(), decompress, getResourceTypeName, isReadOnly, cancellationToken, includeInvisible);
         }
 
-        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, CancellationToken cancellationToken, bool includeInvisible = false)
+        public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceDateKey> keys, Func<MemoryStream, string> decompress, Func<short, string> getResourceTypeName, bool isReadOnly, CancellationToken cancellationToken, bool includeInvisible = false)
         {
             if (keys == null || keys.Count == 0)
             {
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
+                    return (await cmd.ExecuteReaderAsync(_sqlRetryService, (reader) => { return ReadResourceWrapper(reader, false, decompress, getResourceTypeName); }, _logger, cancellationToken, isReadOnly: isReadOnly)).Where(_ => includeInvisible || _.RawResource.Data != _invisibleResource).ToList();
                 }
                 catch (Exception e)
                 {
@@ -85,6 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
+
+                    throw;
                 }
             }
         }
@@ -212,8 +214,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@HeartbeatDate", heartbeatDate.Value);
             }
 
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
-            return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+            // Code below has retries on execution timeouts.
+            // Reason: GP databases are created with single data file. When database is heavily loaded by writes, single data file leads to long (up to several minutes) IO waits.
+            // These waits cause intermittent execution timeouts even for very short (~10msec) calls.
+            var start = DateTime.UtcNow;
+            var timeoutRetries = 0;
+            while (true)
+            {
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                    return ((long)transactionIdParam.Value, (int)sequenceParam.Value);
+                }
+                catch (Exception e)
+                {
+                    if (e.IsExecutionTimeout() && timeoutRetries++ < 3)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(MergeResourcesBeginTransactionAsync)} timeoutRetries={{TimeoutRetries}}", timeoutRetries);
+                        await TryLogEvent(nameof(MergeResourcesBeginTransactionAsync), "Warn", $"timeout retries={timeoutRetries}", start, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
         }
 
         internal async Task<int> MergeResourcesDeleteInvisibleHistory(long transactionId, CancellationToken cancellationToken)

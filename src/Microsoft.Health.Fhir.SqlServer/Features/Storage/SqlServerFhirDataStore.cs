@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
+                    var results = await MergeInternalAsync(resources, false, false, mergeOptions.EnlistInTransaction, retries == 0, cancellationToken); // TODO: Pass correct retries value once we start supporting retries
                     return results;
                 }
                 catch (Exception e)
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, CancellationToken cancellationToken)
+        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -158,18 +158,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             // Ignore input resource version to get latest version from the store.
             // Include invisible records (true parameter), so version is correctly determined in case only invisible is left in store.
-            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
+            var existingResources = (await GetAsync(resources.Select(r => r.Wrapper.ToResourceKey(true)).Distinct().ToList(), true, useReplicasForReads, cancellationToken)).ToDictionary(r => r.ToResourceKey(true), r => r);
 
             // Assume that most likely case is that all resources should be updated.
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
-            var mergeWrappers = new List<MergeResourceWrapper>();
+            var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
             var singleTransaction = enlistInTransaction;
-            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
+            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
+                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId; // this assumes that first resource version is the latest one
                 prevResourceId = resourceExt.Wrapper.ResourceId;
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
@@ -178,9 +178,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 var resource = resourceExt.Wrapper;
                 var identifier = resourceExt.GetIdentifier();
-                var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
+                var existingVersion = 0;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    var existingVersion = int.Parse(existingResource.Version);
+                    existingVersion = int.Parse(existingResource.Version);
                     var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                     if (!resourceExt.KeepVersion) // version is set on input
                     {
@@ -310,12 +310,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // Do not call DB with empty input
+            // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
+            // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
+            // Sort them in groups by resource id and order by version.
+            // In each group find the smallest version higher then existing
+            prevResourceId = string.Empty;
+            var notSetInResoureGroup = false;
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ResourceId).ThenBy(x => x.ResourceVersion))
+            {
+                if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
+                {
+                    notSetInResoureGroup = true;
+                }
+
+                prevResourceId = mergeWrapper.Wrapper.ResourceWrapper.ResourceId;
+
+                if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
+                {
+                    mergeWrapper.Wrapper.HasVersionToCompare = true;
+                    notSetInResoureGroup = false;
+                }
+            }
+
+            if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -325,7 +347,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappers, enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -410,12 +432,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
         {
-            return await GetAsync(keys, false, cancellationToken); // do not return invisible records in public interface
+            return await GetAsync(keys, false, true, cancellationToken); // do not return invisible records in public interface
         }
 
-        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, bool includeInvisible, bool isReadOnly, CancellationToken cancellationToken)
         {
-            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, cancellationToken, includeInvisible);
+            return await _sqlStoreClient.GetAsync(keys, _model.GetResourceTypeId, _compressedRawResourceConverter.ReadCompressedRawResource, _model.GetResourceTypeName, isReadOnly, cancellationToken, includeInvisible);
         }
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)

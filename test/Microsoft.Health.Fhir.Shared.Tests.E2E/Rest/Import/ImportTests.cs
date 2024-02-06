@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using IdentityServer4.Models;
 using MediatR;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
@@ -89,6 +90,41 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+
+            // set existing
+            var ndJson = PrepareResource(id, "10000", "2000");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            // set input. something before and something after existing
+            ndJson = PrepareResource(id, "9000", "1999");
+            var ndJson2 = PrepareResource(id, "10100", "2001");
+            var ndJson3 = PrepareResource(id, "10300", "2003");
+
+            // note order of records
+            location = (await ImportTestHelper.UploadFileAsync(ndJson2 + ndJson + ndJson3, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("10300", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "9000");
+            Assert.Equal(GetLastUpdated("1999"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "10100");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "10000");
+            Assert.Equal(GetLastUpdated("2000"), result.Resource.Meta.LastUpdated);
         }
 
         [Fact]
@@ -469,6 +505,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 Assert.Equal(resourceCount, notification.SucceededCount);
                 Assert.Equal(0, notification.FailedCount);
             }
+        }
+
+        [Fact]
+        public async Task GivenImportTriggered_WithAndWithoutETag_Then2ImportsShouldBeRegistered()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
+                Mode = ImportMode.IncrementalLoad.ToString(),
+            };
+            var checkLocation1 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var checkLocation2 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            Assert.Equal(checkLocation1, checkLocation2); // idempotent registration
+
+            request.Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient", Etag = etag } };
+            var checkLocation3 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            Assert.NotEqual(checkLocation1, checkLocation3);
         }
 
         [Fact]

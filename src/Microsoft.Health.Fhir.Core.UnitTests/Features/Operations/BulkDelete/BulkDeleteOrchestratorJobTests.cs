@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -34,12 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
-            {
-                var result = new SearchResult(2, new List<Tuple<string, string>>());
-                return Task.FromResult(result);
-            });
-            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService);
+            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService.CreateMockScopeFactory());
 
             _progress = new Progress<string>((result) => { });
         }
@@ -54,6 +50,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             {
                 "Patient",
                 "Observation",
+            });
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var result = new SearchResult(2, new List<Tuple<string, string>>());
+                return Task.FromResult(result);
             });
 
             var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, "test", "test", "test");
@@ -83,6 +84,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             _queueClient.ClearReceivedCalls();
             _searchService.ClearReceivedCalls();
 
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var result = new SearchResult(2, new List<Tuple<string, string>>());
+                return Task.FromResult(result);
+            });
+
             var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, "Patient", null, "test", "test", "test");
             var jobInfo = new JobInfo()
             {
@@ -97,6 +104,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
             // Checks that one processing job was queued
             var calls = _queueClient.ReceivedCalls();
             Assert.Single((string[])calls.First().GetArguments()[1]);
+        }
+
+        [Fact]
+        public async Task GivenBulkDeleteJob_WhenNoResourcesMatchCriteria_ThenNoProcessingJobsAreCreated()
+        {
+            _queueClient.ClearReceivedCalls();
+            _searchService.ClearReceivedCalls();
+
+            _searchService.GetUsedResourceTypes(Arg.Any<CancellationToken>()).Returns(new List<string>()
+            {
+                "Patient",
+                "Observation",
+            });
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>()).Returns((x) =>
+            {
+                var result = new SearchResult(0, new List<Tuple<string, string>>());
+                return Task.FromResult(result);
+            });
+
+            var definition = new BulkDeleteDefinition(JobType.BulkDeleteOrchestrator, DeleteOperation.HardDelete, null, null, "test", "test", "test");
+            var jobInfo = new JobInfo()
+            {
+                GroupId = 1,
+                Definition = JsonConvert.SerializeObject(definition),
+            };
+
+            await _orchestratorJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None);
+            await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
+            await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
         }
     }
 }

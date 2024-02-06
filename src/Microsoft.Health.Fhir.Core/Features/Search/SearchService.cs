@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -46,9 +47,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken,
             bool isAsyncOperation = false,
-            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest)
+            ResourceVersionType resourceVersionTypes = ResourceVersionType.Latest,
+            bool onlyIds = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, resourceVersionTypes, onlyIds);
 
             // Execute the actual search.
             return await SearchAsync(searchOptions, cancellationToken);
@@ -77,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime since,
             PartialDateTime before,
             int? count,
+            string summary,
             string continuationToken,
             string sort,
             CancellationToken cancellationToken,
@@ -157,6 +160,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
+            else if ((count.HasValue && count == 0) || (summary is not null && summary.Equals(SummaryType.Count.ToString(), StringComparison.OrdinalIgnoreCase)))
+            {
+                queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Summary, SummaryType.Count.ToString()));
+            }
 
             if (!string.IsNullOrEmpty(sort))
             {
@@ -176,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Sort, $"-{KnownQueryParameterNames.LastUpdated}"));
             }
 
-            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.Histoy | ResourceVersionType.SoftDeleted;
+            var historyResourceVersionTypes = ResourceVersionType.Latest | ResourceVersionType.History | ResourceVersionType.SoftDeleted;
 
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters, isAsyncOperation, historyResourceVersionTypes);
 
@@ -251,6 +258,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         */
 
         public abstract Task<IReadOnlyList<string>> GetUsedResourceTypes(CancellationToken cancellationToken);
+
+        public virtual Task<IEnumerable<string>> GetFeedRanges(CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
 
         /// <inheritdoc />
         public abstract Task<SearchResult> SearchAsync(

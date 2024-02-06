@@ -360,27 +360,48 @@ public class CosmosQueueClient : IQueueClient
     /// <inheritdoc />
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
+        IReadOnlyList<JobGroupWrapper> jobs = default;
+        var cancelTasks = new List<Task>();
+
         await _retryPolicy.ExecuteAsync(async () =>
         {
-            IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
-
-            foreach (JobGroupWrapper job in jobs)
-            {
-                foreach (JobDefinitionWrapper item in job.Definitions)
-                {
-                    if (item.Status == (byte)JobStatus.Running)
-                    {
-                        item.CancelRequested = true;
-                    }
-                    else if (item.Status == (byte)JobStatus.Created)
-                    {
-                        item.Status = (byte)JobStatus.Cancelled;
-                    }
-                }
-
-                await SaveJobGroupAsync(job, cancellationToken);
-            }
+            jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
         });
+
+        foreach (JobGroupWrapper job in jobs)
+        {
+            bool saveRequired = false;
+
+            foreach (JobDefinitionWrapper item in job.Definitions)
+            {
+                if (item.Status == (byte)JobStatus.Running)
+                {
+                    item.CancelRequested = true;
+                    saveRequired = true;
+                }
+                else if (item.Status == (byte)JobStatus.Created)
+                {
+                    item.Status = (byte)JobStatus.Cancelled;
+                    item.CancelRequested = true;
+                    saveRequired = true;
+                }
+            }
+
+            if (saveRequired)
+            {
+                cancelTasks.Add(Task.Run(
+                    async () =>
+                    {
+                        await _retryPolicy.ExecuteAsync(async () =>
+                        {
+                            await SaveJobGroupAsync(job, cancellationToken, ignoreEtag: true);
+                        });
+                    },
+                    cancellationToken));
+            }
+        }
+
+        await Task.WhenAll(cancelTasks);
     }
 
     /// <inheritdoc />
@@ -399,7 +420,7 @@ public class CosmosQueueClient : IQueueClient
                 {
                     CancelJobDefinition(item);
 
-                    await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                    await SaveJobGroupAsync(job.JobGroup, cancellationToken, ignoreEtag: true);
                 }
             }
         });
@@ -524,7 +545,7 @@ public class CosmosQueueClient : IQueueClient
         return items;
     }
 
-    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken)
+    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
@@ -533,7 +554,7 @@ public class CosmosQueueClient : IQueueClient
             await container.Value.UpsertItemAsync(
                 definition,
                 new PartitionKey(definition.PartitionKey),
-                new ItemRequestOptions { IfMatchEtag = definition.ETag },
+                ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
                 cancellationToken: cancellationToken);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)

@@ -15,7 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Create
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalCreate = true" };
 
-        public ConditionalCreateResourceRequest(ResourceElement resource, IReadOnlyList<Tuple<string, string>> conditionalParameters, BundleResourceContext bundleResourceContext = null)
+        public ConditionalCreateResourceRequest(
+            ResourceElement resource,
+            IReadOnlyList<Tuple<string, string>> conditionalParameters,
+            BundleResourceContext bundleResourceContext = null)
             : base(resource.InstanceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));

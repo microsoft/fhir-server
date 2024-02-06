@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.Category, Categories.Search)]
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>
+    public class BundleTransactionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
 
-        public TransactionTests(HttpIntegrationTestFixture fixture)
+        public BundleTransactionTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }
@@ -111,7 +111,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var getIdGuid = Guid.NewGuid().ToString();
             requestBundle.Entry[1].Request.Url = requestBundle.Entry[1].Request.Url + getIdGuid;
 
-            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(requestBundle, FhirBundleProcessingLogic.Sequential));
+            using var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(
+                requestBundle,
+                new FhirBundleOptions() { BundleProcessingLogic = FhirBundleProcessingLogic.Sequential }));
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'GET' for the requested url '/" + requestBundle.Entry[1].Request.Url + "'.", "Resource type 'Patient' with id '12345" + getIdGuid + "' couldn't be found." };
@@ -314,12 +316,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.Identifier.First().Value = patientIdentifier;
             bundle.Entry.First().Request.IfNoneExist = $"identifier=|{patientIdentifier}";
 
-            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient("Bundle 1", bundleResponse1.Resource.Entry[1].Resource, patientId, bundleResponse1);
 
-            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle, processingLogic: processingLogic);
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
         }
 

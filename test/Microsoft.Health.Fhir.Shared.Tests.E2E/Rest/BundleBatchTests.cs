@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Bundle)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class BatchTests : IClassFixture<HttpIntegrationTestFixture>
+    public class BundleBatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
         private readonly Dictionary<HttpStatusCode, string> _statusCodeMap = new Dictionary<HttpStatusCode, string>()
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             { HttpStatusCode.Forbidden, "403" },
         };
 
-        public BatchTests(HttpIntegrationTestFixture fixture)
+        public BundleBatchTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, processingLogic: processingLogic, source.Token);
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic }, source.Token);
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
@@ -93,9 +93,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal("204", resource.Entry[4].Response.Status);
             Assert.Equal("204", resource.Entry[5].Response.Status);
 
-            ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[7].Response.Status);
-            ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Fact]
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic: processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -124,14 +124,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resource.Entry[4].Response.Status);
             Assert.Equal("204", resource.Entry[5].Response.Status);
             Assert.Equal("204", resource.Entry[6].Response.Status);
-            ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[8].Response.Status);
-            ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
 
             // WhenSubmittingABatchTwiceWithNoDataChange_ThenServerShouldNotCreateAVersionSecondTimeAndSendOk
             using FhirResponse<Bundle> fhirResponseAfterPostingSameBundle = await _client.PostBundleAsync(
                 requestBundle,
-                processingLogic);
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponseAfterPostingSameBundle);
             Assert.Equal(HttpStatusCode.OK, fhirResponseAfterPostingSameBundle.StatusCode);
@@ -147,10 +147,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(((int)Constants.IfMatchFailureStatus).ToString(), resourceAfterPostingSameBundle.Entry[4].Response.Status);
             Assert.Equal("204", resourceAfterPostingSameBundle.Entry[5].Response.Status);
             Assert.Equal("204", resourceAfterPostingSameBundle.Entry[6].Response.Status);
-            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[7].Response.Status, resourceAfterPostingSameBundle.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[7].Response.Status, resourceAfterPostingSameBundle.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resourceAfterPostingSameBundle.Entry[8].Response.Status);
             Assert.Equal(resource.Entry[8].Resource.VersionId, resourceAfterPostingSameBundle.Entry[8].Resource.VersionId);
-            ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Theory]
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
-            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, processingLogic);
+            using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
 
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
@@ -172,16 +172,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 var entry = fhirResponse.Resource.Entry[i];
                 var operationOutcome = entry.Response.Outcome as OperationOutcome;
-                ValidateOperationOutcome(entry.Response.Status, operationOutcome, _statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
+                BundleTestsUtil.ValidateOperationOutcome(entry.Response.Status, operationOutcome, _statusCodeMap[HttpStatusCode.Forbidden], "Authorization failed.", IssueType.Forbidden);
             }
 
             var resourceEntry = fhirResponse.Resource.Entry[7];
-            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             resourceEntry = fhirResponse.Resource.Entry[8];
             Assert.Equal("200", resourceEntry.Response.Status);
             Assert.Null(resourceEntry.Response.Outcome);
             resourceEntry = fhirResponse.Resource.Entry[9];
-            ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            BundleTestsUtil.ValidateOperationOutcome(resourceEntry.Response.Status, resourceEntry.Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
         [Theory]
@@ -190,7 +190,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), processingLogic));
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(
+                Samples.GetDefaultObservation().ToPoco<Observation>(),
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -201,8 +203,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(FhirBundleProcessingLogic.Sequential)]
         public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(), processingLogic));
-            ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
+            using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(() => _client.PostBundleAsync(
+                Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>(),
+                new FhirBundleOptions() { BundleProcessingLogic = processingLogic }));
+            BundleTestsUtil.ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);
         }
 
         [Theory]
@@ -212,6 +216,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(false, FhirBundleProcessingLogic.Sequential)]
         public async Task GivenABatchBundle_WithProfileValidationFlag_ReturnsABundleResponse(bool profileValidation, FhirBundleProcessingLogic processingLogic)
         {
+            // This test is flaky when executed locally, but it works well when running in OSS pipeline.
+
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = Bundle.BundleType.Batch,
@@ -247,9 +253,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 },
             };
 
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic: processingLogic);
+            var bundleOptions = new FhirBundleOptions()
+            {
+                ProfileValidation = profileValidation,
+                BundleProcessingLogic = processingLogic,
+            };
+            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle, bundleOptions);
+
             Assert.NotNull(fhirResponse);
             Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
             Bundle bundleResource = fhirResponse.Resource;
 
             if (profileValidation)
@@ -311,12 +324,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleWithValidationHeaderAsync(bundle, profileValidation, processingLogic));
+                var bundleOptions = new FhirBundleOptions()
+                {
+                    ProfileValidation = profileValidation,
+                    BundleProcessingLogic = processingLogic,
+                };
+                using FhirClientException ex = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostBundleAsync(bundle, bundleOptions));
                 Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
             }
             else
             {
-                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleWithValidationHeaderAsync(bundle, false, processingLogic);
+                var bundleOptions = new FhirBundleOptions()
+                {
+                    ProfileValidation = false,
+                    BundleProcessingLogic = processingLogic,
+                };
+                using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(bundle, bundleOptions);
                 Assert.NotNull(fhirResponse);
                 Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
 
@@ -325,19 +348,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal("201", bundleResource.Entry[1].Response.Status);
                 Assert.Equal("201", bundleResource.Entry[2].Response.Status);
             }
-        }
-
-        private static void ValidateOperationOutcome(string actualStatusCode, OperationOutcome operationOutcome, string expectedStatusCode, string expectedDiagnostics, IssueType expectedIssueType)
-        {
-            Assert.Equal(expectedStatusCode, actualStatusCode);
-            Assert.NotNull(operationOutcome);
-            Assert.Single(operationOutcome.Issue);
-
-            var issue = operationOutcome.Issue.First();
-
-            Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
-            Assert.Equal(expectedIssueType, issue.Code);
-            Assert.Equal(expectedDiagnostics, issue.Diagnostics);
         }
     }
 }

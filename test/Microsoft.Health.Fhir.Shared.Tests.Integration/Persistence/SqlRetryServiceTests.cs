@@ -651,6 +651,11 @@ END
 
                 return sqlConnection;
             }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
+            }
         }
 
         private class SqlConnectionBuilderNoPooling : ISqlConnectionBuilder
@@ -684,6 +689,11 @@ END
                 };
                 sqlConnection.ConnectionString = sqlConnectionStringBuilder.ConnectionString;
                 return sqlConnection;
+            }
+
+            public Task<SqlConnection> GetReadOnlySqlConnectionAsync(string initialCatalog = null, int? maxPoolSize = null, CancellationToken cancellationToken = default)
+            {
+                throw new NotImplementedException();
             }
         }
 
