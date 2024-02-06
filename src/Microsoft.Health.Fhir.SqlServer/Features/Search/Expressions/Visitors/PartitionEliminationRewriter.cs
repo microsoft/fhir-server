@@ -73,6 +73,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // Look for primary key continuation token (PrimaryKeyParameter) or _type parameters
 
             int primaryKeyValueIndex = -1;
+            bool hasTypeRestriction = false;
+            bool needTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
                 SearchParameterInfo parameter = expression.ResourceTableExpressions[i].Parameter;
@@ -81,11 +83,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     primaryKeyValueIndex = i;
                 }
+                else if (ReferenceEquals(parameter, _resourceTypeSearchParameter))
+                {
+                    hasTypeRestriction = true;
+                }
+            }
+
+            // We still need this resource expansion for Smart requests that does system wide search and returns only resources that are part of same
+            // compartment along with universal resources.
+            // Refer to this test case GivenFhirUserClaimPractitioner_WhenAllResourcesRequested_ResourcesInTheSameComparementAndUniversalResourcesAlsoReturned
+            if (!hasTypeRestriction)
+            {
+                for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
+                {
+                    if (expression.SearchParamTableExpressions[i].ToString().Contains(_resourceTypeSearchParameter.Code, StringComparison.Ordinal))
+                    {
+                        needTypeRestriction = true;
+                    }
+                }
             }
 
             if (primaryKeyValueIndex < 0)
             {
                 // no continuation token
+
+                if (hasTypeRestriction)
+                {
+                    // This is already constrained to be one or more resource types.
+                    return expression;
+                }
+                else if (needTypeRestriction)
+                {
+                    // Explicitly allow all resource types. SQL tends to create far better query plans than when there is no filter on ResourceTypeId.
+
+                    var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
+                    updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
+                    updatedResourceTableExpressions.Add(GetAllTypesExpression());
+
+                    return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
+                }
 
                 return expression;
             }
