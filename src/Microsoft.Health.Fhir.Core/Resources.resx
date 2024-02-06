@@ -736,4 +736,14 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="JobNotReindexOrchestratorJob" xml:space="preserve">
+    <value>Found job id '{0}', but it is a child job and not the primary reindex job.</value>
+    <comment>{0} is the job id</comment>
+  </data>
+  <data name="ReindexRunningException" xml:space="preserve">
+    <value>A Reindex Job is currently running. Wait till it has completed before trying again.</value>
+  </data>
+  <data name="SearchParametersNotInitialized" xml:space="preserve">
+    <value>Search parameters have not finished initializing. Please wait, then try again. If issue persists, please contact support.</value>
+  </data>
 </root>

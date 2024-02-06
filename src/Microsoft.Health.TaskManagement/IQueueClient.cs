@@ -107,5 +107,13 @@ namespace Microsoft.Health.JobManagement
         /// <param name="requestCancellationOnFailure">Cancel other jobs with same group id if this job failed.</param>
         /// <param name="cancellationToken">Cancellation token</param>
         public Task CompleteJobAsync(JobInfo jobInfo, bool requestCancellationOnFailure, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Peek next message from the queue without removing it
+        /// </summary>
+        /// <param name="queueType">Byte value for name of the queue</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The next message in the queue, or null if there are no messages in the queue</returns>
+        public Task<string> PeekAsync(byte queueType, CancellationToken cancellationToken);
     }
 }

@@ -22,9 +22,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportErrorSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Import\ImportResourceParserTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexOrchestratorJobTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexProcessingJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilitiesTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateUpdateHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\SearchParameterState\SearchParameterStateHandlerTests.cs" />

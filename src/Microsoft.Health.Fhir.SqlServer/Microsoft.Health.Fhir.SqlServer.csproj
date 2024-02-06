@@ -80,6 +80,10 @@
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Operations\Reindex\" />
+  </ItemGroup>
+
   <!-- Target contains sql build tasks -->
   <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
 
