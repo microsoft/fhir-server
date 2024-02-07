@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (RequestFailedException ex) when (ex.ErrorCode == BlobErrorCode.LeaseAlreadyPresent)
             {
-                _logger.LogInformation(ex.Message);
+                _logger.LogInformation("{Message}: {ResourceUri}", ex.Message, resourceUri);
             }
             catch (RequestFailedException se)
             {
