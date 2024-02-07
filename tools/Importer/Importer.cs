@@ -11,6 +11,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using Azure.Core;
@@ -28,6 +30,8 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
+        private static readonly int BatchSize = int.Parse(ConfigurationManager.AppSettings["BatchSize"]);
+        private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
         private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
         private static readonly int WriteThreads = int.Parse(ConfigurationManager.AppSettings["WriteThreads"]);
         private static readonly int NumberOfBlobsToSkip = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToSkip"]);
@@ -53,6 +57,8 @@ namespace Microsoft.Health.Fhir.Importer
 
         internal static void Run()
         {
+            httpClient.Timeout = TimeSpan.FromMinutes(10);
+
             if (string.IsNullOrEmpty(Endpoints))
             {
                 throw new ArgumentException("FhirEndpoints value is empty");
@@ -79,6 +85,11 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
+            if (BatchSize > 0)
+            {
+                globalPrefix = globalPrefix + $".Bundle.{BundleType}={BatchSize}";
+            }
+
             Console.WriteLine($"{globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
             var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -102,14 +113,23 @@ namespace Microsoft.Health.Fhir.Importer
                 Console.WriteLine($"{prefix}: Starting...");
 
                 // 100 below is a compromise between processing with maximum available threads (value 1) and inefficiency in wrapping single resource in a list.
-                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, BatchSize == 0 ? 100 : BatchSize, (thread, lineBatch) =>
                 {
                     Interlocked.Increment(ref writers);
+                    var batch = new List<string>();
                     foreach (var line in lineBatch.Item2)
                     {
-                        Interlocked.Increment(ref totalWrites);
-                        Interlocked.Increment(ref writes);
-                        PutResource(line, incrementor);
+                        if (BatchSize == 0)
+                        {
+                            PutResource(line, incrementor);
+                            Interlocked.Increment(ref totalWrites);
+                            Interlocked.Increment(ref writes);
+                        }
+                        else
+                        {
+                            batch.Add(line);
+                        }
+
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
                             lock (swReport)
@@ -127,6 +147,11 @@ namespace Microsoft.Health.Fhir.Importer
                         }
                     }
 
+                    if (BatchSize > 0)
+                    {
+                        PostBundle(batch, incrementor, ref totalWrites, ref writes);
+                    }
+
                     Interlocked.Decrement(ref writers);
                 });
                 Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
@@ -134,44 +159,144 @@ namespace Microsoft.Health.Fhir.Importer
             Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
-        private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
+        private static string GetBundle(IList<string> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""").Append(BundleType).Append(@""",""entry"":[");
+            var first = true;
+            foreach (var entry in entries)
+            {
+                if (!first)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(entry);
+                first = false;
+            }
+
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
+        private static string GetEntry(string jsonString, string resourceType, string resourceId)
+        {
+            var builder = new StringBuilder();
+            builder.Append('{')
+                   .Append(@"""fullUrl"":""").Append(resourceType).Append('/').Append(resourceId).Append('"')
+                   .Append(',').Append(@"""resource"":").Append(jsonString)
+                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
+                   .Append('}');
+            return builder.ToString();
+        }
+
+        private static void PostBundle(IList<string> jsonStrings, IndexIncrementor incrementor, ref long totalWrites, ref long writes)
+        {
+            var entries = new List<string>();
+            var keys = new HashSet<(string ResourceType, string ResourceId)>();
+            foreach (var jsonString in jsonStrings)
+            {
+                var (resourceType, resourceId) = ParseJson(jsonString);
+                if (keys.Add((resourceType, resourceId)))
+                {
+                    entries.Add(GetEntry(jsonString, resourceType, resourceId));
+                }
+            }
+
+            var bundle = GetBundle(entries);
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            string endpoint;
+            do
+            {
+                endpoint = endpoints[incrementor.Next()];
+                var uri = new Uri(endpoint);
+                bad = false;
+                try
+                {
+                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var request = new HttpRequestMessage() { RequestUri = uri, Method = HttpMethod.Post };
+                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    request.Content = content;
+                    var response = httpClient.Send(request);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+                    }
+
+                    var status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.Created:
+                        case HttpStatusCode.Conflict:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={status}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+
+                    Interlocked.Add(ref totalWrites, keys.Count);
+                    Interlocked.Add(ref writes, keys.Count);
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={endpoint} Error={e.Message}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed write. Retries={retries} Endpoint={endpoint}");
+            }
+
+            return;
+        }
+
+        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
 
             var lines = 0L;
             var sw = Stopwatch.StartNew();
-            var results = new List<string>();
-            foreach (var blob in blobs)
+            foreach (var blob in blobs.OrderBy(_ => RandomNumberGenerator.GetInt32(1000))) // shuffle blobs
             {
-                var retries = 0;
-                List<string> resInt;
-            retry:
-                try
+                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+                while (!reader.EndOfStream)
                 {
-                    resInt = new List<string>();
-                    using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
-                    while (!reader.EndOfStream)
-                    {
-                        resInt.Add(reader.ReadLine());
-                    }
+                    Interlocked.Increment(ref totalReads);
+                    yield return reader.ReadLine();
                 }
-                catch (Exception e)
-                {
-                    if (IsNetworkError(e))
-                    {
-                        Console.WriteLine($"Retries={retries} blob={blob.Name} error={e.Message}");
-                        Thread.Sleep(1000);
-                        retries++;
-                        goto retry;
-                    }
-
-                    throw;
-                }
-
-                results.AddRange(resInt);
-                lines += resInt.Count;
-                Interlocked.Add(ref totalReads, resInt.Count);
             }
 
             if (Interlocked.Decrement(ref readers) == 0)
@@ -180,7 +305,6 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
-            return results;
         }
 
         private static BlobContainerClient GetContainer(string connectionString, string containerName)
