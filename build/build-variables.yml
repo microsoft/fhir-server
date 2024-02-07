@@ -3,11 +3,11 @@
 
 variables:
   buildConfiguration: 'Release' 
+  buildPlatform: 'linux/amd64,linux/arm64'
   defaultBuildFramework: 'net8.0' 
-  azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
-  composeLocation: 'build/docker/docker-compose.yaml'
+  azureContainerRegistryServiceConnection: 'healthplatformregistry'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
   DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
