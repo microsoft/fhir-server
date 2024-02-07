@@ -17,6 +17,7 @@ namespace Microsoft.Health.JobManagement
 {
     public class JobHosting
     {
+        private static readonly ActivitySource JobHostingActivitySource = new ActivitySource(nameof(JobHosting));
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
@@ -85,8 +86,24 @@ namespace Microsoft.Health.JobManagement
 
                         if (nextJob != null)
                         {
-                            _logger.LogJobInformation(nextJob, "Job dequeued.");
-                            await ExecuteJobAsync(nextJob);
+                            using (Activity activity = JobHostingActivitySource.StartActivity(
+                                JobHostingActivitySource.Name,
+                                ActivityKind.Server))
+                            {
+                                if (activity == null)
+                                {
+                                    _logger.LogWarning("Failed to start an activity.");
+                                }
+
+                                activity?.SetTag("CreateDate", nextJob.CreateDate);
+                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                                activity?.SetTag("Id", nextJob.Id);
+                                activity?.SetTag("QueueType", nextJob.QueueType);
+                                activity?.SetTag("Version", nextJob.Version);
+
+                                _logger.LogJobInformation(nextJob, "Job dequeued.");
+                                await ExecuteJobAsync(nextJob);
+                            }
                         }
                         else
                         {
