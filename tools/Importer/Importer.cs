@@ -20,6 +20,7 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Importer
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
         private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
         private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
+        private static readonly string FhirAuthCredentialOptions = ConfigurationManager.AppSettings["FhirAuthCredentialOptions"];
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -65,24 +67,7 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             endpoints = [.. Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries)];
-
-            if (UseFhirAuth)
-            {
-                List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
-                if (scopes.Count == 0)
-                {
-                    scopes = endpoints.Select(x => $"{x}/.default").ToList();
-                }
-
-                if (scopes.Count != endpoints.Count)
-                {
-                    throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
-                }
-
-                credential = new DefaultAzureCredential();
-                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
-                httpClient = new HttpClient(handler);
-            }
+            SetupAuth();
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             if (BatchSize > 0)
@@ -461,6 +446,50 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             return ((string)jsonObject["resourceType"], (string)jsonObject["id"]);
+        }
+
+        private static void SetupAuth()
+        {
+            if (!UseFhirAuth)
+            {
+                return;
+            }
+
+            List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
+            if (scopes.Count == 0)
+            {
+                scopes = endpoints.Select(x => $"{x}/.default").ToList();
+            }
+
+            if (scopes.Count != endpoints.Count)
+            {
+                throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
+            }
+
+            if (!string.IsNullOrEmpty(FhirAuthCredentialOptions))
+            {
+                var options = JsonConvert.DeserializeObject<DefaultAzureCredentialOptions>(FhirAuthCredentialOptions);
+                credential = new DefaultAzureCredential(options);
+            }
+            else
+            {
+                credential = new DefaultAzureCredential();
+            }
+
+            handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
+            httpClient = new HttpClient(handler);
+
+            foreach (var endpoint in endpoints)
+            {
+                Console.WriteLine($"Testing auth for endpont {endpoint}");
+                Uri testUri = new Uri($"{endpoint}?_count=1");
+                var testResult = httpClient.GetAsync(testUri).Result;
+
+                if (!testResult.IsSuccessStatusCode)
+                {
+                    throw new ArgumentException("Auth not configured correctly.");
+                }
+            }
         }
 
         internal sealed class IndexIncrementor

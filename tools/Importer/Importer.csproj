@@ -9,6 +9,7 @@
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="System.Net.Http" />
   </ItemGroup>
 

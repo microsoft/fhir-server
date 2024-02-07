@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -13,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Importer;
 
@@ -110,8 +112,10 @@ public class BearerTokenHandler : DelegatingHandler
                 {
                     try
                     {
+                        Console.WriteLine($"Getting new token for scope {_scope}...");
                         _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext([_scope]), cancellationToken).ConfigureAwait(false);
                         _accessTokenExpiration = _accessToken.Value.ExpiresOn;
+                        PrintClaimsFromJwt(_accessToken.Value.Token);
                     }
                     catch (AuthenticationFailedException)
                     {
@@ -119,6 +123,7 @@ public class BearerTokenHandler : DelegatingHandler
                         await Task.Delay(_tokenRefreshRetryDelay, cancellationToken).ConfigureAwait(false);
                         _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext([_scope]), cancellationToken).ConfigureAwait(false);
                         _accessTokenExpiration = _accessToken.Value.ExpiresOn;
+                        PrintClaimsFromJwt(_accessToken.Value.Token);
                     }
                 }
 
@@ -149,6 +154,24 @@ public class BearerTokenHandler : DelegatingHandler
             }
 
             _disposed = true;
+        }
+
+        private static void PrintClaimsFromJwt(string jwtToken)
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadToken(jwtToken) as JwtSecurityToken;
+            var payload = JObject.Parse(jsonToken.Payload.SerializeToJson());
+
+            // List of claims to check and print
+            string[] claimTypes = ["name", "oid", "tid", "aud", "iss", "scp"];
+
+            foreach (var claimType in claimTypes)
+            {
+                if (payload.TryGetValue(claimType, out JToken claimValue))
+                {
+                    Console.WriteLine($"{claimType}: {claimValue}");
+                }
+            }
         }
     }
 }
