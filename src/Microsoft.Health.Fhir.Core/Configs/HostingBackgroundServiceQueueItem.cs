@@ -11,5 +11,6 @@ public class HostingBackgroundServiceQueueItem
 {
     public QueueType Queue { get; set; }
 
+    // TODO: This is not honored. Make sure that it is not used in PaaS and remove.
     public bool UpdateProgressOnHeartbeat { get; set; }
 }

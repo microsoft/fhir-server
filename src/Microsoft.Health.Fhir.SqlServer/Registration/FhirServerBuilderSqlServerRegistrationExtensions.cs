@@ -132,11 +132,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlImportReindexer>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SqlImporter>()
                 .Transient()
                 .AsSelf()
