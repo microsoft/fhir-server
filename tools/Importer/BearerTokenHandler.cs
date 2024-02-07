@@ -75,6 +75,29 @@ public class BearerTokenHandler : DelegatingHandler
         return await base.SendAsync(request, cancellationToken);
     }
 
+    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        // Only add header for requests that don't already have one.
+        if (request is null || request.Headers is null || request.Headers.Authorization is not null)
+        {
+            return base.Send(request, cancellationToken);
+        }
+
+        if (request.RequestUri.Scheme != Uri.UriSchemeHttps && request.RequestUri.Host != "localhost")
+        {
+            throw new InvalidOperationException("Bearer token authentication is not permitted for non TLS protected (https) endpoints.");
+        }
+
+        if (_accessTokenCaches.TryGetValue(request.RequestUri.GetLeftPart(UriPartial.Authority), out AccessTokenCache tc))
+        {
+            AccessToken cachedToken = tc.GetTokenAsync(cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cachedToken.Token);
+        }
+
+        // Send the request.
+        return base.Send(request, cancellationToken);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
