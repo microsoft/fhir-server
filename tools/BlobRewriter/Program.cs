@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 #pragma warning disable CA1303
+#pragma warning disable CA1867
 
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool AddMeta = bool.Parse(ConfigurationManager.AppSettings["AddMeta"]);
+        private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
 
         public static void Main()
         {
@@ -100,7 +103,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
             foreach (var partitionKey in partitions.Keys)
             {
-                WriteBatchOfLines(targetContainer, partitions[partitionKey], GetTargetBlobName(blobName, partitionKey));
+                WriteBatch(targetContainer, partitions[partitionKey], GetTargetBlobName(blobName, partitionKey));
                 Interlocked.Increment(ref targetBlobs);
             }
 
@@ -132,7 +135,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     batch.Add(line);
                     if (batch.Count == LinesPerBlob)
                     {
-                        WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
+                        WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
                         Interlocked.Increment(ref targetBlobs);
                         batch = new List<string>();
                         batchIndex++;
@@ -142,11 +145,42 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
             if (batch.Count > 0)
             {
-                WriteBatchOfLines(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
+                WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
                 Interlocked.Increment(ref targetBlobs);
             }
 
             return lines;
+        }
+
+        private static string GetBundle(IList<string> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""").Append(BundleType).Append(@""",""entry"":[");
+            var first = true;
+            foreach (var entry in entries)
+            {
+                if (!first)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(entry);
+                first = false;
+            }
+
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
+        private static string GetEntry(string jsonString, string resourceType, string resourceId)
+        {
+            var builder = new StringBuilder();
+            builder.Append('{')
+                   .Append(@"""fullUrl"":""").Append(resourceType).Append('/').Append(resourceId).Append('"')
+                   .Append(',').Append(@"""resource"":").Append(jsonString)
+                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
+                   .Append('}');
+            return builder.ToString();
         }
 
         private static long CopyBlob(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
@@ -182,19 +216,57 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
         private static string GetTargetBlobName(string origBlobName, int batchIndex)
         {
-            return LinesPerBlob == 0 ? origBlobName : $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.ndjson";
+            return LinesPerBlob == 0 ? origBlobName : string.IsNullOrEmpty(BundleType) ? $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.ndjson" : $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.json";
         }
 
-        private static void WriteBatchOfLines(BlobContainerClient container, IList<string> batch, string blobName)
+        private static (string resourceType, string resourceId) ParseJson(string jsonString)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var idShort = jsonString.Substring(idStart, 50);
+            var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceId = idShort.Substring(0, idEnd);
+            if (string.IsNullOrEmpty(resourceId))
+            {
+                throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
+            var rtShort = jsonString.Substring(rtStart, 50);
+            var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceType = rtShort.Substring(0, rtEnd);
+            if (string.IsNullOrEmpty(resourceType))
+            {
+                throw new ArgumentException("Cannot parse resource type with string parser");
+            }
+
+            return (resourceType, resourceId);
+        }
+
+        private static void WriteBatch(BlobContainerClient container, IList<string> batch, string blobName)
         {
             retry:
             try
             {
                 using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
                 using var writer = new StreamWriter(stream);
-                foreach (var line in batch)
+                if (string.IsNullOrEmpty(BundleType))
                 {
-                    writer.WriteLine(line);
+                    foreach (var line in batch)
+                    {
+                        writer.WriteLine(line);
+                    }
+                }
+                else
+                {
+                    var entries = new List<string>();
+                    foreach (var line in batch)
+                    {
+                        var (rt, id) = ParseJson(line);
+                        entries.Add(GetEntry(line, rt, id));
+                    }
+
+                    var bundle = GetBundle(entries);
+                    writer.Write(bundle);
                 }
 
                 writer.Flush();
