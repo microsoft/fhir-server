@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
+using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,8 +16,10 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Providers;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 
@@ -23,26 +28,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
     public class SecurityProvider : IProvideCapability
     {
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly ILogger<SecurityConfiguration> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly ILogger<SecurityProvider> _logger;
+        private readonly IWellKnownConfigurationProvider _wellKnownConfigurationProvider;
         private readonly IUrlResolver _urlResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
 
         public SecurityProvider(
             IOptions<SecurityConfiguration> securityConfiguration,
-            IHttpClientFactory httpClientFactory,
-            ILogger<SecurityConfiguration> logger,
+            IWellKnownConfigurationProvider wellKnownConfigurationProvider,
+            ILogger<SecurityProvider> logger,
             IUrlResolver urlResolver,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
-            EnsureArg.IsNotNull(securityConfiguration.Value.Authentication.Authority, nameof(securityConfiguration.Value.Authentication.Authority));
-            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
+            EnsureArg.IsNotNull(wellKnownConfigurationProvider, nameof(wellKnownConfigurationProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _wellKnownConfigurationProvider = wellKnownConfigurationProvider;
             _urlResolver = urlResolver;
             _modelInfoProvider = modelInfoProvider;
         }
@@ -122,75 +126,77 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             var codableConceptInfo = new CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
 
-            codableConceptInfo.Coding.Add(_modelInfoProvider.Version == FhirSpecification.Stu3
-                ? Constants.RestfulSecurityServiceStu3OAuth
-                : Constants.RestfulSecurityServiceOAuth);
+            Uri authorizationEndpoint = null;
+            Uri tokenEndpoint = null;
+            Uri registrationEndpoint = null;
+            Uri managementEndpoint = null;
+            Uri revocationEndpoint = null;
+            Uri introspectionEndpoint = null;
 
-            var openIdConfigurationUrl = $"{_securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
-
-            HttpResponseMessage openIdConfigurationResponse;
-            using (HttpClient httpClient = _httpClientFactory.CreateClient())
+            if (_wellKnownConfigurationProvider.IsSmartConfigured())
             {
-                try
+                // Attempt to fetch the SMART configuration. This may not be configured, in which case we will fall back to the OpenID configuration.
+                GetSmartConfigurationResponse smartConfiguration = _wellKnownConfigurationProvider.GetSmartConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+                authorizationEndpoint = smartConfiguration?.AuthorizationEndpoint;
+                tokenEndpoint = smartConfiguration?.TokenEndpoint;
+                registrationEndpoint = smartConfiguration?.RegistrationEndpoint;
+                managementEndpoint = smartConfiguration?.ManagementEndpoint;
+                revocationEndpoint = smartConfiguration?.RevocationEndpoint;
+                introspectionEndpoint = smartConfiguration?.IntrospectionEndpoint;
+
+                if (authorizationEndpoint != null && tokenEndpoint != null)
                 {
-                    openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
-                    throw new OpenIdConfigurationException();
+                    // The minimum requirements for SMART on FHIR have been satisfied.
+                    // Set the restful-security-service code to SMART-on-FHIR.
+                    codableConceptInfo.Coding.Add(
+                        _modelInfoProvider.Version == FhirSpecification.Stu3
+                        ? Constants.RestfulSecurityServiceStu3Smart
+                        : Constants.RestfulSecurityServiceSmart);
                 }
             }
 
-            if (openIdConfigurationResponse.IsSuccessStatusCode)
+            if (authorizationEndpoint == null && tokenEndpoint == null)
             {
-                JObject openIdConfiguration = JObject.Parse(openIdConfigurationResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+                // SMART on FHIR is not configured.
+                // Set the restful-security-service code to OAuth.
+                codableConceptInfo.Coding.Add(
+                    _modelInfoProvider.Version == FhirSpecification.Stu3
+                    ? Constants.RestfulSecurityServiceStu3OAuth
+                    : Constants.RestfulSecurityServiceOAuth);
 
-                string tokenEndpoint, authorizationEndpoint;
+                // Fallback to OpenID configuration.
+                OpenIdConfigurationResponse openIdConfiguration = _wellKnownConfigurationProvider.GetOpenIdConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+                authorizationEndpoint = openIdConfiguration?.AuthorizationEndpoint;
+                tokenEndpoint = openIdConfiguration?.TokenEndpoint;
+            }
 
-                try
-                {
-                    tokenEndpoint = openIdConfiguration["token_endpoint"].Value<string>();
-                    authorizationEndpoint = openIdConfiguration["authorization_endpoint"].Value<string>();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
-                    throw new OpenIdConfigurationException();
-                }
-                finally
-                {
-                    openIdConfigurationResponse.Dispose();
-                }
+            if (authorizationEndpoint != null && tokenEndpoint != null)
+            {
+                var extension = new JArray();
+                AddExtension(extension, Constants.SmartOAuthUriExtensionToken, tokenEndpoint);
+                AddExtension(extension, Constants.SmartOAuthUriExtensionAuthorize, authorizationEndpoint);
+                AddExtension(extension, Constants.SmartOAuthUriExtensionRegister, registrationEndpoint);
+                AddExtension(extension, Constants.SmartOAuthUriExtensionManage, managementEndpoint);
+                AddExtension(extension, Constants.SmartOAuthUriExtensionRevoke, revocationEndpoint);
+                AddExtension(extension, Constants.SmartOAuthUriExtensionIntrospect, introspectionEndpoint);
 
-                var smartExtension = new
-                {
-                    url = Constants.SmartOAuthUriExtension,
-                    extension = new[]
-                    {
-                        new
-                        {
-                            url = Constants.SmartOAuthUriExtensionToken,
-                            valueUri = tokenEndpoint,
-                        },
-                        new
-                        {
-                            url = Constants.SmartOAuthUriExtensionAuthorize,
-                            valueUri = authorizationEndpoint,
-                        },
-                    },
-                };
-
-                security.Extension.Add(JObject.FromObject(smartExtension));
+                security.Extension.Add(JObject.FromObject(new { url = Constants.SmartOAuthUriExtension, extension }));
             }
             else
             {
-                _logger.LogWarning("The OpenId Configuration request from \"{OpenIdConfigurationUrl}\" returned an {StatusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
-                openIdConfigurationResponse.Dispose();
                 throw new OpenIdConfigurationException();
             }
 
             restComponent.Security = security;
+        }
+
+        private static void AddExtension(JArray extension, string key, Uri value)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && value != null)
+            {
+                var entry = JObject.FromObject(new { url = key, valueUri = value });
+                extension.Add(entry);
+            }
         }
     }
 }

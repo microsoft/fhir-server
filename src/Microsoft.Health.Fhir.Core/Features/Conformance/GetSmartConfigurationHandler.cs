@@ -5,16 +5,22 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp;
 using EnsureThat;
 using MediatR;
+using Microsoft.Build.Framework;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Providers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,64 +31,66 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public class GetSmartConfigurationHandler : IRequestHandler<GetSmartConfigurationRequest, GetSmartConfigurationResponse>
     {
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IWellKnownConfigurationProvider _configurationProvider;
+        private readonly ILogger<GetSmartConfigurationHandler> _logger;
 
-        public GetSmartConfigurationHandler(IOptions<SecurityConfiguration> securityConfigurationOptions, IHttpClientFactory httpClientFactory)
+        public GetSmartConfigurationHandler(
+            IOptions<SecurityConfiguration> securityConfigurationOptions,
+            IWellKnownConfigurationProvider configurationProvider,
+            ILogger<GetSmartConfigurationHandler> logger)
         {
             _securityConfiguration = EnsureArg.IsNotNull(securityConfigurationOptions?.Value, nameof(securityConfigurationOptions));
-            _httpClientFactory = EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
+            _configurationProvider = EnsureArg.IsNotNull(configurationProvider, nameof(configurationProvider));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
         public async Task<GetSmartConfigurationResponse> Handle(GetSmartConfigurationRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
+            _logger.LogInformation("Starting processing of request to .well-known/smart-configuration endpoint.");
+
             if (!_securityConfiguration.Authorization.Enabled && !_securityConfiguration.Authorization.EnableSmartWithoutAuth)
             {
+                _logger.LogInformation("Security configuration is not enabled cannot process .well-known/smart-configuration request.");
+
                 throw new OperationFailedException(
-                Core.Resources.SecurityConfigurationAuthorizationNotEnabled,
-                HttpStatusCode.BadRequest);
+                    Core.Resources.SecurityConfigurationAuthorizationNotEnabled,
+                    HttpStatusCode.BadRequest);
             }
 
-            Uri openidConfigurationUri = GetOpenIdConfigurationUri();
+            GetSmartConfigurationResponse smartConfiguration = await _configurationProvider.GetSmartConfigurationAsync(cancellationToken);
 
-            if (openidConfigurationUri != null)
+            if (smartConfiguration == null)
             {
-                using HttpClient client = _httpClientFactory.CreateClient();
-                using var configurationRequest = new HttpRequestMessage(HttpMethod.Get, openidConfigurationUri);
-                HttpResponseMessage response = await client.SendAsync(configurationRequest, cancellationToken);
+                _logger.LogInformation("Identity provider does not support .well-known/smart-configuration using .well-known/openid-configuration instead.");
 
-                if (response.IsSuccessStatusCode)
+                // If the SMART configuration failed, fall back to the OpenID configuration.
+                OpenIdConfigurationResponse openIdResponse = await _configurationProvider.GetOpenIdConfigurationAsync(cancellationToken);
+
+                if (openIdResponse?.AuthorizationEndpoint != null && openIdResponse?.TokenEndpoint != null)
                 {
-                    string configuration = await response.Content.ReadAsStringAsync(cancellationToken);
-                    return JsonConvert.DeserializeObject<GetSmartConfigurationResponse>(configuration);
+                    smartConfiguration = new GetSmartConfigurationResponse(openIdResponse.AuthorizationEndpoint, openIdResponse.TokenEndpoint);
                 }
+            }
+
+            if (smartConfiguration != null)
+            {
+                if (smartConfiguration.Capabilities.Count < 1)
+                {
+                    // Ensure the SMART configuration capabilities are populated with the minimum FHIR server capabilities.
+                    smartConfiguration.Capabilities.Add("sso-openid-connect");
+                    smartConfiguration.Capabilities.Add("permission-offline");
+                    smartConfiguration.Capabilities.Add("permission-patient");
+                    smartConfiguration.Capabilities.Add("permission-user");
+                }
+
+                return smartConfiguration;
             }
 
             throw new OperationFailedException(
                 string.Format(Core.Resources.InvalidSecurityConfigurationBaseEndpoint, nameof(SecurityConfiguration.Authentication.Authority)),
                 HttpStatusCode.BadRequest);
-        }
-
-        private Uri GetOpenIdConfigurationUri()
-        {
-            // Prefer the SmartAuthentication authority, but default to Authentication authority.
-            string authority = _securityConfiguration?.SmartAuthentication?.Authority ?? _securityConfiguration?.Authentication?.Authority;
-
-            if (authority != null)
-            {
-                try
-                {
-                    Uri authorityUri = new Uri(authority);
-                    return new Uri(authorityUri, ".well-known/openid-configuration");
-                }
-                catch (UriFormatException)
-                {
-                    return null;
-                }
-            }
-
-            return null;
         }
     }
 }

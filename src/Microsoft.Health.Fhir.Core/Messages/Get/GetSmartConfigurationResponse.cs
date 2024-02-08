@@ -16,6 +16,53 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
     /// </summary>
     public class GetSmartConfigurationResponse
     {
+        [JsonConstructor]
+        public GetSmartConfigurationResponse(
+            Uri issuer,
+            Uri jwksUri,
+            Uri authorizationEndpoint,
+            ICollection<string> grantTypeSupported,
+            Uri tokenEndpoint,
+            ICollection<string> tokenEndpointAuthMethodsSupported,
+            Uri registrationEndpoint,
+            Uri smartAppStateEndpoint,
+            Uri patientAccessBrandBundle,
+            string patientAccessBrandIdentifier,
+            ICollection<string> scopesSupported,
+            ICollection<string> responseTypesSupported,
+            Uri managementEndpoint,
+            Uri introspectionEndpoint,
+            Uri revocationEndpoint,
+            ICollection<string> capabilities,
+            ICollection<string> codeChallengeMethodsSupported)
+        {
+            Issuer = issuer;
+            JwksUri = jwksUri;
+            AuthorizationEndpoint = authorizationEndpoint;
+            GrantTypeSupported = grantTypeSupported;
+            TokenEndpoint = tokenEndpoint;
+            TokenEndpointAuthMethodsSupported = tokenEndpointAuthMethodsSupported;
+            RegistrationEndpoint = registrationEndpoint;
+            SmartAppStateEndpoint = smartAppStateEndpoint;
+            PatientAccessBrandBundle = patientAccessBrandBundle;
+            PatientAccessBrandIdentifier = patientAccessBrandIdentifier;
+            ScopesSupported = scopesSupported;
+            ResponseTypesSupported = responseTypesSupported;
+            ManagementEndpoint = managementEndpoint;
+            IntrospectionEndpoint = introspectionEndpoint;
+            RevocationEndpoint = revocationEndpoint;
+            Capabilities = capabilities ?? new List<string>();
+            CodeChallengeMethodsSupported = codeChallengeMethodsSupported;
+        }
+
+        public GetSmartConfigurationResponse(
+            Uri authorizationEndpoint,
+            Uri tokenEndpoint)
+        {
+            AuthorizationEndpoint = authorizationEndpoint;
+            TokenEndpoint = tokenEndpoint;
+        }
+
         /// <summary>
         /// CONDITIONAL, String conveying this system’s OpenID Connect Issuer URL. Required if the server’s capabilities include sso-openid-connect; otherwise, omitted.
         /// </summary>
@@ -110,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
         /// REQUIRED, Array of strings representing SMART capabilities (e.g., sso-openid-connect or launch-standalone) that the server supports.
         /// </summary>
         [JsonProperty("capabilities", DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public ICollection<string> Capabilities { get; }
+        public ICollection<string> Capabilities { get; } = new List<string>();
 
         /// <summary>
         /// REQUIRED, Array of PKCE code challenge methods supported. The S256 method SHALL be included in this list, and the plain method SHALL NOT be included in this list.
