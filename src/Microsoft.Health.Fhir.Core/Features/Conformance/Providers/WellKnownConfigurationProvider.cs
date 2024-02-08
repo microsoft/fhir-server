@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Providers
 
             if (!string.IsNullOrWhiteSpace(authority))
             {
-                if (!authority.EndsWith("/", StringComparison.Ordinal))
+                if (!authority.EndsWith('/'))
                 {
                     authority += "/";
                 }
