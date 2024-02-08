@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
@@ -16,13 +18,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
     [Trait(Traits.Category, Categories.Security)]
     public sealed class FhirMemoryCacheTests
     {
+        private readonly ILogger _logger = Substitute.For<ILogger>();
+
         [Theory]
         [InlineData(01, 01 * 1024 * 1024)]
         [InlineData(14, 14 * 1024 * 1024)]
         [InlineData(55, 55 * 1024 * 1024)]
         public void GivenAnEmptyCache_CheckTheCacheMemoryLimit(int limitSizeInMegabytes, long expectedLimitSizeInBytes)
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes, TimeSpan.FromMinutes(1), _logger);
 
             Assert.Equal(expectedLimitSizeInBytes, cache.CacheMemoryLimit);
         }
@@ -30,13 +34,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenACache_RaiseErrorIfMemoryLimitIsSetToZero()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new FhirMemoryCache<string>("test", limitSizeInMegabytes: 0, TimeSpan.FromMinutes(1)));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new FhirMemoryCache<string>("test", limitSizeInMegabytes: 0, TimeSpan.FromMinutes(1), _logger));
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAdded()
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             var value = "value";
 
             var result = cache.GetOrAdd("key", value);
@@ -47,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrieved()
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             var value = "value";
 
             cache.GetOrAdd("key", value);
@@ -59,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValue()
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             var value = "value";
 
             cache.GetOrAdd("key", value);
@@ -71,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOut()
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             var value = "value";
 
             cache.GetOrAdd("key", value);
@@ -83,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOutAndValue()
         {
-            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<string>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             var value = "value";
 
             cache.GetOrAdd("key", value);
@@ -95,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenRunningOperations_ThenItemsShouldBeRespected()
         {
-            var cache = new FhirMemoryCache<long>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<long>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
 
             cache.GetOrAdd("key", 2112);
             Assert.True(cache.TryGet("key", out var result));
@@ -116,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                 originalValues.Add(((char)(anchor + i)).ToString(), i);
             }
 
-            var cache = new FhirMemoryCache<int>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1));
+            var cache = new FhirMemoryCache<int>("test", limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
             cache.AddRange(originalValues);
 
             foreach (var item in originalValues)

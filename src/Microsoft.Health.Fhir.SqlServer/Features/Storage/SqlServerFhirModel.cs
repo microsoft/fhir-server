@@ -355,10 +355,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
                     _searchParamUriToId = searchParamUriToId;
 
-                    _systemToId = new FhirMemoryCache<int>("systemToId");
+                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger);
                     _systemToId.AddRange(systemToId);
 
-                    _quantityCodeToId = new FhirMemoryCache<int>("_quantityCodeToId");
+                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger);
                     _quantityCodeToId.AddRange(quantityCodeToId);
 
                     _claimNameToId = claimNameToId;

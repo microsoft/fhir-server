@@ -8,33 +8,40 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Runtime.Caching;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Storage
 {
-    public sealed class FhirMemoryCache<T>
+    public sealed class FhirMemoryCache<T> : IMemoryCache<T>
     {
         private const int DefaultLimitSizeInMegabytes = 50;
-        private const int DefaultExpirationTimeInMinutes = 60;
+        private const int DefaultExpirationTimeInMinutes = 24 * 60;
 
-        private readonly ObjectCache _cache = MemoryCache.Default;
+        private readonly string _cacheName;
+        private readonly ILogger _logger;
+        private readonly ObjectCache _cache;
         private readonly TimeSpan _expirationTime;
         private readonly object _lock;
 
-        public FhirMemoryCache(string name)
+        public FhirMemoryCache(string name, ILogger logger)
             : this(
                   name,
                   limitSizeInMegabytes: DefaultLimitSizeInMegabytes,
-                  expirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes))
+                  expirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
+                  logger)
         {
         }
 
-        public FhirMemoryCache(string name, int limitSizeInMegabytes, TimeSpan expirationTime)
+        public FhirMemoryCache(string name, int limitSizeInMegabytes, TimeSpan expirationTime, ILogger logger)
         {
             EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsGt(limitSizeInMegabytes, 0, nameof(name));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
+            _cacheName = name;
 
             _cache = new MemoryCache(
-                name,
+                _cacheName,
                 new NameValueCollection()
                 {
                     { "CacheMemoryLimitMegabytes", limitSizeInMegabytes.ToString() },
@@ -42,13 +49,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             _expirationTime = expirationTime;
 
+            _logger = logger;
+
             _lock = new object();
         }
 
         public long CacheMemoryLimit => ((MemoryCache)_cache).CacheMemoryLimit;
 
         /// <summary>
-        /// Gets or adds the value to cache.
+        /// Get or add the value to cache.
         /// </summary>
         /// <typeparam name="T">Type of the value in cache</typeparam>
         /// <param name="key">Key</param>
@@ -70,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         }
 
         /// <summary>
-        /// Adds the value to cache if it does not exist.
+        /// Add the value to cache if it does not exist.
         /// </summary>
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
@@ -90,6 +99,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             return true;
         }
 
+        /// <summary>
+        /// Add a range of values to the cache.
+        /// </summary>
+        /// <param name="keyValuePairs">Range of values</param>
         public void AddRange(IReadOnlyDictionary<string, T> keyValuePairs)
         {
             foreach (KeyValuePair<string, T> item in keyValuePairs)
@@ -98,21 +111,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             }
         }
 
+        /// <summary>
+        /// Get an item from the cache.
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <returns>Value</returns>
         public T Get(string key)
         {
             return (T)_cache[key];
         }
 
-        public T TryGet(string key)
-        {
-            if (_cache.Contains(key))
-            {
-                return (T)_cache[key];
-            }
-
-            return default;
-        }
-
+        /// <summary>
+        /// Try to retrieve an item from cache, if it does not exist then returns the <see cref="default"/> for that generic type.
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <param name="value">Value</param>
+        /// <returns>True if the value exists in cache</returns>
         public bool TryGet(string key, out T value)
         {
             lock (_lock)
@@ -123,6 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
                     return true;
                 }
 
+                _logger.LogTrace("Item does not exist in '{CacheName}' cache. Returning default value.", _cacheName);
                 value = default;
             }
 
@@ -141,8 +156,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             return objectInCache != null;
         }
 
-        private DateTimeOffset GetExpirationTime() => DateTimeOffset.Now.Add(_expirationTime);
+        private bool AddInternal(string key, T value)
+        {
+            CacheItemPolicy cachePolicy = new CacheItemPolicy()
+            {
+                Priority = CacheItemPriority.Default,
+                SlidingExpiration = _expirationTime,
+            };
 
-        private bool AddInternal(string key, T value) => _cache.Add(key, value, GetExpirationTime());
+            return _cache.Add(key, value, cachePolicy);
+        }
     }
 }
