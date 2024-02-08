@@ -20,6 +20,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
     {
         private readonly ILogger _logger = Substitute.For<ILogger>();
 
+        private const string DefaultKey = "key";
+        private const string DefaultValue = "value";
+
         [Theory]
         [InlineData(01, 01 * 1024 * 1024)]
         [InlineData(14, 14 * 1024 * 1024)]
@@ -32,65 +35,80 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenACache_RaiseErrorIfMemoryLimitIsSetToZero()
+        public void GivenACache_RaiseErrorsIfParametersAreInvalid()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new FhirMemoryCache<string>("test 2", limitSizeInMegabytes: 0, TimeSpan.FromMinutes(1), _logger));
+            Assert.Throws<ArgumentNullException>(
+                () => new FhirMemoryCache<string>(
+                    null,
+                    limitSizeInMegabytes: 0,
+                    TimeSpan.FromMinutes(1),
+                    _logger));
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new FhirMemoryCache<string>(
+                    Guid.NewGuid().ToString(),
+                    limitSizeInMegabytes: 0,
+                    TimeSpan.FromMinutes(1),
+                    _logger));
+
+            Assert.Throws<ArgumentNullException>(
+                () => new FhirMemoryCache<string>(
+                    Guid.NewGuid().ToString(),
+                    limitSizeInMegabytes: 1,
+                    TimeSpan.FromMinutes(1),
+                    null));
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAdded()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            var result = cache.GetOrAdd("key", value);
+            var result = cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrieved()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.True(cache.TryGet(DefaultKey, out var result));
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseEnabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
             var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger, ignoreCase: true);
-            var value = "value";
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.True(cache.TryGet(DefaultKey, out var result));
+            Assert.Equal(DefaultValue, result);
 
-            Assert.True(cache.TryGet("KEY", out result));
-            Assert.Equal(value, result);
+            Assert.True(cache.TryGet(DefaultKey.ToUpper(), out result));
+            Assert.Equal(DefaultValue, result);
 
             Assert.True(cache.TryGet("Key", out result));
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
 
             Assert.True(cache.TryGet("kEy", out result));
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseDisabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger, ignoreCase: false);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
             Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
 
             Assert.False(cache.TryGet("KEY", out result));
 
@@ -102,51 +120,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValue()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
             Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOut()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
             Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenAddingValue_ThenValueShouldBeAddedAndCanBeRetrievedUsingTryGetValueWithOutAndValue()
         {
-            var cache = new FhirMemoryCache<string>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
-            var value = "value";
+            var cache = CreateRegularMemoryCache<string>();
 
-            cache.GetOrAdd("key", value);
+            cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet("key", out var result));
-            Assert.Equal(value, result);
+            Assert.True(cache.TryGet(DefaultKey, out var result));
+            Assert.Equal(DefaultValue, result);
         }
 
         [Fact]
         public void GivenAnEmptyCache_WhenRunningOperations_ThenItemsShouldBeRespected()
         {
-            var cache = new FhirMemoryCache<long>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
+            var cache = CreateRegularMemoryCache<long>();
 
-            cache.GetOrAdd("key", 2112);
-            Assert.True(cache.TryGet("key", out var result));
+            cache.GetOrAdd(DefaultKey, 2112);
+            Assert.True(cache.TryGet(DefaultKey, out var result));
             Assert.Equal(2112, result);
 
-            Assert.True(cache.Remove("key"));
+            Assert.True(cache.Remove(DefaultKey));
 
-            Assert.False(cache.TryGet("key", out result));
+            Assert.False(cache.TryGet(DefaultKey, out result));
         }
 
         [Fact]
@@ -159,13 +174,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                 originalValues.Add(((char)(anchor + i)).ToString(), i);
             }
 
-            var cache = new FhirMemoryCache<int>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
+            var cache = CreateRegularMemoryCache<int>();
             cache.AddRange(originalValues);
 
             foreach (var item in originalValues)
             {
                 Assert.Equal(item.Value, cache.Get(item.Key));
             }
+        }
+
+        private IMemoryCache<T> CreateRegularMemoryCache<T>()
+        {
+            return new FhirMemoryCache<T>(Guid.NewGuid().ToString(), limitSizeInMegabytes: 1, TimeSpan.FromMinutes(1), _logger);
         }
     }
 }
