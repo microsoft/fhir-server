@@ -331,7 +331,6 @@ namespace Microsoft.Health.Fhir.Importer
                 Interlocked.Increment(ref epCalls);
                 try
                 {
-                    Thread.Sleep(40);
                     var response = httpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
