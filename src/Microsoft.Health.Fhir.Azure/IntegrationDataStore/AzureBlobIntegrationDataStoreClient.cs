@@ -203,12 +203,16 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 Response<BlobLease> response = await lease.AcquireAsync(BlobLeaseClient.InfiniteLeaseDuration, null, cancellationToken);
                 return response?.Value?.LeaseId;
             }
+            catch (RequestFailedException ex) when (ex.ErrorCode == BlobErrorCode.LeaseAlreadyPresent)
+            {
+                _logger.LogInformation("{Message}: {ResourceUri}", ex.Message, resourceUri);
+            }
             catch (RequestFailedException se)
             {
                 HandleRequestFailedException(se, $"Failed to acquire lease on the blob {resourceUri}");
-
-                return null;
             }
+
+            return null;
         }
 
         public async Task TryReleaseLeaseAsync(Uri resourceUri, string leaseId, CancellationToken cancellationToken)
