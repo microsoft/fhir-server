@@ -20,6 +20,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -29,6 +30,7 @@ using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Namotion.Reflection;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -51,8 +53,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<Uri, short> _searchParamUriToId;
-        private ConcurrentDictionary<string, int> _systemToId;
-        private ConcurrentDictionary<string, int> _quantityCodeToId;
+        private FhirMemoryCache<int> _systemToId;
+        private FhirMemoryCache<int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
         private Dictionary<string, byte> _compartmentTypeToId;
         private int _highestInitializedVersion;
@@ -152,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public bool TryGetSystemId(string system, out int systemId)
         {
             ThrowIfNotInitialized();
-            return _systemToId.TryGetValue(system, out systemId);
+            return _systemToId.TryGet(system, out systemId);
         }
 
         public int GetSystemId(string system)
@@ -174,7 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
         {
             ThrowIfNotInitialized();
-            return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
+            return _quantityCodeToId.TryGet(code, out quantityCodeId);
         }
 
         public async Task EnsureInitialized()
@@ -352,8 +354,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     _resourceTypeToId = resourceTypeToId;
                     _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
                     _searchParamUriToId = searchParamUriToId;
-                    _systemToId = systemToId;
-                    _quantityCodeToId = quantityCodeToId;
+
+                    _systemToId = new FhirMemoryCache<int>("systemToId");
+                    _systemToId.AddRange(systemToId);
+
+                    _quantityCodeToId = new FhirMemoryCache<int>("_quantityCodeToId");
+                    _quantityCodeToId.AddRange(quantityCodeToId);
+
                     _claimNameToId = claimNameToId;
                     _compartmentTypeToId = compartmentTypeToId;
                     _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
@@ -421,9 +428,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
+        private int GetStringId(FhirMemoryCache<int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
         {
-            if (cache.TryGetValue(stringValue, out int id))
+            if (cache.TryGet(stringValue, out int id))
             {
                 return id;
             }
