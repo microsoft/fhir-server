@@ -21,9 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         private readonly ILogger _logger;
         private readonly ObjectCache _cache;
         private readonly TimeSpan _expirationTime;
+        private readonly bool _ignoreCase;
         private readonly object _lock;
 
-        public FhirMemoryCache(string name, ILogger logger)
+        public FhirMemoryCache(string name, ILogger logger, bool ignoreCase = false)
             : this(
                   name,
                   limitSizeInMegabytes: DefaultLimitSizeInMegabytes,
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         {
         }
 
-        public FhirMemoryCache(string name, int limitSizeInMegabytes, TimeSpan expirationTime, ILogger logger)
+        public FhirMemoryCache(string name, int limitSizeInMegabytes, TimeSpan expirationTime, ILogger logger, bool ignoreCase = false)
         {
             EnsureArg.IsNotNull(name, nameof(name));
             EnsureArg.IsGt(limitSizeInMegabytes, 0, nameof(name));
@@ -51,6 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
             _logger = logger;
 
+            _ignoreCase = ignoreCase;
+
             _lock = new object();
         }
 
@@ -65,6 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Value in cache</returns>
         public T GetOrAdd(string key, T value)
         {
+            key = FormatKey(key);
+
             lock (_lock)
             {
                 if (_cache.Contains(key))
@@ -86,6 +91,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Returns true if the item was added to the cache</returns>
         public bool TryAdd(string key, T value)
         {
+            key = FormatKey(key);
+
             lock (_lock)
             {
                 if (_cache.Contains(key))
@@ -107,7 +114,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         {
             foreach (KeyValuePair<string, T> item in keyValuePairs)
             {
-                AddInternal(item.Key, item.Value);
+                string key = FormatKey(item.Key);
+                AddInternal(key, item.Value);
             }
         }
 
@@ -118,6 +126,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Value</returns>
         public T Get(string key)
         {
+            key = FormatKey(key);
+
             return (T)_cache[key];
         }
 
@@ -129,6 +139,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>True if the value exists in cache</returns>
         public bool TryGet(string key, out T value)
         {
+            key = FormatKey(key);
+
             lock (_lock)
             {
                 if (_cache.Contains(key))
@@ -151,10 +163,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Returns false if the items does not exist in cache.</returns>
         public bool Remove(string key)
         {
+            key = FormatKey(key);
+
             object objectInCache = _cache.Remove(key);
 
             return objectInCache != null;
         }
+
+        private string FormatKey(string key) => _ignoreCase ? key.ToLowerInvariant() : key;
 
         private bool AddInternal(string key, T value)
         {

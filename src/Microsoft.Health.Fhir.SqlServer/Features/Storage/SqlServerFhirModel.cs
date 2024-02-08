@@ -280,8 +280,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                     var resourceTypeIdToTypeName = new Dictionary<short, string>();
                     var searchParamUriToId = new Dictionary<Uri, short>();
-                    var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                    var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
                     var compartmentTypeToId = new Dictionary<string, byte>();
 
@@ -336,31 +334,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // result set 5
                     await reader.NextResultAsync(cancellationToken);
 
+                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger, ignoreCase: true);
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-                        systemToId.TryAdd(value, systemId);
+                        _systemToId.TryAdd(value, systemId);
                     }
 
                     // result set 6
                     await reader.NextResultAsync(cancellationToken);
 
+                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger, ignoreCase: true);
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-                        quantityCodeToId.TryAdd(value, quantityCodeId);
+                        _quantityCodeToId.TryAdd(value, quantityCodeId);
                     }
 
                     _resourceTypeToId = resourceTypeToId;
                     _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
                     _searchParamUriToId = searchParamUriToId;
-
-                    _systemToId = new FhirMemoryCache<int>("systemToId", _logger);
-                    _systemToId.AddRange(systemToId);
-
-                    _quantityCodeToId = new FhirMemoryCache<int>("quantityCodeToId", _logger);
-                    _quantityCodeToId.AddRange(quantityCodeToId);
-
                     _claimNameToId = claimNameToId;
                     _compartmentTypeToId = compartmentTypeToId;
                     _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
