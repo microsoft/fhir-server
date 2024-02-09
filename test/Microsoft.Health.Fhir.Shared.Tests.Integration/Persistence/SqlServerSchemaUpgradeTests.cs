@@ -331,19 +331,30 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private string Normalize(string text)
         {
+            // normalize newlines
+            text = text.Replace("\r\n", "\n").Replace("\r", "\n");
+
             // remove inline comments
-            while (text.IndexOf("--") > 0)
+            while (text.Contains("--"))
             {
                 var indexStart = text.IndexOf("--");
-                var indexEnd = text.IndexOf(Environment.NewLine, indexStart);
-                text = text.Substring(0, indexStart) + text.Substring(indexEnd, text.Length - indexEnd);
+                var indexEnd = text.IndexOf("\n", indexStart);
+
+                if (indexEnd == -1)
+                {
+                    text = text.Substring(0, indexStart);
+                }
+                else
+                {
+                    text = text.Substring(0, indexStart) + text.Substring(indexEnd + 1);
+                }
             }
 
             return text.ToLowerInvariant()
-                       .Replace(Environment.NewLine, " ")
-                       .Replace("\r", " ")
-                       .Replace("\t", " ")
-                       .Replace(";", " ")
+                       .Replace("\n", string.Empty)
+                       .Replace("\r", string.Empty)
+                       .Replace("\t", string.Empty)
+                       .Replace(";", string.Empty)
                        .Replace(" output,", " out,")
                        .Replace(" output ", " out ")
                        .Replace(" inner join ", " join ")
