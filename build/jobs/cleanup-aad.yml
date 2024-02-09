@@ -2,7 +2,6 @@ jobs:
 - job: cleanupAad
   displayName: 'Cleanup AAD'
   pool:
-    name: $(DefaultWindowsPool)
     vmImage: '$(WindowsVmImage)'
   steps:
   - task: AzureKeyVault@1

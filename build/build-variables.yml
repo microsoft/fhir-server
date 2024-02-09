@@ -33,6 +33,5 @@ variables:
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'DevOps1ESSharedPool'
   # SharedLinuxPool: 'DevOps1ESSharedPool'
-  # DefaultWindowsPool: 'Azure Pipelines'
-  # SharedWindowsPool: 'DevOps1ESSharedPool'
+  # DefaultWindowsPool: 'mshealthagents'
   #-----------------------------------------------------------------------------------------

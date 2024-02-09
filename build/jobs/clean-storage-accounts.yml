@@ -5,7 +5,6 @@ parameters:
 jobs:
 - job: "cleanStorageAccounts"
   pool:
-    name: $(DefaultWindowsPool)
     vmImage: $(WindowsVmImage)
   steps:
   - task: AzurePowerShell@4
