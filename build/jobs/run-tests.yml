@@ -8,6 +8,7 @@ parameters:
 jobs:
 - job: "integrationTests"
   pool:
+    name: '$(SharedWindowsPool)'
     vmImage: '$(WindowsVmImage)'
   steps:
   - task: DownloadBuildArtifacts@0
@@ -67,6 +68,7 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
+    name: '$(SharedWindowsPool)'
     vmImage: '$(WindowsVmImage)'
   steps:
   - template: e2e-setup.yml
@@ -79,6 +81,7 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
+    name: '$(SharedWindowsPool)'
     vmImage: '$(WindowsVmImage)'
   steps:
   - template: e2e-setup.yml

@@ -151,6 +151,7 @@ stages:
     dependsOn:
     - cleanupAad
     pool:
+      name: '$(DefaultWindowsPool)'
       vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml

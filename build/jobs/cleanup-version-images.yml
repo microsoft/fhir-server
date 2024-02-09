@@ -6,6 +6,7 @@ jobs:
 - job: deleteImage
   displayName: "Delete ${{ parameters.version }} Images"
   pool:
+    name: $(DefaultWindowsPool)
     vmImage: $(WindowsVmImage)
   steps:
     - task: AzureCLI@2
