@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
         bool TryAdd(string key, T value);
 
-        void AddRange(IReadOnlyDictionary<string, T> keyValuePairs);
-
         T Get(string key);
 
         bool TryGet(string key, out T value);

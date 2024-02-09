@@ -57,6 +57,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
                     limitSizeInMegabytes: 1,
                     TimeSpan.FromMinutes(1),
                     null));
+
+            var cache = CreateRegularMemoryCache<string>();
+
+            Assert.Throws<ArgumentNullException>(() => cache.GetOrAdd(null, DefaultValue));
+            Assert.Throws<ArgumentNullException>(() => cache.TryAdd(null, DefaultValue));
+            Assert.Throws<ArgumentException>(() => cache.GetOrAdd(string.Empty, DefaultValue));
+            Assert.Throws<ArgumentException>(() => cache.TryAdd(string.Empty, DefaultValue));
+            Assert.Throws<ArgumentNullException>(() => cache.GetOrAdd(DefaultKey, null));
+            Assert.Throws<ArgumentNullException>(() => cache.TryAdd(DefaultKey, null));
         }
 
         [Fact]
@@ -64,9 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         {
             var cache = CreateRegularMemoryCache<string>();
 
-            var result = cache.GetOrAdd(DefaultKey, DefaultValue);
+            var result1 = cache.GetOrAdd(DefaultKey, DefaultValue);
+            Assert.Equal(DefaultValue, result1);
 
-            Assert.Equal(DefaultValue, result);
+            const string anotherValue = "Another Value";
+            var result2 = cache.GetOrAdd(DefaultKey, anotherValue);
+            Assert.NotEqual(anotherValue, result2);
+            Assert.Equal(DefaultValue, result1);
         }
 
         [Fact]
@@ -101,6 +114,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
         }
 
         [Fact]
+        public void GivenAnEmptyCache_WhenGettingAnItemThatDoNotExist_ThenReturnFalse()
+        {
+            var cache = CreateRegularMemoryCache<string>();
+
+            Assert.False(cache.TryGet(DefaultKey, out var result));
+            Assert.Equal(default, result);
+        }
+
+        [Fact]
         public void GivenAnEmptyCache_WhenAddingValueIfIgnoreCaseDisabled_ThenMultipleSimilarKeysShouldWorkAsExpected()
         {
             var cache = CreateRegularMemoryCache<string>();
@@ -124,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 
             cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet("key", out var result));
+            Assert.True(cache.TryGet(DefaultKey, out var result));
             Assert.Equal(DefaultValue, result);
         }
 
@@ -135,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
 
             cache.GetOrAdd(DefaultKey, DefaultValue);
 
-            Assert.True(cache.TryGet("key", out var result));
+            Assert.True(cache.TryGet(DefaultKey, out var result));
             Assert.Equal(DefaultValue, result);
         }
 
@@ -162,25 +184,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Storage
             Assert.True(cache.Remove(DefaultKey));
 
             Assert.False(cache.TryGet(DefaultKey, out result));
-        }
-
-        [Fact]
-        public void GivenAnEmptyCache_WhenAddingARange_AllValuesShouldBeIngested()
-        {
-            int anchor = 'a';
-            var originalValues = new Dictionary<string, int>();
-            for (int i = 0; i < 20; i++)
-            {
-                originalValues.Add(((char)(anchor + i)).ToString(), i);
-            }
-
-            var cache = CreateRegularMemoryCache<int>();
-            cache.AddRange(originalValues);
-
-            foreach (var item in originalValues)
-            {
-                Assert.Equal(item.Value, cache.Get(item.Key));
-            }
         }
 
         private IMemoryCache<T> CreateRegularMemoryCache<T>()

@@ -22,14 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         private readonly ObjectCache _cache;
         private readonly TimeSpan _expirationTime;
         private readonly bool _ignoreCase;
-        private readonly object _lock;
 
         public FhirMemoryCache(string name, ILogger logger, bool ignoreCase = false)
             : this(
-                  name,
-                  limitSizeInMegabytes: DefaultLimitSizeInMegabytes,
-                  expirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
-                  logger)
+                name,
+                limitSizeInMegabytes: DefaultLimitSizeInMegabytes,
+                expirationTime: TimeSpan.FromMinutes(DefaultExpirationTimeInMinutes),
+                logger)
         {
         }
 
@@ -40,21 +39,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _cacheName = name;
-
             _cache = new MemoryCache(
                 _cacheName,
                 new NameValueCollection()
                 {
                     { "CacheMemoryLimitMegabytes", limitSizeInMegabytes.ToString() },
                 });
-
             _expirationTime = expirationTime;
-
             _logger = logger;
-
             _ignoreCase = ignoreCase;
-
-            _lock = new object();
         }
 
         public long CacheMemoryLimit => ((MemoryCache)_cache).CacheMemoryLimit;
@@ -68,19 +61,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <returns>Value in cache</returns>
         public T GetOrAdd(string key, T value)
         {
-            key = FormatKey(key);
-
-            lock (_lock)
+            EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
+            if (value == null)
             {
-                if (_cache.Contains(key))
-                {
-                    return (T)_cache[key];
-                }
-
-                AddInternal(key, value);
+                throw new ArgumentNullException(nameof(value));
             }
 
-            return value;
+            key = FormatKey(key);
+
+            CacheItem newCacheItem = new CacheItem(key, value);
+
+            CacheItem cachedItem = _cache.AddOrGetExisting(
+                newCacheItem,
+                GetDefaultCacheItemPolicy());
+
+            if (cachedItem.Value == null)
+            {
+                // If the item cache item is null, then the item was added to the cache.
+                return (T)newCacheItem.Value;
+            }
+            else
+            {
+                return (T)cachedItem.Value;
+            }
         }
 
         /// <summary>
@@ -88,35 +91,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// </summary>
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
-        /// <returns>Returns true if the item was added to the cache</returns>
+        /// <returns>Returns true if the item was added to the cache, returns false if there is an item with the same key in cache.</returns>
         public bool TryAdd(string key, T value)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
             key = FormatKey(key);
 
-            lock (_lock)
-            {
-                if (_cache.Contains(key))
-                {
-                    return false;
-                }
-
-                AddInternal(key, value);
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Add a range of values to the cache.
-        /// </summary>
-        /// <param name="keyValuePairs">Range of values</param>
-        public void AddRange(IReadOnlyDictionary<string, T> keyValuePairs)
-        {
-            foreach (KeyValuePair<string, T> item in keyValuePairs)
-            {
-                string key = FormatKey(item.Key);
-                AddInternal(key, item.Value);
-            }
+            return _cache.Add(key, value, GetDefaultCacheItemPolicy());
         }
 
         /// <summary>
@@ -141,17 +127,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         {
             key = FormatKey(key);
 
-            lock (_lock)
-            {
-                if (_cache.Contains(key))
-                {
-                    value = (T)_cache[key];
-                    return true;
-                }
+            CacheItem cachedItem = _cache.GetCacheItem(key);
 
-                _logger.LogTrace("Item does not exist in '{CacheName}' cache. Returning default value.", _cacheName);
-                value = default;
+            if (cachedItem != null)
+            {
+                value = (T)cachedItem.Value;
+                return true;
             }
+
+            _logger.LogTrace("Item does not exist in '{CacheName}' cache. Returning default value.", _cacheName);
+            value = default;
 
             return false;
         }
@@ -172,15 +157,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
 
         private string FormatKey(string key) => _ignoreCase ? key.ToLowerInvariant() : key;
 
-        private bool AddInternal(string key, T value)
+        private CacheItemPolicy GetDefaultCacheItemPolicy() => new CacheItemPolicy()
         {
-            CacheItemPolicy cachePolicy = new CacheItemPolicy()
-            {
-                Priority = CacheItemPriority.Default,
-                SlidingExpiration = _expirationTime,
-            };
-
-            return _cache.Add(key, value, cachePolicy);
-        }
+            Priority = CacheItemPriority.Default,
+            SlidingExpiration = _expirationTime,
+        };
     }
 }
