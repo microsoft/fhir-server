@@ -48,6 +48,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Providers
 
         public Task<GetSmartConfigurationResponse> GetSmartConfigurationAsync(CancellationToken cancellationToken)
         {
+            Uri configurationUrl = GetConfigurationUrl(SmartConfigurationPath);
+
+            if (configurationUrl != null && string.Equals("localhost", configurationUrl.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("The FHIR service is running locally with no Authority set, {URL} is not available.", SmartConfigurationPath);
+                return Task.FromResult<GetSmartConfigurationResponse>(null);
+            }
+
             return GetConfigurationAsync<GetSmartConfigurationResponse>(SmartConfigurationPath, cancellationToken);
         }
 
