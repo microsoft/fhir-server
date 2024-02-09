@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
             }
 
-            if (authorizationEndpoint == null && tokenEndpoint == null)
+            if (authorizationEndpoint == null || tokenEndpoint == null)
             {
                 // SMART on FHIR is not configured.
                 // Set the restful-security-service code to OAuth.
