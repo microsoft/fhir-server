@@ -83,16 +83,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             GetSmartConfigurationResponse response = await _handler.Handle(new GetSmartConfigurationRequest(), CancellationToken.None);
 
-            Assert.Equal("https://localhost:44312/smart/auth", response.AuthorizationEndpoint.AbsoluteUri);
-            Assert.Equal("https://localhost:44312/smart/token", response.TokenEndpoint.AbsoluteUri);
+            Assert.Equal("https://testhost:44312/smart/auth", response.AuthorizationEndpoint.AbsoluteUri);
+            Assert.Equal("https://testhost:44312/smart/token", response.TokenEndpoint.AbsoluteUri);
             Assert.Equal(capabilities, response.Capabilities);
         }
 
         [Fact]
         public async Task GivenSmartConfigurationNotProvided_WhenHandleCalled_ThenSmartConfigurationUsingOpenIdReturned()
         {
-            string openIdAuthorization = "https://localhost:44312/openid/auth";
-            string openIdToken = "https://localhost:44312/openid/token";
+            string openIdAuthorization = "https://testhost:44312/openid/auth";
+            string openIdToken = "https://testhost:44312/openid/token";
 
             _configurationProvider.GetOpenIdConfigurationAsync(Arg.Any<CancellationToken>()).Returns(GetOpenIdConfiguration(openIdAuthorization, openIdToken));
 
@@ -112,8 +112,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             GetSmartConfigurationResponse response = await _handler.Handle(new GetSmartConfigurationRequest(), CancellationToken.None);
 
-            Assert.Equal("https://localhost:44312/smart/auth", response.AuthorizationEndpoint.AbsoluteUri);
-            Assert.Equal("https://localhost:44312/smart/token", response.TokenEndpoint.AbsoluteUri);
+            Assert.Equal("https://testhost:44312/smart/auth", response.AuthorizationEndpoint.AbsoluteUri);
+            Assert.Equal("https://testhost:44312/smart/token", response.TokenEndpoint.AbsoluteUri);
             Assert.Equal(GetFallbackCapabilities(), response.Capabilities);
         }
 
@@ -127,9 +127,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             return new GetSmartConfigurationResponse(
                 null,
                 null,
-                new Uri("https://localhost:44312/smart/auth"),
+                new Uri("https://testhost:44312/smart/auth"),
                 null,
-                new Uri("https://localhost:44312/smart/token"),
+                new Uri("https://testhost:44312/smart/token"),
                 null,
                 null,
                 null,

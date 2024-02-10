@@ -35,8 +35,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Providers
         {
             _securityConfiguration = new SecurityConfiguration();
             _securityConfiguration.Authorization.Enabled = true;
-            _securityConfiguration.Authentication.Authority = "https://localhost:44312/OAuth2/v2.0";
-            _securityConfiguration.SmartAuthentication.Authority = "https://localhost:44312/Smart/OAuth2/v2.0";
+            _securityConfiguration.Authentication.Authority = "https://testhost:44312/OAuth2/v2.0";
+            _securityConfiguration.SmartAuthentication.Authority = "https://testhost:44312/Smart/OAuth2/v2.0";
 
             _messageHandler = new TestHttpMessageHandler();
             _httpClientFactory = Substitute.For<IHttpClientFactory>();
@@ -198,12 +198,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance.Providers
 
         private OpenIdConfigurationResponse GetOpenIdConfiguration()
         {
-            return new OpenIdConfigurationResponse(new Uri("https://localhost:44312/openid/auth"), new Uri("https://localhost:44312/openid/token"));
+            return new OpenIdConfigurationResponse(new Uri("https://testhost:44312/openid/auth"), new Uri("https://testhost:44312/openid/token"));
         }
 
         private GetSmartConfigurationResponse GetSmartConfiguration()
         {
-            return new GetSmartConfigurationResponse(new Uri("https://localhost:44312/smart/auth"), new Uri("https://localhost:44312/smart/token"));
+            return new GetSmartConfigurationResponse(new Uri("https://testhost:44312/smart/auth"), new Uri("https://testhost:44312/smart/token"));
         }
 
         internal class TestHttpMessageHandler : DelegatingHandler

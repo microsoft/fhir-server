@@ -75,8 +75,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
 
         [Theory]
         [InlineData(null, null)]
-        [InlineData(null, "https://localhost:44312/token")]
-        [InlineData("https://localhost:44312/auth", null)]
+        [InlineData(null, "https://testhost:44312/token")]
+        [InlineData("https://testhost:44312/auth", null)]
         public void GivenOAuthAuthorizationEndpointOrTokenEndpointIsInvalid_WhenBuildCalled_ExceptionThrown(string auth, string token)
         {
             _wellKnownConfigurationProvider.GetOpenIdConfigurationAsync(Arg.Any<CancellationToken>()).Returns(GetOpenIdConfiguration(auth, token));
@@ -87,8 +87,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         [Fact]
         public void GivenOpenIdConfigurationProvided_WhenBuildCalled_ExpectedCapabilitiesAreAdded()
         {
-            string auth = "https://localhost:44312/auth";
-            string token = "https://localhost:44312/token";
+            string auth = "https://testhost:44312/auth";
+            string token = "https://testhost:44312/token";
 
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
             _wellKnownConfigurationProvider.IsSmartConfigured().Returns(false);
@@ -113,11 +113,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         }
 
         [Theory]
-        [InlineData("https://localhost:44312/auth", "https://localhost:44312/token", null, null, null, null)]
-        [InlineData("https://localhost:44312/auth", "https://localhost:44312/token", "https://localhost:44312/reg", null, null, null)]
-        [InlineData("https://localhost:44312/auth", "https://localhost:44312/token", "https://localhost:44312/reg", "https://localhost:44312/man", null, null)]
-        [InlineData("https://localhost:44312/auth", "https://localhost:44312/token", "https://localhost:44312/reg", "https://localhost:44312/man", "https://localhost:44312/intr", null)]
-        [InlineData("https://localhost:44312/auth", "https://localhost:44312/token", "https://localhost:44312/reg", "https://localhost:44312/man", "https://localhost:44312/intr", "https://localhost:44312/rev")]
+        [InlineData("https://testhost:44312/auth", "https://testhost:44312/token", null, null, null, null)]
+        [InlineData("https://testhost:44312/auth", "https://testhost:44312/token", "https://testhost:44312/reg", null, null, null)]
+        [InlineData("https://testhost:44312/auth", "https://testhost:44312/token", "https://testhost:44312/reg", "https://testhost:44312/man", null, null)]
+        [InlineData("https://testhost:44312/auth", "https://testhost:44312/token", "https://testhost:44312/reg", "https://testhost:44312/man", "https://testhost:44312/intr", null)]
+        [InlineData("https://testhost:44312/auth", "https://testhost:44312/token", "https://testhost:44312/reg", "https://testhost:44312/man", "https://testhost:44312/intr", "https://testhost:44312/rev")]
         public void GivenSmartConfigurationProvided_WhenBuildCalled_ExpectedCapabilitiesAreAdded(string auth, string token, string reg, string man, string intr, string rev)
         {
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
@@ -149,8 +149,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         [Fact]
         public void GivenSmartConfigurationIsNotValid_WhenBuildCalled_FallbackCapabilitiesAreAdded()
         {
-            string auth = "https://localhost:44312/auth";
-            string token = "https://localhost:44312/token";
+            string auth = "https://testhost:44312/auth";
+            string token = "https://testhost:44312/token";
 
             _modelInfoProvider.Version.Returns(FhirSpecification.R4);
             _wellKnownConfigurationProvider.IsSmartConfigured().Returns(true);
