@@ -64,7 +64,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var targetBlobs = 0L;
             if (MultiResourceTypes)
             {
-                BatchExtensions.ExecuteInParallelBatches(blobs, 1, BlobRangeSize, (reader, blobInt) =>
+                BatchExtensions.ExecuteInParallelBatches(blobs, Threads, BlobRangeSize, (reader, blobInt) =>
                 {
                     var directory = GetDirectoryName(blobInt.Item2[0].Name);
                     var sortedLines = GetLinesInBlobGroup(sourceContainer, blobInt.Item2);
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     {
                         var index = batch.Item1;
                         var batchOfLnes = batch.Item2;
-                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/MultiResourceType-{index}");
+                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/MultiResourceType-{index:000000}");
                         Interlocked.Increment(ref targetBlobs);
                         Interlocked.Add(ref totalLines, batchOfLnes.Count);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
@@ -138,10 +138,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 }
             });
             Console.WriteLine($"{DateTime.UtcNow:s}: Read sourceBlobs={blobs.Count} lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
-            sw.Restart();
-            var shuffled = direct.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
-            Console.WriteLine($"{DateTime.UtcNow:s}: Shuffled lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
-            return shuffled;
+            return direct.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
         }
 
         private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs)
