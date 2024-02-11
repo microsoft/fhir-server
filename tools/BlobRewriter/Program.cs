@@ -73,7 +73,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     {
                         var index = batch.Item1;
                         var batchOfLnes = batch.Item2;
-                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/MultiResourceType-{index:000000}");
+                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/Bundle-{index:000000}.json");
                         Interlocked.Increment(ref targetBlobs);
                         Interlocked.Add(ref totalLines, batchOfLnes.Count);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
