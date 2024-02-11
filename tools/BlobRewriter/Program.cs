@@ -13,8 +13,10 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
@@ -37,6 +39,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool AddMeta = bool.Parse(ConfigurationManager.AppSettings["AddMeta"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
+        private static readonly bool MultiResourceTypes = bool.Parse(ConfigurationManager.AppSettings["MultiResourceTypes"]);
+        private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
 
         public static void Main()
         {
@@ -44,13 +48,13 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var sourceContainer = GetContainer(SourceConnectionString, SourceContainerName);
             var targetContainer = GetContainer(TargetConnectionString, TargetContainerName);
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
-            Console.WriteLine($"{gPrefix}: Starting at {DateTime.UtcNow.ToString("s")}...");
+            Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: Starting...");
             var blobs = WritesEnabled
                       ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
                       : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase)).Take(SourceBlobs);
             if (WritesEnabled)
             {
-                Console.WriteLine($"{gPrefix}: SourceBlobs={blobs.Count()} at {DateTime.UtcNow.ToString("s")}.");
+                Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={blobs.Count()}.");
             }
 
             var sw = Stopwatch.StartNew();
@@ -58,30 +62,86 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var totalLines = 0L;
             var sourceBlobs = 0L;
             var targetBlobs = 0L;
-            BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
+            if (MultiResourceTypes)
             {
-                var blobIndex = blobInt.Item1;
-                var blob = blobInt.Item2.First();
-
-                var lines = SplitBySize
-                          ? LinesPerBlob == 0 ? CopyBlob(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex) : SplitBlobBySize(sourceContainer, blob.Name, targetContainer, ref targetBlobs)
-                          : SplitBlobByResourceId(sourceContainer, blob.Name, targetContainer, ref targetBlobs);
-                Interlocked.Add(ref totalLines, lines);
-                Interlocked.Increment(ref sourceBlobs);
-
-                if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                BatchExtensions.ExecuteInParallelBatches(blobs, 1, BlobRangeSize, (reader, blobInt) =>
                 {
-                    lock (swReport)
+                    var directory = GetDirectoryName(blobInt.Item2[0].Name);
+                    var sortedLines = GetLinesInBlobGroup(sourceContainer, blobInt.Item2);
+                    Interlocked.Add(ref sourceBlobs, blobInt.Item2.Count);
+                    BatchExtensions.ExecuteInParallelBatches(sortedLines, Threads, LinesPerBlob, (writer, batch) =>
                     {
+                        var index = batch.Item1;
+                        var batchOfLnes = batch.Item2;
+                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/MultiResourceType-{index}");
+                        Interlocked.Increment(ref targetBlobs);
+                        Interlocked.Add(ref totalLines, batchOfLnes.Count);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
-                            Console.WriteLine($"{gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
-                            swReport.Restart();
+                            lock (swReport)
+                            {
+                                if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                                {
+                                    Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+                                    swReport.Restart();
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+            else
+            {
+                BatchExtensions.ExecuteInParallelBatches(blobs, Threads, 1, (thread, blobInt) =>
+                {
+                    var blobIndex = blobInt.Item1;
+                    var blob = blobInt.Item2.First();
+
+                    var lines = SplitBySize
+                              ? LinesPerBlob == 0 ? CopyBlob(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex) : SplitBlobBySize(sourceContainer, blob.Name, targetContainer, ref targetBlobs)
+                              : SplitBlobByResourceId(sourceContainer, blob.Name, targetContainer, ref targetBlobs);
+                    Interlocked.Add(ref totalLines, lines);
+                    Interlocked.Increment(ref sourceBlobs);
+
+                    if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                            {
+                                Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+                                swReport.Restart();
+                            }
                         }
                     }
+                });
+            }
+
+            Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+        }
+
+        private static List<string> GetLinesInBlobGroup(BlobContainerClient sourceContainer, IList<BlobItem> blobs)
+        {
+            var sw = Stopwatch.StartNew();
+            var direct = new List<string>();
+            Parallel.ForEach(blobs, new ParallelOptions { MaxDegreeOfParallelism = Threads }, (blob) =>
+            {
+                var temp = new List<string>();
+                foreach (var line in GetLinesInBlob(sourceContainer, blob.Name))
+                {
+                    temp.Add(line);
+                }
+
+                lock (direct)
+                {
+                    direct.AddRange(temp);
                 }
             });
-            Console.WriteLine($"{gPrefix}.Total: SourceBlobs={sourceBlobs}{(WritesEnabled ? $" TargetBlobs={targetBlobs}" : string.Empty)} Lines={totalLines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(totalLines / sw.Elapsed.TotalSeconds)} lines/sec");
+            Console.WriteLine($"{DateTime.UtcNow:s}: Read sourceBlobs={blobs.Count} lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
+            sw.Restart();
+            var shuffled = direct.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
+            Console.WriteLine($"{DateTime.UtcNow:s}: Shuffled lines={direct.Count} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(direct.Count / sw.Elapsed.TotalSeconds)} lines/sec");
+            return shuffled;
         }
 
         private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs)
@@ -217,6 +277,11 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static string GetTargetBlobName(string origBlobName, int batchIndex)
         {
             return LinesPerBlob == 0 ? origBlobName : string.IsNullOrEmpty(BundleType) ? $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.ndjson" : $"{origBlobName.Substring(0, origBlobName.Length - 7)}-{batchIndex}.json";
+        }
+
+        private static string GetDirectoryName(string origBlobName)
+        {
+            return origBlobName.Substring(0, origBlobName.IndexOf('/', StringComparison.OrdinalIgnoreCase));
         }
 
         private static (string resourceType, string resourceId) ParseJson(string jsonString)
