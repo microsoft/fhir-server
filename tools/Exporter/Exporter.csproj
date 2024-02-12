@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Microsoft.Health.Internal.Fhir.Exporter</AssemblyName>
+    <AssemblyName>Fhir.Exporter</AssemblyName>
     <RootNamespace>Microsoft.Health.Internal.Fhir.Exporter</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>

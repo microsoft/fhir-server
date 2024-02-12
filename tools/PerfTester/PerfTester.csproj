@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>Microsoft.Health.Internal.Fhir.PerfTester</AssemblyName>
+    <AssemblyName>Fhir.PerfTester</AssemblyName>
     <RootNamespace>Microsoft.Health.Internal.Fhir.PerfTester</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <ServerGarbageCollection>true</ServerGarbageCollection>
