@@ -59,8 +59,6 @@ namespace Microsoft.Health.Fhir.Importer
 
         internal static void Run()
         {
-            httpClient.Timeout = TimeSpan.FromMinutes(10);
-
             if (string.IsNullOrEmpty(Endpoints))
             {
                 throw new ArgumentException("FhirEndpoints value is empty");
@@ -75,7 +73,7 @@ namespace Microsoft.Health.Fhir.Importer
                 globalPrefix = globalPrefix + $".Bundle.{BundleType}={BatchSize}";
             }
 
-            Console.WriteLine($"{globalPrefix}: Starting...");
+            Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: {globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
             var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
             Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
@@ -125,7 +123,7 @@ namespace Microsoft.Health.Fhir.Importer
                                     var currReads = Interlocked.Read(ref totalReads);
                                     var minBlob = currentBlobRanges.Min(_ => _.Item1);
                                     var maxBlob = currentBlobRanges.Max(_ => _.Item2);
-                                    Console.WriteLine($"{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
+                                    Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
                                     swReport.Restart();
                                 }
                             }
@@ -139,9 +137,9 @@ namespace Microsoft.Health.Fhir.Importer
 
                     Interlocked.Decrement(ref writers);
                 });
-                Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
             });
-            Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
+            Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
         }
 
         private static string GetBundle(IList<string> entries)
@@ -189,7 +187,7 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             var bundle = GetBundle(entries);
-            var maxRetries = 3;
+            var maxRetries = MaxRetries;
             var retries = 0;
             var networkError = false;
             var bad = false;
@@ -202,9 +200,10 @@ namespace Microsoft.Health.Fhir.Importer
                 try
                 {
                     using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
-                    using var request = new HttpRequestMessage() { RequestUri = uri, Method = HttpMethod.Post };
+                    using var request = new HttpRequestMessage(HttpMethod.Post, uri);
                     request.Headers.Add("x-bundle-processing-logic", "parallel");
                     request.Content = content;
+
                     var response = httpClient.Send(request);
                     if (response.StatusCode == HttpStatusCode.BadRequest)
                     {
@@ -215,18 +214,16 @@ namespace Microsoft.Health.Fhir.Importer
                     switch (response.StatusCode)
                     {
                         case HttpStatusCode.OK:
-                        case HttpStatusCode.Created:
-                        case HttpStatusCode.Conflict:
-                        case HttpStatusCode.InternalServerError:
                             break;
                         default:
                             bad = true;
                             if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
                             {
-                                Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={status}");
+                                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} HttpStatusCode={status}");
                             }
 
-                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests // retry overload errors forever
+                                || response.StatusCode == HttpStatusCode.InternalServerError) // 429 on auth cause internal server error
                             {
                                 maxRetries++;
                             }
@@ -242,7 +239,7 @@ namespace Microsoft.Health.Fhir.Importer
                     networkError = IsNetworkError(e);
                     if (!networkError)
                     {
-                        Console.WriteLine($"Retries={retries} Endpoint={endpoint} Error={e.Message}");
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} Error={e.Message}");
                     }
 
                     bad = true;
@@ -255,13 +252,13 @@ namespace Microsoft.Health.Fhir.Importer
                 if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
                 }
             }
             while (bad && retries < maxRetries);
             if (bad)
             {
-                Console.WriteLine($"Failed write. Retries={retries} Endpoint={endpoint}");
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Failed write. Retries={retries} Endpoint={endpoint}");
             }
 
             return;
@@ -451,6 +448,7 @@ namespace Microsoft.Health.Fhir.Importer
         {
             if (!UseFhirAuth)
             {
+                httpClient.Timeout = TimeSpan.FromMinutes(10);
                 return;
             }
 
@@ -477,15 +475,17 @@ namespace Microsoft.Health.Fhir.Importer
 
             handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
             httpClient = new HttpClient(handler);
+            httpClient.Timeout = TimeSpan.FromMinutes(10);
 
             foreach (var endpoint in endpoints)
             {
                 Console.WriteLine($"Testing auth for endpont {endpoint}");
-                Uri testUri = new Uri($"{endpoint}?_count=1");
+                Uri testUri = new Uri($"{endpoint}?count=1");
                 var testResult = httpClient.GetAsync(testUri).Result;
 
-                if (!testResult.IsSuccessStatusCode)
+                if (testResult.StatusCode == HttpStatusCode.Unauthorized)
                 {
+                    Console.WriteLine($"Status={testResult.StatusCode} Result={testResult.Content.ReadAsStringAsync().Result}");
                     throw new ArgumentException("Auth not configured correctly.");
                 }
             }
