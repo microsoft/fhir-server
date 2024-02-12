@@ -321,10 +321,14 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 else
                 {
                     var entries = new List<string>();
+                    var keys = new HashSet<(string ResourceType, string ResourceId)>();
                     foreach (var line in batch)
                     {
-                        var (rt, id) = ParseJson(line);
-                        entries.Add(GetEntry(line, rt, id));
+                        var (resourceType, resourceId) = ParseJson(line);
+                        if (keys.Add((resourceType, resourceId))) // there could be dup keys
+                        {
+                            entries.Add(GetEntry(line, resourceType, resourceId));
+                        }
                     }
 
                     var bundle = GetBundle(entries);
