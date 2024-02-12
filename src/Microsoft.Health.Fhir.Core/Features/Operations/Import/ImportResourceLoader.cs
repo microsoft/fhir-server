@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                _logger.LogInformation("Start to load resource from store.");
+                _logger.LogInformation("Start to load resource from store: {ResourceLocation}.", resourceLocation);
 
                 // Try to acquire lease to block change on the blob.
                 leaseId = await _integrationDataStoreClient.TryAcquireLeaseAsync(new Uri(resourceLocation), Guid.NewGuid().ToString("N"), cancellationToken);

@@ -11,12 +11,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement
 {
     public class JobHosting
     {
+        private static readonly ActivitySource JobHostingActivitySource = new ActivitySource(nameof(JobHosting));
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
@@ -85,8 +87,24 @@ namespace Microsoft.Health.JobManagement
 
                         if (nextJob != null)
                         {
-                            _logger.LogJobInformation(nextJob, "Job dequeued.");
-                            await ExecuteJobAsync(nextJob);
+                            using (Activity activity = JobHostingActivitySource.StartActivity(
+                                JobHostingActivitySource.Name,
+                                ActivityKind.Server))
+                            {
+                                if (activity == null)
+                                {
+                                    _logger.LogWarning("Failed to start an activity.");
+                                }
+
+                                activity?.SetTag("CreateDate", nextJob.CreateDate);
+                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                                activity?.SetTag("Id", nextJob.Id);
+                                activity?.SetTag("QueueType", nextJob.QueueType);
+                                activity?.SetTag("Version", nextJob.Version);
+
+                                _logger.LogJobInformation(nextJob, "Job dequeued.");
+                                await ExecuteJobAsync(nextJob);
+                            }
                         }
                         else
                         {
@@ -112,9 +130,9 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
 
-            IJob job = _jobFactory.Create(jobInfo);
+            using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
-            if (job == null)
+            if (job?.Value == null)
             {
                 _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
                 return;
@@ -134,12 +152,12 @@ namespace Microsoft.Health.JobManagement
 #endif
                 }
 
-                var runningJob = ExecuteJobWithHeartbeatsAsync(
+                Task<string> runningJob = ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.ExecuteAsync(jobInfo, cancellationSource.Token),
+                                    cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
 
@@ -224,6 +242,7 @@ namespace Microsoft.Health.JobManagement
 
             var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
+            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);
