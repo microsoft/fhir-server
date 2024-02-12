@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
         private static readonly int BatchSize = int.Parse(ConfigurationManager.AppSettings["BatchSize"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
+        private static readonly bool UseBundleBlobs = bool.Parse(ConfigurationManager.AppSettings["UseBundleBlobs"]);
         private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
         private static readonly int WriteThreads = int.Parse(ConfigurationManager.AppSettings["WriteThreads"]);
         private static readonly int NumberOfBlobsToSkip = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToSkip"]);
@@ -73,14 +74,41 @@ namespace Microsoft.Health.Fhir.Importer
                 globalPrefix = globalPrefix + $".Bundle.{BundleType}={BatchSize}";
             }
 
-            Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: {globalPrefix}: Starting...");
+            Console.WriteLine($"{DateTime.UtcNow:s}: {globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
+            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(UseBundleBlobs ? ".json" : ".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
             Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
             var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
+            if (UseBundleBlobs)
+            {
+                BatchExtensions.ExecuteInParallelBatches(blobs, WriteThreads, 1, (writer, blobList) =>
+                {
+                    var localSw = Stopwatch.StartNew();
+                    var incrementor = new IndexIncrementor(endpoints.Count);
+                    var bundle = GetTextFromBlob(blobList.Item2.First());
+                    PostBundle(bundle, incrementor);
+                    Interlocked.Add(ref totalWrites, BatchSize);
+
+                    if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                            {
+                                var currWrites = Interlocked.Read(ref totalWrites);
+                                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix}: writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                                swReport.Restart();
+                            }
+                        }
+                    }
+                });
+                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix}: total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                return;
+            }
+
             var currentBlobRanges = new Tuple<int, int>[ReadThreads];
             BatchExtensions.ExecuteInParallelBatches(blobs, ReadThreads, BlobRangeSize, (reader, blobRangeInt) =>
             {
@@ -173,6 +201,82 @@ namespace Microsoft.Health.Fhir.Importer
             return builder.ToString();
         }
 
+        private static void PostBundle(string bundle, IndexIncrementor incrementor)
+        {
+            var maxRetries = MaxRetries;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            string endpoint;
+            do
+            {
+                endpoint = endpoints[incrementor.Next()];
+                var uri = new Uri(endpoint);
+                bad = false;
+                try
+                {
+                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    request.Content = content;
+
+                    var response = httpClient.Send(request);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+                    }
+
+                    var status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} HttpStatusCode={status}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests // retry overload errors forever
+                                || response.StatusCode == HttpStatusCode.InternalServerError) // 429 on auth cause internal server error
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} Error={e.Message}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Failed write. Retries={retries} Endpoint={endpoint}");
+            }
+
+            return;
+        }
+
         private static void PostBundle(IList<string> jsonStrings, IndexIncrementor incrementor, ref long totalWrites, ref long writes)
         {
             var entries = new List<string>();
@@ -262,6 +366,13 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             return;
+        }
+
+        private static string GetTextFromBlob(BlobItem blob)
+        {
+            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+            var text = reader.ReadToEnd();
+            return text;
         }
 
         private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
