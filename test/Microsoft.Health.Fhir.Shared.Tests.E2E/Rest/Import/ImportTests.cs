@@ -92,6 +92,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
+        ////[Fact]
+        ////public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
+        ////{
+        ////    var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+        ////    var pid = Guid.NewGuid().ToString("N");
+        ////    ndJson = ndJson.Replace("##PatientID##", pid);
+        ////    var json = Samples.GetJson("BloodPressure");
+        ////    var oid = Guid.NewGuid().ToString("N");
+        ////    json = json.Replace("blood-pressure", oid);
+        ////    ndJson = ndJson + json + Environment.NewLine;
+        ////    var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+        ////    var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+        ////    await ImportCheckAsync(request, null);
+
+        ////    var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
+        ////    Assert.Equal("1", patient.Resource.Meta.VersionId);
+        ////    var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
+        ////    Assert.Equal("1", observation.Resource.Meta.VersionId);
+        ////}
+
         [Fact]
         public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting()
         {
@@ -100,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // set existing
             var ndJson = PrepareResource(id, "10000", "2000");
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, true);
             await ImportCheckAsync(request, null);
 
             // set input. something before and something after existing
@@ -110,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             // note order of records
             location = (await ImportTestHelper.UploadFileAsync(ndJson2 + ndJson + ndJson3, _fixture.StorageAccount)).location;
-            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
             await ImportCheckAsync(request, null);
 
             // check current
@@ -183,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenIncrementalImportInvalidResource__WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch()
+        public async Task GivenIncrementalImportInvalidResource_WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
@@ -356,8 +376,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true)
         {
+            var inputResource = new InputResource() { Url = location };
+            if (setResourceType)
+            {
+                inputResource.Type = "Patient";
+            }
+
             return new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
