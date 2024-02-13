@@ -92,35 +92,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        ////[Fact]
-        ////public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
-        ////{
-        ////    var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
-        ////    var pid = Guid.NewGuid().ToString("N");
-        ////    ndJson = ndJson.Replace("##PatientID##", pid);
-        ////    var json = Samples.GetJson("BloodPressure");
-        ////    var oid = Guid.NewGuid().ToString("N");
-        ////    json = json.Replace("blood-pressure", oid);
-        ////    ndJson = ndJson + json + Environment.NewLine;
-        ////    var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-        ////    var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
-        ////    await ImportCheckAsync(request, null);
-
-        ////    var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
-        ////    Assert.Equal("1", patient.Resource.Meta.VersionId);
-        ////    var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
-        ////    Assert.Equal("1", observation.Resource.Meta.VersionId);
-        ////}
-
         [Fact]
-        public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting()
+        public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
+        {
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+            var pid = Guid.NewGuid().ToString("N");
+            ndJson = ndJson.Replace("##PatientID##", pid);
+            var json = Samples.GetJson("BloodPressure");
+            var oid = Guid.NewGuid().ToString("N");
+            json = json.Replace("blood-pressure", oid);
+            ndJson = ndJson + json + Environment.NewLine;
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            await ImportCheckAsync(request, null);
+
+            var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
+            Assert.Equal("1", patient.Resource.Meta.VersionId);
+            var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
+            Assert.Equal("1", observation.Resource.Meta.VersionId);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting(bool setResourceType)
         {
             var id = Guid.NewGuid().ToString("N");
 
             // set existing
             var ndJson = PrepareResource(id, "10000", "2000");
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, true);
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType);
             await ImportCheckAsync(request, null);
 
             // set input. something before and something after existing
@@ -130,7 +132,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             // note order of records
             location = (await ImportTestHelper.UploadFileAsync(ndJson2 + ndJson + ndJson3, _fixture.StorageAccount)).location;
-            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType);
             await ImportCheckAsync(request, null);
 
             // check current
