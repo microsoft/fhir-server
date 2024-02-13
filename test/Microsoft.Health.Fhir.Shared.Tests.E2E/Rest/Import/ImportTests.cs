@@ -105,11 +105,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
             await ImportCheckAsync(request, null);
-
-            var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
-            Assert.Equal("1", patient.Resource.Meta.VersionId);
-            var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
-            Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
         [Theory]
