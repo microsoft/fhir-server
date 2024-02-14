@@ -183,16 +183,18 @@ public class BearerTokenHandler : DelegatingHandler
         {
             var handler = new JwtSecurityTokenHandler();
             var jsonToken = handler.ReadToken(jwtToken) as JwtSecurityToken;
-            var payload = JObject.Parse(jsonToken.Payload.SerializeToJson());
 
-            // List of claims to check and print
-            string[] claimTypes = ["name", "oid", "tid", "aud", "iss", "scp"];
-
-            foreach (var claimType in claimTypes)
+            if (jsonToken is not null)
             {
-                if (payload.TryGetValue(claimType, out JToken claimValue))
+                // List of claims to check and print
+                string[] claimTypes = { "name", "oid", "tid", "aud", "iss", "scp" };
+
+                foreach (var claim in jsonToken.Claims)
                 {
-                    Console.WriteLine($"{claimType}: {claimValue}");
+                    if (claimTypes.Contains(claim.Type))
+                    {
+                        Console.WriteLine($"{claim.Type}: {claim.Value}");
+                    }
                 }
             }
         }
