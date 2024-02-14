@@ -87,7 +87,6 @@ namespace Microsoft.Health.Fhir.Importer
                 var totalBlobs = 0L;
                 BatchExtensions.ExecuteInParallelBatches(blobs, WriteThreads, 1, (writer, blobList) =>
                 {
-                    var localSw = Stopwatch.StartNew();
                     var incrementor = new IndexIncrementor(endpoints.Count);
                     var bundle = GetTextFromBlob(blobList.Item2.First());
                     PostBundle(bundle, incrementor);
@@ -280,7 +279,7 @@ namespace Microsoft.Health.Fhir.Importer
             return;
         }
 
-        private static void PostBundle(IList<string> jsonStrings, IndexIncrementor incrementor, ref long totalWrites, ref long writes)
+        private static void PostBundle(IList<string> jsonStrings, IndexIncrementor incrementor, ref long totWrites, ref long writes)
         {
             var entries = new List<string>();
             var keys = new HashSet<(string ResourceType, string ResourceId)>();
@@ -338,7 +337,7 @@ namespace Microsoft.Health.Fhir.Importer
                             break;
                     }
 
-                    Interlocked.Add(ref totalWrites, keys.Count);
+                    Interlocked.Add(ref totWrites, keys.Count);
                     Interlocked.Add(ref writes, keys.Count);
                 }
                 catch (Exception e)
