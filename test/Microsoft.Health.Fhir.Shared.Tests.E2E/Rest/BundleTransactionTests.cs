@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Policy;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -354,6 +356,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
             Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundle_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
+        {
+            // 1 - Retrieve bundle template from file.
+            string body = Samples.GetJson("Bundle-TransactionInvalidType");
+            var fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.PostAsync(string.Empty, body));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            Assert.Equal("Operation", fhirException.OperationOutcome.Issue.ToString());
+            Assert.NotNull(fhirException);
         }
 
         private static void ValidateReferenceToPatient(
