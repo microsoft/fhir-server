@@ -4,15 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Net;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.CodeAnalysis;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -69,14 +75,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             return;
                         }
 
-                        switch (bundle.Type)
+                        try
                         {
-                            case Hl7.Fhir.Model.Bundle.BundleType.Batch:
-                                fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
-                                break;
-                            case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
-                                fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
-                                break;
+                            switch (bundle.Type)
+                            {
+                                case Hl7.Fhir.Model.Bundle.BundleType.Batch:
+                                    fhirRequestContext.AuditEventType = AuditEventSubType.Batch;
+                                    break;
+                                case Hl7.Fhir.Model.Bundle.BundleType.Transaction:
+                                    fhirRequestContext.AuditEventType = AuditEventSubType.Transaction;
+                                    break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var operationOutcome = new OperationOutcome
+                            {
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Error,
+                                        Code = OperationOutcome.IssueType.NotFound,
+                                        Diagnostics = ex.Message,
+                                    },
+                                },
+                            };
+
+                            TransactionExceptionHandler.ThrowTransactionException(ex.Message, HttpStatusCode.BadRequest, operationOutcome);
                         }
                     }
                 }
