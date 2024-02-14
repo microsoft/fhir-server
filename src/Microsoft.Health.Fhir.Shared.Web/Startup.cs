@@ -310,10 +310,11 @@ namespace Microsoft.Health.Fhir.Web
                         options.EnrichWithHttpResponse = (activity, response) =>
                         {
                             var request = response?.HttpContext?.Request;
-                            var name = request.Path.Value;
-                            if (request.RouteValues != null)
+                            if (request != null)
                             {
-                                if (request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
+                                var name = request.Path.Value;
+                                if (request.RouteValues != null
+                                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
                                     && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
                                 {
                                     name = $"{controller}/{action}";
@@ -326,11 +327,11 @@ namespace Microsoft.Health.Fhir.Web
                                         name += $" [{string.Join("/", parameterArray)}]";
                                     }
                                 }
-                            }
 
-                            if (!string.IsNullOrWhiteSpace(name))
-                            {
-                                activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
+                                if (!string.IsNullOrWhiteSpace(name))
+                                {
+                                    activity?.SetTag(KnownApplicationInsightsDimensions.OperationName, $"{request.Method} {name}");
+                                }
                             }
                         };
                     });

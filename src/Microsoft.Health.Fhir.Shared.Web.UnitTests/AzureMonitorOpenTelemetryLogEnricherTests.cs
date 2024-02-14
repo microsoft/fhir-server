@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Web.UnitTests
 
             Assert.Equal(attributes.Count + 1, log.Attributes.Count);
             Assert.Equal(
-                $"{_httpContext.Request.Method} {_httpContext.Request.Path}",
+                operationName,
                 log.Attributes.SingleOrDefault(kv => kv.Key == KnownApplicationInsightsDimensions.OperationName).Value);
         }
 

@@ -54,25 +54,22 @@ namespace Microsoft.Health.Fhir.Shared.Web
 
         public void AddOperationName(Dictionary<string, object?> attributes)
         {
-            var operationName = string.Empty;
             var request = _httpContextAccessor.HttpContext?.Request;
             if (request != null)
             {
                 var name = request.Path.Value;
-                if (request.RouteValues != null)
+                if (request.RouteValues != null
+                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
+                    && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
                 {
-                    if (request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueAction, out var action)
-                        && request.RouteValues.TryGetValue(KnownHttpRequestProperties.RouteValueController, out var controller))
+                    name = $"{controller}/{action}";
+                    var parameterArray = request.RouteValues.Keys?.Where(
+                        k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+                    if (parameterArray != null && parameterArray.Any())
                     {
-                        name = $"{controller}/{action}";
-                        var parameterArray = request.RouteValues.Keys?.Where(
-                            k => k.Contains(KnownHttpRequestProperties.RouteValueParameterSuffix, StringComparison.OrdinalIgnoreCase))
-                            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
-                            .ToArray();
-                        if (parameterArray != null && parameterArray.Any())
-                        {
-                            name += $" [{string.Join("/", parameterArray)}]";
-                        }
+                        name += $" [{string.Join("/", parameterArray)}]";
                     }
                 }
 
