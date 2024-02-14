@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // if this query has a created task, cancel it
                         if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
                         {
-                            _logger.LogInformation("Stale Query that is being reset to queued {StaleQuery}", staleQuery.ToString());
+                            _logger.LogInformation("Stale Query that is being reset to queued. Status : {StaleQueryStatus}, StartResourceSurrogateId : {StaleQueryStartSurrogateId}, ResourceType : {StaleQueryResourceType}", staleQuery.Status, staleQuery.StartResourceSurrogateId, staleQuery.ResourceType);
                             try
                             {
                                 tokenSource.Cancel(false);
