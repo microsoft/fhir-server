@@ -187,15 +187,12 @@ public class BearerTokenHandler : DelegatingHandler
             if (jsonToken is not null)
             {
                 // List of claims to check and print
-                string[] claimTypes = { "name", "oid", "tid", "aud", "iss", "scp" };
+                string[] printClaimTypes = ["name", "oid", "tid", "aud", "iss", "scp"];
 
-                foreach (var claim in jsonToken.Claims)
-                {
-                    if (claimTypes.Contains(claim.Type))
-                    {
-                        Console.WriteLine($"{claim.Type}: {claim.Value}");
-                    }
-                }
+                jsonToken.Claims
+                    .Where(claim => printClaimTypes.Contains(claim.Type))
+                    .ToList()
+                    .ForEach(claim => Console.WriteLine($"{claim.Type}: {claim.Value}"));
             }
         }
     }
