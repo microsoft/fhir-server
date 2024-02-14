@@ -185,6 +185,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         break;
                     }
                 }
+
+                System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
             }
             catch (Exception ex)
             {
@@ -192,7 +194,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await cancellationTokenSource.CancelAsync();
             }
 
-            System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
             deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
 
             if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
@@ -209,8 +210,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             }
                         }
                     });
-                var aggrigateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<long>(aggrigateException, numDeleted);
+                var aggregateException = new AggregateException(exceptions);
+                throw new IncompleteOperationException<long>(aggregateException, numDeleted);
             }
 
             return numDeleted;

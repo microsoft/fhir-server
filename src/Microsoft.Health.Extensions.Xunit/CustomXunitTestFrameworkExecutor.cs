@@ -197,7 +197,7 @@ namespace Microsoft.Health.Extensions.Xunit
         private sealed class CustomAssemblyInfo : IAssemblyInfo
         {
             private readonly IAssemblyInfo _assemblyInfoImplementation;
-            private readonly Regex _argumentsRegex = new Regex(@"\((\s*(?<VALUE>[^, )]+)\s*,?)*\)");
+            private readonly Regex _argumentsRegex = new Regex(@"\[(\s*(?<VALUE>[^, \]]+)\s*,?)*\]");
 
             public CustomAssemblyInfo(IAssemblyInfo assemblyInfoImplementation)
             {
