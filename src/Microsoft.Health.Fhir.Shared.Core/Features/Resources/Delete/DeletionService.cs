@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -192,7 +193,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await cancellationTokenSource.CancelAsync();
             }
 
-            System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            try
+            {
+                // We need to wait until all running tasks are cancelled to get a count of partial deletes.
+                Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            }
+            catch (AggregateException age)
+            {
+                // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
+                foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
+                {
+                    _logger.LogError(age, "Error deleting");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting");
+            }
+
             deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
 
             if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
