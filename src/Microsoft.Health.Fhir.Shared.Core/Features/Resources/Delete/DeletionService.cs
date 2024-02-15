@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             try
             {
-                // We need to wait until all running tasks are cancelled to get a count of partial deletes.
+                // We need to wait until all running tasks are cancelled to get a count of resources deleted.
                 Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
             }
             catch (AggregateException age)
