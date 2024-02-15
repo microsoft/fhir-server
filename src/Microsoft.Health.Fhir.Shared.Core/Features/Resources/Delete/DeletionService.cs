@@ -206,10 +206,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     _logger.LogError(coreException, "Error deleting");
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deleting");
-            }
 
             deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
 
