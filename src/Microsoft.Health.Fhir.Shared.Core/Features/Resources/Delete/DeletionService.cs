@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -192,7 +193,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await cancellationTokenSource.CancelAsync();
             }
 
-            System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            try
+            {
+                // We need to wait until all running tasks are cancelled to get a count of resources deleted.
+                Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            }
+            catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
+            {
+                // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
+                foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
+                {
+                    _logger.LogError(coreException, "Error deleting");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting");
+            }
+
             deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
 
             if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
@@ -202,10 +220,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     {
                         if (result.Exception != null)
                         {
+                            // Count the number of resources deleted before the exception was thrown. Update the total.
                             result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<long>).ToList().ForEach((ex) => numDeleted += ((IncompleteOperationException<long>)ex).PartialResults);
                             if (result.IsFaulted)
                             {
-                                exceptions.AddRange(result.Exception.InnerExceptions);
+                                // Filter out noise from the cancellation exceptions caused by the core exception.
+                                exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
                             }
                         }
                     });
