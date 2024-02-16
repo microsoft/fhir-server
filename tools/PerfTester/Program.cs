@@ -260,6 +260,18 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             Console.WriteLine($"{tableOrView} type=GetResourcesByTransactionIdAsync threads={_threads} calls={calls} resources={resources} latency={sumLatency / 1000.0 / calls} ms speed={(int)(calls / sw.Elapsed.TotalSeconds)} calls/sec elapsed={(int)sw.Elapsed.TotalSeconds} sec");
         }
 
+        private static int GetResorceIdsPerCall()
+        {
+            var resourceIdsPerCall = 1;
+            if (_callType.StartsWith("SearchByIds")) // set list of ids
+            {
+                var split = _callType.Split(':');
+                resourceIdsPerCall = int.Parse(split[1]);
+            }
+
+            return resourceIdsPerCall;
+        }
+
         private static void ExecuteParallelCalls(ReadOnlyList<(short ResourceTypeId, string ResourceId)> resourceIds)
         {
             var tableOrView = GetResourceObjectType();
@@ -268,16 +280,10 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0;
             var errors = 0;
             long sumLatency = 0;
-            var resourceIdsPerBatch = 1;
-            if (_callType.StartsWith("SearchByIds")) // set list of ids
-            {
-                var split = _callType.Split(':');
-                resourceIdsPerBatch = int.Parse(split[1]);
-            }
-
+            var resourceIdsPerCall = GetResorceIdsPerCall();
             for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, resourceIdsPerBatch, (thread, resourceIds) =>
+                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, resourceIdsPerCall, (thread, resourceIds) =>
                 {
                     Interlocked.Increment(ref calls);
                     var swLatency = Stopwatch.StartNew();
@@ -424,7 +430,8 @@ END
             var container = GetContainer();
             var size = container.GetBlockBlobClient(_storageBlobName).GetProperties().Value.ContentLength;
             size -= 1000 * 10; // will get 10 ids in single seek. never go to the exact end, so there is always room for 10 ids from offset. designed for large data sets. 600M ids = 25GB.
-            Parallel.For(0, (_calls / 10) + 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
+            var ids = _calls * GetResorceIdsPerCall();
+            Parallel.For(0, (ids / 10) + 10, new ParallelOptions() { MaxDegreeOfParallelism = 64 }, _ =>
             {
                 var resourceIds = GetRandomIdsBySingleOffset(container, size);
                 lock (results)
@@ -436,7 +443,7 @@ END
                 }
             });
 
-            var output = results.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(_calls).ToList();
+            var output = results.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(ids).ToList();
             Console.WriteLine($"Selected random ids={output.Count} elapsed={sw.Elapsed.TotalSeconds} secs");
             return output;
         }
@@ -790,7 +797,7 @@ END
             var status = string.Empty;
             do
             {
-                var uri = new Uri(_endpoint + "/" + resourceType + "/?id=" + string.Join(",", resourceIds));
+                var uri = new Uri(_endpoint + "/" + resourceType + "?_id=" + string.Join(",", resourceIds));
                 bad = false;
                 try
                 {
