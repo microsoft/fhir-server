@@ -797,7 +797,7 @@ END
             var status = string.Empty;
             do
             {
-                var uri = new Uri(_endpoint + "/" + resourceType + "?_id=" + string.Join(",", resourceIds));
+                var uri = new Uri(_endpoint + "/" + resourceType + "?_id=" + string.Join(",", resourceIds)) + "&_count=1000";
                 bad = false;
                 try
                 {
