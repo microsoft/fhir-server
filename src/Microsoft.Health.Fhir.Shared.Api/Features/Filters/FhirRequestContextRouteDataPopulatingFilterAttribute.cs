@@ -4,21 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Net;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.CodeAnalysis;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -87,22 +81,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                     break;
                             }
                         }
-                        catch (Exception ex)
+                        catch (InvalidCastException)
                         {
-                            var operationOutcome = new OperationOutcome
-                            {
-                                Issue = new List<OperationOutcome.IssueComponent>
-                                {
-                                    new OperationOutcome.IssueComponent
-                                    {
-                                        Severity = OperationOutcome.IssueSeverity.Error,
-                                        Code = OperationOutcome.IssueType.NotFound,
-                                        Diagnostics = ex.Message,
-                                    },
-                                },
-                            };
-
-                            TransactionExceptionHandler.ThrowTransactionException(ex.Message, HttpStatusCode.BadRequest, operationOutcome);
+                            // If the bundle-type provided is not a valid enum value, the HL7 FHIR Model will throw an InvalidCastException,
+                            // and then we will log the audit event type as a 'bundle-invalid-type'.
+                            fhirRequestContext.AuditEventType = AuditEventSubType.BundleInvalidType;
                         }
                     }
                 }

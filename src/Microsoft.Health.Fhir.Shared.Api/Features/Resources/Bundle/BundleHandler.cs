@@ -191,8 +191,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     _bundleType = bundleResource.Type;
                 }
-                catch (Exception ex)
+                catch (InvalidCastException ex)
                 {
+                    // TODO: if we are keeping the MethodNotAllowed solution, we can revert this change.
                    throw new BadRequestException(ex.Message);
                 }
 

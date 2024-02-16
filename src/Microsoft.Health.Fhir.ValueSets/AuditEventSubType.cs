@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string BundlePost = "bundle-post";
 
+        public const string BundleInvalidType = "bundle-invalid-type";
+
         public const string Batch = "batch";
 
         public const string Transaction = "transaction";
