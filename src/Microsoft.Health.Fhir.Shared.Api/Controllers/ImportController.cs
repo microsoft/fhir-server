@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             foreach (var item in input)
             {
-                if (!Enum.IsDefined(typeof(ResourceType), item.Type))
+                if (!string.IsNullOrEmpty(item.Type) && !Enum.IsDefined(typeof(ResourceType), item.Type))
                 {
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, item.Type));
                 }

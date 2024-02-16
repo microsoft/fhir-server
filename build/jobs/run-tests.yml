@@ -8,7 +8,8 @@ parameters:
 jobs:
 - job: "integrationTests"
   pool:
-    name: '$(DefaultWindowsPool)'
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: DownloadBuildArtifacts@0
     inputs:
@@ -39,35 +40,23 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
-  - task: VSTest@3
+  - task: DotNetCoreCLI@2
     displayName: 'Run Integration Tests'
     inputs:
-      testSelector: 'testAssemblies'
-      testAssemblyVer2: '**/*${{ parameters.version }}.Tests.Integration*.dll'
-      searchFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+      command: test
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
-      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Mini;CollectHangDump;TestTimeout=7min;HangDumpType=Mini"'
-      rerunFailedTests: true
-      rerunType: 'basedOnTestFailurePercentage'
-      rerunFailedThreshold: 10
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
       'CosmosDb:Key': $(CosmosDb--Key)
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
-  # Publish the crash dump and XML files as build artifacts on failure only
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Integration Test Failures'
-    condition: failed()
-    continueOnError: true
-    inputs:
-      targetPath: '$(Agent.TempDirectory)/TestResults'
-      artifactName: '${{ parameters.version }} Integration Test Failures'
-
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultWindowsPool)'
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
@@ -79,7 +68,8 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultWindowsPool)'
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests.yml
