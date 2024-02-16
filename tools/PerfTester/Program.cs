@@ -268,16 +268,23 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0;
             var errors = 0;
             long sumLatency = 0;
+            var resourceIdsPerBatch = 1;
+            if (_callType.StartsWith("SearchByIds")) // set list of ids
+            {
+                var split = _callType.Split(':');
+                resourceIdsPerBatch = int.Parse(split[1]);
+            }
+
             for (var repeat = 0; repeat < _repeat; repeat++)
             {
-                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, 1, (thread, resourceId) =>
+                BatchExtensions.ExecuteInParallelBatches(resourceIds, _threads, resourceIdsPerBatch, (thread, resourceIds) =>
                 {
                     Interlocked.Increment(ref calls);
                     var swLatency = Stopwatch.StartNew();
                     if (_callType == "GetAsync")
                     {
-                        var typeId = resourceId.Item2.First().ResourceTypeId;
-                        var id = resourceId.Item2.First().ResourceId;
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
                         var first = _store.GetAsync(new[] { new ResourceDateKey(typeId, id, 0, null) }, (s) => "xyz", (i) => typeId.ToString(), true, CancellationToken.None).Result.FirstOrDefault();
                         if (first == null)
                         {
@@ -289,10 +296,17 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                             throw new ArgumentException("Incorrect resource returned");
                         }
                     }
+                    else if (_callType.StartsWith("SearchByIds"))
+                    {
+                        var status = GetResources(_nameFilter, resourceIds.Item2.Select(_ => _.ResourceId));
+                        if (status != "OK")
+                        {
+                            Interlocked.Increment(ref errors);
+                        }
+                    }
                     else if (_callType == "HttpGet")
                     {
-                        var typeId = resourceId.Item2.First().ResourceTypeId;
-                        var id = resourceId.Item2.First().ResourceId;
+                        var id = resourceIds.Item2.First().ResourceId;
                         var status = GetResource(_nameFilter, id); // apply true translation to type name
                         if (status != "OK")
                         {
@@ -301,14 +315,14 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     }
                     else if (_callType == "HardDeleteNoChangeCapture")
                     {
-                        var typeId = resourceId.Item2.First().ResourceTypeId;
-                        var id = resourceId.Item2.First().ResourceId;
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
                         _store.HardDeleteAsync(typeId, id, false, false, CancellationToken.None).Wait();
                     }
                     else if (_callType == "HardDeleteWithChangeCapture")
                     {
-                        var typeId = resourceId.Item2.First().ResourceTypeId;
-                        var id = resourceId.Item2.First().ResourceId;
+                        var typeId = resourceIds.Item2.First().ResourceTypeId;
+                        var id = resourceIds.Item2.First().ResourceId;
                         _store.HardDeleteAsync(typeId, id, false, true, CancellationToken.None).Wait();
                     }
                     else
@@ -767,6 +781,71 @@ END
             return status;
         }
 
+        private static string GetResources(string resourceType, IEnumerable<string> resourceIds)
+        {
+            var maxRetries = 3;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            var status = string.Empty;
+            do
+            {
+                var uri = new Uri(_endpoint + "/" + resourceType + "/?id=" + string.Join(",", resourceIds));
+                bad = false;
+                try
+                {
+                    var response = _httpClient.GetAsync(uri).Result;
+                    status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                        case HttpStatusCode.InternalServerError:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={_endpoint} HttpStatusCode={status} ResourceType={resourceType}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={_endpoint} ResourceType={resourceType} Error={(networkError ? "network" : e.Message)}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed readind. Retries={retries} Endpoint={_endpoint}");
+            }
+
+            return status;
+        }
+
         private static string GetResource(string resourceType, string resourceId)
         {
             var maxRetries = 3;
@@ -826,7 +905,7 @@ END
             while (bad && retries < maxRetries);
             if (bad)
             {
-                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
+                Console.WriteLine($"Failed reading ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={_endpoint}");
             }
 
             return status;
