@@ -66,6 +66,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
         public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
 
+        public const string BundleImport = "$bundleimport";
+        public const string BundleImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
+        public const string BundleImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string WellKnown = ".well-known";

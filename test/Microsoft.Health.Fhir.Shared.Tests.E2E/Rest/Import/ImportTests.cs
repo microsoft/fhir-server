@@ -93,6 +93,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenBundle_ImportSinchronously()
+        {
+            var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
+            var pid = Guid.NewGuid().ToString("N");
+            ndJson1 = ndJson1.Replace("##PatientID##", pid);
+            var ndJson2 = Samples.GetNdJson("Import-Observation");
+            var oid = Guid.NewGuid().ToString("N");
+            ndJson2 = ndJson2.Replace("##ObservationID##", oid);
+
+            var parameters = new Parameters();
+            parameters.Add("Bundle", new FhirString(ndJson1 + ndJson2));
+            await _client.ImportBundleAsync(parameters);
+
+            ////var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
+            ////Assert.Equal("1", patient.Resource.Meta.VersionId);
+            ////var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
+            ////Assert.Equal("1", observation.Resource.Meta.VersionId);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");

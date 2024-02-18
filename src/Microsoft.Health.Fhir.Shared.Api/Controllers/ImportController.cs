@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -83,6 +86,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpPost]
+        [Route(KnownRoutes.BundleImport)]
+        [AuditEventType(AuditEventSubType.Import)] // TODO: Remove/update
+        public async Task<IActionResult> ImportBundle([FromBody] Parameters parameters)
+        {
+            Parameters.ParameterComponent param = parameters.GetSingle("Bundle");
+            param.TryGetStringValue(out var bundle);
+            var request = new ImportBundleRequest(bundle);
+            var response = await _mediator.ImportBundleAsync(request.Bundle, HttpContext.RequestAborted);
+            return new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
+        }
+
+        [HttpPost]
         [Route(KnownRoutes.Import)]
         [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
@@ -106,14 +121,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
             }
 
-            CreateImportResponse response = await _mediator.ImportAsync(
-                 _fhirRequestContextAccessor.RequestContext.Uri,
-                 importRequest.InputFormat,
-                 importRequest.InputSource,
-                 importRequest.Input,
-                 importRequest.StorageDetail,
-                 initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
-                 HttpContext.RequestAborted);
+            var response = await _mediator.ImportAsync(
+                    _fhirRequestContextAccessor.RequestContext.Uri,
+                    importRequest.InputFormat,
+                    importRequest.InputSource,
+                    importRequest.Input,
+                    importRequest.StorageDetail,
+                    initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
+                    HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);

@@ -17,6 +17,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ImportMediatorExtensions
     {
+        public static async Task<ImportBundleResponse> ImportBundleAsync(
+            this IMediator mediator,
+            string bundle,
+            CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            var request = new ImportBundleRequest(bundle);
+            var response = await mediator.Send(request, cancellationToken);
+            return response;
+        }
+
         public static async Task<CreateImportResponse> ImportAsync(
             this IMediator mediator,
             Uri requestUri,
