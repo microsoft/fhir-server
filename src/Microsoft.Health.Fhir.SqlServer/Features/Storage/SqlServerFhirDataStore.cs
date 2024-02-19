@@ -177,7 +177,7 @@ EXECUTE dbo.LogEvent @Process=@Process,@Status='Warn',@Action='Start',@start=@st
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", null, cancellationToken);
+                    await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={trueEx}", null, cancellationToken);
 
                     throw trueEx;
                 }
