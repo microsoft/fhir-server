@@ -97,34 +97,41 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)] // TODO: Remove/update
         public async Task<IActionResult> ImportBundle()
         {
-            var parser = new FhirJsonParser();
             var resourceWrappers = new List<ResourceWrapper>();
-            using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-            var line = await reader.ReadLineAsync();
-            while (line != null)
+            try
             {
-                var resource = await parser.ParseAsync<Resource>(line);
-                if (resource.Meta == null)
+                var parser = new FhirJsonParser();
+                using var reader = new StreamReader(Request.Body, Encoding.UTF8);
+                var line = await reader.ReadLineAsync();
+                while (line != null)
                 {
-                    resource.Meta = new Meta();
-                }
+                    var resource = await parser.ParseAsync<Resource>(line);
+                    if (resource.Meta == null)
+                    {
+                        resource.Meta = new Meta();
+                    }
 
-                if (resource.Meta.LastUpdated == null)
-                {
-                    resource.Meta.LastUpdated = DateTime.UtcNow; // Clock?
-                }
+                    if (resource.Meta.LastUpdated == null)
+                    {
+                        resource.Meta.LastUpdated = DateTime.UtcNow; // Clock?
+                    }
 
-                var keepVersion = true;
-                if (resource.Meta.LastUpdated == null || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
-                {
-                    resource.Meta.VersionId = "1";
-                    keepVersion = false;
-                }
+                    var keepVersion = true;
+                    if (resource.Meta.LastUpdated == null || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
+                    {
+                        resource.Meta.VersionId = "1";
+                        keepVersion = false;
+                    }
 
-                var resourceElement = resource.ToResourceElement();
-                var resourceWapper = _resourceWrapperFactory.Create(resourceElement, false, true, keepVersion);
-                resourceWrappers.Add(resourceWapper);
-                line = await reader.ReadLineAsync();
+                    var resourceElement = resource.ToResourceElement();
+                    var resourceWapper = _resourceWrapperFactory.Create(resourceElement, false, true, keepVersion);
+                    resourceWrappers.Add(resourceWapper);
+                    line = await reader.ReadLineAsync();
+                }
+            }
+            catch
+            {
+                return new ImportBundleResult(0, HttpStatusCode.BadRequest);
             }
 
             var request = new ImportBundleRequest(resourceWrappers);
