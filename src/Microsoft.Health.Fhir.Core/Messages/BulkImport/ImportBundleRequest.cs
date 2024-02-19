@@ -9,19 +9,20 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class ImportBundleRequest : IRequest<ImportBundleResponse>
     {
-        public ImportBundleRequest(string bundle)
+        public ImportBundleRequest(IList<ResourceWrapper> wrappers)
         {
-            Bundle = bundle;
+            ResourceWrappers = wrappers;
         }
 
         /// <summary>
         /// Import bundle
         /// </summary>
-        public string Bundle { get; }
+        public IList<ResourceWrapper> ResourceWrappers { get; }
     }
 }

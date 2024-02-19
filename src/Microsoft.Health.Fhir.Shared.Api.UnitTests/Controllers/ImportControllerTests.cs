@@ -100,6 +100,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _urlResolver,
                 optionsOperationConfiguration,
                 optionsFeatures,
+                null,
                 NullLogger<ImportController>.Instance);
         }
 

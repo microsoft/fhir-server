@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -33,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.ValueSets;
@@ -63,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
         private readonly ImportTaskConfiguration _importConfig;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         public ImportController(
             IMediator mediator,
@@ -70,6 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
+            IResourceWrapperFactory resourceWrapperFactory,
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -84,6 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = urlResolver;
             _features = features.Value;
             _mediator = mediator;
+            _resourceWrapperFactory = resourceWrapperFactory;
             _logger = logger;
         }
 
@@ -92,10 +97,38 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)] // TODO: Remove/update
         public async Task<IActionResult> ImportBundle()
         {
+            var parser = new FhirJsonParser();
+            var resourceWrappers = new List<ResourceWrapper>();
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-            var bundle = await reader.ReadToEndAsync();
-            var request = new ImportBundleRequest(bundle);
-            var response = await _mediator.ImportBundleAsync(request.Bundle, HttpContext.RequestAborted);
+            var line = await reader.ReadLineAsync();
+            while (line != null)
+            {
+                var resource = await parser.ParseAsync<Resource>(line);
+                if (resource.Meta == null)
+                {
+                    resource.Meta = new Meta();
+                }
+
+                if (resource.Meta.LastUpdated == null)
+                {
+                    resource.Meta.LastUpdated = DateTime.UtcNow; // Clock?
+                }
+
+                var keepVersion = true;
+                if (resource.Meta.LastUpdated == null || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
+                {
+                    resource.Meta.VersionId = "1";
+                    keepVersion = false;
+                }
+
+                var resourceElement = resource.ToResourceElement();
+                var resourceWapper = _resourceWrapperFactory.Create(resourceElement, false, true, keepVersion);
+                resourceWrappers.Add(resourceWapper);
+                line = await reader.ReadLineAsync();
+            }
+
+            var request = new ImportBundleRequest(resourceWrappers);
+            var response = await _mediator.ImportBundleAsync(request.ResourceWrappers, HttpContext.RequestAborted);
             return new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
         }
 

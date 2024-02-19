@@ -11,6 +11,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -19,11 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ImportBundleResponse> ImportBundleAsync(
             this IMediator mediator,
-            string bundle,
+            IList<ResourceWrapper> wrappers,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            var request = new ImportBundleRequest(bundle);
+            var request = new ImportBundleRequest(wrappers);
             var response = await mediator.Send(request, cancellationToken);
             return response;
         }

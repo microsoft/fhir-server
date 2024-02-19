@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -41,8 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<ImportBundleResponse> Handle(ImportBundleRequest request, CancellationToken cancellationToken)
         {
-            var lines = request.Bundle.Split(Environment.NewLine);
-            return await Task.FromResult(new ImportBundleResponse(lines.Length));
+            var wrappers = request.ResourceWrappers.Select(_ => new ResourceWrapperOperation(_, true, false, null, false, false, null)).ToList();
+            await _store.MergeAsync(wrappers, new MergeOptions(false), cancellationToken);
+            return await Task.FromResult(new ImportBundleResponse(wrappers.Count));
         }
     }
 }
