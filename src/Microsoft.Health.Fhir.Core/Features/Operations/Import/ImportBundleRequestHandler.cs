@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<ImportBundleResponse> Handle(ImportBundleRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(request, nameof(request));
             var lines = request.Bundle.Split(Environment.NewLine);
             return await Task.FromResult(new ImportBundleResponse(lines.Length));
         }

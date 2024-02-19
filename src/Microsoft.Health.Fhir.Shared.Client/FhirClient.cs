@@ -445,12 +445,12 @@ namespace Microsoft.Health.Fhir.Client
             return new FhirResponse(response);
         }
 
-        public async Task ImportBundleAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        public async Task ImportBundleAsync(string bundle, CancellationToken cancellationToken = default)
         {
             string requestPath = "$bundleimport";
             using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
             {
-                Content = CreateStringContent(parameters),
+                Content = new StringContent(bundle, Encoding.UTF8, _contentType),
             };
             using var response = await HttpClient.SendAsync(message, cancellationToken);
             await EnsureSuccessStatusCodeAsync(response);

@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -88,10 +90,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.BundleImport)]
         [AuditEventType(AuditEventSubType.Import)] // TODO: Remove/update
-        public async Task<IActionResult> ImportBundle([FromBody] Parameters parameters)
+        public async Task<IActionResult> ImportBundle()
         {
-            Parameters.ParameterComponent param = parameters.GetSingle("Bundle");
-            param.TryGetStringValue(out var bundle);
+            using var reader = new StreamReader(Request.Body, Encoding.UTF8);
+            var bundle = await reader.ReadToEndAsync();
             var request = new ImportBundleRequest(bundle);
             var response = await _mediator.ImportBundleAsync(request.Bundle, HttpContext.RequestAborted);
             return new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
