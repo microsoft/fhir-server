@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // If no queries have been added to the progress then this is a new job
                 if (_reindexJobRecord.QueryList?.Count == 0)
                 {
+                    _logger.LogInformation("Picked up a new job");
                     if (!await TryPopulateNewJobFields(cancellationToken))
                     {
                         return;
@@ -375,6 +376,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // if this query has a created task, cancel it
                         if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
                         {
+                            _logger.LogInformation("Stale Query that is being reset to queued. Status : {StaleQueryStatus}, StartResourceSurrogateId : {StaleQueryStartSurrogateId}, ResourceType : {StaleQueryResourceType}", staleQuery.Status, staleQuery.StartResourceSurrogateId, staleQuery.ResourceType);
                             try
                             {
                                 tokenSource.Cancel(false);
@@ -409,6 +411,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var finishedTasks = queryTasks.Where(t => t.IsCompleted).ToArray();
                     foreach (var finishedTask in finishedTasks)
                     {
+                        _logger.LogInformation("Details of Reindex Task completed LastModified : {LastModified} ResourceType: {ResourceType} StartResourceSurrogateId: {StartResourceSurrogateId}", finishedTask.Result.LastModified, finishedTask.Result.ResourceType, finishedTask.Result.StartResourceSurrogateId);
                         queryTasks.Remove(finishedTask);
                         queryCancellationTokens.Remove(await finishedTask);
                     }
@@ -428,9 +431,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _reindexJobRecord.Status = wrapper.JobRecord.Status;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // if something went wrong with fetching job status, we shouldn't fail process loop.
+                    _logger.LogWarning(ex, "Reindex error occurred while fetching job status.");
                 }
                 finally
                 {
@@ -543,6 +547,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         if (_reindexJobRecord.QueryList.Count > 10)
                         {
                             var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
+                            _logger.LogInformation("Reindex job that is being removed from  query list StartResourceSurrogateId: {StartResourceSurrogateId}, ResourceType: {ResourceType}, FailureCount: {FailureCount}, Status: {Status}", queryStatusToRemove?.StartResourceSurrogateId, queryStatusToRemove?.ResourceType, queryStatusToRemove?.FailureCount, queryStatusToRemove?.Status);
                             _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
                         }
 

@@ -1,0 +1,1 @@
+{"resourceType":"Observation","id":"##ObservationID##","status":"final","code":{"coding":[{"system":"http://snomed.info/sct","code":"162806009"}],"text":"eye color"},"subject":{"reference":"Patient/##PatientID##"},"effectiveDateTime":"2016-05-18","valueString":"blue"}
