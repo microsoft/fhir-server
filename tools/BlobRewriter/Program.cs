@@ -309,19 +309,23 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             retry:
             try
             {
+                var keys = new HashSet<(string ResourceType, string ResourceId)>();
                 using var stream = container.GetBlockBlobClient(blobName).OpenWrite(true);
                 using var writer = new StreamWriter(stream);
                 if (string.IsNullOrEmpty(BundleType))
                 {
                     foreach (var line in batch)
                     {
-                        writer.WriteLine(line);
+                        var (resourceType, resourceId) = ParseJson(line);
+                        if (keys.Add((resourceType, resourceId)))
+                        {
+                            writer.WriteLine(line);
+                        }
                     }
                 }
                 else
                 {
                     var entries = new List<string>();
-                    var keys = new HashSet<(string ResourceType, string ResourceId)>();
                     foreach (var line in batch)
                     {
                         var (resourceType, resourceId) = ParseJson(line);
