@@ -82,14 +82,14 @@ namespace Microsoft.Health.Fhir.Importer
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(MaxBlobIndexForImport - NumberOfBlobsToSkip);
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
-            if (UseBundleBlobs)
+            if (UseBundleBlobs || BundleType == "import")
             {
                 var totalBlobs = 0L;
                 BatchExtensions.ExecuteInParallelBatches(blobs, WriteThreads, 1, (writer, blobList) =>
                 {
                     var incrementor = new IndexIncrementor(endpoints.Count);
                     var bundle = GetTextFromBlob(blobList.Item2.First());
-                    PostBundle(bundle, incrementor);
+                    PostBundle(bundle, incrementor, BundleType == "import");
                     Interlocked.Increment(ref totalBlobs);
                     Interlocked.Add(ref totalWrites, BatchSize);
 
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Importer
             return builder.ToString();
         }
 
-        private static void PostBundle(string bundle, IndexIncrementor incrementor)
+        private static void PostBundle(string bundle, IndexIncrementor incrementor, bool useBundleImport)
         {
             var maxRetries = MaxRetries;
             var retries = 0;
@@ -212,6 +212,11 @@ namespace Microsoft.Health.Fhir.Importer
             do
             {
                 endpoint = endpoints[incrementor.Next()];
+                if (useBundleImport)
+                {
+                    endpoint = endpoint + "/$bundleimport";
+                }
+
                 var uri = new Uri(endpoint);
                 bad = false;
                 try
@@ -219,7 +224,11 @@ namespace Microsoft.Health.Fhir.Importer
                     var sw = Stopwatch.StartNew();
                     using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
                     using var request = new HttpRequestMessage(HttpMethod.Post, uri);
-                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    if (!useBundleImport)
+                    {
+                        request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    }
+
                     request.Content = content;
 
                     var response = httpClient.Send(request);
