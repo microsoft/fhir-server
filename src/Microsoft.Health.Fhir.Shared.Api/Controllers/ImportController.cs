@@ -98,6 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ImportBundle()
         {
             var resourceWrappers = new List<ResourceWrapper>();
+            var keys = new HashSet<ResourceKey>();
             try
             {
                 var parser = new FhirJsonParser();
@@ -125,6 +126,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                     var resourceElement = resource.ToResourceElement();
                     var resourceWapper = _resourceWrapperFactory.Create(resourceElement, false, true, keepVersion);
+                    var key = resourceWapper.ToResourceKey(true);
+                    if (!keys.Add(key))
+                    {
+                        return new ImportBundleResult(0, HttpStatusCode.BadRequest);
+                    }
+
                     resourceWrappers.Add(resourceWapper);
                     line = await reader.ReadLineAsync();
                 }
