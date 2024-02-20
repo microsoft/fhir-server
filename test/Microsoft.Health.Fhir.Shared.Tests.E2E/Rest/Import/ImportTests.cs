@@ -102,8 +102,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var oid = Guid.NewGuid().ToString("N");
             ndJson2 = ndJson2.Replace("##ObservationID##", oid);
 
-            await _client.ImportBundleAsync(ndJson1 + ndJson2);
-
+            var response = await _client.ImportBundleAsync(ndJson1 + ndJson2);
+            Assert.Equal("2", response.Headers.First(_ => _.Key == "LoadedResources").Value.First());
             var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
             Assert.Equal("1", patient.Resource.Meta.VersionId);
             var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);

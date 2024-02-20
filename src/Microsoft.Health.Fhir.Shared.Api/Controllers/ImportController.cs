@@ -143,7 +143,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var request = new ImportBundleRequest(resourceWrappers);
             var response = await _mediator.ImportBundleAsync(request.ResourceWrappers, HttpContext.RequestAborted);
-            return new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
+            var result = new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
+            result.Headers["LoadedResources"] = response.LoadedResources.ToString();
+            return result;
         }
 
         [HttpPost]
