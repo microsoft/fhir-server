@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenBundle_ImportSinchronously()
+        public async Task LoadBundle_UsingBundleImportEndpoint()
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
             var pid = Guid.NewGuid().ToString("N");
