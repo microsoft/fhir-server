@@ -28,20 +28,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private readonly IFhirDataStore _store;
         private readonly ILogger<ImportBundleRequestHandler> _logger;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public ImportBundleRequestHandler(
             IFhirDataStore store,
-            ILogger<ImportBundleRequestHandler> logger)
+            ILogger<ImportBundleRequestHandler> logger,
+            IAuthorizationService<DataActions> authorizationService)
         {
-            EnsureArg.IsNotNull(store, nameof(store));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-
-            _store = store;
-            _logger = logger;
+            _store = EnsureArg.IsNotNull(store, nameof(store));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
         }
 
         public async Task<ImportBundleResponse> Handle(ImportBundleRequest request, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(request, nameof(request));
+            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
             var input = request.Resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, false, null, false, false, null)).ToList();
             await _store.MergeAsync(input, new MergeOptions(false), cancellationToken);
             return await Task.FromResult(new ImportBundleResponse(request.Resources.Count));
