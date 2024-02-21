@@ -17,6 +17,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -133,6 +134,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     var bundle = resource.ToResourceElement().ToPoco<Bundle>();
                     foreach (var entry in bundle.Entry)
                     {
+                        if (entry.Request?.Method != Bundle.HTTPVerb.PUT)
+                        {
+                            throw new RequestNotValidException($"Method={entry.Request?.Method} is not valid for this API");
+                        }
+
                         var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
                         var key = importResource.ResourceWrapper.ToResourceKey(true);
                         if (!keys.Add(key))
