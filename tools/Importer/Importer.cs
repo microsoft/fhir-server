@@ -211,12 +211,7 @@ namespace Microsoft.Health.Fhir.Importer
             string endpoint;
             do
             {
-                endpoint = endpoints[incrementor.Next()];
-                if (useBundleImport)
-                {
-                    endpoint = endpoint + "/$import/Bundle";
-                }
-
+                endpoint = $"{endpoints[incrementor.Next()]}{(useBundleImport ? "/$import/Bundle" : string.Empty)}";
                 var uri = new Uri(endpoint);
                 bad = false;
                 try
