@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Importer
                 endpoint = endpoints[incrementor.Next()];
                 if (useBundleImport)
                 {
-                    endpoint = endpoint + "/$bundleimport";
+                    endpoint = endpoint + "/$import/Bundle";
                 }
 
                 var uri = new Uri(endpoint);
@@ -222,20 +222,14 @@ namespace Microsoft.Health.Fhir.Importer
                 try
                 {
                     var sw = Stopwatch.StartNew();
-                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var content = new StringContent(bundle, Encoding.UTF8, UseBundleBlobs ? "application/json" : "application/fhir-ndjson");
                     using var request = new HttpRequestMessage(HttpMethod.Post, uri);
                     if (!useBundleImport)
                     {
                         request.Headers.Add("x-bundle-processing-logic", "parallel");
                     }
 
-                    if (UseBundleBlobs)
-                    {
-                        request.Headers.Add("is-bundle-json", "true");
-                    }
-
                     request.Content = content;
-
                     var response = httpClient.Send(request);
                     if (response.StatusCode == HttpStatusCode.BadRequest)
                     {

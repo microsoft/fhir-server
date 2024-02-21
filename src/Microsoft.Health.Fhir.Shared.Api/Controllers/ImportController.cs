@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpPost]
-        [Route(KnownRoutes.BundleImport)]
-        [AuditEventType(AuditEventSubType.BundleImport)]
+        [Route(KnownRoutes.ImportBundle)]
+        [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
             var startDate = DateTime.UtcNow;
@@ -106,33 +106,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var fhirParser = new FhirJsonParser();
             var importParser = new ImportResourceParser(fhirParser, _resourceWrapperFactory);
             var index = 0L;
-            var isBundleJson = false;
-            if (Request.Headers.TryGetValue("is-bundle-json", out var values) && bool.TryParse(values.FirstOrDefault(), out isBundleJson))
-            {
-            }
-
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-            if (isBundleJson)
+            try
             {
-                var str = await reader.ReadToEndAsync();
-                var resource = await fhirParser.ParseAsync(str);
-                var bundle = resource.ToResourceElement().ToPoco<Bundle>();
-                foreach (var entry in bundle.Entry)
-                {
-                    var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
-                    var key = importResource.ResourceWrapper.ToResourceKey(true);
-                    if (!keys.Add(key))
-                    {
-                        throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
-                    }
-
-                    resources.Add(importResource);
-                    index++;
-                }
-            }
-            else
-            {
-                try
+                if (Request.ContentType != null && Request.ContentType.Contains("application/fhir+ndjson", StringComparison.OrdinalIgnoreCase))
                 {
                     var line = await reader.ReadLineAsync();
                     while (line != null)
@@ -149,10 +126,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                         index++;
                     }
                 }
-                catch
+                else
                 {
-                    throw new RequestNotValidException($"Unable to parse resource line at index={index}");
+                    var str = await reader.ReadToEndAsync();
+                    var resource = await fhirParser.ParseAsync(str);
+                    var bundle = resource.ToResourceElement().ToPoco<Bundle>();
+                    foreach (var entry in bundle.Entry)
+                    {
+                        var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
+                        var key = importResource.ResourceWrapper.ToResourceKey(true);
+                        if (!keys.Add(key))
+                        {
+                            throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
+                        }
+
+                        resources.Add(importResource);
+                        index++;
+                    }
                 }
+            }
+            catch
+            {
+                throw new RequestNotValidException($"Unable to parse resource at index={index}");
             }
 
             var request = new ImportBundleRequest(resources);

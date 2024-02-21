@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenBundleImport_MultipleResoureTypesInSingleFile_Success(bool useBundleJson)
+        public async Task GivenImportBundle_MultipleResoureTypesInSingleCall_Success(bool isNdJson)
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
             var pid = Guid.NewGuid().ToString("N");
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var oid = Guid.NewGuid().ToString("N");
             ndJson2 = ndJson2.Replace("##ObservationID##", oid).Replace("##PatientID##", pid);
 
-            await Import(new[] { ndJson1, ndJson2 }, useBundleJson);
+            await Import(new[] { ndJson1, ndJson2 }, isNdJson);
 
             var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
             Assert.Equal("1", patient.Resource.Meta.VersionId);
@@ -134,19 +134,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
-        private async Task Import(IEnumerable<string> ndJsons, bool useBundleJson)
+        private async Task Import(IEnumerable<string> ndJsons, bool isNdJson)
         {
-            if (useBundleJson)
-            {
-                var bundle = GetBundle(ndJsons.Select(GetEntry));
-                var response = await _client.ImportBundleAsync(bundle, true);
-                Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
-            }
-            else
-            {
-                var response = await _client.ImportBundleAsync(string.Join(string.Empty, ndJsons));
-                Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
-            }
+            var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : GetBundle(ndJsons.Select(GetEntry)), isNdJson);
+            Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
         }
 
         private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString)
@@ -208,7 +199,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             if (useBundleEndpoint)
             {
-                var response = await _client.ImportBundleAsync(ndJson);
+                var response = await _client.ImportBundleAsync(ndJson, true);
                 Assert.Equal(cnt, int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
             }
             else

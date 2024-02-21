@@ -445,17 +445,13 @@ namespace Microsoft.Health.Fhir.Client
             return new FhirResponse(response);
         }
 
-        public async Task<HttpResponseMessage> ImportBundleAsync(string bundle, bool isBundleJson = false, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> ImportBundleAsync(string bundle, bool isNdJson = false, CancellationToken cancellationToken = default)
         {
-            string requestPath = "$bundleimport";
+            string requestPath = "$import/Bundle";
             using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
             {
-                Content = new StringContent(bundle, Encoding.UTF8, _contentType),
+                Content = new StringContent(bundle, Encoding.UTF8, isNdJson ? "application/fhir+ndjson" : _contentType),
             };
-            if (isBundleJson)
-            {
-                message.Headers.Add("is-bundle-json", "true");
-            }
 
             using var response = await HttpClient.SendAsync(message, cancellationToken);
             await EnsureSuccessStatusCodeAsync(response);

@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             DateTimeOffset endTime,
             long succeededCount)
         {
-            FhirOperation = AuditEventSubType.BundleImport;
+            FhirOperation = AuditEventSubType.ImportBundle;
             ResourceType = null;
 
             StartTime = startTime;
