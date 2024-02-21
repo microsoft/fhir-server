@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var expectedObservatinCount = 5 + stragglerResources.Count();
 
-            if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
+            if (allObservationSummaryCountResult.Resource.Total != expectedObservatinCount || allObservationSummaryCountZero.Resource.Total != expectedObservatinCount)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
                             $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
