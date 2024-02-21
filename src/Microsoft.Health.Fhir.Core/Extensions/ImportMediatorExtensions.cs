@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ImportBundleResponse> ImportBundleAsync(
             this IMediator mediator,
-            IList<ResourceWrapper> wrappers,
+            IList<ImportResource> resources,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            var request = new ImportBundleRequest(wrappers);
+            var request = new ImportBundleRequest(resources);
             var response = await mediator.Send(request, cancellationToken);
             return response;
         }

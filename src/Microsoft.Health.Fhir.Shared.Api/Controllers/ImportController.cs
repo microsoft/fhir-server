@@ -10,14 +10,17 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -94,57 +97,69 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpPost]
         [Route(KnownRoutes.BundleImport)]
-        [AuditEventType(AuditEventSubType.Import)] // TODO: Remove/update
+        [AuditEventType(AuditEventSubType.BundleImport)]
         public async Task<IActionResult> ImportBundle()
         {
-            var resourceWrappers = new List<ResourceWrapper>();
+            var startDate = DateTime.UtcNow;
+            var resources = new List<ImportResource>();
             var keys = new HashSet<ResourceKey>();
-            try
+            var fhirParser = new FhirJsonParser();
+            var importParser = new ImportResourceParser(fhirParser, _resourceWrapperFactory);
+            var index = 0L;
+            var isBundleJson = false;
+            if (Request.Headers.TryGetValue("is-bundle-json", out var values) && bool.TryParse(values.FirstOrDefault(), out isBundleJson))
             {
-                var parser = new FhirJsonParser();
-                using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-                var line = await reader.ReadLineAsync();
-                while (line != null)
+            }
+
+            using var reader = new StreamReader(Request.Body, Encoding.UTF8);
+            if (isBundleJson)
+            {
+                var str = await reader.ReadToEndAsync();
+                var resource = await fhirParser.ParseAsync(str);
+                var bundle = resource.ToResourceElement().ToPoco<Bundle>();
+                foreach (var entry in bundle.Entry)
                 {
-                    var resource = await parser.ParseAsync<Resource>(line);
-                    if (resource.Meta == null)
-                    {
-                        resource.Meta = new Meta();
-                    }
-
-                    if (resource.Meta.LastUpdated == null)
-                    {
-                        resource.Meta.LastUpdated = DateTime.UtcNow; // Clock?
-                    }
-
-                    var keepVersion = true;
-                    if (resource.Meta.LastUpdated == null || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version) || version < 1)
-                    {
-                        resource.Meta.VersionId = "1";
-                        keepVersion = false;
-                    }
-
-                    var resourceElement = resource.ToResourceElement();
-                    var resourceWapper = _resourceWrapperFactory.Create(resourceElement, false, true, keepVersion);
-                    var key = resourceWapper.ToResourceKey(true);
+                    var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
+                    var key = importResource.ResourceWrapper.ToResourceKey(true);
                     if (!keys.Add(key))
                     {
-                        return new ImportBundleResult(0, HttpStatusCode.BadRequest);
+                        throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
                     }
 
-                    resourceWrappers.Add(resourceWapper);
-                    line = await reader.ReadLineAsync();
+                    resources.Add(importResource);
+                    index++;
                 }
             }
-            catch
+            else
             {
-                return new ImportBundleResult(0, HttpStatusCode.BadRequest);
+                try
+                {
+                    var line = await reader.ReadLineAsync();
+                    while (line != null)
+                    {
+                        var importResource = importParser.Parse(index, 0, 0, line, ImportMode.IncrementalLoad);
+                        var key = importResource.ResourceWrapper.ToResourceKey(true);
+                        if (!keys.Add(key))
+                        {
+                            throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
+                        }
+
+                        resources.Add(importResource);
+                        line = await reader.ReadLineAsync();
+                        index++;
+                    }
+                }
+                catch
+                {
+                    throw new RequestNotValidException($"Unable to parse resource line at index={index}");
+                }
             }
 
-            var request = new ImportBundleRequest(resourceWrappers);
-            var response = await _mediator.ImportBundleAsync(request.ResourceWrappers, HttpContext.RequestAborted);
+            var request = new ImportBundleRequest(resources);
+            var response = await _mediator.ImportBundleAsync(request.Resources, HttpContext.RequestAborted);
             var result = new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
             result.Headers["LoadedResources"] = response.LoadedResources.ToString();
+            await _mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
             return result;
         }
 

@@ -73,6 +73,8 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Import = "import";
 
+        public const string BundleImport = "bundleimport";
+
         public const string MemberMatch = "member-match";
 
         public const string Everything = "everything";

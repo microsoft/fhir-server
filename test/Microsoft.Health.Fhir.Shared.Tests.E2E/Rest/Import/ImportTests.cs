@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
@@ -69,16 +71,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting()
+        [Theory]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting(bool useBundleEndpoint)
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null);
+
+            await Import(ndJson + ndJson2 + ndJson3, 3, useBundleEndpoint);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -92,41 +94,129 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task LoadBundle_UsingBundleImportEndpoint()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenBundleImport_MultipleResoureTypesInSingleFile_Success(bool useBundleJson)
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
             var pid = Guid.NewGuid().ToString("N");
             ndJson1 = ndJson1.Replace("##PatientID##", pid);
             var ndJson2 = Samples.GetNdJson("Import-Observation");
             var oid = Guid.NewGuid().ToString("N");
-            ndJson2 = ndJson2.Replace("##ObservationID##", oid);
+            ndJson2 = ndJson2.Replace("##ObservationID##", oid).Replace("##PatientID##", pid);
 
-            var response = await _client.ImportBundleAsync(ndJson1 + ndJson2);
-            Assert.Equal("2", response.Headers.First(_ => _.Key == "LoadedResources").Value.First());
+            await Import(new[] { ndJson1, ndJson2 }, useBundleJson);
+
             var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
             Assert.Equal("1", patient.Resource.Meta.VersionId);
             var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
             Assert.Equal("1", observation.Resource.Meta.VersionId);
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success(bool useBundleEndpoint)
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
             var pid = Guid.NewGuid().ToString("N");
             ndJson1 = ndJson1.Replace("##PatientID##", pid);
             var ndJson2 = Samples.GetNdJson("Import-Observation");
             var oid = Guid.NewGuid().ToString("N");
-            ndJson2 = ndJson2.Replace("##ObservationID##", oid);
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson2, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
-            await ImportCheckAsync(request, null);
+            ndJson2 = ndJson2.Replace("##ObservationID##", oid).Replace("##PatientID##", pid);
+
+            await Import(ndJson1 + ndJson2, 2, useBundleEndpoint);
 
             var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
             Assert.Equal("1", patient.Resource.Meta.VersionId);
             var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
             Assert.Equal("1", observation.Resource.Meta.VersionId);
+        }
+
+        private async Task Import(IEnumerable<string> ndJsons, bool useBundleJson)
+        {
+            if (useBundleJson)
+            {
+                var bundle = GetBundle(ndJsons.Select(GetEntry));
+                var response = await _client.ImportBundleAsync(bundle, true);
+                Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
+            }
+            else
+            {
+                var response = await _client.ImportBundleAsync(string.Join(string.Empty, ndJsons));
+                Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
+            }
+        }
+
+        private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString)
+        {
+            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
+            var idShort = jsonString.Substring(idStart, 50);
+            var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceId = idShort.Substring(0, idEnd);
+            if (string.IsNullOrEmpty(resourceId))
+            {
+                throw new ArgumentException("Cannot parse resource id with string parser");
+            }
+
+            var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
+            var rtShort = jsonString.Substring(rtStart, 50);
+            var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+            var resourceType = rtShort.Substring(0, rtEnd);
+            if (string.IsNullOrEmpty(resourceType))
+            {
+                throw new ArgumentException("Cannot parse resource type with string parser");
+            }
+
+            return (resourceType, resourceId);
+        }
+
+        private static string GetEntry(string jsonString)
+        {
+            var key = GetResourceKey(jsonString);
+            var builder = new StringBuilder();
+            builder.Append('{')
+                   .Append(@"""fullUrl"":""").Append(key.ResourceType).Append('/').Append(key.ResourceId).Append('"')
+                   .Append(',').Append(@"""resource"":").Append(jsonString)
+                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(key.ResourceType).Append('/').Append(key.ResourceId).Append(@"""}")
+                   .Append('}');
+            return builder.ToString();
+        }
+
+        private static string GetBundle(IEnumerable<string> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""").Append("transaction").Append(@""",""entry"":[");
+            var first = true;
+            foreach (var entry in entries)
+            {
+                if (!first)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(entry);
+                first = false;
+            }
+
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
+        private async Task Import(string ndJson, int cnt, bool useBundleEndpoint)
+        {
+            if (useBundleEndpoint)
+            {
+                var response = await _client.ImportBundleAsync(ndJson);
+                Assert.Equal(cnt, int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
+            }
+            else
+            {
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+                await ImportCheckAsync(request, null);
+            }
         }
 
         [Theory]

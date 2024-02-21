@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<ImportBundleResponse> Handle(ImportBundleRequest request, CancellationToken cancellationToken)
         {
-            var wrappers = request.ResourceWrappers.Select(_ => new ResourceWrapperOperation(_, true, false, null, false, false, null)).ToList();
-            await _store.MergeAsync(wrappers, new MergeOptions(false), cancellationToken);
-            return await Task.FromResult(new ImportBundleResponse(wrappers.Count));
+            var input = request.Resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, false, null, false, false, null)).ToList();
+            await _store.MergeAsync(input, new MergeOptions(false), cancellationToken);
+            return await Task.FromResult(new ImportBundleResponse(request.Resources.Count));
         }
     }
 }

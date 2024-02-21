@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode)
         {
             var resource = _parser.Parse<Resource>(rawResource);
+            return Parse(index, offset, length, resource, importMode);
+        }
+
+        public ImportResource Parse(long index, long offset, int length, Resource resource, ImportMode importMode)
+        {
             CheckConditionalReferenceInResource(resource, importMode);
 
             if (resource.Meta == null)

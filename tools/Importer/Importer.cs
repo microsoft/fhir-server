@@ -229,6 +229,11 @@ namespace Microsoft.Health.Fhir.Importer
                         request.Headers.Add("x-bundle-processing-logic", "parallel");
                     }
 
+                    if (UseBundleBlobs)
+                    {
+                        request.Headers.Add("is-bundle-json", "true");
+                    }
+
                     request.Content = content;
 
                     var response = httpClient.Send(request);

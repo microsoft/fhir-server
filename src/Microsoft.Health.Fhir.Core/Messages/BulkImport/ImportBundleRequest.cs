@@ -15,14 +15,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class ImportBundleRequest : IRequest<ImportBundleResponse>
     {
-        public ImportBundleRequest(IList<ResourceWrapper> wrappers)
+        public ImportBundleRequest(IList<ImportResource> resources)
         {
-            ResourceWrappers = wrappers;
+            Resources = resources;
         }
 
         /// <summary>
         /// Import bundle
         /// </summary>
-        public IList<ResourceWrapper> ResourceWrappers { get; }
+        public IList<ImportResource> Resources { get; }
     }
 }
