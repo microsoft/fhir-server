@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
-    /// Used to return the result of a bulk import operation.
+    /// Used to return the result of a import bundle operation.
     /// </summary>
     public class ImportBundleResult : ResourceActionResult<ImportJobResult>
     {

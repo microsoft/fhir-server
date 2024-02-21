@@ -22,7 +22,7 @@ using Microsoft.Health.JobManagement;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
-    /// MediatR request handler. Called when the ImportController creates an Import job.
+    /// MediatR request handler. Called when the ImportController processes ImportBundleRequest.
     /// </summary>
     public class ImportBundleRequestHandler : IRequestHandler<ImportBundleRequest, ImportBundleResponse>
     {

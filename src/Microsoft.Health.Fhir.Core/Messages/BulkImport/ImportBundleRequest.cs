@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         }
 
         /// <summary>
-        /// Import bundle
+        /// Resources to import
         /// </summary>
         public IList<ImportResource> Resources { get; }
     }

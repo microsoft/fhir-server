@@ -12,6 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             LoadedResources = count;
         }
 
+        /// <summary>
+        /// Number of loaded resources
+        /// </summary>
         public int LoadedResources { get; }
     }
 }

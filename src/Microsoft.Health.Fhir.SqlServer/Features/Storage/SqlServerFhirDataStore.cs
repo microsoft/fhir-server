@@ -110,43 +110,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal static TimeSpan MergeResourcesTransactionHeartbeatPeriod => TimeSpan.FromSeconds(10);
 
-        public async Task<int> GetNumberOfWaits(CancellationToken cancel)
-        {
-            try
-            {
-                using var cmd = new SqlCommand();
-                cmd.CommandText = "SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Test.NumberOfWaits'";
-                var value = await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancel);
-                return value == null ? 0 : (int)value;
-            }
-            catch (SqlException)
-            {
-                return 0;
-            }
-        }
-
-        public async Task WaitTest(string process, CancellationToken cancel)
-        {
-            try
-            {
-                using var cmd = new SqlCommand();
-                cmd.CommandText = @"
-DECLARE @st datetime = getUTCdate()
-EXECUTE dbo.LogEvent @Process=@Process,@Status='Warn',@Action='Start'
-DECLARE @secs int = (SELECT convert(int,Number) FROM dbo.Parameters WHERE Id = 'Test.WaitSeconds')
-DECLARE @delay varchar = '00:00:'+convert(varchar,@secs)
-WAITFOR DELAY @delay
-EXECUTE dbo.LogEvent @Process=@Process,@Status='Warn',@Action='Start',@start=@st
-                ";
-                cmd.Parameters.AddWithValue("@Process", process);
-                var value = (int)(await cmd.ExecuteScalarAsync(_sqlRetryService, _logger, cancel));
-                Thread.Sleep(TimeSpan.FromSeconds(value));
-            }
-            catch (SqlException)
-            {
-            }
-        }
-
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, CancellationToken cancellationToken)
         {
             return await MergeAsync(resources, MergeOptions.Default, cancellationToken);

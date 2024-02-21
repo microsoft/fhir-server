@@ -11,7 +11,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
