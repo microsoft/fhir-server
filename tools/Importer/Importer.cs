@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Importer
                 try
                 {
                     var sw = Stopwatch.StartNew();
-                    using var content = new StringContent(bundle, Encoding.UTF8, UseBundleBlobs ? "application/json" : "application/fhir-ndjson");
+                    using var content = new StringContent(bundle, Encoding.UTF8, UseBundleBlobs ? "application/json" : "application/fhir+ndjson");
                     using var request = new HttpRequestMessage(HttpMethod.Post, uri);
                     if (!useBundleImport)
                     {
