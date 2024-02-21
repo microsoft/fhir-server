@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public async Task<ImportBundleResponse> Handle(ImportBundleRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
-            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
+            if (await _authorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
             {
                 throw new UnauthorizedFhirActionException();
             }
