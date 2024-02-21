@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
@@ -39,8 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
@@ -53,8 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
@@ -274,10 +275,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var parallelBag = new ConcurrentBag<string>();
             try
             {
+                using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+
                 // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(resourcesToDelete, cancellationToken, async (item, innerCt) =>
                 {
-                    using var fhirDataStore = _fhirDataStoreFactory.Invoke();
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
                     parallelBag.Add(item.Resource.ResourceId);
                 });
