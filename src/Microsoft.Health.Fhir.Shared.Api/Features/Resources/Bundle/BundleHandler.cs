@@ -186,7 +186,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 BundleProcessingLogic processingLogic = (_bundleOrchestrator.IsEnabled && _bundleProcessingLogic == BundleProcessingLogic.Parallel) ? BundleProcessingLogic.Parallel : BundleProcessingLogic.Sequential;
 
                 var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
-
                 _bundleType = bundleResource.Type;
 
                 if (_bundleType == BundleType.Batch)
