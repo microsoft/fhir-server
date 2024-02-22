@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -101,6 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
+            var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
             var resources = new List<ImportResource>();
             var keys = new HashSet<ResourceKey>();
@@ -119,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                         var key = importResource.ResourceWrapper.ToResourceKey(true);
                         if (!keys.Add(key))
                         {
-                            throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
+                            throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
                         }
 
                         resources.Add(importResource);
@@ -136,14 +138,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     {
                         if (entry.Request?.Method != Bundle.HTTPVerb.PUT)
                         {
-                            throw new RequestNotValidException($"Method={entry.Request?.Method} is not valid for this API");
+                            throw new RequestNotValidException(string.Format(Resources.InvalidBundleEntry, entry.Request?.Method, KnownRoutes.ImportBundle));
                         }
 
                         var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
                         var key = importResource.ResourceWrapper.ToResourceKey(true);
                         if (!keys.Add(key))
                         {
-                            throw new RequestNotValidException($"Duplicate resource found, resource key={key}");
+                            throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
                         }
 
                         resources.Add(importResource);
@@ -151,9 +153,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
             }
-            catch
+            catch (Exception)
             {
-                throw new RequestNotValidException($"Unable to parse resource at index={index}");
+                throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
             }
 
             var request = new ImportBundleRequest(resources);
@@ -161,6 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var result = new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
             result.Headers["LoadedResources"] = response.LoadedResources.ToString();
             await _mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
+            _logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
             return result;
         }
 
