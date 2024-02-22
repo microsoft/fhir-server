@@ -97,7 +97,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
-            Thread.Sleep(5000); // summary count queries can't be filtered by tag. wait to ensure previous tests are done writing to db.
             Observation firstTestResource = (await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
             var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
 
@@ -120,6 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
 
+            // Run test queries
             var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
             var allSummaryCountZero = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_count=0");
             var allObservationSummaryCountResult = await _client.SearchAsync($"Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
@@ -127,22 +127,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observationSummaryCountResult = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
             var observationSummaryCountZero = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
 
+            // Find all resources in window - needed to filter out stragglers from other tests
+            var allResources = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}");
+            List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
+            var stragglerResources = allResources.Resource.Entry.Where(r => !expectedResourceIds.Contains(r.Resource.Id));
+
+            var expectedAllCount = 9 + stragglerResources.Count();
+
             // 9 versions total for all resources.
-            if (allSummaryCountResult.Resource.Total != 9 || allSummaryCountZero.Resource.Total != 9)
+            if (allSummaryCountResult.Resource.Total != expectedAllCount || allSummaryCountZero.Resource.Total != expectedAllCount)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
-                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"_history?_since={sinceTime}&_before={beforeTime}")}.");
+                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
+                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
             }
 
-            if (allObservationSummaryCountResult.Resource.Total != 5 || allObservationSummaryCountZero.Resource.Total != 5)
+            var expectedObservatinCount = 5 + stragglerResources.Count();
+
+            if (allObservationSummaryCountResult.Resource.Total != expectedObservatinCount || allObservationSummaryCountZero.Resource.Total != expectedObservatinCount)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
-                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.");
+                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
+                            $"straggler resources {{string.Join(',', stragglerResources.Select(r => r.Resource.Id))}}.");
             }
 
+            var expectedSpecificObservationCount = 3 + stragglerResources.Count();
+
             // 3 versions across single observation (create, update, delete).
-            Assert.Equal(3, observationSummaryCountResult.Resource.Total);
-            Assert.Equal(3, observationSummaryCountZero.Resource.Total);
+            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountResult.Resource.Total);
+            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountZero.Resource.Total);
 
             // Cleanup
             await _client.DeleteAsync(thirdTestResource);
