@@ -187,15 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-                try
-                {
-                    _bundleType = bundleResource.Type;
-                }
-                catch (InvalidCastException ex)
-                {
-                    // TODO: if we are keeping the MethodNotAllowed solution, we can revert this change.
-                   throw new BadRequestException(ex.Message);
-                }
+                _bundleType = bundleResource.Type;
 
                 if (_bundleType == BundleType.Batch)
                 {

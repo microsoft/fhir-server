@@ -13,6 +13,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -81,11 +82,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                     break;
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
                             // If the bundle-type provided is not a valid enum value, the HL7 FHIR Model will throw an InvalidCastException,
                             // and then we will log the audit event type as a 'bundle-invalid-type'.
                             fhirRequestContext.AuditEventType = AuditEventSubType.BundleInvalidType;
+
+                            fhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                              OperationOutcomeConstants.IssueSeverity.Error,
+                              OperationOutcomeConstants.IssueType.Exception,
+                              ex.Message));
                         }
                     }
                 }
