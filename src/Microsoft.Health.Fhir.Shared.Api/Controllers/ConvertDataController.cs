@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [Consumes("application/json")]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
     public class ConvertDataController : Controller
