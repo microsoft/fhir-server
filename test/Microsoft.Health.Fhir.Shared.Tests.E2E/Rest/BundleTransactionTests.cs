@@ -7,8 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Net.Sockets;
 using System.Security.Policy;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
