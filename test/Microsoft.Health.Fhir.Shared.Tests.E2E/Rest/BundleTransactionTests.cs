@@ -358,37 +358,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateReferenceToPatient("Bundle 2", bundleResponse2.Resource.Entry[1].Resource, patientId, bundleResponse2);
         }
 
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenATransactionBundle_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
-        {
-            // TODO: Move this test to BundleEdgeCaseTests.cs
-
-            // 1 - Retrieve bundle template from file.
-            string body = Samples.GetJson("Bundle-TransactionInvalidType");
-            var fhirException = await Assert.ThrowsAsync<FhirClientException>(
-                async () =>
-                {
-                    try
-                    {
-                        await _client.PostAsync(string.Empty, body);
-                    }
-                    catch (Exception e)
-                    {
-                        if (e is FhirClientException fhirException)
-                        {
-                            throw fhirException;
-                        }
-
-                        throw;
-                    }
-                });
-            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
-
-            Assert.Equal("Operation", fhirException.OperationOutcome.Issue.ToString());
-            Assert.NotNull(fhirException);
-        }
-
         private static void ValidateReferenceToPatient(
             string prefix,
             Resource resource,
