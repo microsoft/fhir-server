@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 _logger.LogInformation("HostingBackgroundService end.");
 
                 // Stopgap to help logs flush before the process exits.
-                await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
         }
 
