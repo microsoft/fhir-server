@@ -343,7 +343,8 @@
                     "ftpsState": "Disabled"
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "clientAffinityEnabled": false
+                "clientAffinityEnabled": false,
+                "httpsOnly": true
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
@@ -389,7 +390,7 @@
                         "allow": false
                     }
                 },
-                                {
+                {
                     "apiVersion": "2020-12-01",
                     "name": "ftp",
                     "type": "basicPublishingCredentialsPolicies",
