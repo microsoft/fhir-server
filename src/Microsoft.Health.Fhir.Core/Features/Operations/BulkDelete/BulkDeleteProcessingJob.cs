@@ -99,7 +99,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
 
                 result.ResourcesDeleted.Add(types[0], numDeleted);
 
-                await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
+                try
+                {
+                    await _mediator.Publish(new BulkDeleteMetricsNotification(jobInfo.Id, numDeleted), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    if (exception is null)
+                    {
+                        exception = ex;
+                    }
+                    else
+                    {
+                        AggregateException aggregateException = new(exception, ex);
+                        exception = aggregateException;
+                    }
+                }
 
                 if (exception != null)
                 {

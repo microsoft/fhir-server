@@ -201,10 +201,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // We need to wait until all running tasks are cancelled to get a count of resources deleted.
                 Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
             }
-            catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
+            catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException && e is not OperationCanceledException))
             {
                 // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
-                foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
+                foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException && e is not OperationCanceledException))
                 {
                     _logger.LogError(coreException, "Error deleting");
                 }
@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             if (result.IsFaulted)
                             {
                                 // Filter out noise from the cancellation exceptions caused by the core exception.
-                                exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
+                                exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException && e is not OperationCanceledException));
                             }
                         }
                     });
