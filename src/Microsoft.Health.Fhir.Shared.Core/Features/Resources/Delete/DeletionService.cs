@@ -168,6 +168,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         await deleteTasks[0];
                     }
 
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     if (!string.IsNullOrEmpty(ct) && (request.DeleteAll || (int)(request.MaxDeleteCount - numQueuedForDeletion) > 0))
                     {
                         using (var searchService = _searchServiceFactory.Invoke())
@@ -248,6 +250,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 return new ResourceWrapperOperation(deletedWrapper, true, keepHistory, null, false, false, bundleResourceContext: request.BundleResourceContext);
             }).ToArray();
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 using var fhirDataStore = _fhirDataStoreFactory.Invoke();
@@ -271,6 +275,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private async Task<long> HardDeleteResourcePage(ConditionalDeleteResourceRequest request, IReadOnlyCollection<SearchResultEntry> resourcesToDelete, CancellationToken cancellationToken)
         {
             await CreateAuditLog(request.ResourceType, request.DeleteOperation, false, resourcesToDelete.Select((item) => item.Resource.ResourceId));
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var parallelBag = new ConcurrentBag<string>();
             try
