@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
             }
-            catch (Exception)
+            catch (FormatException)
             {
                 throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
             }
