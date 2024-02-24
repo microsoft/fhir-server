@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _urlResolver = urlResolver;
             _features = features.Value;
             _mediator = mediator;
-            _resourceWrapperFactory = resourceWrapperFactory;
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
             _logger = logger;
         }
 
