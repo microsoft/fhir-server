@@ -453,9 +453,7 @@ namespace Microsoft.Health.Fhir.Client
                 Content = new StringContent(bundle, Encoding.UTF8, isNdJson ? "application/fhir+ndjson" : _contentType),
             };
 
-            using var response = await HttpClient.SendAsync(message, cancellationToken);
-            await EnsureSuccessStatusCodeAsync(response);
-            return response;
+            return await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<Uri> ImportAsync(Parameters parameters, CancellationToken cancellationToken = default)

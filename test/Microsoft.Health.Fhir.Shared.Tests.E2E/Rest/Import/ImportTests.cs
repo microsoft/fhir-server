@@ -97,6 +97,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        public async Task GivenImportBundle_InvalidResource_FailureReturned(bool isNdJson)
+        {
+            var ndJson = Samples.GetNdJson("Import-InvalidPatient");
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : GetBundle(new[] { ndJson }.Select(GetEntry)), isNdJson);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         public async Task GivenImportBundle_MultipleResoureTypesInSingleCall_Success(bool isNdJson)
         {
             var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
