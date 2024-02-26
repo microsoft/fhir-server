@@ -13,6 +13,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Dom;
+using AngleSharp.Io;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -44,6 +46,8 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
+using SharpCompress.Common;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -114,50 +118,34 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var keys = new HashSet<ResourceKey>();
             var fhirParser = new FhirJsonParser();
             var importParser = new ImportResourceParser(fhirParser, _resourceWrapperFactory);
-            var index = 0L;
             using var reader = new StreamReader(Request.Body, Encoding.UTF8);
-            try
+            var index = 0L;
+            if (Request.ContentType != null && Request.ContentType.Contains("application/fhir+ndjson", StringComparison.OrdinalIgnoreCase))
             {
-                if (Request.ContentType != null && Request.ContentType.Contains("application/fhir+ndjson", StringComparison.OrdinalIgnoreCase))
+                var line = await reader.ReadLineAsync();
+                while (line != null)
                 {
-                    var line = await reader.ReadLineAsync();
-                    while (line != null)
-                    {
-                        var importResource = importParser.Parse(index, 0, 0, line, ImportMode.IncrementalLoad);
-                        var key = importResource.ResourceWrapper.ToResourceKey(true);
-                        if (!keys.Add(key))
-                        {
-                            throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
-                        }
-
-                        resources.Add(importResource);
-                        line = await reader.ReadLineAsync();
-                        index++;
-                    }
-                }
-                else
-                {
-                    var str = await reader.ReadToEndAsync();
-                    var resource = await fhirParser.ParseAsync(str);
-                    var bundle = resource.ToResourceElement().ToPoco<Bundle>();
-                    //// ignore all bundle components except Resource
-                    foreach (var entry in bundle.Entry)
-                    {
-                        var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
-                        var key = importResource.ResourceWrapper.ToResourceKey(true);
-                        if (!keys.Add(key))
-                        {
-                            throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
-                        }
-
-                        resources.Add(importResource);
-                        index++;
-                    }
+                    ParseAndAddToResults(line);
+                    line = await reader.ReadLineAsync();
                 }
             }
-            catch (FormatException)
+            else
             {
-                throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
+                var str = await reader.ReadToEndAsync();
+                Bundle bundle;
+                try
+                {
+                    bundle = await fhirParser.ParseAsync<Bundle>(str);
+                }
+                catch (FormatException)
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
+                }
+
+                foreach (var entry in bundle.Entry) // ignore all bundle components except Resource
+                {
+                    ParseAndAddToResults(entry.Resource);
+                }
             }
 
             var request = new ImportBundleRequest(resources);
@@ -167,6 +155,40 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             await _mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
             _logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
             return result;
+
+            void ParseAndAddToResults(object input)
+            {
+                if (input is Resource resource)
+                {
+                    resource = (Resource)input;
+                }
+                else
+                {
+                    try
+                    {
+                        resource = fhirParser.Parse<Resource>((string)input);
+                    }
+                    catch (FormatException)
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
+                    }
+                }
+
+                if (string.IsNullOrEmpty(resource.Id))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Resource id is empty at index={index}"));
+                }
+
+                var importResource = importParser.Parse(index, 0, 0, resource, ImportMode.IncrementalLoad);
+                var key = importResource.ResourceWrapper.ToResourceKey(true);
+                if (!keys.Add(key))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
+                }
+
+                resources.Add(importResource);
+                index++;
+            }
         }
 
         [HttpPost]

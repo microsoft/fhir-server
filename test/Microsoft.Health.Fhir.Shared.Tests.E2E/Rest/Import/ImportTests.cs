@@ -97,11 +97,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task GivenImportBundle_InvalidResource_FailureReturned(bool isNdJson)
+        public async Task GivenImportBundle_InvalidResourceType_FailureReturned(bool isNdJson)
         {
-            var ndJson = Samples.GetNdJson("Import-InvalidPatient");
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+            ndJson = ndJson.Replace("Patient", "InvalidPatient"); // invalid resource type
             var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(DressAsBundleEntry)), isNdJson);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenImportBundle_InvalidResourceId_FailureReturned(bool isNdJson)
+        {
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+            ndJson = ndJson.Replace("##PatientID##", string.Empty); // invalid resource id
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(DressAsBundleEntry)), isNdJson);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var error = await response.Content.ReadAsStringAsync();
+            Assert.True(error.Contains("Resource id is empty at index=0", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenImportBundle_InvalidJson_FailureReturned(bool isNdJson)
+        {
+            var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
+            ndJson = ndJson.Substring(10); // invalid json
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(DressAsBundleEntry)), isNdJson);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var error = await response.Content.ReadAsStringAsync();
+            Assert.True(error.Contains("Unable to parse resource at index=0", StringComparison.OrdinalIgnoreCase));
         }
 
         [Theory]
@@ -150,32 +177,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
         }
 
-        private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString)
-        {
-            var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
-            var idShort = jsonString.Substring(idStart, 50);
-            var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
-            var resourceId = idShort.Substring(0, idEnd);
-            if (string.IsNullOrEmpty(resourceId))
-            {
-                throw new ArgumentException("Cannot parse resource id with string parser");
-            }
-
-            var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
-            var rtShort = jsonString.Substring(rtStart, 50);
-            var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
-            var resourceType = rtShort.Substring(0, rtEnd);
-            if (string.IsNullOrEmpty(resourceType))
-            {
-                throw new ArgumentException("Cannot parse resource type with string parser");
-            }
-
-            return (resourceType, resourceId);
-        }
-
         private static string DressAsBundleEntry(string jsonString)
         {
-            var key = GetResourceKey(jsonString);
             var builder = new StringBuilder();
             builder.Append('{')
                    .Append(@"""resource"":").Append(jsonString)
