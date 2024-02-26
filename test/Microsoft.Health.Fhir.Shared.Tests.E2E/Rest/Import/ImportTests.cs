@@ -168,9 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var key = GetResourceKey(jsonString);
             var builder = new StringBuilder();
             builder.Append('{')
-                   .Append(@"""fullUrl"":""").Append(key.ResourceType).Append('/').Append(key.ResourceId).Append('"')
-                   .Append(',').Append(@"""resource"":").Append(jsonString)
-                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(key.ResourceType).Append('/').Append(key.ResourceId).Append(@"""}")
+                   .Append(@"""resource"":").Append(jsonString)
                    .Append('}');
             return builder.ToString();
         }
@@ -178,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private static string GetBundle(IEnumerable<string> entries)
         {
             var builder = new StringBuilder();
-            builder.Append(@"{""resourceType"":""Bundle"",""type"":""").Append("transaction").Append(@""",""entry"":[");
+            builder.Append(@"{""resourceType"":""Bundle"",").Append(@"""entry"":[");
             var first = true;
             foreach (var entry in entries)
             {
