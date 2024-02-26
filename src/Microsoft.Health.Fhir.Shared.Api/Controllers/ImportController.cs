@@ -102,6 +102,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
+            const int maxBytes = 50 * 1024 * 1024; // I doubt that we need to make it configurable
+            if (Request.ContentLength > maxBytes)
+            {
+                throw new RequestNotValidException($"Content size > {maxBytes} Bytes");
+            }
+
             var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
             var resources = new List<ImportResource>();
@@ -134,13 +140,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     var str = await reader.ReadToEndAsync();
                     var resource = await fhirParser.ParseAsync(str);
                     var bundle = resource.ToResourceElement().ToPoco<Bundle>();
+                    //// ignore all bundle components except Resource
                     foreach (var entry in bundle.Entry)
                     {
-                        if (entry.Request?.Method != Bundle.HTTPVerb.PUT)
-                        {
-                            throw new RequestNotValidException(string.Format(Resources.InvalidBundleEntry, entry.Request?.Method, KnownRoutes.ImportBundle));
-                        }
-
                         var importResource = importParser.Parse(index, 0, 0, entry.Resource, ImportMode.IncrementalLoad);
                         var key = importResource.ResourceWrapper.ToResourceKey(true);
                         if (!keys.Add(key))
