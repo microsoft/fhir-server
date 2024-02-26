@@ -10,6 +10,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -67,6 +68,8 @@ namespace Microsoft.Extensions.DependencyInjection
             {
                 return fhirServerBuilder;
             }
+
+            services.TryAddSingleton<IFhirRuntimeConfiguration, AzureApiForFhirRuntimeConfiguration>();
 
             services.Add(provider =>
                 {

@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using MediatR;
 using MediatR.Pipeline;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -41,6 +42,8 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
+
+            services.TryAddSingleton<IFhirRuntimeConfiguration, AzureHealthDataServicesRuntimeConfiguration>();
 
             services.AddSqlServerConnection(configureAction);
             services.AddSqlServerManagement<SchemaVersion>();

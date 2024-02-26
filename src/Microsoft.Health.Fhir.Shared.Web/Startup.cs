@@ -116,11 +116,13 @@ namespace Microsoft.Health.Fhir.Web
 
         private void AddDataStore(IServiceCollection services, IFhirServerBuilder fhirServerBuilder, IFhirRuntimeConfiguration runtimeConfiguration)
         {
-            if (runtimeConfiguration is AzureApiForFhirRuntimeConfiguration)
+            string dataStore = Configuration["DataStore"];
+
+            if (KnownDataStores.IsCosmosDbDataStore(dataStore))
             {
                 fhirServerBuilder.AddCosmosDb();
             }
-            else if (runtimeConfiguration is AzureHealthDataServicesRuntimeConfiguration)
+            else if (KnownDataStores.IsSqlServerDataStore(dataStore))
             {
                 fhirServerBuilder.AddSqlServer(config =>
                 {
@@ -128,29 +130,10 @@ namespace Microsoft.Health.Fhir.Web
                 });
                 services.Configure<SqlRetryServiceOptions>(Configuration.GetSection(SqlRetryServiceOptions.SqlServer));
             }
-        }
-
-        private IFhirRuntimeConfiguration AddRuntimeConfiguration(IConfiguration configuration, IFhirServerBuilder fhirServerBuilder)
-        {
-            IFhirRuntimeConfiguration runtimeConfiguration = null;
-
-            string dataStore = Configuration["DataStore"];
-            if (KnownDataStores.IsCosmosDbDataStore(dataStore))
-            {
-                runtimeConfiguration = new AzureApiForFhirRuntimeConfiguration();
-            }
-            else if (KnownDataStores.IsSqlServerDataStore(dataStore))
-            {
-                runtimeConfiguration = new AzureHealthDataServicesRuntimeConfiguration();
-            }
             else
             {
                 throw new InvalidOperationException($"Invalid data store type '{dataStore}'.");
             }
-
-            fhirServerBuilder.Services.AddSingleton<IFhirRuntimeConfiguration>(runtimeConfiguration);
-
-            return runtimeConfiguration;
         }
 
         private void AddTaskHostingService(IServiceCollection services)
