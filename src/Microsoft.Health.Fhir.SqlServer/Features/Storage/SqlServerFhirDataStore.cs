@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeAsync(IReadOnlyList<ResourceWrapperOperation> resources, MergeOptions mergeOptions, CancellationToken cancellationToken)
         {
+            const int maxDelayInMilliseconds = 5000;
             var retries = 0;
             while (true)
             {
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         _logger.LogWarning(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
                         await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Warn", $"retries={retries}, error={e}, ", null, cancellationToken);
-                        await Task.Delay(5000, cancellationToken);
+                        await Task.Delay(GetIncrementalDelayInMilliseconds(retries, maxDelayInMilliseconds), cancellationToken);
                         continue;
                     }
 
@@ -510,6 +511,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
+        }
+
+        private static int GetIncrementalDelayInMilliseconds(int attemptNumber, int maxDelayInMilliseconds)
+        {
+            int delayInMilliseconds = attemptNumber * 1000;
+
+            if (attemptNumber <= 0)
+            {
+                return 1000;
+            }
+            else if (attemptNumber > 0 && delayInMilliseconds <= maxDelayInMilliseconds)
+            {
+                return delayInMilliseconds;
+            }
+            else
+            {
+                return maxDelayInMilliseconds;
+            }
         }
 
         private void ReplaceVersionIdInMeta(ResourceWrapper resourceWrapper)
