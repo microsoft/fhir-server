@@ -158,11 +158,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             void ParseAndAddToResults(object input)
             {
-                if (input is Resource resource)
-                {
-                    resource = (Resource)input;
-                }
-                else
+                if (input is not Resource resource)
                 {
                     try
                     {
