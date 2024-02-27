@@ -46,8 +46,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         private static readonly string _nameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly bool _writesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly int _repeat = int.Parse(ConfigurationManager.AppSettings["Repeat"]);
-        private static readonly string _diagSearch1 = ConfigurationManager.AppSettings["DiagSearch1"];
-        private static readonly string _diagSearch2 = ConfigurationManager.AppSettings["DiagSearch2"];
+        private static readonly string _diagSearches = ConfigurationManager.AppSettings["DiagSearches"];
 
         private static SqlRetryService _sqlRetryService;
         private static SqlStoreClient<SqlServerFhirDataStore> _store;
@@ -122,22 +121,23 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     var sw = Stopwatch.StartNew();
                     PutResource(json, resourceType, resourceId);
                     _store.TryLogEvent($"Create/{resourceType}/{resourceId}", "Warn", $"msec={(int)sw.Elapsed.TotalMilliseconds}", null, CancellationToken.None).Wait();
+                    Thread.Sleep(1000);
                 }
             }));
-            tasks.Add(BatchExtensions.StartTask(() =>
+
+            var searches = _diagSearches.Split(';');
+            foreach (var search in searches)
             {
-                while (true)
+                tasks.Add(BatchExtensions.StartTask(() =>
                 {
-                    DiagSearch(_diagSearch1);
-                }
-            }));
-            tasks.Add(BatchExtensions.StartTask(() =>
-            {
-                while (true)
-                {
-                    DiagSearch(_diagSearch2);
-                }
-            }));
+                    while (true)
+                    {
+                        DiagSearch(search);
+                        Thread.Sleep(1000);
+                    }
+                }));
+            }
+
             Task.WaitAll(tasks.ToArray());
         }
 
