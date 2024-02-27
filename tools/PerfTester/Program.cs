@@ -145,8 +145,17 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
         {
             var sw = Stopwatch.StartNew();
             var uri = new Uri(_endpoint + "/" + searchStr);
-            var response = _httpClient.GetAsync(uri).Result;
-            _store.TryLogEvent($"{searchStr}:{response.StatusCode}", "Warn", $"msec={(int)sw.Elapsed.TotalMilliseconds}", null, CancellationToken.None).Wait();
+            retry:
+            try
+            {
+                var response = _httpClient.GetAsync(uri).Result;
+                _store.TryLogEvent($"{searchStr}:{response.StatusCode}", "Warn", $"msec={(int)sw.Elapsed.TotalMilliseconds}", null, CancellationToken.None).Wait();
+            }
+            catch (Exception e)
+            {
+                _store.TryLogEvent($"{searchStr}", "Error", e.ToString(), null, CancellationToken.None).Wait();
+                goto retry; // there should not be a reason for limiting number of tries
+            }
         }
 
         private static ReadOnlyList<long> GetRandomTransactionIds()
