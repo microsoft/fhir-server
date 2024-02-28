@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -90,6 +91,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IMediator _mediator;
         private readonly BundleProcessingLogic _bundleProcessingLogic;
         private readonly bool _optimizedQuerySet;
+
+        private static TaskCompletionSource<bool> _waitingBundle = null;
+        private static readonly SemaphoreSlim _semaphoreSlim = new(1, 4);
 
         private int _requestCount;
         private BundleType? _bundleType;
@@ -310,29 +314,56 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Batch)
                 {
                     // Besides the need to run requests in parallel, the verb execution order should still be respected.
-                    EntryComponent throttledEntryComponent = null;
-                    foreach (HTTPVerb verb in _verbExecutionOrder)
+
+                    var thisBundleCompletionSource = new TaskCompletionSource<bool>();
+                    TaskCompletionSource<bool> bundleBeforeMe = null;
+
+                    lock (_waitingBundle)
                     {
-                        if (_requests[verb].Any())
+                        bundleBeforeMe = _waitingBundle;
+                        _waitingBundle = thisBundleCompletionSource;
+                    }
+
+                    if (bundleBeforeMe != null)
+                    {
+                        await bundleBeforeMe.Task;
+                    }
+
+                    await _semaphoreSlim.WaitAsync(cancellationToken);
+                    try
+                    {
+                        // Allow the next bundle to move the the SemaphoreSlim.WaitAsync call.
+                        thisBundleCompletionSource.SetResult(true);
+
+                        EntryComponent throttledEntryComponent = null;
+                        foreach (HTTPVerb verb in _verbExecutionOrder)
                         {
-                            IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                                type: BundleOrchestratorOperationType.Batch,
-                                label: verb.ToString(),
-                                expectedNumberOfResources: _requests[verb].Count);
+                            if (_requests[verb].Any())
+                            {
+                                IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                                    type: BundleOrchestratorOperationType.Batch,
+                                    label: verb.ToString(),
+                                    expectedNumberOfResources: _requests[verb].Count);
 
-                            _logger.LogInformation(
-                                "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
-                                bundleOperation.OriginalExpectedNumberOfResources,
-                                verb);
+                                _logger.LogInformation(
+                                    "BundleHandler - Starting the parallel processing of {NumberOfRequests} '{HttpVerb}' requests.",
+                                    bundleOperation.OriginalExpectedNumberOfResources,
+                                    verb);
 
-                            throttledEntryComponent = await ExecuteRequestsInParallelAsync(
-                                responseBundle: responseBundle,
-                                resources: _requests[verb],
-                                bundleOperation: bundleOperation,
-                                throttledEntryComponent: throttledEntryComponent,
-                                statistics: statistics,
-                                cancellationToken: cancellationToken);
+                                throttledEntryComponent = await ExecuteRequestsInParallelAsync(
+                                    responseBundle: responseBundle,
+                                    resources: _requests[verb],
+                                    bundleOperation: bundleOperation,
+                                    throttledEntryComponent: throttledEntryComponent,
+                                    statistics: statistics,
+                                    cancellationToken: cancellationToken);
+                            }
                         }
+                    }
+                    finally
+                    {
+                        thisBundleCompletionSource.TrySetResult(true);
+                        _semaphoreSlim.Release();
                     }
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Transaction)
@@ -341,22 +372,48 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     if (resources.Any())
                     {
-                        IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
-                            type: BundleOrchestratorOperationType.Transaction,
-                            label: "Transaction",
-                            expectedNumberOfResources: resources.Count);
+                        var thisBundleCompletionSource = new TaskCompletionSource<bool>();
+                        TaskCompletionSource<bool> bundleBeforeMe = null;
 
-                        _logger.LogInformation(
-                            "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
-                            bundleOperation.OriginalExpectedNumberOfResources);
+                        lock (_waitingBundle)
+                        {
+                            bundleBeforeMe = _waitingBundle;
+                            _waitingBundle = thisBundleCompletionSource;
+                        }
 
-                        EntryComponent throttledEntryComponent = await ExecuteRequestsInParallelAsync(
-                            responseBundle: responseBundle,
-                            resources: resources,
-                            bundleOperation: bundleOperation,
-                            throttledEntryComponent: null,
-                            statistics: statistics,
-                            cancellationToken: cancellationToken);
+                        if (bundleBeforeMe != null)
+                        {
+                            await bundleBeforeMe.Task;
+                        }
+
+                        await _semaphoreSlim.WaitAsync(cancellationToken);
+                        try
+                        {
+                            // Allow the next bundle to move the the SemaphoreSlim.WaitAsync call.
+                            thisBundleCompletionSource.SetResult(true);
+
+                            IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
+                                type: BundleOrchestratorOperationType.Transaction,
+                                label: "Transaction",
+                                expectedNumberOfResources: resources.Count);
+
+                            _logger.LogInformation(
+                                "BundleHandler - Starting the parallel processing of a transaction with {NumberOfRequests} requests.",
+                                bundleOperation.OriginalExpectedNumberOfResources);
+
+                            EntryComponent throttledEntryComponent = await ExecuteRequestsInParallelAsync(
+                                responseBundle: responseBundle,
+                                resources: resources,
+                                bundleOperation: bundleOperation,
+                                throttledEntryComponent: null,
+                                statistics: statistics,
+                                cancellationToken: cancellationToken);
+                        }
+                        finally
+                        {
+                            thisBundleCompletionSource.TrySetResult(true);
+                            _semaphoreSlim.Release();
+                        }
                     }
                 }
                 else
