@@ -139,20 +139,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                 };
 
-                List<Task> requestsPerResource = new List<Task>();
-                foreach (ResourceExecutionContext resourceContext in resources)
-                {
-                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
-                }
-
                 try
                 {
-                    // The following Task.WaitAll should wait for all requests to finish.
-
-                    // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
-                    // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
-
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Parallel.ForEachAsync(
+                        resources,
+                        new ParallelOptions { MaxDegreeOfParallelism = 4 },
+                        async (_, cancel) => { await handleRequestFunction(_, requestCancellationToken.Token); });
                 }
                 catch (AggregateException age)
                 {
