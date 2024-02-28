@@ -143,8 +143,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     await Parallel.ForEachAsync(
                         resources,
-                        new ParallelOptions { MaxDegreeOfParallelism = 4 },
-                        async (_, cancel) => { await handleRequestFunction(_, requestCancellationToken.Token); });
+                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount * 2 },
+                        async (resource, cancel) => { await handleRequestFunction(resource, requestCancellationToken.Token); });
                 }
                 catch (AggregateException age)
                 {
