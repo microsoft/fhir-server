@@ -100,13 +100,13 @@ namespace Microsoft.Health.Fhir.Importer
                             if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                             {
                                 var currWrites = Interlocked.Read(ref totalWrites);
-                                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers={WriteThreads}: processed blobs={totalBlobs} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers=[{Interlocked.Read(ref writers)}/{WriteThreads}]: processed blobs={totalBlobs} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
                                 swReport.Restart();
                             }
                         }
                     }
                 });
-                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers={WriteThreads}: processed blobs={totalBlobs} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers=[{Interlocked.Read(ref writers)}/{WriteThreads}]: processed blobs={totalBlobs} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
                 return;
             }
 
@@ -225,7 +225,9 @@ namespace Microsoft.Health.Fhir.Importer
                     }
 
                     request.Content = content;
+                    Interlocked.Increment(ref writers);
                     var response = httpClient.Send(request);
+                    Interlocked.Decrement(ref writers);
                     if (response.StatusCode == HttpStatusCode.BadRequest)
                     {
                         Console.WriteLine(response.Content.ReadAsStringAsync().Result);
@@ -254,6 +256,7 @@ namespace Microsoft.Health.Fhir.Importer
                 }
                 catch (Exception e)
                 {
+                    Interlocked.Decrement(ref writers);
                     networkError = IsNetworkError(e);
                     if (!networkError)
                     {
