@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
 
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 ////try
                 ////{
