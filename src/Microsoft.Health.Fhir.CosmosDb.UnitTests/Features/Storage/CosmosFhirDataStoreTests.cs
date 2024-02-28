@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
@@ -78,7 +79,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 Options.Create(new CoreFeatureConfiguration()),
                 _bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                new TaskFactory());
         }
 
         [Fact]

@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private readonly TaskFactory _factory;
         private const BundleProcessingLogic DefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -123,6 +124,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuthorizationService<DataActions> authorizationService,
             IMediator mediator,
             IRouter router,
+            TaskFactory factory,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -141,6 +143,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _authorizationService = EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _router = EnsureArg.IsNotNull(router, nameof(router));
+            _factory = EnsureArg.IsNotNull(factory, nameof(factory));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.

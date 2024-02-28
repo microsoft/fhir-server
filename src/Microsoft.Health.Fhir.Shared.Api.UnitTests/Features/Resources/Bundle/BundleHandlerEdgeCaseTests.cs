@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Azure;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -179,6 +180,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 DisabledFhirAuthorizationService.Instance,
                 mediator,
                 router,
+                new TaskFactory(),
                 NullLogger<BundleHandler>.Instance);
 
             return fhirRequestContextAccessor.RequestContext;

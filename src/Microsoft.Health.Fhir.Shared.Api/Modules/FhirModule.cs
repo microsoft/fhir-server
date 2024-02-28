@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -162,6 +164,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register a router for Bundle requests.
             services.AddSingleton<IRouter, BundleRouter>();
+
+            services.Add(c => new LimitedConcurrencyLevelTaskScheduler(Environment.ProcessorCount * 10, c.GetRequiredService<ILogger<LimitedConcurrencyLevelTaskScheduler>>()))
+                .Singleton()
+                .AsSelf();
+
+            services.Add(c => new TaskFactory(c.GetRequiredService<LimitedConcurrencyLevelTaskScheduler>()))
+                .Singleton()
+                .AsSelf();
 
             services.AddLazy();
             services.AddScoped();

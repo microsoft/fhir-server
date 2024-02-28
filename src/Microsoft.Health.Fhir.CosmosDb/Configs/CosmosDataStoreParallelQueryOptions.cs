@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// <summary>
         /// Gets the maximum degree of parallelism for the SDK to use when querying physical partitions in parallel.
         /// </summary>
-        public int MaxQueryConcurrency { get; set; } = Environment.ProcessorCount * 10;
+        public int MaxQueryConcurrency { get; set; } = int.MaxValue;
 
         /// <summary>
         /// Enables the parallelism if sequential query execution takes more time

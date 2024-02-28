@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -130,6 +131,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 DisabledFhirAuthorizationService.Instance,
                 _mediator,
                 _router,
+                new TaskFactory(),
                 NullLogger<BundleHandler>.Instance);
         }
 

@@ -22,8 +22,9 @@ namespace Microsoft.Health.JobManagement
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
+        private readonly TaskFactory _taskFactory;
 
-        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger)
+        public JobHosting(IQueueClient queueClient, IJobFactory jobFactory, ILogger<JobHosting> logger, TaskFactory taskFactory)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(jobFactory, nameof(jobFactory));
@@ -32,6 +33,7 @@ namespace Microsoft.Health.JobManagement
             _queueClient = queueClient;
             _jobFactory = jobFactory;
             _logger = logger;
+            _taskFactory = taskFactory;
         }
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
@@ -55,7 +57,8 @@ namespace Microsoft.Health.JobManagement
             // parallel dequeue
             for (var thread = 0; thread < MaxRunningJobCount; thread++)
             {
-                workers.Add(Task.Run(async () =>
+                workers.Add(_taskFactory.StartNew(
+                    async () =>
                 {
                     // random delay to avoid convoys
                     await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
@@ -112,7 +115,8 @@ namespace Microsoft.Health.JobManagement
                             await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                         }
                     }
-                }));
+                },
+                    cancellationTokenSource.Token));
             }
 
             try

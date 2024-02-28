@@ -182,7 +182,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 options,
                 bundleOrchestrator,
                 new Lazy<ISupportedSearchParameterDefinitionManager>(_supportedSearchParameterDefinitionManager),
-                ModelInfoProvider.Instance);
+                ModelInfoProvider.Instance,
+                new TaskFactory());
 
             _queueClient = new CosmosQueueClient(
                 () => _container.CreateMockScope(),

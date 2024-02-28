@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 List<Task> requestsPerResource = new List<Task>();
                 foreach (ResourceExecutionContext resourceContext in resources)
                 {
-                    requestsPerResource.Add(handleRequestFunction(resourceContext, requestCancellationToken.Token));
+                    requestsPerResource.Add(_factory.StartNew(async () => await handleRequestFunction(resourceContext, requestCancellationToken.Token), requestCancellationToken.Token));
                 }
 
                 try
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
 
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {

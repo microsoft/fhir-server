@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly IBundleOrchestrator _bundleOrchestrator;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly TaskFactory _taskFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -85,6 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="bundleOrchestrator">Bundle orchestrator</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
         /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
+        /// <param name="taskFactory">The task factory used for highly concurrent operations.</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -95,7 +97,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IOptions<CoreFeatureConfiguration> coreFeatures,
             IBundleOrchestrator bundleOrchestrator,
             Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            TaskFactory taskFactory)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -106,6 +109,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
+            EnsureArg.IsNotNull(taskFactory, nameof(taskFactory));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
@@ -116,6 +120,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _coreFeatures = coreFeatures.Value;
             _bundleOrchestrator = bundleOrchestrator;
             _modelInfoProvider = modelInfoProvider;
+            _taskFactory = taskFactory;
         }
 
         public async Task<IReadOnlyList<ResourceWrapper>> GetAsync(IReadOnlyList<ResourceKey> keys, CancellationToken cancellationToken)
@@ -664,7 +669,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 try
                 {
                     var prevPage = page;
-                    page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+
+                    await _taskFactory.StartNew(
+                        async () =>
+                    {
+                        page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    },
+                        linkedTokenSource.Token);
 
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {

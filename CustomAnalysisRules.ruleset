@@ -18,6 +18,7 @@
     <Rule Id="CA1805" Action="Info" />
     <Rule Id="CA1860" Action="Info" />
     <Rule Id="CA1863" Action="Info" />
+    <Rule Id="CA2008" Action="Info" />
   </Rules>
   <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
     <Rule Id="CA1054" Action="Info" />
