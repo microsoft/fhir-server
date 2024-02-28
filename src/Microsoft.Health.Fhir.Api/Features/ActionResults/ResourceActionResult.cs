@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// </summary>
         internal IHeaderDictionary Headers { get; }
 
-        public override Task ExecuteResultAsync(ActionContext context)
+        public override async Task ExecuteResultAsync(ActionContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
@@ -72,12 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             foreach (KeyValuePair<string, StringValues> header in Headers)
             {
-                if (response.Headers.ContainsKey(header.Key))
-                {
-                    response.Headers.Remove(header.Key);
-                }
-
-                response.Headers.Add(header);
+                response.Headers[header.Key] = header.Value;
             }
 
             ActionResult result;
@@ -90,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 result = new ObjectResult(GetResultToSerialize());
             }
 
-            return result.ExecuteResultAsync(context);
+            await result.ExecuteResultAsync(context);
         }
 
         protected virtual object GetResultToSerialize()
