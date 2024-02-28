@@ -882,7 +882,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Collecting memory up to Generation 2 using default collection mode.
                 // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
                 // SOH compacting is set to true.
-                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
+                ////GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
 
                 _logger.LogInformation("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
             }
