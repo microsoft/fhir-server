@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -21,9 +23,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     {
         protected ResourceActionResult()
         {
+            Headers = new ThreadSafeHeaderDictionary();
         }
 
         protected ResourceActionResult(TResult result)
+            : this()
         {
             Result = result;
         }
@@ -47,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Gets or sets the action result Headers.
         /// </summary>
-        internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
+        internal IHeaderDictionary Headers { get; }
 
         public override Task ExecuteResultAsync(ActionContext context)
         {
