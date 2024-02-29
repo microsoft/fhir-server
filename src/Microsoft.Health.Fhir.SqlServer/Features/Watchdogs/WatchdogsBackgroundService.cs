@@ -43,16 +43,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
 
-            await _defragWatchdog.StartAsync(stoppingToken);
-            await _cleanupEventLogWatchdog.StartAsync(stoppingToken);
-            await _transactionWatchdog.Value.StartAsync(stoppingToken);
-            await _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken);
-
-            while (true)
-            {
-                stoppingToken.ThrowIfCancellationRequested();
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
-            }
+            await Task.WhenAll(
+                _defragWatchdog.StartAsync(stoppingToken),
+                _cleanupEventLogWatchdog.StartAsync(stoppingToken),
+                _transactionWatchdog.Value.StartAsync(stoppingToken),
+                _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken));
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -63,10 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         public override void Dispose()
         {
-            _defragWatchdog.Dispose();
-            _cleanupEventLogWatchdog.Dispose();
             _transactionWatchdog.Dispose();
-            _invisibleHistoryCleanupWatchdog.Dispose();
             base.Dispose();
         }
     }
