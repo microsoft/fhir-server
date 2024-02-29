@@ -13,13 +13,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
+    internal sealed class CleanupEventLogWatchdog : Watchdog<CleanupEventLogWatchdog>
     {
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<CleanupEventLogWatchdog> _logger;
-        private CancellationToken _cancellationToken;
-        private const double _periodSec = 12 * 3600;
-        private const double _leasePeriodSec = 3600;
 
         public CleanupEventLogWatchdog(ISqlRetryService sqlRetryService, ILogger<CleanupEventLogWatchdog> logger)
             : base(sqlRetryService, logger)
@@ -29,25 +26,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         }
 
         internal CleanupEventLogWatchdog()
-            : base()
         {
             // this is used to get param names for testing
         }
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
+        public override double LeasePeriodSec { get; internal set; } = 3600;
+
+        public override bool AllowRebalance { get; internal set; } = true;
+
+        public override double PeriodSec { get; internal set; } = 12 * 3600;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            _cancellationToken = cancellationToken;
-            await InitParamsAsync();
-            await StartAsync(true, _periodSec, _leasePeriodSec, cancellationToken);
+            await using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
+            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
         }
 
-        protected override async Task ExecuteAsync()
-        {
-            using var cmd = new SqlCommand("dbo.CleanupEventLog") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 };
-            await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, _cancellationToken);
-        }
-
-        private async Task InitParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
+        protected override async Task InitAdditionalParamsAsync()
         {
             _logger.LogInformation("InitParamsAsync starting...");
 
