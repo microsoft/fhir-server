@@ -99,8 +99,6 @@ EXECUTE dbo.LogEvent @Process='Build',@Status='Warn',@Mode='',@Target='DefragTes
 
             var sizeAfter = GetSize();
             Assert.True(sizeAfter * 9 < sizeBefore, $"{sizeAfter} * 9 < {sizeBefore}");
-
-            wd.Dispose();
         }
 
         [Fact]
@@ -142,8 +140,6 @@ END
 
             _testOutputHelper.WriteLine($"EventLog.Count={GetCount("EventLog")}.");
             Assert.True(GetCount("EventLog") <= 1000, "Count is low");
-
-            wd.Dispose();
         }
 
         [Fact]
@@ -209,8 +205,6 @@ END
             }
 
             Assert.Equal(1, GetCount("NumberSearchParam")); // wd rolled forward transaction
-
-            wd.Dispose();
         }
 
         [Fact]
@@ -278,8 +272,6 @@ END
 
             _testOutputHelper.WriteLine($"Visibility={visibility}");
             Assert.Equal(tran3.TransactionId, visibility);
-
-            wd.Dispose();
         }
 
         private ResourceWrapperFactory CreateResourceWrapperFactory()
