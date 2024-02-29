@@ -4,30 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.JobManagement;
-using Microsoft.SqlServer.Management.Smo.Agent;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public sealed class DefragWatchdog : Watchdog<DefragWatchdog>
+    internal sealed class DefragWatchdog : Watchdog<DefragWatchdog>
     {
         private const byte QueueType = (byte)Core.Features.Operations.QueueType.Defrag;
         private int _threads;
         private int _heartbeatPeriodSec;
         private int _heartbeatTimeoutSec;
-        private CancellationToken _cancellationToken;
         private static readonly string[] DefragCoord = { "Defrag" };
 
         private readonly ISqlRetryService _sqlRetryService;
@@ -59,26 +54,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string IsEnabledId => $"{Name}.IsEnabled";
 
-        internal async Task StartAsync(CancellationToken cancellationToken)
-        {
-            _cancellationToken = cancellationToken;
-            await StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken);
-            await InitDefragParamsAsync();
-        }
+        public override double LeasePeriodSec { get; internal set; } = 2 * 3600;
 
-        protected override async Task ExecuteAsync()
+        public override bool AllowRebalance { get; internal set; } = false;
+
+        public override double PeriodSec { get; internal set; } = 24 * 3600;
+
+        protected override async Task RunWorkAsync(CancellationToken cancellationToken)
         {
-            await ChangeDatabaseSettingsAsync(true, _cancellationToken); // make sure that there are no leftovers from previous runs
+            await ChangeDatabaseSettingsAsync(true, cancellationToken); // make sure that there are no leftovers from previous runs
 
             _threads = await GetThreadsAsync(CancellationToken.None); // renew on each exec
 
-            if (!await IsEnabledAsync(_cancellationToken))
+            if (!await IsEnabledAsync(cancellationToken))
             {
                 _logger.LogInformation("DefragWatchdog is not enabled. Exiting...");
                 return;
             }
 
-            var coord = await GetCoordinatorJobAsync(_cancellationToken);
+            var coord = await GetCoordinatorJobAsync(cancellationToken);
 
             if (coord.jobId == -1)
             {
@@ -88,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation($"DefragWatchdog.coord={coord.jobId}: started.");
 
-            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_cancellationToken);
+            using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             await JobHosting.ExecuteJobWithHeartbeatsAsync(
                 _sqlQueueClient,
                 QueueType,
@@ -132,8 +126,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 TimeSpan.FromSeconds(_heartbeatPeriodSec),
                 cancellationTokenSource);
 
-            await ChangeDatabaseSettingsAsync(true, _cancellationToken);
-            await CompleteCoordAsync(coord.jobId, coord.version, false, _cancellationToken);
+            await ChangeDatabaseSettingsAsync(true, cancellationToken);
+            await CompleteCoordAsync(coord.jobId, coord.version, false, cancellationToken);
         }
 
         private async Task CompleteCoordAsync(long jobId, long version, bool failed, CancellationToken cancellationToken)
@@ -336,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             return (int)value;
         }
 
-        private async Task InitDefragParamsAsync() // No CancellationToken is passed since we shouldn't cancel initialization.
+        protected override async Task InitAdditionalParamsAsync()
         {
             _logger.LogInformation("InitDefragParamsAsync starting...");
 
