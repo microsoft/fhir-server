@@ -115,6 +115,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
+                catch (RequestFailedException ex) when (ex.Status == 404)
+                {
+                    _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
+                    var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
+                    throw new JobExecutionException(ex.Message, error, ex);
+                }
                 catch (Exception ex)
                 {
                     _logger.LogJobError(ex, jobInfo, "RetriableJobException. Generic exception. Failed to load data.");
