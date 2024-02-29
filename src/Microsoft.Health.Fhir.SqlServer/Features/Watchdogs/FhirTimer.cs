@@ -8,110 +8,54 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    public abstract class FhirTimer<T> : IDisposable
+    public abstract class FhirTimer<T>(ILogger<T> logger = null)
     {
-        private Timer _timer;
-        private bool _disposed = false;
-        private bool _isRunning;
         private bool _isFailing;
-        private bool _isStarted;
-        private string _lastException;
-        private readonly ILogger<T> _logger;
-        private CancellationToken _cancellationToken;
-
-        protected FhirTimer(ILogger<T> logger = null)
-        {
-            _logger = logger;
-            _isFailing = false;
-            _lastException = null;
-            LastRunDateTime = DateTime.Parse("2017-12-01");
-        }
 
         internal double PeriodSec { get; set; }
 
-        internal DateTime LastRunDateTime { get; private set; }
-
-        internal bool IsRunning => _isRunning;
+        internal DateTimeOffset LastRunDateTime { get; private set; } = DateTime.Parse("2017-12-01");
 
         internal bool IsFailing => _isFailing;
-
-        internal bool IsStarted => _isStarted;
-
-        internal string LastException => _lastException;
 
         protected async Task StartAsync(double periodSec, CancellationToken cancellationToken)
         {
             PeriodSec = periodSec;
-            _cancellationToken = cancellationToken;
 
-            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
-            _timer = new Timer(async _ => await RunInternalAsync(), null, TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), TimeSpan.FromSeconds(PeriodSec));
+            await Task.Delay(TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), cancellationToken);
+            using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(PeriodSec));
 
-            _isStarted = true;
-            await Task.CompletedTask;
-        }
-
-        protected abstract Task RunAsync();
-
-        private async Task RunInternalAsync()
-        {
-            _cancellationToken.ThrowIfCancellationRequested();
-
-            if (_isRunning)
-            {
-                return;
-            }
-
-            try
-            {
-                _isRunning = true;
-                await RunAsync();
-                _isFailing = false;
-                _lastException = null;
-                LastRunDateTime = DateTime.UtcNow;
-            }
-            catch (Exception e)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    _logger.LogWarning(e, "Error executing FHIR Timer"); // exceptions in logger should never bubble up
+                    await periodicTimer.WaitForNextTickAsync(cancellationToken);
                 }
-                catch
+                catch (OperationCanceledException)
                 {
-                    // ignored
+                    // Time to exit
+                    break;
                 }
 
-                _isFailing = true;
-                _lastException = e.ToString();
-            }
-            finally
-            {
-                _isRunning = false;
+                try
+                {
+                    await RunAsync();
+                    LastRunDateTime = Clock.UtcNow;
+                    _isFailing = false;
+                }
+                catch (Exception e)
+                {
+                    logger.LogWarning(e, "Error executing timer");
+                    _isFailing = true;
+                }
             }
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                _timer?.Dispose();
-            }
-
-            _disposed = true;
-        }
+        protected abstract Task RunAsync();
     }
 }

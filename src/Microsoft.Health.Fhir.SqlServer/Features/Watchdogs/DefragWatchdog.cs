@@ -57,8 +57,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         internal async Task StartAsync(CancellationToken cancellationToken)
         {
             _cancellationToken = cancellationToken;
-            await StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken);
-            await InitDefragParamsAsync();
+            await Task.WhenAll(
+                StartAsync(false, 24 * 3600, 2 * 3600, cancellationToken),
+                InitDefragParamsAsync());
         }
 
         protected override async Task ExecuteAsync()
