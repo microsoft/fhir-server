@@ -25,6 +25,15 @@ namespace Microsoft.Health.Fhir.Core.Models
             LastUpdated = wrapper.LastModified;
         }
 
+        public RawResourceElement(RawResource rawResource, string instanceType)
+        {
+            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
+            EnsureArg.IsNotNull(instanceType, nameof(instanceType));
+
+            RawResource = rawResource;
+            InstanceType = instanceType;
+        }
+
         public RawResource RawResource { get; protected set; }
 
         public FhirResourceFormat Format { get; protected set; }

@@ -22,6 +22,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
             ResourceElement = new RawResourceElement(resourceWrapper);
         }
 
+        public RawBundleEntryComponent(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            ResourceElement = rawResourceElement;
+        }
+
         public RawResourceElement ResourceElement { get; set; }
 
         public override IDeepCopyable DeepCopy()

@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             resourceIdProvider,
                             fhirJsonParser,
                             _logger,
+                            resourceExecutionContext.Resource,
                             ct);
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
@@ -251,6 +252,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider,
             FhirJsonParser fhirJsonParser,
             ILogger<BundleHandler> logger,
+            Resource subRequestResource,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
@@ -285,6 +287,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         auditEventTypeMapping,
                         requestContext,
                         bundleHttpContextAccessor,
+                        subRequestResource,
                         logger);
 
                     // Attempt 1.
@@ -365,12 +368,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId, Resource resource = null)
             {
                 HttpVerb = httpVerb;
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
+                Resource = resource;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -380,6 +384,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public int Index { get; private set; }
 
             public string PersistedId { get; private set; }
+
+            public Resource Resource { get; }
         }
     }
 }

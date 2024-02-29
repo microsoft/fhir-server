@@ -8,8 +8,10 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -39,7 +41,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             writer.WriteStartObject();
 
             writer.WriteString("resourceType", bundle.TypeName);
-            writer.WriteString("id", bundle.Id);
+
+            if (!string.IsNullOrEmpty(bundle.Id))
+            {
+                writer.WriteString("id", bundle.Id);
+            }
 
             SerializeMetadata();
 
@@ -111,10 +117,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         }
 
                         await writer.FlushAsync();
-                        await streamWriter.WriteAsync("\"resource\":");
-                        await streamWriter.FlushAsync();
 
-                        await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
+                        if (!string.Equals(rawBundleEntry.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
+                        {
+                            await streamWriter.WriteAsync("\"resource\":");
+                            await streamWriter.FlushAsync();
+
+                            await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
+                        }
 
                         if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
                         {
@@ -148,6 +158,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             writer.WriteString("status", rawBundleEntry.Response.Status);
                             writer.WriteString("etag", rawBundleEntry.Response.Etag);
                             writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
+
+                            if (string.Equals(rawBundleEntry.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
+                            {
+                                await writer.FlushAsync();
+
+                                await streamWriter.WriteAsync("\"outcome\":");
+                                await streamWriter.FlushAsync();
+
+                                await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
+
+                                await writer.FlushAsync();
+                            }
 
                             writer.WriteEndObject();
                         }
