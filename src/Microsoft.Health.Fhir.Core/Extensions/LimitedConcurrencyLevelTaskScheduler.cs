@@ -26,6 +26,7 @@ internal class LimitedConcurrencyLevelTaskScheduler : TaskScheduler
    // The maximum concurrency level allowed by this scheduler.
    private readonly int _maxDegreeOfParallelism;
    private readonly ILogger<LimitedConcurrencyLevelTaskScheduler> _logger;
+   private volatile int _maxQueuedItems = 0;
 
    // Indicates whether the scheduler is currently processing work items.
    private int _delegatesQueuedOrRunning = 0;
@@ -52,6 +53,13 @@ internal class LimitedConcurrencyLevelTaskScheduler : TaskScheduler
        lock (_tasks)
        {
            _tasks.AddLast(task);
+
+           if (_tasks.Count > _maxQueuedItems)
+           {
+               _maxQueuedItems = _tasks.Count;
+               _logger.LogInformation("Max queued parallel tasks: {MaxQueuedTasks}", _maxQueuedItems);
+           }
+
            if (_delegatesQueuedOrRunning < _maxDegreeOfParallelism)
            {
                ++_delegatesQueuedOrRunning;

@@ -57,8 +57,7 @@ namespace Microsoft.Health.JobManagement
             // parallel dequeue
             for (var thread = 0; thread < MaxRunningJobCount; thread++)
             {
-                workers.Add(_taskFactory.StartNew(
-                    async () =>
+                Func<Task> jobAction = async () =>
                 {
                     // random delay to avoid convoys
                     await Task.Delay(TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * PollingFrequencyInSeconds));
@@ -91,8 +90,8 @@ namespace Microsoft.Health.JobManagement
                         if (nextJob != null)
                         {
                             using (Activity activity = JobHostingActivitySource.StartActivity(
-                                JobHostingActivitySource.Name,
-                                ActivityKind.Server))
+                                       JobHostingActivitySource.Name,
+                                       ActivityKind.Server))
                             {
                                 if (activity == null)
                                 {
@@ -115,13 +114,14 @@ namespace Microsoft.Health.JobManagement
                             await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                         }
                     }
-                },
-                    cancellationTokenSource.Token));
+                };
+
+                workers.Add(_taskFactory.StartNew(jobAction).Unwrap());
             }
 
             try
             {
-                await Task.WhenAny(workers.ToArray()); // If any worker crashes exit.
+                await Task.WhenAny(workers); // If any worker crashes exit.
             }
             catch (Exception ex)
             {

@@ -670,12 +670,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     var prevPage = page;
 
-                    await _taskFactory.StartNew(
-                        async () =>
-                    {
-                        page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
-                    },
-                        linkedTokenSource.Token);
+                    Func<Task> pageFunc = async () => page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    await _taskFactory.StartNew(pageFunc, linkedTokenSource.Token).Unwrap();
 
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {

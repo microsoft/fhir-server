@@ -142,7 +142,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 List<Task> requestsPerResource = new List<Task>();
                 foreach (ResourceExecutionContext resourceContext in resources)
                 {
-                    requestsPerResource.Add(_factory.StartNew(async () => await handleRequestFunction(resourceContext, requestCancellationToken.Token), requestCancellationToken.Token));
+                    Func<Task> requestFunction = async () => await handleRequestFunction(resourceContext, requestCancellationToken.Token);
+                    requestsPerResource.Add(_factory.StartNew(requestFunction, requestCancellationToken.Token).Unwrap());
                 }
 
                 try
