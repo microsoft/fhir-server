@@ -11,6 +11,7 @@ using System.Net;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -142,8 +143,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 List<Task> requestsPerResource = new List<Task>();
                 foreach (ResourceExecutionContext resourceContext in resources)
                 {
-                    Func<Task> requestFunction = async () => await handleRequestFunction(resourceContext, requestCancellationToken.Token);
-                    requestsPerResource.Add(_factory.StartNew(requestFunction, requestCancellationToken.Token).Unwrap());
+                    Func<Task> requestFunction = () => handleRequestFunction(resourceContext, requestCancellationToken.Token);
+                    requestsPerResource.Add(_factory.StartNew(async () => await requestFunction(), cancellationToken, TaskCreationOptions.AttachedToParent, _factory.Scheduler).Unwrap());
                 }
 
                 try

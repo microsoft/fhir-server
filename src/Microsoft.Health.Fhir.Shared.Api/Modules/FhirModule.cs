@@ -167,7 +167,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add(c => new LimitedConcurrencyLevelTaskScheduler(Environment.ProcessorCount * 10, c.GetRequiredService<ILogger<LimitedConcurrencyLevelTaskScheduler>>()))
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsService<TaskScheduler>();
 
             services.Add(c => new TaskFactory(c.GetRequiredService<LimitedConcurrencyLevelTaskScheduler>()))
                 .Singleton()
