@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
-            const int GCCollectTrigger = 150;
-
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
@@ -84,11 +82,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
-                    if (resourceExecutionContext.Index > 0 && resourceExecutionContext.Index % GCCollectTrigger == 0)
-                    {
-                        RunGarbageCollection();
-                    }
-
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                     // Creating new instances per record in the bundle, and making their access thread-safe.
@@ -117,6 +110,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             resourceIdProvider,
                             fhirJsonParser,
                             _logger,
+                            resourceExecutionContext.Resource,
                             ct);
 
                         statistics.RegisterNewEntry(resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, entry.Response.Status, watch.Elapsed);
@@ -152,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
 
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {
@@ -256,6 +250,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceIdProvider resourceIdProvider,
             FhirJsonParser fhirJsonParser,
             ILogger<BundleHandler> logger,
+            Resource subRequestResource,
             CancellationToken cancellationToken)
         {
             EntryComponent entryComponent;
@@ -287,6 +282,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         auditEventTypeMapping,
                         requestContext,
                         bundleHttpContextAccessor,
+                        subRequestResource,
                         logger);
 
                     // Attempt 1.
@@ -367,12 +363,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private struct ResourceExecutionContext
         {
-            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId)
+            public ResourceExecutionContext(HTTPVerb httpVerb, RouteContext context, int index, string persistedId, Resource resource = null)
             {
                 HttpVerb = httpVerb;
                 Context = context;
                 Index = index;
                 PersistedId = persistedId;
+                Resource = resource;
             }
 
             public HTTPVerb HttpVerb { get; private set; }
@@ -382,6 +379,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             public int Index { get; private set; }
 
             public string PersistedId { get; private set; }
+
+            public Resource Resource { get; }
         }
     }
 }

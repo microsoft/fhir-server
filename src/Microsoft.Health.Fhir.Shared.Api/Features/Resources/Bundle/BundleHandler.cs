@@ -52,6 +52,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 using SharpCompress.Common;
 using static Hl7.Fhir.Model.Bundle;
@@ -194,6 +195,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.BatchResponse,
+                        Id = _originalFhirRequestContext.CorrelationId,
                     };
 
                     await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
@@ -214,6 +216,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     var responseBundle = new Hl7.Fhir.Model.Bundle
                     {
                         Type = BundleType.TransactionResponse,
+                        Id = _originalFhirRequestContext.CorrelationId,
                     };
 
                     var response = await ExecuteTransactionForAllRequestsAsync(responseBundle, processingLogic, cancellationToken);
@@ -483,6 +486,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private async Task GenerateRequest(EntryComponent entry, int order, CancellationToken cancellationToken)
         {
             string persistedId = default;
+            Resource subResource = null;
             HttpContext httpContext = new DefaultHttpContext { RequestServices = _requestServices };
 
             var requestUrl = entry.Request?.Url;
@@ -535,9 +539,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (entry.Resource != null)
                 {
-                    var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
-                    memoryStream.Seek(0, SeekOrigin.Begin);
-                    httpContext.Request.Body = memoryStream;
+                    // Passed through FHIR Context to avoid serialization
+                    subResource = entry.Resource;
                 }
             }
 
@@ -576,7 +579,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 RouteData = routeContext.RouteData,
             };
 
-            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId));
+            _requests[requestMethod].Add(new ResourceExecutionContext(requestMethod, routeContext, order, persistedId, subResource));
         }
 
         private static void AddHeaderIfNeeded(string headerKey, string headerValue, HttpContext httpContext)
@@ -589,15 +592,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private async Task<EntryComponent> ExecuteRequestsWithSingleHttpVerbInSequenceAsync(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent, BundleHandlerStatistics statistics, CancellationToken cancellationToken)
         {
-            const int GCCollectTrigger = 150;
-
             foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
-                if (resourceContext.Index % GCCollectTrigger == 0 && resourceContext.Index > 0)
-                {
-                    RunGarbageCollection();
-                }
-
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
@@ -703,32 +699,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
 
-            var entryComponent = new EntryComponent
-            {
-                Response = new ResponseComponent
-                {
-                    Status = httpContext.Response.StatusCode.ToString(),
-                    Location = responseHeaders.Location?.OriginalString,
-                    Etag = responseHeaders.ETag?.ToString(),
-                    LastModified = responseHeaders.LastModified,
-                },
-            };
-
             if (!string.IsNullOrWhiteSpace(bodyContent))
             {
-                var entryComponentResource = fhirJsonParser.Parse<Resource>(bodyContent);
+                var rawResource = new RawResource(bodyContent, FhirResourceFormat.Json, true);
+                ResourceTypeDetector.TryPeek(bodyContent, out var resourceType);
 
-                if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
+                var entryComponent = new RawBundleEntryComponent(new RawResourceElement(rawResource, resourceType))
                 {
-                    entryComponent.Response.Outcome = entryComponentResource;
-                }
-                else
-                {
-                    entryComponent.Resource = entryComponentResource;
-                }
+                    Response = new ResponseComponent
+                    {
+                        Status = httpContext.Response.StatusCode.ToString(),
+                        Location = responseHeaders.Location?.OriginalString,
+                        Etag = responseHeaders.ETag?.ToString(),
+                        LastModified = responseHeaders.LastModified,
+                    },
+                };
+
+                return entryComponent;
             }
             else
             {
+                var entryComponent = new EntryComponent
+                {
+                    Response = new ResponseComponent
+                    {
+                        Status = httpContext.Response.StatusCode.ToString(),
+                        Location = responseHeaders.Location?.OriginalString,
+                        Etag = responseHeaders.ETag?.ToString(),
+                        LastModified = responseHeaders.LastModified,
+                    },
+                };
+
                 if (httpContext.Response.StatusCode == (int)HttpStatusCode.Forbidden)
                 {
                     entryComponent.Response.Outcome = CreateOperationOutcome(
@@ -736,9 +737,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         OperationOutcome.IssueType.Forbidden,
                         Api.Resources.Forbidden);
                 }
-            }
 
-            return entryComponent;
+                return entryComponent;
+            }
         }
 
         /// <summary>
@@ -756,6 +757,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 auditEventTypeMapping: _auditEventTypeMapping,
                 requestContextAccessor: _fhirRequestContextAccessor,
                 bundleHttpContextAccessor: _bundleHttpContextAccessor,
+                subResource: resourceExecutionContext.Resource,
                 logger: _logger);
         }
 
@@ -776,6 +778,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
+            Resource subResource,
             ILogger<BundleHandler> logger)
         {
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
@@ -798,6 +801,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 ExecutingBatchOrTransaction = true,
                 AccessControlContext = requestContext.AccessControlContext.Clone() as AccessControlContext,
             };
+
+            if (subResource != null)
+            {
+                newFhirRequestContext.Properties[SubRequest.SubRequestResource] = subResource;
+            }
 
             // Copy allowed resource actions to the new FHIR Request Context.
             foreach (var scopeRestriction in requestContext.AccessControlContext.AllowedResourceActions)
@@ -870,25 +878,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         break;
                 }
-            }
-        }
-
-        private void RunGarbageCollection()
-        {
-            try
-            {
-                _logger.LogInformation("{Origin} - MemoryWatch - Memory used before collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
-
-                // Collecting memory up to Generation 2 using default collection mode.
-                // No blocking, allowing a collection to be performed as soon as possible, if another collection is not in progress.
-                // SOH compacting is set to true.
-                GC.Collect(GC.MaxGeneration, GCCollectionMode.Default, blocking: false, compacting: true);
-
-                _logger.LogInformation("{Origin} - MemoryWatch - Memory used after full collection: {MemoryInUse:N0}", nameof(BundleHandler), GC.GetTotalMemory(forceFullCollection: false));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "{Origin} - MemoryWatch - Error running garbage collection.", nameof(BundleHandler));
             }
         }
 
