@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // 3 versions, 2 history 1 delete
             Observation firstTestResource = (await _client.CreateAsync(AddNarative(Samples.GetDefaultObservation().ToPoco<Observation>(), "Third Resource Observation") as Observation)).Resource;
-            firstTestResource = await _client.UpdateAsync(AddNarative(firstTestResource, firstTestResource.Text.Div) as Observation);
+            await _client.UpdateAsync(AddNarative(firstTestResource, firstTestResource.Text.Div) as Observation);
             await _client.DeleteAsync(firstTestResource);
 
             // 3 base exta resources
@@ -110,14 +110,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // 3 more versions on the extras
             secondTestResource.BirthDate = "2022-12-02";
             secondTestResource = await _client.UpdateAsync(AddNarative(secondTestResource, secondTestResource.Text.Div) as Patient);
-            var deleteReponse = await _client.DeleteAsync(secondTestResource);
-            thirdTestResource = await _client.UpdateAsync(AddNarative(thirdTestResource, thirdTestResource.Text.Div) as Observation);
+            await _client.DeleteAsync(secondTestResource);
+            await _client.UpdateAsync(AddNarative(thirdTestResource, thirdTestResource.Text.Div) as Observation);
 
             // Calculate the min/max from db values.
             List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
-            var allExpectedResources = (await _client.SearchAsync($"_history")).Resource.Entry.Where(r => expectedResourceIds.Contains(r.Resource.Id));
-            var sinceTime = allExpectedResources.Min(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
-            var beforeTime = allExpectedResources.Max(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
+            var allTestResources = (await _client.SearchAsync($"_history")).Resource.Entry.Where(r => expectedResourceIds.Contains(r.Resource.Id));
+            var sinceTime = allTestResources.Min(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
+            var beforeTime = allTestResources.Max(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
 
             // Run test queries
             var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
