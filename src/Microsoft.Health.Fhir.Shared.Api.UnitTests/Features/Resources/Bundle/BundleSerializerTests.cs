@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
@@ -87,6 +88,29 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             await Validate(rawBundle, bundle);
         }
 
+        [Fact]
+        public async Task GivenBundleWithOperationOutcome_WhenSerialized_MatchesSerializationByBuiltInSerializer()
+        {
+            var patientResource = Samples.GetDefaultPatient();
+            var oo = new OperationOutcome
+            {
+                Id = "test",
+                Issue =
+                {
+                    new OperationOutcome.IssueComponent
+                    {
+                        Code = OperationOutcome.IssueType.Informational,
+                        Severity = OperationOutcome.IssueSeverity.Information,
+                        Diagnostics = "test",
+                    },
+                },
+            };
+
+            var (rawBundle, bundle) = CreateBundle(patientResource, oo.ToResourceElement());
+
+            await Validate(rawBundle, bundle);
+        }
+
         private async Task Validate(Hl7.Fhir.Model.Bundle rawBundle, Hl7.Fhir.Model.Bundle bundle)
         {
             string serialized;
@@ -135,12 +159,24 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
 
                 var requestComponent = new RequestComponent { Method = HTTPVerb.POST, Url = "patient/" };
                 var responseComponent = new ResponseComponent { Etag = "W/\"1\"", LastModified = DateTimeOffset.UtcNow, Status = "201 Created" };
-                rawBundle.Entry.Add(new RawBundleEntryComponent(wrapper)
+
+                rawBundle.Entry.Add(
+                    new RawBundleEntryComponent(wrapper)
+                    {
+                        Request = requestComponent,
+                        Response = responseComponent,
+                    });
+
+                var newBundleEntry = new EntryComponent { Request = requestComponent, Response = responseComponent };
+                bundle.Entry.Add(newBundleEntry);
+                if (resource.InstanceType != KnownResourceTypes.OperationOutcome)
                 {
-                    Request = requestComponent,
-                    Response = responseComponent,
-                });
-                bundle.Entry.Add(new EntryComponent { Resource = poco, Request = requestComponent, Response = responseComponent });
+                    newBundleEntry.Resource = poco;
+                }
+                else
+                {
+                    newBundleEntry.Response.Outcome = poco;
+                }
             }
 
             return (rawBundle, bundle);

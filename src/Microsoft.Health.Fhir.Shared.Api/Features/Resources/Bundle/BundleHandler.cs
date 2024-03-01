@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
+        private readonly ResourceDeserializer _resourceDeserializer;
         private const BundleProcessingLogic DefaultBundleProcessingLogic = BundleProcessingLogic.Sequential;
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
@@ -113,6 +114,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
             FhirJsonParser fhirJsonParser,
+            ResourceDeserializer resourceDeserializer,
             ITransactionHandler transactionHandler,
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             IBundleOrchestrator bundleOrchestrator,
@@ -131,6 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _fhirRequestContextAccessor = EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             _fhirJsonSerializer = EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             _fhirJsonParser = EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            _resourceDeserializer = EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             _transactionHandler = EnsureArg.IsNotNull(transactionHandler, nameof(transactionHandler));
             _bundleHttpContextAccessor = EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
@@ -386,7 +389,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (_bundleProcessingTypeIsInvalid)
                 {
-                    var entryComponent = new EntryComponent
+                    var entryComponent = new RawBundleEntryComponent
                     {
                         Response = new ResponseComponent
                         {
@@ -434,11 +437,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (processingLogic == BundleProcessingLogic.Sequential)
                 {
-                    using (var transaction = _transactionHandler.BeginTransaction())
-                    {
-                        await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
-                        transaction.Complete();
-                    }
+                    using ITransactionScope transaction = _transactionHandler.BeginTransaction();
+                    await ProcessAllResourcesInABundleAsRequestsAsync(responseBundle, processingLogic, cancellationToken);
+                    transaction.Complete();
                 }
                 else
                 {
@@ -658,7 +659,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 }
                 else
                 {
-                    entryComponent = new EntryComponent
+                    entryComponent = new RawBundleEntryComponent
                     {
                         Response = new ResponseComponent
                         {
@@ -673,7 +674,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 statistics.RegisterNewEntry(httpVerb, resourceContext.Index, entryComponent.Response.Status, watch.Elapsed);
 
-                if (_bundleType.Equals(BundleType.Transaction) && entryComponent.Response.Outcome != null)
+                if (_bundleType.Equals(BundleType.Transaction)
+                    && (entryComponent is RawBundleEntryComponent { ResourceElement.InstanceType: KnownResourceTypes.OperationOutcome }
+                        || entryComponent.Response.Outcome != null))
                 {
                     var errorMessage = string.Format(Api.Resources.TransactionFailed, resourceContext.Context.HttpContext.Request.Method, resourceContext.Context.HttpContext.Request.Path);
 
@@ -682,7 +685,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         httpStatusCode = HttpStatusCode.BadRequest;
                     }
 
-                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, (OperationOutcome)entryComponent.Response.Outcome);
+                    OperationOutcome outcome = entryComponent.Response.Outcome as OperationOutcome
+                                               ?? ((RawBundleEntryComponent)entryComponent).ResourceElement.ToPoco<OperationOutcome>(_resourceDeserializer);
+
+                    TransactionExceptionHandler.ThrowTransactionException(errorMessage, httpStatusCode, outcome);
                 }
 
                 responseBundle.Entry[resourceContext.Index] = entryComponent;
@@ -691,7 +697,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private static EntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
+        private static RawBundleEntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
             using var reader = new StreamReader(httpContext.Response.Body);
@@ -719,7 +725,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             else
             {
-                var entryComponent = new EntryComponent
+                var entryComponent = new RawBundleEntryComponent
                 {
                     Response = new ResponseComponent
                     {
@@ -887,7 +893,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 Issue = new List<OperationOutcome.IssueComponent>
                 {
-                    new OperationOutcome.IssueComponent
+                    new()
                     {
                         Severity = issueSeverity,
                         Code = issueType,

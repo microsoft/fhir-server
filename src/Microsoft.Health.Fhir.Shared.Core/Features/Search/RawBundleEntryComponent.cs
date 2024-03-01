@@ -29,6 +29,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
             ResourceElement = rawResourceElement;
         }
 
+        /// <summary>
+        /// A RawBundleEntryComponent with no payload.
+        /// </summary>
+        public RawBundleEntryComponent()
+        {
+        }
+
         public RawResourceElement ResourceElement { get; set; }
 
         public override IDeepCopyable DeepCopy()

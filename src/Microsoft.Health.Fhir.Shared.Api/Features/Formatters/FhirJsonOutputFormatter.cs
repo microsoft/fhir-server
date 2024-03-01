@@ -94,9 +94,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)
                     {
-                        if (rawBundleEntryComponent is RawBundleEntryComponent)
+                        if (rawBundleEntryComponent is RawBundleEntryComponent { ResourceElement: not null } entry)
                         {
-                            rawBundleEntryComponent.Resource = ((RawBundleEntryComponent)rawBundleEntryComponent).ResourceElement.ToPoco<Resource>(_deserializer);
+                            var poco = entry.ResourceElement.ToPoco<Resource>(_deserializer);
+                            if (poco.TypeName == KnownResourceTypes.OperationOutcome)
+                            {
+                                rawBundleEntryComponent.Response.Outcome = poco;
+                            }
+                            else
+                            {
+                                rawBundleEntryComponent.Resource = poco;
+                            }
+
                             if (hasElements)
                             {
                                 var typeinfo = summaryProvider.Provide(rawBundleEntryComponent.Resource.TypeName);

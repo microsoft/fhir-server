@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             RawResource = rawResource;
             InstanceType = instanceType;
+            Format = rawResource.Format;
         }
 
         public RawResource RawResource { get; protected set; }
