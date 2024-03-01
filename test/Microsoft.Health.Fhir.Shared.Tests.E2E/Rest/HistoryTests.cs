@@ -97,27 +97,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
         {
-            Observation firstTestResource = (await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
-            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
-
             // 3 versions, 2 history 1 delete
-            firstTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
-            await _client.UpdateAsync(firstTestResource);
+            Observation firstTestResource = (await _client.CreateAsync(AddNarative(Samples.GetDefaultObservation().ToPoco<Observation>(), "Third Resource Observation") as Observation)).Resource;
+            firstTestResource = await _client.UpdateAsync(AddNarative(firstTestResource, firstTestResource.Text.Div) as Observation);
             await _client.DeleteAsync(firstTestResource);
 
             // 3 base exta resources
-            Patient secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
-            Observation thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
-            Organization fourthTestResource = (await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
+            Patient secondTestResource = (await _client.CreateAsync(AddNarative(Samples.GetDefaultPatient().ToPoco<Patient>(), "Second Resource Patient") as Patient)).Resource;
+            Observation thirdTestResource = (await _client.CreateAsync(AddNarative(Samples.GetDefaultObservation().ToPoco<Observation>(), "Third Resource Observation") as Observation)).Resource;
+            Organization fourthTestResource = (await _client.CreateAsync(AddNarative(Samples.GetDefaultOrganization().ToPoco<Organization>(), "Fourth Resource Organization") as Organization)).Resource;
 
             // 3 more versions on the extras
             secondTestResource.BirthDate = "2022-12-02";
-            await _client.UpdateAsync(secondTestResource);
-            await _client.DeleteAsync(secondTestResource);
-            thirdTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
-            thirdTestResource = await _client.UpdateAsync(thirdTestResource);
+            secondTestResource = await _client.UpdateAsync(AddNarative(secondTestResource, secondTestResource.Text.Div) as Patient);
+            var deleteReponse = await _client.DeleteAsync(secondTestResource);
+            thirdTestResource = await _client.UpdateAsync(AddNarative(thirdTestResource, thirdTestResource.Text.Div) as Observation);
 
-            var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
+            // Calculate the min/max from db values.
+            List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
+            var allExpectedResources = (await _client.SearchAsync($"_history")).Resource.Entry.Where(r => expectedResourceIds.Contains(r.Resource.Id));
+            var sinceTime = allExpectedResources.Min(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
+            var beforeTime = allExpectedResources.Max(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
 
             // Run test queries
             var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
@@ -129,33 +129,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Find all resources in window - needed to filter out stragglers from other tests
             var allResources = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}");
-            List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
             var stragglerResources = allResources.Resource.Entry.Where(r => !expectedResourceIds.Contains(r.Resource.Id));
 
-            var expectedAllCount = 9 + stragglerResources.Count();
-
             // 9 versions total for all resources.
+            var expectedAllCount = 9 + stragglerResources.Count();
             if (allSummaryCountResult.Resource.Total != expectedAllCount || allSummaryCountZero.Resource.Total != expectedAllCount)
             {
-                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to {expectedAllCount}. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
                             $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
                             $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
             }
 
-            var expectedObservatinCount = 5 + stragglerResources.Count();
+            // 5 versions total for Observations
+            var expectedObservationCount = 5 + stragglerResources.Count(r => r.Resource.TypeName == "Observation");
 
-            if (allObservationSummaryCountResult.Resource.Total != expectedObservatinCount || allObservationSummaryCountZero.Resource.Total != expectedObservatinCount)
+            if (allObservationSummaryCountResult.Resource.Total != expectedObservationCount || allObservationSummaryCountZero.Resource.Total != expectedObservationCount)
             {
-                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to {expectedObservationCount}. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
                             $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
-                            $"straggler resources {{string.Join(',', stragglerResources.Select(r => r.Resource.Id))}}.");
+                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
             }
 
+            // 3 versions across single observation (create, update, delete).
             var expectedSpecificObservationCount = 3 + stragglerResources.Count();
 
-            // 3 versions across single observation (create, update, delete).
-            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountResult.Resource.Total);
-            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountZero.Resource.Total);
+            if (observationSummaryCountResult.Resource.Total != expectedSpecificObservationCount || observationSummaryCountZero.Resource.Total != expectedSpecificObservationCount)
+            {
+                Assert.Fail($"observationSummaryCountResult or observationSummaryCountZero not equal to {expectedSpecificObservationCount}. observationSummaryCountResult {observationSummaryCountResult.Resource.Total}. " +
+                            $"observationSummaryCountZero {observationSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
+                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
+            }
 
             // Cleanup
             await _client.DeleteAsync(thirdTestResource);
@@ -172,6 +175,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 }
 
                 return output;
+            }
+
+            // Adding the text to resources is helpful when debugging this test.
+            DomainResource AddNarative(DomainResource input, string prefix)
+            {
+                prefix = prefix.Replace("<div>", string.Empty).Replace("</div>", string.Empty);
+                input.Text = new Narrative($"<div>{prefix}. Modified at {DateTime.UtcNow:o}</div>");
+                return input;
             }
         }
 
