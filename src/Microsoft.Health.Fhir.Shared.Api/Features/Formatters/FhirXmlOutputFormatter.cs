@@ -81,11 +81,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     additionalElements.UnionWith(required.Select(x => x.ElementName));
                 }
             }
-            else if (typeof(Hl7.Fhir.Model.Bundle).IsAssignableFrom(context.ObjectType))
+            else if (context.Object is Hl7.Fhir.Model.Bundle bundle)
             {
                 // Need to set Resource property for resources in entries
-                var bundle = context.Object as Hl7.Fhir.Model.Bundle;
-
                 foreach (var entry in bundle.Entry)
                 {
                     if (entry is RawBundleEntryComponent { ResourceElement: not null } rawResource)
