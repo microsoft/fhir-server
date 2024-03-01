@@ -144,11 +144,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 try
                 {
-                    // The following Task.WaitAll should wait for all requests to finish.
+                    // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
-
                     await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
