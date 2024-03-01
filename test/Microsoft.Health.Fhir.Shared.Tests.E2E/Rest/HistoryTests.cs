@@ -180,7 +180,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Adding the text to resources is helpful when debugging this test.
             DomainResource AddNarative(DomainResource input, string prefix)
             {
-                prefix = prefix.Replace("<div>", string.Empty).Replace("</div>", string.Empty);
+                if (prefix.Contains('>'))
+                {
+                    int startText = prefix.IndexOf('>') + 1;
+                    prefix = prefix.Substring(startText);
+                    int endText = prefix.IndexOf('<');
+                    prefix = prefix.Substring(0, endText);
+                }
+
                 input.Text = new Narrative($"<div>{prefix}. Modified at {DateTime.UtcNow:o}</div>");
                 return input;
             }
