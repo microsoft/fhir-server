@@ -67,8 +67,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
             {
-                resource.VersionId = versionId;
-                resource.Meta.LastUpdated = lastModified;
+                if (!string.IsNullOrEmpty(versionId))
+                {
+                    resource.VersionId = versionId;
+                }
+
+                if (lastModified != DateTimeOffset.MinValue)
+                {
+                    resource.Meta.LastUpdated = lastModified;
+                }
 
                 return resource.ToResourceElement();
             }
@@ -88,7 +95,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Xml, (str, version, lastModified) =>
                         {
                             var resource = xmlParser.Parse<Resource>(str);
-
                             return SetMetadata(resource, version, lastModified);
                         }
                     },

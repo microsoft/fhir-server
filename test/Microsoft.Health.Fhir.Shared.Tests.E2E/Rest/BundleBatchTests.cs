@@ -352,7 +352,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (profileValidation)
             {
-                var bundleOptions = new FhirBundleOptions()
+                var bundleOptions = new FhirBundleOptions
                 {
                     ProfileValidation = profileValidation,
                     BundleProcessingLogic = processingLogic,

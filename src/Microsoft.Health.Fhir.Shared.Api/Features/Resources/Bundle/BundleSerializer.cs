@@ -118,20 +118,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         await writer.FlushAsync();
 
-                        if (!string.Equals(rawBundleEntry.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
+                        if (rawBundleEntry.ResourceElement != null &&
+                            !string.Equals(rawBundleEntry.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
                         {
                             await streamWriter.WriteAsync("\"resource\":");
                             await streamWriter.FlushAsync();
 
                             await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
-                        }
 
-                        if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
-                        {
-                            // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
-                            // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
-                            await streamWriter.WriteAsync(",");
-                            await streamWriter.FlushAsync();
+                            if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
+                            {
+                                // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
+                                // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
+                                await streamWriter.WriteAsync(",");
+                                await streamWriter.FlushAsync();
+                            }
                         }
 
                         if (rawBundleEntry?.Search?.Mode != null)
@@ -156,17 +157,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             writer.WriteStartObject("response");
 
                             writer.WriteString("status", rawBundleEntry.Response.Status);
-                            writer.WriteString("etag", rawBundleEntry.Response.Etag);
-                            writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
 
-                            if (string.Equals(rawBundleEntry.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
+                            if (!string.IsNullOrEmpty(rawBundleEntry.Response.Etag))
+                            {
+                                writer.WriteString("etag", rawBundleEntry.Response.Etag);
+                            }
+
+                            if (rawBundleEntry.Response.LastModified.HasValue)
+                            {
+                                writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
+                            }
+
+                            if (string.Equals(rawBundleEntry.ResourceElement?.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal))
                             {
                                 await writer.FlushAsync();
 
-                                await streamWriter.WriteAsync("\"outcome\":");
+                                await streamWriter.WriteAsync(",\"outcome\":");
                                 await streamWriter.FlushAsync();
 
                                 await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
+
+                                await writer.FlushAsync();
+                            }
+                            else if (rawBundleEntry.Response.Outcome != null)
+                            {
+                                await writer.FlushAsync();
+
+                                await streamWriter.WriteAsync(",\"outcome\":");
+                                await streamWriter.WriteAsync(await rawBundleEntry.Response.Outcome.ToJsonAsync());
 
                                 await writer.FlushAsync();
                             }
