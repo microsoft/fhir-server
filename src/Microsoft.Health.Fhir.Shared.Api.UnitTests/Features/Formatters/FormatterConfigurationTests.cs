@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var serializer = new FhirJsonSerializer();
 
             _htmlOutputFormatter = new HtmlOutputFormatter(serializer, NullLogger<HtmlOutputFormatter>.Instance, new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance), ArrayPool<char>.Shared);
-            _fhirJsonOutputFormatter = new FhirJsonOutputFormatter(serializer, Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, new BundleSerializer(), ModelInfoProvider.Instance);
+            _fhirJsonOutputFormatter = new FhirJsonOutputFormatter(serializer, Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, ModelInfoProvider.Instance);
 
             _configuration = new FormatterConfiguration(
                 Options.Create(_featureConfiguration),

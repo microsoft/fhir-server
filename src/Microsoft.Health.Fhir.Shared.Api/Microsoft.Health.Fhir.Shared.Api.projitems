@@ -44,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleProcessingLogic.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleRouter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleWriter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ConditionalQueryProcessingLogic.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\IProvenanceHeaderState.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ProfileResourcesBehaviour.cs" />

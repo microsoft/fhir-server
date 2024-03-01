@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
@@ -38,7 +37,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
     public class BundleSerializerTests
     {
         private readonly ResourceWrapperFactory _wrapperFactory;
-        private readonly BundleSerializer _bundleSerializer = new BundleSerializer();
 
         public BundleSerializerTests()
         {
@@ -118,7 +116,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             using (var ms = new MemoryStream())
                using (var sr = new StreamReader(ms))
             {
-                await _bundleSerializer.Serialize(rawBundle, ms);
+                await BundleSerializer.Serialize(rawBundle, ms);
 
                 ms.Seek(0, SeekOrigin.Begin);
                 serialized = await sr.ReadToEndAsync();
