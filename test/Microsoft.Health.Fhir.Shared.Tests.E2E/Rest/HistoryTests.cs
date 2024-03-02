@@ -180,7 +180,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Adding the text to resources is helpful when debugging this test.
             DomainResource AddNarative(DomainResource input, string prefix)
             {
-                if (prefix.Contains('>'))
+                // Strip single div if already there.
+                if (prefix.Count(c => c == '>') == 2)
                 {
                     int startText = prefix.IndexOf('>') + 1;
                     prefix = prefix.Substring(startText);
