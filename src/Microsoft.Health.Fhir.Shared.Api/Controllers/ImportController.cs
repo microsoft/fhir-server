@@ -102,58 +102,49 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpPost]
-        [Route(KnownRoutes.ImportBundle)]
+        [Route(KnownRoutes.Import)]
+        [Consumes("application/fhir+ndjson")]
         [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
-            const int maxBytes = 50 * 1024 * 1024; // I doubt that we need to make it configurable
-            if (Request.ContentLength > maxBytes)
-            {
-                throw new RequestNotValidException($"Content size > {maxBytes} Bytes");
-            }
+            return await ImportBundleInternal(Request, null, _resourceWrapperFactory, _mediator, _logger, HttpContext.RequestAborted);
+        }
 
+        internal static async Task<IActionResult> ImportBundleInternal(HttpRequest request, Resource bundle, IResourceWrapperFactory resourceWrapperFactory, IMediator mediator, ILogger logger, CancellationToken cancel)
+        {
             var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
             var resources = new List<ImportResource>();
             var keys = new HashSet<ResourceKey>();
             var fhirParser = new FhirJsonParser();
-            var importParser = new ImportResourceParser(fhirParser, _resourceWrapperFactory);
-            using var reader = new StreamReader(Request.Body, Encoding.UTF8);
+            var importParser = new ImportResourceParser(fhirParser, resourceWrapperFactory);
+            using var reader = new StreamReader(request.Body, Encoding.UTF8);
             var index = 0L;
-            if (Request.ContentType != null && Request.ContentType.Contains("application/fhir+ndjson", StringComparison.OrdinalIgnoreCase))
+            if (bundle == null)
             {
+#pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
                 var line = await reader.ReadLineAsync();
                 while (line != null)
                 {
                     ParseAndAddToResults(line);
                     line = await reader.ReadLineAsync();
                 }
+#pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
             }
             else
             {
-                var str = await reader.ReadToEndAsync();
-                Bundle bundle;
-                try
-                {
-                    bundle = await fhirParser.ParseAsync<Bundle>(str);
-                }
-                catch (FormatException)
-                {
-                    throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
-                }
-
-                foreach (var entry in bundle.Entry) // ignore all bundle components except Resource
+                foreach (var entry in bundle.ToResourceElement().ToPoco<Bundle>().Entry) // ignore all bundle components except Resource
                 {
                     ParseAndAddToResults(entry.Resource);
                 }
             }
 
-            var request = new ImportBundleRequest(resources);
-            var response = await _mediator.ImportBundleAsync(request.Resources, HttpContext.RequestAborted);
+            var importRequest = new ImportBundleRequest(resources);
+            var response = await mediator.ImportBundleAsync(importRequest.Resources, cancel);
             var result = new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
             result.Headers["LoadedResources"] = response.LoadedResources.ToString();
-            await _mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
-            _logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
+            await mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
+            logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
             return result;
 
             void ParseAndAddToResults(object input)

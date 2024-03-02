@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -78,13 +79,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
+        /// <param name="resourceWrapperFactory">The resource Wrapper Factory.</param>
         public FhirController(
             IMediator mediator,
             ILogger<FhirController> logger,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -98,6 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
+            _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -656,6 +660,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.BundlePost)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
+            if (bundle.Meta?.Profile != null && bundle.Meta.Profile.Contains("ImportBundle"))
+            {
+                return await ImportController.ImportBundleInternal(Request, bundle, _resourceWrapperFactory, _mediator, _logger, HttpContext.RequestAborted);
+            }
+
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
