@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpPost]
         [Route(KnownRoutes.Import)]
-        [Consumes("application/fhir+ndjson")]
+        [Consumes(ImportRequestExtensions.DefaultInputFormat)]
         [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
