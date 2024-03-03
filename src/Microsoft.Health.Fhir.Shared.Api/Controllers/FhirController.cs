@@ -660,7 +660,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.BundlePost)]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
-            if (bundle.Meta?.Profile != null && bundle.Meta.Profile.Contains("ImportBundle"))
+            if (bundle.HasImportBundleProfile())
             {
                 return await ImportController.ImportBundleInternal(Request, bundle, _resourceWrapperFactory, _mediator, _logger, HttpContext.RequestAborted);
             }

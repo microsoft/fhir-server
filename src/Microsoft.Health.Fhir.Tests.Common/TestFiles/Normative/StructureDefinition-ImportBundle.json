@@ -1,0 +1,47 @@
+{
+    "resourceType": "StructureDefinition",
+    "url": "http://azurehealthcareapis.com/data-extensions/import-bundle",
+    "name": "ImportBundle",
+    "status": "draft",
+    "description": "A restricted Bundle definition that enables fast import processing.",
+    "fhirVersion": "4.0.1",
+    "kind": "resource",
+    "abstract": false,
+    "type": "Bundle",
+    "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Bundle",
+    "derivation": "constraint",
+    "differential": {
+        "element": [
+            {
+                "id": "Bundle.type",
+                "path": "Bundle.type",
+                "fixedCode": "transaction"
+            },
+            {
+                "id": "Bundle.entry.request.method",
+                "path": "Bundle.entry.request.method",
+                "fixedCode": "PUT"
+            },
+            {
+                "id": "Bundle.entry.request.ifNoneMatch",
+                "path": "Bundle.entry.request.ifNoneMatch",
+                "max": "0"
+            },
+            {
+                "id": "Bundle.entry.request.ifModifiedSince",
+                "path": "Bundle.entry.request.ifModifiedSince",
+                "max": "0"
+            },
+            {
+                "id": "Bundle.entry.request.ifMatch",
+                "path": "Bundle.entry.request.ifMatch",
+                "max": "0"
+            },
+            {
+                "id": "Bundle.entry.request.ifNoneExist",
+                "path": "Bundle.entry.request.ifNoneExist",
+                "max": "0"
+            }
+        ]
+    }
+}

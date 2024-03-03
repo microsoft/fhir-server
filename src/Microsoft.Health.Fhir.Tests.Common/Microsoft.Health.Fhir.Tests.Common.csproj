@@ -65,6 +65,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\sql_8623_script.sql" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-ImportBundle.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowChargeItem.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowPatient.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowRiskAssessment.json" />

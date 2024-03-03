@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         internal const string AzureSoftDeletedExtensionUrl = "http://azurehealthcareapis.com/data-extensions/deleted-state";
 
+        public const string ImportBundleProfileExtensionUrl = "http://azurehealthcareapis.com/data-extensions/import-bundle";
+
         public const string BundleEntries = "Resource.entry.resource";
 
         public const string BundleNextLink = "Resource.link.where(relation = 'next').url";

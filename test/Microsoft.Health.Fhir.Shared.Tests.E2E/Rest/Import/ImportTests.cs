@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Replace("Patient", "InvalidPatient"); // invalid resource type
-            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Replace("##PatientID##", string.Empty); // invalid resource id
-            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var error = await response.Content.ReadAsStringAsync();
             Assert.True(error.Contains("Resource id is empty at index=0", StringComparison.OrdinalIgnoreCase));
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Substring(70); // invalid json
-            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
+            var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var error = await response.Content.ReadAsStringAsync();
             if (isNdJson)
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private async Task Import(IEnumerable<string> ndJsons, bool isNdJson)
         {
-            var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
+            var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsImportBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
             var str = await response.Content.ReadAsStringAsync();
             Assert.True(response.IsSuccessStatusCode);
             Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
@@ -225,10 +225,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return builder.ToString();
         }
 
-        private static string DressAsBundle(IEnumerable<string> entries)
+        private static string DressAsImportBundle(IEnumerable<string> entries)
         {
             var builder = new StringBuilder();
-            builder.Append(@"{""resourceType"":""Bundle"",""type"":""transaction"",""meta"":{""profile"":[""ImportBundle""]},""entry"":[");
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""transaction"",""meta"":{""profile"":[""http://azurehealthcareapis.com/data-extensions/import-bundle""]},""entry"":[");
             var first = true;
             foreach (var entry in entries)
             {
