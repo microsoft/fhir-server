@@ -177,7 +177,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private async Task Import(IEnumerable<string> ndJsons, bool isNdJson)
         {
             var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsImportBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
-            var str = await response.Content.ReadAsStringAsync();
             Assert.True(response.IsSuccessStatusCode);
             Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
         }
