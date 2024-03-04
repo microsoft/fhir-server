@@ -14,6 +14,6 @@ Properties in Telemetry section in appsettings.json
 2. When the instrumentation key and connection string are provided in appsettings.json for ApplicationInsights provider, the instrumentation key will be used. 
 
 Next Steps: OpenTelemetry provider is still experimental-mode, not recommended for production use. 
-To use OTEL, set the provider value to “OpenTelemetry” in appsettings.json. Incase the connection string is used for OpenTelemetry provider. The instrumentation key will be ignored. 
+To use OTEL, set the provider value to “OpenTelemetry” in appsettings.json. Incase the connection string is used for OpenTelemetry provider, the instrumentation key will be ignored. 
 
  
