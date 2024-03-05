@@ -61,14 +61,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
-            ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
+            ResourceElement SetMetadata(Resource resource, bool isMetaSet, string versionId, DateTimeOffset? lastModified)
             {
-                if (!string.IsNullOrEmpty(versionId))
+                if (!isMetaSet)
                 {
                     resource.VersionId = versionId;
                 }
 
-                if (lastModified != DateTimeOffset.MinValue)
+                if (lastModified.HasValue && lastModified != DateTimeOffset.MinValue)
                 {
                     resource.Meta.LastUpdated = lastModified;
                 }
@@ -76,22 +76,32 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 return resource.ToResourceElement();
             }
 
-            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>>(_ =>
+            services.AddSingleton<IReadOnlyDictionary<FhirResourceFormat, DeserializeFromString>>(_ =>
             {
-                return new Dictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>>
+                return new Dictionary<FhirResourceFormat, DeserializeFromString>
                 {
                     {
-                        FhirResourceFormat.Json, (str, version, lastModified) =>
+                        FhirResourceFormat.Json, (rawResource, version, lastModified) =>
                         {
-                            var resource = jsonParser.Parse<Resource>(str);
-                            return SetMetadata(resource, version, lastModified);
+                            var resource = jsonParser.Parse<Resource>(rawResource.Data);
+                            if (rawResource.IsMetaSet)
+                            {
+                                return resource.ToResourceElement();
+                            }
+
+                            return SetMetadata(resource, rawResource.IsMetaSet, version, lastModified);
                         }
                     },
                     {
-                        FhirResourceFormat.Xml, (str, version, lastModified) =>
+                        FhirResourceFormat.Xml, (rawResource, version, lastModified) =>
                         {
-                            var resource = xmlParser.Parse<Resource>(str);
-                            return SetMetadata(resource, version, lastModified);
+                            var resource = xmlParser.Parse<Resource>(rawResource.Data);
+                            if (rawResource.IsMetaSet)
+                            {
+                                return resource.ToResourceElement();
+                            }
+
+                            return SetMetadata(resource, rawResource.IsMetaSet, version, lastModified);
                         }
                     },
                 };

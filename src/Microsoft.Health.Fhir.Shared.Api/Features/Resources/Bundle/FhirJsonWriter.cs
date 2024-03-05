@@ -12,7 +12,10 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 
-public class BundleWriter : IDisposable, IAsyncDisposable
+/// <summary>
+/// A low level writer for FHIR JSON.
+/// </summary>
+public class FhirJsonWriter : IDisposable, IAsyncDisposable
 {
     private readonly JsonWriterOptions _writerOptions = new()
     {
@@ -27,36 +30,36 @@ public class BundleWriter : IDisposable, IAsyncDisposable
 
     private readonly Utf8JsonWriter _writer;
 
-    private BundleWriter(Stream outputStream, bool pretty = false)
+    private FhirJsonWriter(Stream outputStream, bool pretty = false)
     {
         _writer = new Utf8JsonWriter(outputStream, pretty ? _indentedWriterOptions : _writerOptions);
     }
 
-    public static BundleWriter Create(Stream outputStream, bool pretty = false)
+    public static FhirJsonWriter Create(Stream outputStream, bool pretty = false)
     {
-        return new BundleWriter(outputStream, pretty);
+        return new FhirJsonWriter(outputStream, pretty);
     }
 
-    public BundleWriter WriteStartObject()
+    public FhirJsonWriter WriteStartObject()
     {
         _writer.WriteStartObject();
         return this;
     }
 
-    public BundleWriter WriteStartObject(string propertyName)
+    public FhirJsonWriter WriteStartObject(string propertyName)
     {
         EnsureArg.IsNotNullOrEmpty(propertyName, nameof(propertyName));
         _writer.WriteStartObject(propertyName);
         return this;
     }
 
-    public BundleWriter WriteEndObject()
+    public FhirJsonWriter WriteEndObject()
     {
         _writer.WriteEndObject();
         return this;
     }
 
-    public BundleWriter WriteObject(string propertyName, Action<BundleWriter> action)
+    public FhirJsonWriter WriteObject(string propertyName, Action<FhirJsonWriter> action)
     {
         EnsureArg.IsNotNullOrEmpty(propertyName, nameof(propertyName));
         _writer.WriteStartObject(propertyName);
@@ -65,7 +68,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter WriteOptionalString(string name, string value)
+    public FhirJsonWriter WriteOptionalString(string name, string value)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
 
@@ -77,7 +80,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter WriteString(string name, string value)
+    public FhirJsonWriter WriteString(string name, string value)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
         EnsureArg.IsNotNullOrEmpty(value, nameof(value));
@@ -85,7 +88,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return WriteOptionalString(name, value);
     }
 
-    public BundleWriter WriteNumber(string name, int value)
+    public FhirJsonWriter WriteNumber(string name, int value)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
 
@@ -94,7 +97,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter WriteOptionalNumber(string name, int? value)
+    public FhirJsonWriter WriteOptionalNumber(string name, int? value)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
 
@@ -106,7 +109,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter WriteRawProperty(string name, ReadOnlySpan<byte> value)
+    public FhirJsonWriter WriteRawProperty(string name, ReadOnlySpan<byte> value)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
 
@@ -116,7 +119,7 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter WriteArray<T>(string name, IEnumerable<T> values, Action<BundleWriter, T> itemWriter)
+    public FhirJsonWriter WriteArray<T>(string name, IEnumerable<T> values, Action<FhirJsonWriter, T> itemWriter)
     {
         EnsureArg.IsNotNullOrEmpty(name, nameof(name));
         EnsureArg.IsNotNull(values, nameof(values));
@@ -136,13 +139,19 @@ public class BundleWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public BundleWriter Condition(Action<BundleWriter> action)
+    public FhirJsonWriter Condition(Action<FhirJsonWriter> action)
     {
         action(this);
         return this;
     }
 
-    public BundleWriter Condition(Func<bool> predicate, Action<BundleWriter> action)
+    /// <summary>
+    /// Conditionally writes the provided action if the predicate is true.
+    /// </summary>
+    /// <param name="predicate">Expression to test.</param>
+    /// <param name="action">Action to run.</param>
+    /// <returns><see cref="FhirJsonWriter" /></returns>
+    public FhirJsonWriter Condition(Func<bool> predicate, Action<FhirJsonWriter> action)
     {
         if (predicate())
         {

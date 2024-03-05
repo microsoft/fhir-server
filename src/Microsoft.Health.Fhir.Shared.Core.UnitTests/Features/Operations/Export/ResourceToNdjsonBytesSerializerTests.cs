@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public ResourceToNdjsonBytesSerializerTests()
         {
             _resourceDeserializaer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
-                (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
+                (FhirResourceFormat.Json, new DeserializeFromString((str, version, lastModified) => _jsonParser.Parse<Resource>(str.Data).ToResourceElement())),
+                (FhirResourceFormat.Xml, new DeserializeFromString((str, version, lastModified) => _xmlParser.Parse<Resource>(str.Data).ToResourceElement())));
 
             _serializer = new ResourceToNdjsonBytesSerializer();
 
