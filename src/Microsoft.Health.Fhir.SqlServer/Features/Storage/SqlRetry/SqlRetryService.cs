@@ -9,12 +9,15 @@ using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Build.Framework;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -69,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private int _commandTimeout;
         private static ReplicaHandler _replicaHandler;
         private static object _initLocker = new object();
+        private static EventLogHandler _eventLogHandler;
 
         /// <summary>
         /// Constructor that initializes this implementation of the ISqlRetryService interface. This class
@@ -109,12 +113,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _customIsExceptionRetriable = sqlRetryServiceDelegateOptions.CustomIsExceptionRetriable;
 
             InitReplicaHandler();
+            InitEventLogHandler();
         }
 
         private SqlRetryService(ISqlConnectionBuilder sqlConnectionBuilder)
         {
             _sqlConnectionBuilder = sqlConnectionBuilder;
             InitReplicaHandler();
+            InitEventLogHandler();
         }
 
         /// <summary>
@@ -371,7 +377,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var dbName = _eventLogHandler.GetEventLogDatabaseName(_sqlConnectionBuilder);
+                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: dbName, cancellationToken: cancellationToken).ConfigureAwait(false);
                 conn.RetryLogicProvider = null;
                 await conn.OpenAsync(cancellationToken);
                 cmd.Connection = conn;
@@ -391,6 +398,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 lock (_initLocker)
                 {
                     _replicaHandler ??= new ReplicaHandler();
+                }
+            }
+        }
+
+        private static void InitEventLogHandler()
+        {
+            if (_eventLogHandler == null) // this is needed, strictly speaking, only if SqlRetryService is not singleton, but it works either way.
+            {
+                lock (_initLocker)
+                {
+                    _eventLogHandler ??= new EventLogHandler();
                 }
             }
         }
@@ -478,6 +496,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (SqlException)
                 {
                     return 0;
+                }
+            }
+        }
+
+        private class EventLogHandler
+        {
+            private bool _initialized = false;
+            private object _databaseAccessLocker = new object();
+            private string _eventLogDatabaseName = null;
+
+            public EventLogHandler()
+            {
+            }
+
+            internal string GetEventLogDatabaseName(ISqlConnectionBuilder sqlConnectionBuilder)
+            {
+                if (!_initialized)
+                {
+                    lock (_databaseAccessLocker)
+                    {
+                        if (!_initialized)
+                        {
+                            _eventLogDatabaseName = GetEventLogDatabaseNameFromDatabase(sqlConnectionBuilder);
+                        }
+                    }
+                }
+
+                return _eventLogDatabaseName;
+            }
+
+            private string GetEventLogDatabaseNameFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
+            {
+                try
+                {
+                    using var conn = sqlConnectionBuilder.GetSqlConnection();
+                    conn.RetryLogicProvider = null;
+                    conn.Open();
+                    using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = 'EventLogDatabaseName'", conn);
+                    var value = cmd.ExecuteScalar();
+                    _initialized = true;
+                    return value == null ? null : (string)value;
+                }
+                catch (SqlException)
+                {
+                    return null;
                 }
             }
         }
