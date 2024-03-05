@@ -54,10 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             });
 
             _resourceDeserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) =>
-                {
-                    return _resourceElement;
-                })));
+                (FhirResourceFormat.Json, (str, version, lastUpdated) => _resourceElement));
 
             _groupMemberExtractor = new GroupMemberExtractor(
                 () => _fhirDataStore.CreateMockScope(),
@@ -159,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var callCount = 0;
             var resourceDeserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) =>
+                (FhirResourceFormat.Json, (str, version, lastUpdated) =>
                 {
                     callCount++;
                     if (callCount == 1)
@@ -170,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         return new ResourceElement(Substitute.For<ITypedElement>(), nestedGroup);
                     }
-                })));
+                }));
 
             _groupMemberExtractor = new GroupMemberExtractor(
                 () => _fhirDataStore.CreateMockScope(),

@@ -55,6 +55,7 @@ using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.IO;
 using SharpCompress.Common;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -513,7 +514,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
-            httpContext.Response.Body = new MemoryStream();
+            httpContext.Response.Body = ResourceDeserializer.MemoryStreamManager.GetStream();
 
             var requestUri = new Uri(_fhirRequestContextAccessor.RequestContext.BaseUri, requestUrl);
             httpContext.Request.Scheme = requestUri.Scheme;
@@ -557,7 +558,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 entry.Resource is Parameters parametersResource)
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(KnownContentTypes.JsonContentType);
-                var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
+                var memoryStream = ResourceDeserializer.MemoryStreamManager.GetStream(await _fhirJsonSerializer.SerializeToBytesAsync(parametersResource));
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }
@@ -569,7 +570,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 entry.Resource is Binary binaryResource && string.Equals(KnownMediaTypeHeaderValues.ApplicationJsonPatch.ToString(), binaryResource.ContentType, StringComparison.OrdinalIgnoreCase))
             {
                 httpContext.Request.Headers[HeaderNames.ContentType] = new StringValues(binaryResource.ContentType);
-                var memoryStream = new MemoryStream(binaryResource.Data);
+                var memoryStream = ResourceDeserializer.MemoryStreamManager.GetStream(binaryResource.Data);
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }

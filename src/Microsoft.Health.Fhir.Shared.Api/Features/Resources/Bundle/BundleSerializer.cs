@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(bundle, nameof(bundle));
             EnsureArg.IsNotNull(outputStream, nameof(outputStream));
 
-            await using BundleWriter writer = BundleWriter.Create(outputStream, pretty)
+            await using FhirJsonWriter writer = FhirJsonWriter.Create(outputStream, pretty)
                 .WriteStartObject()
                 .WriteString("resourceType", bundle.TypeName)
                 .WriteOptionalString("id", bundle.Id)

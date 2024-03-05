@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                using var rawResourceStream = ResourceDeserializer.MemoryStreamManager.GetStream(rawResourceBytes);
                 rawResource = decompress(rawResourceStream);
             }
 

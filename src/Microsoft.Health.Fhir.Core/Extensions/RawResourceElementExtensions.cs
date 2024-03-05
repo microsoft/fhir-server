@@ -8,6 +8,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
             var buffer = SerializeToBytes(rawResource, pretty);
-            using var memory = new MemoryStream(buffer);
+            using MemoryStream memory = ResourceDeserializer.MemoryStreamManager.GetStream(buffer);
             await memory.CopyToAsync(outputStream);
         }
 
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
-            using var output = new MemoryStream();
+            using MemoryStream output = ResourceDeserializer.MemoryStreamManager.GetStream();
 
             if (rawResource.RawResource.IsMetaSet && !pretty)
             {

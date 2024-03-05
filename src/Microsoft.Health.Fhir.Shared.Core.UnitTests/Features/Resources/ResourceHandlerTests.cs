@@ -138,8 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(provider);
 
-            _deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
+            _deserializer = Deserializers.ResourceDeserializer;
         }
 
         [Fact]

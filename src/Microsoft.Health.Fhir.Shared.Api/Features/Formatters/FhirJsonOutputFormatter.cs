@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     {
                         if (rawBundleEntryComponent is RawBundleEntryComponent { ResourceElement: not null } entry)
                         {
-                            var poco = entry.ResourceElement.ToPoco<Resource>(_deserializer);
+                            Resource poco = entry.ResourceElement.ToPoco<Resource>(_deserializer);
                             if (poco.TypeName == KnownResourceTypes.OperationOutcome)
                             {
                                 rawBundleEntryComponent.Response.Outcome = poco;
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
-                    resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
+                    resource = ((RawResourceElement)context.Object).ToPoco<Resource>(_deserializer);
                     if (hasElements)
                     {
                         var typeinfo = summaryProvider.Provide(resource.TypeName);

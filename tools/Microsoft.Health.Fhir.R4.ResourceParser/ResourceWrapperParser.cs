@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.R4.ResourceParser
             var fhirJsonParser = new FhirJsonParser();
             var rawResourceFactory = new RawResourceFactory(fhirJsonSerializer);
             var claimsExtractor = new MockClaimsExtractor();
-            var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => fhirJsonParser.Parse(str).ToResourceElement())));
+            var resourceDeserializer = new ResourceDeserializer((FhirResourceFormat.Json, (str, version, lastUpdated) => fhirJsonParser.Parse(str.Data).ToResourceElement()));
             var resourceWrapperFactory = new ResourceWrapperFactory(rawResourceFactory, fhirRequestContextAccessor, searchIndexer, claimsExtractor, compartmentIndexer, searchParameterDefinitionManager, resourceDeserializer);
 
             var definitionManagerTask = searchParameterDefinitionManager.StartAsync(CancellationToken.None);

@@ -11,6 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence;
 
 internal static class ResourceTypeDetector
 {
+    /// <summary>
+    /// Attempts to find the resource type of the given FHIR JSON.
+    /// </summary>
+    /// <param name="resourceJson">The resource as JSON.</param>
+    /// <param name="resourceType">Found resource type.</param>
+    /// <returns>True if the resourceType was found.</returns>
     public static bool TryPeek(string resourceJson, out string resourceType)
     {
         resourceType = null;
