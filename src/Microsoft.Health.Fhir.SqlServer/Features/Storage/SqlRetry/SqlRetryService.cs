@@ -416,7 +416,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private class ReplicaHandler
         {
             private DateTime? _lastUpdated;
-            private object _databaseAccessLocker = new object();
+            private readonly object _databaseAccessLocker = new object();
             private double _replicaTrafficRatio = 0;
             private long _usageCounter = 0;
 
@@ -503,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private class EventLogHandler
         {
             private bool _initialized = false;
-            private object _databaseAccessLocker = new object();
+            private readonly object _databaseAccessLocker = new object();
             private string _eventLogDatabaseName = null;
 
             public EventLogHandler()
