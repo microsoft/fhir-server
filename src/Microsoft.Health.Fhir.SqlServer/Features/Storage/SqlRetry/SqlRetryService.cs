@@ -8,17 +8,13 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using EnsureThat;
-using Microsoft.Build.Framework;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Storage;
-using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
