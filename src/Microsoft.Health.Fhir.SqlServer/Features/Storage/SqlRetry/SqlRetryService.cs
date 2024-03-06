@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using EnsureThat;
 using Microsoft.Build.Framework;
 using Microsoft.Data.SqlClient;
@@ -377,13 +378,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cmd.Parameters.AddWithValue("@Start", startDate.Value);
                 }
 
-                var dbName = _eventLogHandler.GetEventLogDatabaseName(_sqlConnectionBuilder);
-                using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: dbName, cancellationToken: cancellationToken).ConfigureAwait(false);
-                conn.RetryLogicProvider = null;
-                await conn.OpenAsync(cancellationToken);
-                cmd.Connection = conn;
-
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                var connStr = _eventLogHandler.GetEventLogConnectionString(_sqlConnectionBuilder);
+                if (connStr == null)
+                {
+                    using var conn = await _sqlConnectionBuilder.GetSqlConnectionAsync(initialCatalog: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    conn.RetryLogicProvider = null;
+                    await conn.OpenAsync(cancellationToken);
+                    cmd.Connection = conn;
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+                else
+                {
+                    using var conn = new SqlConnection(connStr);
+                    conn.RetryLogicProvider = null;
+                    await conn.OpenAsync(cancellationToken);
+                    cmd.Connection = conn;
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                }
             }
             catch
             {
@@ -504,13 +515,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             private bool _initialized = false;
             private readonly object _databaseAccessLocker = new object();
-            private string _eventLogDatabaseName = null;
+            private string _eventLogConnectionString = null;
 
             public EventLogHandler()
             {
             }
 
-            internal string GetEventLogDatabaseName(ISqlConnectionBuilder sqlConnectionBuilder)
+            internal string GetEventLogConnectionString(ISqlConnectionBuilder sqlConnectionBuilder)
             {
                 if (!_initialized)
                 {
@@ -518,25 +529,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (!_initialized)
                         {
-                            _eventLogDatabaseName = GetEventLogDatabaseNameFromDatabase(sqlConnectionBuilder);
+                            _eventLogConnectionString = GetEventLogConnectionStringFromDatabase(sqlConnectionBuilder);
                         }
                     }
                 }
 
-                return _eventLogDatabaseName;
+                return _eventLogConnectionString;
             }
 
-            private string GetEventLogDatabaseNameFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
+            private string GetEventLogConnectionStringFromDatabase(ISqlConnectionBuilder sqlConnectionBuilder)
             {
                 try
                 {
                     using var conn = sqlConnectionBuilder.GetSqlConnection();
                     conn.RetryLogicProvider = null;
                     conn.Open();
-                    using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = 'EventLogDatabaseName'", conn);
+                    using var cmd = new SqlCommand("IF object_id('dbo.Parameters') IS NOT NULL SELECT Char FROM dbo.Parameters WHERE Id = 'EventLogConnectionString'", conn);
                     var value = cmd.ExecuteScalar();
+                    var result = value == null ? null : (string)value;
                     _initialized = true;
-                    return value == null ? null : (string)value;
+                    return result;
                 }
                 catch (SqlException)
                 {
