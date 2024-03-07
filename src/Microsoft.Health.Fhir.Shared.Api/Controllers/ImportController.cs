@@ -122,6 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var index = 0L;
             if (bundle == null)
             {
+                //// ReadLineAsync accepts cancel in .NET8 but not in .NET6, hence this pragma. Pass cancel when we stop supporting .NET6.
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
                 var line = await reader.ReadLineAsync();
                 while (line != null)
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     ParseAndAddToResults(line);
                     line = await reader.ReadLineAsync();
                 }
-#pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
+#pragma warning restore CA2016
             }
             else
             {
