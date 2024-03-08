@@ -11,7 +11,8 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
@@ -19,6 +20,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
     /// <summary>
     /// Updates a document collection to the latest index
     /// </summary>
+    ///
+    // TODO: rename to dataplanecollectionupdate and needs to move to initialization project
     public sealed class FhirCollectionSettingsUpdater : ICollectionUpdater
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
@@ -75,6 +78,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 thisVersion.Version = CollectionSettingsVersion;
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
+
+            // TODO:Validate this logic
             else if (thisVersion.Version < CollectionSettingsVersion)
             {
                 await _updateSP.Execute(container.Scripts, cancellationToken);

@@ -21,7 +21,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Export;
@@ -35,6 +37,8 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 using Microsoft.Health.JobManagement;
 using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
@@ -49,6 +53,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
         /// <param name="configureAction">Configure action. Defaulted to null.</param>
         /// <returns>The builder.</returns>
+        /// TODO: FhirServerBuilderCosmosDbRegistrationExtensions commented retryExceptionPolicyFactory in constructor as we have modified CollectionInitializer code
         public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
@@ -159,15 +164,16 @@ namespace Microsoft.Extensions.DependencyInjection
                         cosmosCollectionConfiguration,
                         config,
                         upgradeManager,
-                        retryExceptionPolicyFactory,
                         cosmosClientTestProvider,
                         loggerFactory.CreateLogger<CollectionInitializer>());
+
+                      // retryExceptionPolicyFactory,
                 })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
-            services.Add<StoredProcedureInstaller>()
+            services.Add<DataPlaneStoredProcedureInstaller>()
                 .Transient()
-                .AsService<ICollectionUpdater>();
+                .AsService<IStoredProcedureInstaller>();
 
             services.Add<FhirCollectionSettingsUpdater>()
                 .Transient()

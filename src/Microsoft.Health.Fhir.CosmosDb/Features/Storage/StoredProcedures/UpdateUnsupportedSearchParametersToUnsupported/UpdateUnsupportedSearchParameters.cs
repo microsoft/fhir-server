@@ -13,6 +13,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Updat
 {
     internal class UpdateUnsupportedSearchParameters : StoredProcedureBase
     {
+        public UpdateUnsupportedSearchParameters()
+        : base(new UpdateUnsupportedSearchParametersMetadata())
+        {
+        }
+
         public async Task<StoredProcedureExecuteResponse<string>> Execute(Scripts client, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));

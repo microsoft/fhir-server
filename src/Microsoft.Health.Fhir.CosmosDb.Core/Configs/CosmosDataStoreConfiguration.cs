@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using Microsoft.Azure.Cosmos;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Configs
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
 {
     public class CosmosDataStoreConfiguration
     {

@@ -7,7 +7,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosCollectionConfiguration">The collection configuration for the query to use</param>
         Task OpenCosmosClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
 
-        /// <summary>
+       /* /// <summary>
         /// Ensures that the necessary database and collection exist with the proper indexing policy and stored procedures
         /// </summary>
         /// <param name="client">The <see cref="CosmosClient"/> instance to use for initialization.</param>
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task</returns>
         Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default);
+         */
 
         /// <summary>
         /// Creates a new Container instance for access the Cosmos API

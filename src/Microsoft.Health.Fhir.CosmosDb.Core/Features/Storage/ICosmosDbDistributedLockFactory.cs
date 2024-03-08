@@ -3,13 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
-    public interface IUpgradeManager
+    public interface ICosmosDbDistributedLockFactory
     {
-        Task SetupContainerAsync(Container container);
+        ICosmosDbDistributedLock Create(string lockId);
+
+        ICosmosDbDistributedLock Create(Container container, string lockId);
     }
 }

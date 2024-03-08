@@ -9,24 +9,25 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures
 {
-    public class StoredProcedureInstaller : ICollectionUpdater
+    public class DataPlaneStoredProcedureInstaller : IStoredProcedureInstaller
     {
-        private readonly IEnumerable<IStoredProcedure> _storedProcedures;
+        private readonly IEnumerable<IStoredProcedureMetadata> _storedProcedures;
 
-        public StoredProcedureInstaller(IEnumerable<IStoredProcedure> storedProcedures)
+        // TODO: refactor constructor to have dependency on container
+        public DataPlaneStoredProcedureInstaller(IEnumerable<IStoredProcedureMetadata> storedProcedures)
         {
             EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
 
             _storedProcedures = storedProcedures;
         }
 
+        // TODO: refactor method to have dependency on IReadOnlyList<Istoredproceduremetada>
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
-            foreach (IStoredProcedure storedProc in _storedProcedures)
+            foreach (IStoredProcedureMetadata storedProc in _storedProcedures)
             {
                 try
                 {

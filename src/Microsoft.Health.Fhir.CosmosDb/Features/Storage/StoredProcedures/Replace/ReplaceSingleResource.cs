@@ -12,6 +12,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Repla
 {
     internal class ReplaceSingleResource : StoredProcedureBase
     {
+        public ReplaceSingleResource()
+            : base(new ReplaceSingleResourceMetadata())
+        {
+        }
+
         public async Task<FhirCosmosResourceWrapper> Execute(Scripts client, FhirCosmosResourceWrapper resource, string matchVersionId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));

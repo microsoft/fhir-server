@@ -3,14 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported
 {
-    public interface ICollectionInitializer
+    public sealed class UpdateUnsupportedSearchParametersMetadata : StoredProcedureMetadataBase
     {
-        Task<Container> InitializeCollectionAsync(CosmosClient client, CancellationToken cancellationToken = default);
     }
 }

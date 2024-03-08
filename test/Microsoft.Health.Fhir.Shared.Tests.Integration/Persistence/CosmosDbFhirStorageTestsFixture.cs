@@ -30,7 +30,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -40,6 +42,8 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using NSubstitute;
@@ -47,6 +51,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    // TODO: need modify this class to call new CosmosDB .Initialization project
+    // now some existing call are commented
     public class CosmosDbFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
         private static readonly SemaphoreSlim CollectionInitializationSemaphore = new SemaphoreSlim(1, 1);
@@ -93,11 +99,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public virtual async Task InitializeAsync()
         {
-            var fhirStoredProcs = typeof(IStoredProcedure).Assembly
+            var fhirStoredProcs = typeof(IStoredProcedureMetadata).Assembly
                 .GetTypes()
-                .Where(x => !x.IsAbstract && typeof(IStoredProcedure).IsAssignableFrom(x))
+                .Where(x => !x.IsAbstract && typeof(IStoredProcedureMetadata).IsAssignableFrom(x))
                 .ToArray()
-                .Select(type => (IStoredProcedure)Activator.CreateInstance(type));
+                .Select(type => (IStoredProcedureMetadata)Activator.CreateInstance(type));
 
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
@@ -118,7 +124,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var updaters = new ICollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
-                new StoredProcedureInstaller(fhirStoredProcs),
+
+                // new DataPlaneStoredProcedureInstaller(fhirStoredProcs),
+
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
@@ -139,7 +147,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, retryExceptionPolicyFactory, NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
-            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, retryExceptionPolicyFactory, testProvider, NullLogger<CollectionInitializer>.Instance);
+
+           // var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, retryExceptionPolicyFactory, testProvider, NullLogger<CollectionInitializer>.Instance);
 
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
@@ -147,8 +156,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                await documentClientInitializer.InitializeDataStoreAsync(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }, CancellationToken.None);
-                _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
+                // await documentClientInitializer.InitializeDataStoreAsync(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }, CancellationToken.None);
+                    _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally
             {

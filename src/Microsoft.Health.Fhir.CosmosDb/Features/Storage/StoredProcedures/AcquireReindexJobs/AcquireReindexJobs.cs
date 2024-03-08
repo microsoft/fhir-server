@@ -14,6 +14,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Acqui
 {
     internal class AcquireReindexJobs : StoredProcedureBase
     {
+        public AcquireReindexJobs()
+            : base(new AcquireReindexJobsMetadata())
+        {
+        }
+
         public async Task<StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>>> ExecuteAsync(
             Scripts client,
             ushort maximumNumberOfConcurrentJobsAllowed,

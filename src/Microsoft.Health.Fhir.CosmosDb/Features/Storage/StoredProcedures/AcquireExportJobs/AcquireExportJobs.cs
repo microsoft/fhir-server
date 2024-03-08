@@ -9,11 +9,17 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs
 {
     internal class AcquireExportJobs : StoredProcedureBase
     {
+        public AcquireExportJobs()
+            : base(new AcquireExportJobsMetadata())
+        {
+        }
+
         public async Task<StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>>> ExecuteAsync(
             Scripts client,
             ushort numberOfJobsToAcquire,

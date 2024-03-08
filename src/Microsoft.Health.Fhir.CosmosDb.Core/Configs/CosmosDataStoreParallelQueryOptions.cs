@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Configs
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Configs
 {
     public class CosmosDataStoreParallelQueryOptions
     {

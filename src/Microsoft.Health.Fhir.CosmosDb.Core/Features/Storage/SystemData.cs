@@ -5,7 +5,7 @@
 
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     /// <summary>
     /// Defines a base object for serializing System/Meta information to a CosmosDb collection

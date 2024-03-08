@@ -14,7 +14,9 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -111,7 +113,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        /// <inheritdoc />
+        // TODO: seperate control pane and data plane operations
+        /*
         public async Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(client, nameof(client));
@@ -147,7 +150,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} and collections initialization failed", cosmosDataStoreConfiguration.DatabaseId);
                 throw;
             }
-        }
+        } */
 
         private class FhirCosmosSerializer : CosmosSerializer
         {

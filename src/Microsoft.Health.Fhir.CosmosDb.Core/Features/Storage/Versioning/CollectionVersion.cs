@@ -5,7 +5,7 @@
 
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
 {
     public class CollectionVersion : SystemData
     {

@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb.Configs
-{
-    public class CosmosCollectionConfiguration
-    {
-        public string CollectionId { get; set; }
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos;
 
-        public int? InitialCollectionThroughput { get; set; }
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
+{
+    public interface ICollectionUpdater
+    {
+        Task ExecuteAsync(Container container, CancellationToken cancellationToken);
     }
 }
