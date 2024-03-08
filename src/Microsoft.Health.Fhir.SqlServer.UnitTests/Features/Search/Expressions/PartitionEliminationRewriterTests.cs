@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 .AcceptVisitor(_rewriter);
 
             Assert.Equal(
-                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo')) (Param _type (TokenCode IN (AllergyIntolerance, Claim, Condition, Device, DiagnosticReport)))))",
+                "(SqlRoot (SearchParamTables:) (ResourceTable: (Param _id (StringEquals TokenCode 'foo'))))",
                 rewritten.ToString());
         }
 

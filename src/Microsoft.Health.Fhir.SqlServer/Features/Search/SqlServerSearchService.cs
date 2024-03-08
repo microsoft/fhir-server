@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -427,12 +428,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     continue;
                                 }
 
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                string rawResource = string.Empty;
+
+                                if (!clonedSearchOptions.OnlyIds)
+                                {
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                }
 
                                 _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
-                                if (string.IsNullOrEmpty(rawResource))
+                                if (string.IsNullOrEmpty(rawResource) && !clonedSearchOptions.OnlyIds)
                                 {
                                     rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
                                     _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
@@ -472,7 +478,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         resourceId,
                                         version.ToString(CultureInfo.InvariantCulture),
                                         _model.GetResourceTypeName(resourceTypeId),
-                                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                        clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                                         new ResourceRequest(requestMethod),
                                         new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                         isDeleted,
@@ -532,7 +538,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
                 },
-                cancellationToken);
+                cancellationToken,
+                true); // this enables reads from replicas
             return searchResult;
         }
 
@@ -914,6 +921,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 results = new SearchResult(0, new List<Tuple<string, string>>());
             }
 
+            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
             return results;
         }
 

@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
+using Microsoft.Health.Fhir.Liquid.Converter.Processors;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
@@ -330,7 +331,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(wrongTemplateCollection);
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            var convertEngine = new ConvertDataEngine(templateProviderFactory, Options.Create(_config), logger);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            var convertEngine = new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), logger);
 
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertEngine.Process(request, CancellationToken.None));
@@ -432,9 +435,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             DefaultTemplateProvider templateProvider = new DefaultTemplateProvider(convertDataConfiguration, new NullLogger<DefaultTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
 
             return new ConvertDataEngine(
                 templateProviderFactory,
+                convertProcessorFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
         }
@@ -447,7 +452,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetDefaultTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            return new ConvertDataEngine(
+                templateProviderFactory,
+                convertProcessorFactory,
+                Options.Create(_config),
+                new NullLogger<ConvertDataEngine>());
         }
 
         private IConvertDataEngine GetCustomEngine()
@@ -459,9 +470,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(containerRegistryTokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
             ITemplateProviderFactory templateProviderFactory = Substitute.For<ITemplateProviderFactory>();
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
 
             return new ConvertDataEngine(
                 templateProviderFactory,
+                convertProcessorFactory,
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
         }
@@ -472,7 +485,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var templateProvider = Substitute.For<ContainerRegistryTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
             templateProviderFactory.GetContainerRegistryTemplateProvider().ReturnsForAnyArgs(templateProvider);
-            return new ConvertDataEngine(templateProviderFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            IConvertProcessorFactory convertProcessorFactory = new ConvertProcessorFactory(new NullLoggerFactory());
+
+            return new ConvertDataEngine(templateProviderFactory, convertProcessorFactory, Options.Create(_config), new NullLogger<ConvertDataEngine>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.

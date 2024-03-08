@@ -14,6 +14,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderRegistrationExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderUserConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AzureMonitorOpenTelemetryLogEnricher.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsConfig.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsApplicationBuilderExtensions.cs" />

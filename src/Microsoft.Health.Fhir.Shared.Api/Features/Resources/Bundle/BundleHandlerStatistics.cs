@@ -24,13 +24,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         public BundleHandlerStatistics(
             BundleType? bundleType,
             BundleProcessingLogic bundleProcessingLogic,
-            ConditionalQueryProcessingLogic conditionalQueryProcessingLogic,
+            bool optimizedQuerySet,
             int numberOfResources)
             : base()
         {
             BundleType = bundleType;
             BundleProcessingLogic = bundleProcessingLogic;
-            ConditionalQueryProcessingLogic = conditionalQueryProcessingLogic;
+            OptimizedQueryProcessing = optimizedQuerySet;
             NumberOfResources = numberOfResources;
             _entries = new List<BundleHandlerStatisticEntry>();
         }
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public BundleProcessingLogic BundleProcessingLogic { get; }
 
-        public ConditionalQueryProcessingLogic ConditionalQueryProcessingLogic { get; }
+        public bool OptimizedQueryProcessing { get; }
 
         public override string GetLoggingCategory() => LoggingCategory;
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 label = GetLoggingCategory(),
                 bundleType = BundleType.ToString(),
                 processingLogic = BundleProcessingLogic.ToString(),
-                conditionalQuery = ConditionalQueryProcessingLogic.ToString(),
+                optimizedQuerySet = OptimizedQueryProcessing.ToString(),
                 numberOfResources = NumberOfResources,
                 executionTime = ElapsedMilliseconds,
                 success = successedRequests,

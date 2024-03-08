@@ -3,18 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.Core.Features.Telemetry
 {
-    /// <summary>
-    /// Import orchestrator job progress enums.
-    /// </summary>
-    public enum ImportOrchestratorJobProgress
+    public static class KnownApplicationInsightsDimensions
     {
-        Initialized,
-        InputResourcesValidated,
-        PreprocessCompleted,
-        SubJobRecordsGenerated,
-        SubJobsCompleted,
-        PostprocessCompleted,
+        public const string OperationName = "operation_Name";
     }
 }

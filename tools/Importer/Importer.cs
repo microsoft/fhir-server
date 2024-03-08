@@ -11,6 +11,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using Azure.Core;
@@ -18,6 +20,7 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Importer
@@ -28,6 +31,9 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
+        private static readonly int BatchSize = int.Parse(ConfigurationManager.AppSettings["BatchSize"]);
+        private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
+        private static readonly bool UseBundleBlobs = bool.Parse(ConfigurationManager.AppSettings["UseBundleBlobs"]);
         private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
         private static readonly int WriteThreads = int.Parse(ConfigurationManager.AppSettings["WriteThreads"]);
         private static readonly int NumberOfBlobsToSkip = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToSkip"]);
@@ -38,6 +44,7 @@ namespace Microsoft.Health.Fhir.Importer
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
         private static readonly bool UseFhirAuth = bool.Parse(ConfigurationManager.AppSettings["UseFhirAuth"]);
         private static readonly string FhirScopes = ConfigurationManager.AppSettings["FhirScopes"];
+        private static readonly string FhirAuthCredentialOptions = ConfigurationManager.AppSettings["FhirAuthCredentialOptions"];
 
         private static long totalReads = 0L;
         private static long readers = 0L;
@@ -59,34 +66,50 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             endpoints = [.. Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries)];
-
-            if (UseFhirAuth)
-            {
-                List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
-                if (scopes.Count == 0)
-                {
-                    scopes = endpoints.Select(x => $"{x}/.default").ToList();
-                }
-
-                if (scopes.Count != endpoints.Count)
-                {
-                    throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
-                }
-
-                credential = new DefaultAzureCredential();
-                handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
-                httpClient = new HttpClient(handler);
-            }
+            SetupAuth();
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
-            Console.WriteLine($"{globalPrefix}: Starting...");
+            if (BatchSize > 0)
+            {
+                globalPrefix = globalPrefix + $".Bundle.{BundleType}={BatchSize}";
+            }
+
+            Console.WriteLine($"{DateTime.UtcNow:s}: {globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
-            Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
-            var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
-            blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();
+            var blobs = blobContainerClient.GetBlobs().Where(_ => _.Name.EndsWith(UseBundleBlobs ? ".json" : ".ndjson", StringComparison.OrdinalIgnoreCase));
+            ////Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
+            ////var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
+            blobs = blobs.Skip(NumberOfBlobsToSkip).Take(MaxBlobIndexForImport - NumberOfBlobsToSkip);
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
+            if (UseBundleBlobs)
+            {
+                var totalBlobs = 0L;
+                BatchExtensions.ExecuteInParallelBatches(blobs, WriteThreads, 1, (writer, blobList) =>
+                {
+                    var incrementor = new IndexIncrementor(endpoints.Count);
+                    var bundle = GetTextFromBlob(blobList.Item2.First());
+                    PostBundle(bundle, incrementor);
+                    Interlocked.Increment(ref totalBlobs);
+                    Interlocked.Add(ref totalWrites, BatchSize);
+
+                    if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                    {
+                        lock (swReport)
+                        {
+                            if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
+                            {
+                                var currWrites = Interlocked.Read(ref totalWrites);
+                                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers={WriteThreads}: processed blobs={totalBlobs} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                                swReport.Restart();
+                            }
+                        }
+                    }
+                });
+                Console.WriteLine($"{DateTime.UtcNow:s}:{globalPrefix} writers={WriteThreads}: processed blobs={totalBlobs} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
+                return;
+            }
+
             var currentBlobRanges = new Tuple<int, int>[ReadThreads];
             BatchExtensions.ExecuteInParallelBatches(blobs, ReadThreads, BlobRangeSize, (reader, blobRangeInt) =>
             {
@@ -102,14 +125,23 @@ namespace Microsoft.Health.Fhir.Importer
                 Console.WriteLine($"{prefix}: Starting...");
 
                 // 100 below is a compromise between processing with maximum available threads (value 1) and inefficiency in wrapping single resource in a list.
-                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, BatchSize == 0 ? 100 : BatchSize, (thread, lineBatch) =>
                 {
                     Interlocked.Increment(ref writers);
+                    var batch = new List<string>();
                     foreach (var line in lineBatch.Item2)
                     {
-                        Interlocked.Increment(ref totalWrites);
-                        Interlocked.Increment(ref writes);
-                        PutResource(line, incrementor);
+                        if (BatchSize == 0)
+                        {
+                            PutResource(line, incrementor);
+                            Interlocked.Increment(ref totalWrites);
+                            Interlocked.Increment(ref writes);
+                        }
+                        else
+                        {
+                            batch.Add(line);
+                        }
+
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
                             lock (swReport)
@@ -120,58 +152,246 @@ namespace Microsoft.Health.Fhir.Importer
                                     var currReads = Interlocked.Read(ref totalReads);
                                     var minBlob = currentBlobRanges.Min(_ => _.Item1);
                                     var maxBlob = currentBlobRanges.Max(_ => _.Item2);
-                                    Console.WriteLine($"{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
+                                    Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} RPS");
                                     swReport.Restart();
                                 }
                             }
                         }
                     }
 
+                    if (BatchSize > 0)
+                    {
+                        PostBundle(batch, incrementor, ref totalWrites, ref writes);
+                    }
+
                     Interlocked.Decrement(ref writers);
                 });
-                Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
             });
-            Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
+            Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}:{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} RPS");
         }
 
-        private static List<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
+        private static string GetBundle(IList<string> entries)
+        {
+            var builder = new StringBuilder();
+            builder.Append(@"{""resourceType"":""Bundle"",""type"":""").Append(BundleType).Append(@""",""entry"":[");
+            var first = true;
+            foreach (var entry in entries)
+            {
+                if (!first)
+                {
+                    builder.Append(',');
+                }
+
+                builder.Append(entry);
+                first = false;
+            }
+
+            builder.Append(@"]}");
+            return builder.ToString();
+        }
+
+        private static string GetEntry(string jsonString, string resourceType, string resourceId)
+        {
+            var builder = new StringBuilder();
+            builder.Append('{')
+                   .Append(@"""fullUrl"":""").Append(resourceType).Append('/').Append(resourceId).Append('"')
+                   .Append(',').Append(@"""resource"":").Append(jsonString)
+                   .Append(',').Append(@"""request"":{""method"":""PUT"",""url"":""").Append(resourceType).Append('/').Append(resourceId).Append(@"""}")
+                   .Append('}');
+            return builder.ToString();
+        }
+
+        private static void PostBundle(string bundle, IndexIncrementor incrementor)
+        {
+            var maxRetries = MaxRetries;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            string endpoint;
+            do
+            {
+                endpoint = endpoints[incrementor.Next()];
+                var uri = new Uri(endpoint);
+                bad = false;
+                try
+                {
+                    var sw = Stopwatch.StartNew();
+                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    request.Content = content;
+
+                    var response = httpClient.Send(request);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+                    }
+
+                    var status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} HttpStatusCode={status} elapsed={(int)sw.Elapsed.TotalSeconds} secs.");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests // retry overload errors forever
+                                || response.StatusCode == HttpStatusCode.InternalServerError) // 429 on auth cause internal server error
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} Error={e.Message}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Failed write. Retries={retries} Endpoint={endpoint}");
+            }
+
+            return;
+        }
+
+        private static void PostBundle(IList<string> jsonStrings, IndexIncrementor incrementor, ref long totWrites, ref long writes)
+        {
+            var entries = new List<string>();
+            var keys = new HashSet<(string ResourceType, string ResourceId)>();
+            foreach (var jsonString in jsonStrings)
+            {
+                var (resourceType, resourceId) = ParseJson(jsonString);
+                if (keys.Add((resourceType, resourceId)))
+                {
+                    entries.Add(GetEntry(jsonString, resourceType, resourceId));
+                }
+            }
+
+            var bundle = GetBundle(entries);
+            var maxRetries = MaxRetries;
+            var retries = 0;
+            var networkError = false;
+            var bad = false;
+            string endpoint;
+            do
+            {
+                endpoint = endpoints[incrementor.Next()];
+                var uri = new Uri(endpoint);
+                bad = false;
+                try
+                {
+                    using var content = new StringContent(bundle, Encoding.UTF8, "application/json");
+                    using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+                    request.Headers.Add("x-bundle-processing-logic", "parallel");
+                    request.Content = content;
+
+                    var response = httpClient.Send(request);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        Console.WriteLine(response.Content.ReadAsStringAsync().Result);
+                    }
+
+                    var status = response.StatusCode.ToString();
+                    switch (response.StatusCode)
+                    {
+                        case HttpStatusCode.OK:
+                            break;
+                        default:
+                            bad = true;
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} HttpStatusCode={status}");
+                            }
+
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests // retry overload errors forever
+                                || response.StatusCode == HttpStatusCode.InternalServerError) // 429 on auth cause internal server error
+                            {
+                                maxRetries++;
+                            }
+
+                            break;
+                    }
+
+                    Interlocked.Add(ref totWrites, keys.Count);
+                    Interlocked.Add(ref writes, keys.Count);
+                }
+                catch (Exception e)
+                {
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Retries={retries} Endpoint={endpoint} Error={e.Message}");
+                    }
+
+                    bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
+                }
+
+                if (bad && retries < maxRetries)
+                {
+                    retries++;
+                    Thread.Sleep(networkError ? 1000 : 1000 * retries);
+                }
+            }
+            while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"{DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}: Failed write. Retries={retries} Endpoint={endpoint}");
+            }
+
+            return;
+        }
+
+        private static string GetTextFromBlob(BlobItem blob)
+        {
+            using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+            var text = reader.ReadToEnd();
+            return text;
+        }
+
+        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
 
             var lines = 0L;
             var sw = Stopwatch.StartNew();
-            var results = new List<string>();
-            foreach (var blob in blobs)
+            foreach (var blob in blobs.OrderBy(_ => RandomNumberGenerator.GetInt32(1000))) // shuffle blobs
             {
-                var retries = 0;
-                List<string> resInt;
-            retry:
-                try
+                using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+                while (!reader.EndOfStream)
                 {
-                    resInt = new List<string>();
-                    using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
-                    while (!reader.EndOfStream)
-                    {
-                        resInt.Add(reader.ReadLine());
-                    }
+                    Interlocked.Increment(ref totalReads);
+                    yield return reader.ReadLine();
                 }
-                catch (Exception e)
-                {
-                    if (IsNetworkError(e))
-                    {
-                        Console.WriteLine($"Retries={retries} blob={blob.Name} error={e.Message}");
-                        Thread.Sleep(1000);
-                        retries++;
-                        goto retry;
-                    }
-
-                    throw;
-                }
-
-                results.AddRange(resInt);
-                lines += resInt.Count;
-                Interlocked.Add(ref totalReads, resInt.Count);
             }
 
             if (Interlocked.Decrement(ref readers) == 0)
@@ -180,7 +400,6 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
-            return results;
         }
 
         private static BlobContainerClient GetContainer(string connectionString, string containerName)
@@ -222,7 +441,6 @@ namespace Microsoft.Health.Fhir.Importer
                 Interlocked.Increment(ref epCalls);
                 try
                 {
-                    Thread.Sleep(40);
                     var response = httpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
@@ -337,6 +555,53 @@ namespace Microsoft.Health.Fhir.Importer
             }
 
             return ((string)jsonObject["resourceType"], (string)jsonObject["id"]);
+        }
+
+        private static void SetupAuth()
+        {
+            if (!UseFhirAuth)
+            {
+                httpClient.Timeout = TimeSpan.FromMinutes(10);
+                return;
+            }
+
+            List<string> scopes = [.. FhirScopes.Split(";", StringSplitOptions.RemoveEmptyEntries)];
+            if (scopes.Count == 0)
+            {
+                scopes = endpoints.Select(x => $"{x}/.default").ToList();
+            }
+
+            if (scopes.Count != endpoints.Count)
+            {
+                throw new ArgumentException("FhirScopes and FhirEndpoints must have the same number of values.");
+            }
+
+            if (!string.IsNullOrEmpty(FhirAuthCredentialOptions))
+            {
+                var options = JsonConvert.DeserializeObject<DefaultAzureCredentialOptions>(FhirAuthCredentialOptions);
+                credential = new DefaultAzureCredential(options);
+            }
+            else
+            {
+                credential = new DefaultAzureCredential();
+            }
+
+            handler = new BearerTokenHandler(credential, endpoints.Select(x => new Uri(x)).ToArray(), [.. scopes]);
+            httpClient = new HttpClient(handler);
+            httpClient.Timeout = TimeSpan.FromMinutes(10);
+
+            foreach (var endpoint in endpoints)
+            {
+                Console.WriteLine($"Testing auth for endpont {endpoint}");
+                Uri testUri = new Uri($"{endpoint}?count=1");
+                var testResult = httpClient.GetAsync(testUri).Result;
+
+                if (testResult.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine($"Status={testResult.StatusCode} Result={testResult.Content.ReadAsStringAsync().Result}");
+                    throw new ArgumentException("Auth not configured correctly.");
+                }
+            }
         }
 
         internal sealed class IndexIncrementor

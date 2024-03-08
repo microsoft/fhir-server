@@ -31,14 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
         private readonly Func<IScoped<IDeletionService>> _deleterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IMediator _mediator;
-        private readonly ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchService;
         private readonly IQueueClient _queueClient;
 
         public BulkDeleteProcessingJob(
             Func<IScoped<IDeletionService>> deleterFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             IMediator mediator,
-            ISearchService searchService,
+            Func<IScoped<ISearchService>> searchService,
             IQueueClient queueClient)
         {
             _deleterFactory = EnsureArg.IsNotNull(deleterFactory, nameof(deleterFactory));
@@ -48,10 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             IFhirRequestContext existingFhirRequestContext = _contextAccessor.RequestContext;
 
@@ -112,7 +111,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete
                 if (types.Count > 1)
                 {
                     types.RemoveAt(0);
-                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, _searchService, types, cancellationToken);
+                    using var searchService = _searchService.Invoke();
+                    BulkDeleteDefinition processingDefinition = await BulkDeleteOrchestratorJob.CreateProcessingDefinition(definition, searchService.Value, types, cancellationToken);
 
                     if (processingDefinition != null)
                     {

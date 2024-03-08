@@ -95,6 +95,88 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTestResourcesWithUpdatesAndDeletes_WhenGettingResourceHistoryCount_TheServerShouldReturnCorrectCount()
+        {
+            Observation firstTestResource = (await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            var sinceTime = HttpUtility.UrlEncode(firstTestResource.Meta.LastUpdated.Value.UtcDateTime.ToString("o"));
+
+            // 3 versions, 2 history 1 delete
+            firstTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
+            await _client.UpdateAsync(firstTestResource);
+            await _client.DeleteAsync(firstTestResource);
+
+            // 3 base exta resources
+            Patient secondTestResource = (await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>())).Resource;
+            Observation thirdTestResource = (await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
+            Organization fourthTestResource = (await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
+
+            // 3 more versions on the extras
+            secondTestResource.BirthDate = "2022-12-02";
+            await _client.UpdateAsync(secondTestResource);
+            await _client.DeleteAsync(secondTestResource);
+            thirdTestResource.Text = new Narrative($"<div>New Update at ${DateTime.UtcNow:o}</div>");
+            thirdTestResource = await _client.UpdateAsync(thirdTestResource);
+
+            var beforeTime = thirdTestResource.Meta.LastUpdated.Value.UtcDateTime.AddMilliseconds(1).ToString("o");
+
+            // Run test queries
+            var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allSummaryCountZero = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var allObservationSummaryCountResult = await _client.SearchAsync($"Observation/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var allObservationSummaryCountZero = await _client.SearchAsync($"Observation/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+            var observationSummaryCountResult = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
+            var observationSummaryCountZero = await _client.SearchAsync($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}&_count=0");
+
+            // Find all resources in window - needed to filter out stragglers from other tests
+            var allResources = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}");
+            List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
+            var stragglerResources = allResources.Resource.Entry.Where(r => !expectedResourceIds.Contains(r.Resource.Id));
+
+            var expectedAllCount = 9 + stragglerResources.Count();
+
+            // 9 versions total for all resources.
+            if (allSummaryCountResult.Resource.Total != expectedAllCount || allSummaryCountZero.Resource.Total != expectedAllCount)
+            {
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 9. allSummaryCountResult {allSummaryCountResult.Resource.Total}. " +
+                            $"allSummaryCountZero {allSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
+                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
+            }
+
+            var expectedObservatinCount = 5 + stragglerResources.Count();
+
+            if (allObservationSummaryCountResult.Resource.Total != expectedObservatinCount || allObservationSummaryCountZero.Resource.Total != expectedObservatinCount)
+            {
+                Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to 5. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
+                            $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
+                            $"straggler resources {{string.Join(',', stragglerResources.Select(r => r.Resource.Id))}}.");
+            }
+
+            var expectedSpecificObservationCount = 3 + stragglerResources.Count();
+
+            // 3 versions across single observation (create, update, delete).
+            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountResult.Resource.Total);
+            Assert.Equal(expectedSpecificObservationCount, observationSummaryCountZero.Resource.Total);
+
+            // Cleanup
+            await _client.DeleteAsync(thirdTestResource);
+            await _client.DeleteAsync(fourthTestResource);
+
+            async Task<string> GetSummaryMessage(string url)
+            {
+                var resources = await _client.SearchAsync(url);
+                string output = "Resource count doesn't match:" + Environment.NewLine;
+
+                foreach (var resource in resources.Resource.Entry)
+                {
+                    output += $"Type: {resource.Resource.TypeName}, Id: {resource.Resource.Id}, Last Updated: {resource.Resource.Meta.LastUpdated.Value.ToString("o")}, Version: {resource.Resource.Meta.VersionId}." + Environment.NewLine;
+                }
+
+                return output;
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistoryWithAlternateSort_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
             UpdateObservation(_createdResource.Resource);

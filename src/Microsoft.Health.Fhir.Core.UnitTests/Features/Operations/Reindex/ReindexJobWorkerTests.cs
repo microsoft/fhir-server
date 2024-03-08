@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
-        private readonly Func<IReindexJobTask> _reindexJobTaskFactory = Substitute.For<Func<IReindexJobTask>>();
+        private readonly IReindexJobTask _reindexJobTask = Substitute.For<IReindexJobTask>();
         private readonly IReindexJobTask _task = Substitute.For<IReindexJobTask>();
 
         private readonly ReindexJobWorker _reindexJobWorker;
@@ -48,16 +49,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = DefaultJobHeartbeatTimeoutThreshold;
             _reindexJobConfiguration.JobPollingFrequency = DefaultJobPollingFrequency;
 
-            _reindexJobTaskFactory().Returns(_task);
             var scopedOperationDataStore = Substitute.For<IScoped<IFhirOperationDataStore>>();
             scopedOperationDataStore.Value.Returns(_fhirOperationDataStore);
 
             var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
             _reindexJobWorker = new ReindexJobWorker(
-                () => scopedOperationDataStore,
+                scopedOperationDataStore.CreateMockScopeProviderFromScoped(),
                 Options.Create(_reindexJobConfiguration),
-                _reindexJobTaskFactory,
+                _reindexJobTask.CreateMockScopeProvider(),
                 searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             await _reindexJobWorker.ExecuteAsync(_cancellationToken);
 
-            _reindexJobTaskFactory().Received(1);
+            _reindexJobTask.Received(1);
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             await _reindexJobWorker.ExecuteAsync(_cancellationToken);
 
-            _reindexJobTaskFactory.Received(1);
+            _reindexJobTask.Received(1);
         }
 
         private void SetupOperationDataStore(

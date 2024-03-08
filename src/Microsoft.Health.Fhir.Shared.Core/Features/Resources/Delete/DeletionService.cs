@@ -26,11 +26,13 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
@@ -38,8 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly Lazy<IConformanceProvider> _conformanceProvider;
-        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IScopeProvider<IFhirDataStore> _fhirDataStoreFactory;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly FhirRequestContextAccessor _contextAccessor;
@@ -52,8 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DeletionService(
             IResourceWrapperFactory resourceWrapperFactory,
             Lazy<IConformanceProvider> conformanceProvider,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<IFhirDataStore> fhirDataStoreFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ResourceIdProvider resourceIdProvider,
             FhirRequestContextAccessor contextAccessor,
             IAuditLogger auditLogger,
@@ -113,9 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
             var searchCount = 1000;
 
             IReadOnlyCollection<SearchResultEntry> matchedResults;
@@ -127,13 +126,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     request.ConditionalParameters,
                     cancellationToken,
                     request.DeleteAll ? searchCount : request.MaxDeleteCount,
-                    versionType: request.VersionType);
+                    versionType: request.VersionType,
+                    onlyIds: true);
             }
 
             long numDeleted = 0;
             long numQueuedForDeletion = 0;
-
-            var initialSearchTime = stopwatch.Elapsed.TotalMilliseconds;
 
             var deleteTasks = new List<Task<long>>();
             using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -175,12 +173,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         using (var searchService = _searchServiceFactory.Invoke())
                         {
                             (matchedResults, ct) = await searchService.Value.ConditionalSearchAsync(
-                            request.ResourceType,
-                            request.ConditionalParameters,
-                            cancellationToken,
-                            request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
-                            ct,
-                            request.VersionType);
+                                request.ResourceType,
+                                request.ConditionalParameters,
+                                cancellationToken,
+                                request.DeleteAll ? searchCount : (int)(request.MaxDeleteCount - numQueuedForDeletion),
+                                ct,
+                                request.VersionType,
+                                onlyIds: true);
                         }
                     }
                     else
@@ -195,7 +194,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 await cancellationTokenSource.CancelAsync();
             }
 
-            System.Threading.Tasks.Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            try
+            {
+                // We need to wait until all running tasks are cancelled to get a count of resources deleted.
+                Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+            }
+            catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
+            {
+                // If one of the tasks fails, the rest may throw a cancellation exception. Filtering those out as they are noise.
+                foreach (var coreException in age.InnerExceptions.Where(e => e is not TaskCanceledException))
+                {
+                    _logger.LogError(coreException, "Error deleting");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting");
+            }
+
             deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
 
             if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
@@ -205,10 +221,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     {
                         if (result.Exception != null)
                         {
+                            // Count the number of resources deleted before the exception was thrown. Update the total.
                             result.Exception.InnerExceptions.Where((ex) => ex is IncompleteOperationException<long>).ToList().ForEach((ex) => numDeleted += ((IncompleteOperationException<long>)ex).PartialResults);
                             if (result.IsFaulted)
                             {
-                                exceptions.AddRange(result.Exception.InnerExceptions);
+                                // Filter out noise from the cancellation exceptions caused by the core exception.
+                                exceptions.AddRange(result.Exception.InnerExceptions.Where(e => e is not TaskCanceledException));
                             }
                         }
                     });
@@ -257,10 +275,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var parallelBag = new ConcurrentBag<string>();
             try
             {
+                using var fhirDataStore = _fhirDataStoreFactory.Invoke();
+
                 // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(resourcesToDelete, cancellationToken, async (item, innerCt) =>
                 {
-                    using var fhirDataStore = _fhirDataStoreFactory.Invoke();
                     await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
                     parallelBag.Add(item.Resource.ResourceId);
                 });

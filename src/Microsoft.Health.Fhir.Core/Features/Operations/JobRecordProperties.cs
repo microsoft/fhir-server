@@ -145,6 +145,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string EndSurrogateId = "endSurrogateId";
 
+        public const string FeedRange = "feedRange";
+
         public const string MaxResourceSurrogateId = "maxResourceSurrogateId";
 
         public const string GlobalStartSurrogateId = "globalStartSurrogateId";

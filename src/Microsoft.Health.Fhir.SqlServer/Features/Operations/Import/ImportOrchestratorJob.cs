@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Utility;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
@@ -41,7 +42,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private readonly IImportOrchestratorJobDataStoreOperation _importOrchestratorJobDataStoreOperation;
         private readonly IQueueClient _queueClient;
         private ImportTaskConfiguration _importConfiguration;
         private ILogger<ImportOrchestratorJob> _logger;
@@ -52,7 +52,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         public ImportOrchestratorJob(
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IImportOrchestratorJobDataStoreOperation importOrchestratorJobDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             IQueueClient queueClient,
             IOptions<ImportTaskConfiguration> importConfiguration,
@@ -61,7 +60,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(importOrchestratorJobDataStoreOperation, nameof(importOrchestratorJobDataStoreOperation));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             EnsureArg.IsNotNull(importConfiguration?.Value, nameof(importConfiguration));
@@ -70,7 +68,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             _mediator = mediator;
             _contextAccessor = contextAccessor;
-            _importOrchestratorJobDataStoreOperation = importOrchestratorJobDataStoreOperation;
             _integrationDataStoreClient = integrationDataStoreClient;
             _queueClient = queueClient;
             _importConfiguration = importConfiguration.Value;
@@ -82,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public int PollingPeriodSec { get; set; }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             ImportOrchestratorJobDefinition inputData = jobInfo.DeserializeDefinition<ImportOrchestratorJobDefinition>();
             ImportOrchestratorJobResult currentResult = string.IsNullOrEmpty(jobInfo.Result) ? new ImportOrchestratorJobResult() : jobInfo.DeserializeResult<ImportOrchestratorJobResult>();
@@ -108,38 +105,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (currentResult.Progress == ImportOrchestratorJobProgress.Initialized)
-                {
-                    await ValidateResourcesAsync(inputData, cancellationToken);
+                await ValidateResourcesAsync(inputData, cancellationToken);
+                _logger.LogJobInformation(jobInfo, "Input Resources Validated.");
 
-                    currentResult.Progress = ImportOrchestratorJobProgress.InputResourcesValidated;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("Input Resources Validated");
-                }
-
-                if (currentResult.Progress == ImportOrchestratorJobProgress.InputResourcesValidated)
-                {
-                    await _importOrchestratorJobDataStoreOperation.PreprocessAsync(cancellationToken);
-
-                    currentResult.Progress = ImportOrchestratorJobProgress.PreprocessCompleted;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("Preprocess Completed");
-                }
-
-                if (currentResult.Progress == ImportOrchestratorJobProgress.PreprocessCompleted)
-                {
-                    await ExecuteImportProcessingJobAsync(progress, jobInfo, inputData, currentResult, cancellationToken);
-                    currentResult.Progress = ImportOrchestratorJobProgress.SubJobsCompleted;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
-
-                    _logger.LogInformation("SubJobs Completed");
-                }
+                await ExecuteImportProcessingJobAsync(jobInfo, inputData, currentResult, cancellationToken);
+                _logger.LogJobInformation(jobInfo, "SubJobs Completed.");
             }
             catch (TaskCanceledException taskCanceledEx)
             {
-                _logger.LogInformation(taskCanceledEx, "Import job canceled. {Message}", taskCanceledEx.Message);
+                _logger.LogJobInformation(taskCanceledEx, jobInfo, "Import job canceled. {Message}", taskCanceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -153,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Import job canceled. {Message}", canceledEx.Message);
+                _logger.LogJobInformation(canceledEx, jobInfo, "Import job canceled. {Message}", canceledEx.Message);
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -167,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
-                _logger.LogInformation(integrationDataStoreEx, "Failed to access input files.");
+                _logger.LogJobInformation(integrationDataStoreEx, jobInfo, "Failed to access input files.");
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -179,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
-                _logger.LogInformation(eTagEx, "Import file etag not match.");
+                _logger.LogJobInformation(eTagEx, jobInfo, "Import file etag not match.");
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -191,7 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (ImportProcessingException processingEx)
             {
-                _logger.LogInformation(processingEx, "Failed to process input resources.");
+                _logger.LogJobInformation(processingEx, jobInfo, "Failed to process input resources.");
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -206,13 +180,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (RetriableJobException ex)
             {
-                _logger.LogInformation(ex, "Failed with RetriableJobException.");
+                _logger.LogJobInformation(ex, jobInfo, "Failed with RetriableJobException.");
 
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Failed to import data.");
+                _logger.LogJobInformation(ex, jobInfo, "Failed to import data.");
 
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
@@ -224,27 +198,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-            }
-
-            // Post-process operation cannot be cancelled.
-            try
-            {
-                await _importOrchestratorJobDataStoreOperation.PostprocessAsync(CancellationToken.None);
-
-                _logger.LogInformation("Postprocess Completed");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Failed at postprocess step.");
-
-                ImportOrchestratorJobErrorResult postProcessErrorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.InternalServerError,
-                    ErrorMessage = ex.Message,
-                    ErrorDetails = ex.ToString(),
-                };
-
-                throw new RetriableJobException(JsonConvert.SerializeObject(postProcessErrorResult));
             }
 
             if (errorResult != null)
@@ -273,7 +226,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task SendImportMetricsNotification(JobStatus jobStatus, JobInfo jobInfo, ImportOrchestratorJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
         {
-            _logger.LogInformation("SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
+            _logger.LogJobInformation(jobInfo, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
 
             if (importMode == ImportMode.IncrementalLoad)
             {
@@ -283,19 +236,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
 
                 _auditLogger.LogAudit(
-                AuditAction.Executed,
-                operation: "import/" + ImportMode.IncrementalLoad.ToString(),
-                resourceType: string.Empty,
-                requestUri: fhirRequestContext.Uri,
-                statusCode: HttpStatusCode.Accepted,
-                correlationId: fhirRequestContext.CorrelationId,
-                callerIpAddress: null,
-                callerClaims: null,
-                customHeaders: null,
-                operationType: string.Empty,
-                callerAgent: DefaultCallerAgent,
-                additionalProperties: incrementalImportProperties);
-                _logger.LogInformation("Audit logs for incremental import are added");
+                    AuditAction.Executed,
+                    operation: "import/" + ImportMode.IncrementalLoad.ToString(),
+                    resourceType: string.Empty,
+                    requestUri: fhirRequestContext.Uri,
+                    statusCode: HttpStatusCode.Accepted,
+                    correlationId: fhirRequestContext.CorrelationId,
+                    callerIpAddress: null,
+                    callerClaims: null,
+                    customHeaders: null,
+                    operationType: string.Empty,
+                    callerAgent: DefaultCallerAgent,
+                    additionalProperties: incrementalImportProperties);
+
+                _logger.LogJobInformation(jobInfo, "Audit logs for incremental import are added.");
             }
 
             var importJobMetricsNotification = new ImportJobMetricsNotification(
@@ -311,7 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
 
-        private async Task ExecuteImportProcessingJobAsync(IProgress<string> progress, JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task ExecuteImportProcessingJobAsync(JobInfo coord, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
         {
             currentResult.TotalBytes = 0;
             currentResult.FailedResources = 0;
@@ -323,12 +277,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 var blobLength = (long)(await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken))[IntegrationDataStoreClientConstants.BlobPropertyLength];
                 currentResult.TotalBytes += blobLength;
-                var numberOfStreams = (int)Math.Ceiling((double)blobLength / BytesToRead);
-                numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
-                for (var stream = 0; stream < numberOfStreams; stream++)
+                foreach (var offset in GetOffsets(blobLength, BytesToRead))
                 {
                     var newInput = input.Clone();
-                    newInput.Offset = (long)stream * BytesToRead; // make sure that arithmetic on long is used
+                    newInput.Offset = offset;
                     newInput.BytesToRead = BytesToRead;
                     lock (inputs)
                     {
@@ -337,16 +289,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
             });
 
-            var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, currentResult, cancellationToken);
-            progress.Report(JsonConvert.SerializeObject(currentResult));
+            var jobIds = await EnqueueProcessingJobsAsync(inputs, coord.GroupId, coordDefinition, cancellationToken);
 
             currentResult.CreatedJobs = jobIds.Count;
 
-            await WaitCompletion(progress, jobIds, currentResult, cancellationToken);
+            await WaitCompletion(coord, jobIds, currentResult, cancellationToken);
         }
 
-        private async Task WaitCompletion(IProgress<string> progress, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        internal static IEnumerable<long> GetOffsets(long blobLength, int bytesToRead)
         {
+            var numberOfStreams = (int)Math.Ceiling((double)blobLength / bytesToRead);
+            numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
+            for (var stream = 0; stream < numberOfStreams; stream++)
+            {
+                yield return (long)stream * bytesToRead; // make sure that arithmetic on long is used
+            }
+        }
+
+        private async Task WaitCompletion(JobInfo orchestratorInfo, IList<long> jobIds, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        {
+            _logger.LogJobInformation(orchestratorInfo, "Waiting for other workers to pull work from the queue");
             await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken); // there is no sense in checking right away as workers are polling queue on the same interval
 
             do
@@ -363,7 +325,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to get running jobs.");
+                    _logger.LogJobError(ex, orchestratorInfo, "Failed to get running jobs.");
                     throw new RetriableJobException(ex.Message, ex);
                 }
 
@@ -374,22 +336,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         if (jobInfo.Status == JobStatus.Completed)
                         {
                             var procesingJobResult = jobInfo.DeserializeResult<ImportProcessingJobResult>();
-                            currentResult.SucceededResources += procesingJobResult.SucceededResources == 0 ? procesingJobResult.SucceedCount : procesingJobResult.SucceededResources;
-                            currentResult.FailedResources += procesingJobResult.FailedResources == 0 ? procesingJobResult.FailedCount : procesingJobResult.FailedResources;
+                            currentResult.SucceededResources += procesingJobResult.SucceededResources;
+                            currentResult.FailedResources += procesingJobResult.FailedResources;
                             currentResult.ProcessedBytes += procesingJobResult.ProcessedBytes;
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
                             var procesingJobResult = jobInfo.DeserializeResult<ImportProcessingJobErrorResult>();
+                            _logger.LogJobError(jobInfo, "Job is set to 'Failed'. Message: {Message}.", procesingJobResult.Message);
                             throw new ImportProcessingException(procesingJobResult.Message);
                         }
                         else if (jobInfo.Status == JobStatus.Cancelled)
                         {
-                            throw new OperationCanceledException("Import operation cancelled by customer.");
+                            const string message = "Import operation cancelled by customer.";
+                            _logger.LogJobError(jobInfo, message);
+                            throw new OperationCanceledException(message);
                         }
 
                         completedJobIds.Add(jobInfo.Id);
-                        _logger.LogInformation("Job with id: {JobId} and group id: {GroupId} completed.", jobInfo.Id, jobInfo.GroupId);
+                        _logger.LogJobInformation(jobInfo, "Job with id: {JobId} and group id: {GroupId} completed.", jobInfo.Id, jobInfo.GroupId);
                     }
                 }
 
@@ -401,19 +366,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
 
                     currentResult.CompletedJobs += completedJobIds.Count;
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
+                    orchestratorInfo.Result = JsonConvert.SerializeObject(currentResult);
+                    await _queueClient.PutJobHeartbeatAsync(orchestratorInfo, cancellationToken); // remove when progress is reported by selecting results of children.
 
+                    _logger.LogJobInformation(orchestratorInfo, "Throttle to avoid high database utilization.");
                     await Task.Delay(TimeSpan.FromSeconds(duration), cancellationToken); // throttle to avoid high database utilization.
                 }
                 else
                 {
+                    _logger.LogJobInformation(orchestratorInfo, "Waiting for child jobs to finish.");
                     await Task.Delay(TimeSpan.FromSeconds(PollingPeriodSec), cancellationToken);
                 }
             }
             while (jobIds.Count > 0);
         }
 
-        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, ImportOrchestratorJobResult currentResult, CancellationToken cancellationToken)
+        private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, CancellationToken cancellationToken)
         {
             var definitions = new List<ImportProcessingJobDefinition>();
             foreach (var input in inputs.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)))
@@ -434,6 +402,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 definitions.Add(importJobPayload);
             }
 
+            var orchestratorInfo = new JobInfo() { GroupId = groupId, Id = groupId };
             try
             {
                 var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList();
@@ -441,12 +410,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (SqlException ex) when (ex.Number == 2627)
             {
-                _logger.LogError(ex, "Duplicate file detected in list of files to import.");
-                throw new JobExecutionException("Duplicate file detected in list of files to import.", ex);
+                const string message = "Duplicate file detected in list of files to import.";
+                _logger.LogJobError(ex, orchestratorInfo, message);
+                throw new JobExecutionException(message, ex);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enqueue job.");
+                _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue job.");
                 throw new RetriableJobException(ex.Message, ex);
             }
         }
@@ -455,11 +425,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
+                _logger.LogJobInformation(jobInfo, "Cancelling job.", jobInfo.Id, jobInfo.GroupId);
+
                 await _queueClient.CancelJobByGroupIdAsync(jobInfo.QueueType, jobInfo.GroupId, CancellationToken.None);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "failed to cancel job {GroupId}", jobInfo.GroupId);
+                _logger.LogJobWarning(ex, jobInfo, "Failed to cancel job.");
             }
 
             await WaitCancelledJobCompletedAsync(jobInfo);
@@ -471,6 +443,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 try
                 {
+                    _logger.LogJobInformation(jobInfo, nameof(WaitCancelledJobCompletedAsync));
+
                     IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None);
 
                     if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == jobInfo.Id))
@@ -480,7 +454,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "failed to get jobs by groupId {GroupId}", jobInfo.GroupId);
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to get jobs by groupId {GroupId}.", jobInfo.GroupId);
                     throw new RetriableJobException(ex.Message, ex);
                 }
 

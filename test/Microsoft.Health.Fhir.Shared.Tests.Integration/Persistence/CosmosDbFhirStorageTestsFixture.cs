@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public Container Container => _container;
 
-        public async Task InitializeAsync()
+        public virtual async Task InitializeAsync()
         {
             var fhirStoredProcs = typeof(IStoredProcedure).Assembly
                 .GetTypes()
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
             _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, CreateMockedScopeExtensions.CreateMockScopeProvider(() => _searchService), NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container, queueClient);
         }
 
-        public async Task DisposeAsync()
+        public virtual async Task DisposeAsync()
         {
             if (_container != null)
             {
@@ -300,6 +300,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(ISearchService))
             {
                 return _searchService;
+            }
+
+            if (serviceType == typeof(Func<IScoped<ISearchService>>))
+            {
+                return _searchService.CreateMockScopeFactory();
             }
 
             if (serviceType == typeof(SearchParameterDefinitionManager))

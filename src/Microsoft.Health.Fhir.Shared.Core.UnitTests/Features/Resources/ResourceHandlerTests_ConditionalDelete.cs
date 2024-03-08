@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             int count = 1,
             params SearchResultEntry[] searchResults)
         {
-            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
+            _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>(), resourceVersionTypes: Arg.Any<ResourceVersionType>(), onlyIds: Arg.Any<bool>())
                 .Returns(new SearchResult(searchResults, null, null, Enumerable.Empty<Tuple<string, string>>().ToArray()));
 
             if (hardDelete)

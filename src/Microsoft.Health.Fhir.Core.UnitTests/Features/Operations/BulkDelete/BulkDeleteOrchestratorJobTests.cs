@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkDelete;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
@@ -27,16 +28,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
     {
         private IQueueClient _queueClient;
         private ISearchService _searchService;
-        private IProgress<string> _progress;
         private BulkDeleteOrchestratorJob _orchestratorJob;
 
         public BulkDeleteOrchestratorJobTests()
         {
             _queueClient = Substitute.For<IQueueClient>();
             _searchService = Substitute.For<ISearchService>();
-            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService);
-
-            _progress = new Progress<string>((result) => { });
+            _orchestratorJob = new BulkDeleteOrchestratorJob(_queueClient, _searchService.CreateMockScopeFactory());
         }
 
         [Fact]
@@ -63,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
             await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -96,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
             await _queueClient.ReceivedWithAnyArgs(1).EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
             await _searchService.DidNotReceiveWithAnyArgs().GetUsedResourceTypes(Arg.Any<CancellationToken>());
 
@@ -129,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkDelete
                 Definition = JsonConvert.SerializeObject(definition),
             };
 
-            await _orchestratorJob.ExecuteAsync(jobInfo, _progress, CancellationToken.None);
+            await _orchestratorJob.ExecuteAsync(jobInfo, CancellationToken.None);
             await _queueClient.DidNotReceiveWithAnyArgs().EnqueueAsync(Arg.Any<byte>(), Arg.Any<string[]>(), Arg.Any<long?>(), false, false, Arg.Any<CancellationToken>());
             await _searchService.ReceivedWithAnyArgs(1).GetUsedResourceTypes(Arg.Any<CancellationToken>());
         }

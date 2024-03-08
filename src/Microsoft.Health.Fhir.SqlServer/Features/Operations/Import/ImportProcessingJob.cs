@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -46,10 +47,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
         }
 
-        public async Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
             var currentResult = new ImportProcessingJobResult();
@@ -88,12 +88,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
                     currentResult.ProcessedBytes = importProgress.ProcessedBytes;
 
-                    _logger.LogInformation("Import job progress: succeed {SucceedCount}, failed: {FailedCount}", currentResult.SucceededResources, currentResult.FailedResources);
-                    progress.Report(JsonConvert.SerializeObject(currentResult));
+                    _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to import data.");
+                    _logger.LogJobError(ex, jobInfo, "Failed to import data.");
                     throw;
                 }
 
@@ -101,23 +100,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     await loadTask;
                 }
-                catch (TaskCanceledException)
+                catch (TaskCanceledException tce)
                 {
+                    _logger.LogJobWarning(tce, jobInfo, nameof(TaskCanceledException));
                     throw;
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException oce)
                 {
+                    _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
                     throw;
                 }
-                catch (RequestFailedException ex) when (ex.Status == 403)
+                catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
-                    _logger.LogInformation(ex, "Due to unauthorized request, import processing operation failed.");
+                    _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
+                    throw new JobExecutionException(ex.Message, error, ex);
+                }
+                catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
+                {
+                    _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
+                    var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to load data.");
+                    _logger.LogJobError(ex, jobInfo, "RetriableJobException. Generic exception. Failed to load data.");
                     throw new RetriableJobException("Failed to load data", ex);
                 }
 
@@ -126,24 +133,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (TaskCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, CancelledErrorMessage);
+                _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogInformation(canceledEx, "Import processing operation is canceled.");
+                _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (RetriableJobException retriableEx)
             {
-                _logger.LogInformation(retriableEx, "Error in import processing job.");
+                _logger.LogJobInformation(retriableEx, jobInfo, "Error in import processing job.");
                 throw;
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Critical error in import processing job.");
+                _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
