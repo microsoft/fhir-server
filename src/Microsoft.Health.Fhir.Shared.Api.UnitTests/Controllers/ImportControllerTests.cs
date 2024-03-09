@@ -102,6 +102,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 optionsOperationConfiguration,
                 optionsFeatures,
                 Substitute.For<IResourceWrapperFactory>(),
+                Substitute.For<IImportErrorSerializer>(),
                 NullLogger<ImportController>.Instance);
         }
 
