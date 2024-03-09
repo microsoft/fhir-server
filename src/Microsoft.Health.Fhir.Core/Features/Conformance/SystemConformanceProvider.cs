@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
 
-            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default))
+            StringBuilder versioning = new StringBuilder();
+            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default) || _configuration.Value.Versioning.ResourceTypeOverrides.Any())
             {
                 _logger.LogInformation("Default version is:{VersioningDefault}.", _configuration.Value.Versioning.Default);
 
