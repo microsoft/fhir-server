@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     {
         protected ResourceActionResult()
         {
-            Headers = new ThreadSafeHeaderDictionary();
+            Headers = new HeaderDictionary();
         }
 
         protected ResourceActionResult(TResult result)

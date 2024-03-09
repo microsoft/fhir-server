@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -88,15 +90,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
 
-            StringBuilder versioning = new StringBuilder();
             if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default) || _configuration.Value.Versioning.ResourceTypeOverrides.Any())
             {
-                _logger.LogInformation("Default version is:{VersioningDefault}.", _configuration.Value.Versioning.Default);
+                StringBuilder versioning = new StringBuilder();
+                versioning.AppendLine($"Default version is: '{_configuration.Value.Versioning.Default ?? "(default)"}'.");
 
-                foreach (var resourcetype in _configuration.Value.Versioning.ResourceTypeOverrides)
+                foreach (var resourceTypeVersioning in _configuration.Value.Versioning.ResourceTypeOverrides)
                 {
-                    _logger.LogInformation("{ResourceTypeKey} version overridden to:{ResourceTypeVersioningOverride}.", resourcetype.Key, resourcetype.Value);
+                    versioning.AppendLine($"'{resourceTypeVersioning.Key}' version overridden to: '{resourceTypeVersioning.Value}'.");
                 }
+
+                _logger.LogInformation(versioning.ToString());
             }
         }
 

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
         public bool IsBackgroundTask { get; set; }
 
-        public IDictionary<string, object> Properties { get; } = new ConcurrentDictionary<string, object>();
+        public IDictionary<string, object> Properties { get; } = new Dictionary<string, object>();
 
         public AccessControlContext AccessControlContext { get; set; } = new AccessControlContext();
 
@@ -60,8 +60,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
                 Uri.ToString(),
                 BaseUri.ToString(),
                 CorrelationId,
-                requestHeaders: new ConcurrentDictionary<string, StringValues>(requestHeaders),
-                responseHeaders: new ConcurrentDictionary<string, StringValues>(responseHeaders));
+                requestHeaders: new Dictionary<string, StringValues>(requestHeaders),
+                responseHeaders: new Dictionary<string, StringValues>(responseHeaders));
 
             clone.RouteName = RouteName;
             clone.AuditEventType = AuditEventType;

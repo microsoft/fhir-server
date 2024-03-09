@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (processingLogic == FhirBundleProcessingLogic.Parallel)
             {
-                // Duplicated records. Only one should successed. As the requests are processed in parallel,
+                // Duplicated records. Only one should succeed. As the requests are processed in parallel,
                 // it's not possible to pick the one that will be processed.
                 if (resource.Entry[2].Response.Status == "200")
                 {
