@@ -102,7 +102,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Replace("Patient", "InvalidPatient"); // invalid resource type
             var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(isNdJson ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
+            var error = await response.Content.ReadAsStringAsync();
+            if (isNdJson)
+            {
+                Assert.True(error.Contains("Failed to process resource at line: 0 with stream start offset: 0", StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         [Theory]
@@ -113,9 +118,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Replace("##PatientID##", string.Empty); // invalid resource id
             var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var error = await response.Content.ReadAsStringAsync();
-            Assert.True(error.Contains("Resource id is empty at index=0", StringComparison.OrdinalIgnoreCase));
+            Assert.True(error.Contains("Resource id is empty", StringComparison.OrdinalIgnoreCase));
         }
 
         [Theory]
@@ -126,11 +131,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate");
             ndJson = ndJson.Substring(70); // invalid json
             var response = await _client.ImportBundleAsync(isNdJson ? ndJson : DressAsImportBundle(new[] { ndJson }.Select(_ => DressAsBundleEntry(_))), isNdJson);
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(isNdJson ? HttpStatusCode.OK : HttpStatusCode.BadRequest, response.StatusCode);
             var error = await response.Content.ReadAsStringAsync();
             if (isNdJson)
             {
-                Assert.True(error.Contains("Unable to parse resource at index=0", StringComparison.OrdinalIgnoreCase));
+                Assert.True(error.Contains("Failed to process resource at line: 0 with stream start offset: 0", StringComparison.OrdinalIgnoreCase));
             }
         }
 

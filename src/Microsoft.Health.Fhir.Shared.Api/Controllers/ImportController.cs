@@ -75,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<ImportController> _logger;
         private readonly ImportTaskConfiguration _importConfig;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly IImportErrorSerializer _importErrorSerializer;
 
         public ImportController(
             IMediator mediator,
@@ -83,6 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
             IResourceWrapperFactory resourceWrapperFactory,
+            IImportErrorSerializer importErrorSerializer,
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -98,6 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _features = features.Value;
             _mediator = mediator;
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
             _logger = logger;
         }
 
@@ -107,10 +110,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.ImportBundle)]
         public async Task<IActionResult> ImportBundle()
         {
-            return await ImportBundleInternal(Request, null, _resourceWrapperFactory, _mediator, _logger, HttpContext.RequestAborted);
+            return await ImportBundleInternal(Request, null, _resourceWrapperFactory, _mediator, _logger, _importErrorSerializer, HttpContext.RequestAborted);
         }
 
-        internal static async Task<IActionResult> ImportBundleInternal(HttpRequest request, Resource bundle, IResourceWrapperFactory resourceWrapperFactory, IMediator mediator, ILogger logger, CancellationToken cancel)
+        internal static async Task<IActionResult> ImportBundleInternal(HttpRequest request, Resource bundle, IResourceWrapperFactory resourceWrapperFactory, IMediator mediator, ILogger logger, IImportErrorSerializer errorSerializer, CancellationToken cancel)
         {
             var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
@@ -120,6 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var importParser = new ImportResourceParser(fhirParser, resourceWrapperFactory);
             using var reader = new StreamReader(request.Body, Encoding.UTF8);
             var index = 0L;
+            var errors = new List<string>();
             if (bundle == null)
             {
                 //// ReadLineAsync accepts cancel in .NET8 but not in .NET6, hence this pragma. Pass cancel when we stop supporting .NET6.
@@ -127,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 var line = await reader.ReadLineAsync();
                 while (line != null)
                 {
-                    AddToImportResources(line);
+                    AddToImportResources(line, errors);
                     line = await reader.ReadLineAsync();
                 }
 #pragma warning restore CA2016
@@ -136,21 +140,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 foreach (var entry in bundle.ToResourceElement().ToPoco<Bundle>().Entry) // ignore all bundle components except Resource
                 {
-                    AddToImportResources(entry.Resource);
+                    AddToImportResources(entry.Resource, errors);
                 }
             }
 
             var importRequest = new ImportBundleRequest(importResources);
             var response = await mediator.ImportBundleAsync(importRequest.Resources, cancel);
-            var result = new ImportBundleActionResult(new ImportBundleResult(response.LoadedResources, response.FailedResources, response.Errors), HttpStatusCode.OK);
+            var failed = errors.Count + response.FailedResources;
+            if (response.Errors != null)
+            {
+                errors.AddRange(response.Errors);
+            }
+
+            var result = new ImportBundleActionResult(new ImportBundleResult(response.LoadedResources, failed, errors), HttpStatusCode.OK);
             result.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
 
             await mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
-            logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
+            logger.LogInformation("Loaded={LoadedResources}, failed={FailedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, failed, (int)sw.Elapsed.TotalMilliseconds);
 
             return result;
 
-            void AddToImportResources(object input)
+            void AddToImportResources(object input, IList<string> errors)
             {
                 if (input is not Resource resource)
                 {
@@ -158,15 +168,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     {
                         resource = fhirParser.Parse<Resource>((string)input);
                     }
-                    catch (FormatException)
+                    catch (FormatException ex)
                     {
-                        throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Unable to parse resource at index={index}"));
+                        errors.Add(string.Format(Resources.ParsingError, errorSerializer.Serialize(index, ex, 0)));
+                        return;
                     }
                 }
 
                 if (string.IsNullOrEmpty(resource.Id))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.ParsingError, $"Resource id is empty at index={index}"));
+                    errors.Add(string.Format(Resources.ParsingError, errorSerializer.Serialize(index, "Resource id is empty", 0)));
+                    return;
                 }
 
                 var importResource = importParser.Parse(index, 0, 0, resource, ImportMode.IncrementalLoad);

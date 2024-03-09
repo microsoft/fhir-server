@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
+        private readonly IImportErrorSerializer _importErrorSerializer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -87,7 +89,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
             IAuthorizationService authorizationService,
-            IResourceWrapperFactory resourceWrapperFactory)
+            IResourceWrapperFactory resourceWrapperFactory,
+            IImportErrorSerializer importErrorSerializer)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -102,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _resourceWrapperFactory = EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -662,7 +666,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (bundle.HasImportBundleProfile())
             {
-                return await ImportController.ImportBundleInternal(Request, bundle, _resourceWrapperFactory, _mediator, _logger, HttpContext.RequestAborted);
+                return await ImportController.ImportBundleInternal(Request, bundle, _resourceWrapperFactory, _mediator, _logger, _importErrorSerializer, HttpContext.RequestAborted);
             }
 
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
