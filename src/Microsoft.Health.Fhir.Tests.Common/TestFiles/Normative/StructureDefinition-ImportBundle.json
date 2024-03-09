@@ -15,7 +15,7 @@
             {
                 "id": "Bundle.type",
                 "path": "Bundle.type",
-                "fixedCode": "transaction"
+                "fixedCode": "batch"
             },
             {
                 "id": "Bundle.entry.request.method",

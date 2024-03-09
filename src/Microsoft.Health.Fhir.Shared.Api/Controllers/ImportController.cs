@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
-            var resources = new List<ImportResource>();
+            var importResources = new List<ImportResource>();
             var keys = new HashSet<ResourceKey>();
             var fhirParser = new FhirJsonParser();
             var importParser = new ImportResourceParser(fhirParser, resourceWrapperFactory);
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 var line = await reader.ReadLineAsync();
                 while (line != null)
                 {
-                    ParseAndAddToResults(line);
+                    AddToImportResources(line);
                     line = await reader.ReadLineAsync();
                 }
 #pragma warning restore CA2016
@@ -136,19 +136,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 foreach (var entry in bundle.ToResourceElement().ToPoco<Bundle>().Entry) // ignore all bundle components except Resource
                 {
-                    ParseAndAddToResults(entry.Resource);
+                    AddToImportResources(entry.Resource);
                 }
             }
 
-            var importRequest = new ImportBundleRequest(resources);
+            var importRequest = new ImportBundleRequest(importResources);
             var response = await mediator.ImportBundleAsync(importRequest.Resources, cancel);
-            var result = new ImportBundleResult(response.LoadedResources, HttpStatusCode.OK);
-            result.Headers["LoadedResources"] = response.LoadedResources.ToString();
+            var result = new ImportBundleActionResult(new ImportBundleResult(response.LoadedResources, response.FailedResources, response.Errors), HttpStatusCode.OK);
+            result.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
+
             await mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
             logger.LogInformation("Loaded {LoadedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, (int)sw.Elapsed.TotalMilliseconds);
+
             return result;
 
-            void ParseAndAddToResults(object input)
+            void AddToImportResources(object input)
             {
                 if (input is not Resource resource)
                 {
@@ -174,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
                 }
 
-                resources.Add(importResource);
+                importResources.Add(importResource);
                 index++;
             }
         }

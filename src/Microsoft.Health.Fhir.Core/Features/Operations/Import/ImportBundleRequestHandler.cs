@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             var input = request.Resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, false, null, false, false, null)).ToList();
             await _store.MergeAsync(input, new MergeOptions(false), cancellationToken);
-            return await Task.FromResult(new ImportBundleResponse(request.Resources.Count));
+            return await Task.FromResult(new ImportBundleResponse(request.Resources.Count, 0, null));
         }
     }
 }

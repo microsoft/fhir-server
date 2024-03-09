@@ -178,7 +178,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsImportBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.True(response.IsSuccessStatusCode);
-            Assert.Equal(ndJsons.Count(), int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
+            var result = JsonConvert.DeserializeObject<ImportBundleResult>(response.Content.ReadAsStringAsync().Result);
+            Assert.Equal(ndJsons.Count(), result.LoadedResources);
         }
 
         private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString, bool check)

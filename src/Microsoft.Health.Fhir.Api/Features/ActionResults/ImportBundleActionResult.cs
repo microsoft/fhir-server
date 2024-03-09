@@ -3,23 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Net;
-using EnsureThat;
+using System.Net.Http;
+using Azure.Core;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
     /// Used to return the result of a import bundle operation.
     /// </summary>
-    public class ImportBundleResult : ResourceActionResult<ImportJobResult>
+    public class ImportBundleActionResult : ResourceActionResult<ImportBundleResult>
     {
-        public ImportBundleResult(int count, HttpStatusCode statusCode)
-            : base(null, statusCode)
+        public ImportBundleActionResult(ImportBundleResult importBundleResult, HttpStatusCode statusCode)
+            : base(importBundleResult, statusCode)
         {
-            LoadedResources = count;
         }
 
-        public int LoadedResources { get; }
+        public ImportBundleResult ImportBundleResult { get; private set; }
     }
 }
