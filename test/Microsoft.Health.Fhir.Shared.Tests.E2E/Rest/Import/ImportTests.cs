@@ -121,6 +121,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var error = await response.Content.ReadAsStringAsync();
             Assert.True(error.Contains("Resource id is empty", StringComparison.OrdinalIgnoreCase));
+////{
+////  "resourceType": "OperationOutcome",
+////  "issue": [
+////    {
+////      "severity": "error",
+////      "details": { "text": "Resource id is empty" },
+////      "diagnostics": "Failed to process resource at line: 0 with stream start offset: 0"
+////    }
+////  ]
+////}
         }
 
         [Theory]
