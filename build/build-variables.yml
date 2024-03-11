@@ -31,7 +31,6 @@ variables:
   LinuxVmImage: 'ubuntu-latest'  
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'
   # The following is set by a build Pipeline variable:
-  # DefaultLinuxPool: 'DevOps1ESSharedPool'
-  # SharedLinuxPool: 'DevOps1ESSharedPool'
-  # DefaultWindowsPool: 'mshealthagents'
+  # DefaultLinuxPool: 'Azure Pipelines'
+  # SharedLinuxPool: 'Azure Pipelines'
   #-----------------------------------------------------------------------------------------

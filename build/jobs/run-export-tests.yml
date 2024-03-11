@@ -8,7 +8,8 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultWindowsPool)'
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -71,18 +72,13 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@3
+  - task: DotNetCoreCLI@2
     displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
-      testSelector: 'testAssemblies'
-      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"'
-      searchFolder: '$(System.ArtifactsDirectory)'
-      testFiltercriteria: 'FullyQualifiedName~CosmosDb&Category=ExportLongRunning'
-      testRunTitle: '${{ parameters.version }} CosmosDB Export'
-      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Mini;CollectHangDump;TestTimeout=7min;HangDumpType=Mini"'
-      rerunFailedTests: true
-      rerunType: 'basedOnTestFailurePercentage'
-      rerunFailedThreshold: 10
+      command: test
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -110,19 +106,11 @@ jobs:
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
 
-  # Publish the crash dump and XML files as build artifacts on failure only
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Export E2E Cosmos Test Failures'
-    condition: failed()
-    continueOnError: true
-    inputs:
-      targetPath: '$(Agent.TempDirectory)/TestResults'
-      artifactName: 'Export E2E Cosmos Test Failures'
-
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultWindowsPool)'
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
   - template: e2e-tests-extract.yml
@@ -185,18 +173,13 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@3
+  - task: DotNetCoreCLI@2
     displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
-      testSelector: 'testAssemblies'
-      testAssemblyVer2: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll"'
-      searchFolder: '$(System.ArtifactsDirectory)'
-      testFiltercriteria: 'FullyQualifiedName~SqlServer&Category=ExportLongRunning'
-      testRunTitle: '${{ parameters.version }} SQL Export'
-      otherConsoleOptions: '/Blame:"CollectDump;DumpType=Mini;CollectHangDump;TestTimeout=7min;HangDumpType=Mini"'
-      rerunFailedTests: true
-      rerunType: 'basedOnTestFailurePercentage'
-      rerunFailedThreshold: 10
+      command: test
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} SQL'
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
@@ -223,12 +206,4 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
-
-  # Publish the crash dump and XML files as build artifacts on failure only
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Export E2E SQL Test Failures'
-    condition: failed()
-    continueOnError: true
-    inputs:
-      targetPath: '$(Agent.TempDirectory)/TestResults'
-      artifactName: 'Export E2E SQL Test Failures'
+      

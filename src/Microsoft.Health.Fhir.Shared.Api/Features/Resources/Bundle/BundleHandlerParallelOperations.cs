@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 return await Task.FromResult(throttledEntryComponent);
             }
 
-            const int GCCollectTrigger = 150;
-
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
@@ -84,11 +82,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // Parallel Resource Handling Function.
                 Func<ResourceExecutionContext, CancellationToken, Task> handleRequestFunction = async (ResourceExecutionContext resourceExecutionContext, CancellationToken ct) =>
                 {
-                    if (resourceExecutionContext.Index > 0 && resourceExecutionContext.Index % GCCollectTrigger == 0)
-                    {
-                        RunGarbageCollection();
-                    }
-
                     _logger.LogInformation("BundleHandler - Running '{HttpVerb}' Request #{RequestNumber} out of {TotalNumberOfRequests}.", resourceExecutionContext.HttpVerb, resourceExecutionContext.Index, bundleOperation.OriginalExpectedNumberOfResources);
 
                     // Creating new instances per record in the bundle, and making their access thread-safe.
@@ -147,12 +140,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 try
                 {
-                    // The following Task.WaitAll should wait for all requests to finish.
+                    // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supossed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
-
-                    Task.WaitAll(requestsPerResource.ToArray(), cancellationToken);
+                    await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
                 {

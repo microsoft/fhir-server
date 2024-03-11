@@ -93,14 +93,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting()
+        public async Task GivenIncrementalLoad_MultipleResoureTypesInSingleFile_Success()
+        {
+            var ndJson1 = Samples.GetNdJson("Import-SinglePatientTemplate");
+            var pid = Guid.NewGuid().ToString("N");
+            ndJson1 = ndJson1.Replace("##PatientID##", pid);
+            var ndJson2 = Samples.GetNdJson("Import-Observation");
+            var oid = Guid.NewGuid().ToString("N");
+            ndJson2 = ndJson2.Replace("##ObservationID##", oid);
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            await ImportCheckAsync(request, null);
+
+            var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
+            Assert.Equal("1", patient.Resource.Meta.VersionId);
+            var observation = await _client.ReadAsync<Observation>(ResourceType.Observation, oid);
+            Assert.Equal("1", observation.Resource.Meta.VersionId);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleNonSequentialInputVersions_ResourceExisting(bool setResourceType)
         {
             var id = Guid.NewGuid().ToString("N");
 
             // set existing
             var ndJson = PrepareResource(id, "10000", "2000");
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType);
             await ImportCheckAsync(request, null);
 
             // set input. something before and something after existing
@@ -110,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             // note order of records
             location = (await ImportTestHelper.UploadFileAsync(ndJson2 + ndJson + ndJson3, _fixture.StorageAccount)).location;
-            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, setResourceType);
             await ImportCheckAsync(request, null);
 
             // check current
@@ -182,28 +203,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task GivenIncrementalImportInvalidResource__WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalImportInvalidResource_WhenImportData_ThenErrorLogsShouldBeOutputAndFailedCountShouldMatch(bool setResourceType)
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
+            var inputResource = new InputResource() { Url = location, Etag = etag };
+            if (setResourceType)
+            {
+                inputResource.Type = "Patient";
+            }
+
             var request = new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = new List<InputResource>()
-                {
-                    new InputResource()
-                    {
-                        Url = location,
-                        Etag = etag,
-                        Type = "Patient",
-                    },
-                },
+                Input = new List<InputResource>() { inputResource },
                 Mode = ImportMode.IncrementalLoad.ToString(),
             };
 
@@ -356,14 +377,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true)
         {
+            var inputResource = new InputResource() { Url = location };
+            if (setResourceType)
+            {
+                inputResource.Type = "Patient";
+            }
+
             return new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
                 InputSource = new Uri("https://other-server.example.org"),
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient" } },
+                Input = new List<InputResource>() { inputResource },
                 Mode = importMode.ToString(),
             };
         }
@@ -393,9 +420,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return ndJson;
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         [Trait(Traits.Category, Categories.Authorization)]
-        public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess(bool setResourceType)
         {
             _metricHandler?.ResetCount();
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
@@ -403,22 +432,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
-            var request = new ImportRequest()
-            {
-                InputFormat = "application/fhir+ndjson",
-                InputSource = new Uri("https://other-server.example.org"),
-                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
-                Input = new List<InputResource>()
-                {
-                    new InputResource()
-                    {
-                        Url = location,
-                        Type = "Patient",
-                    },
-                },
-                Mode = ImportMode.InitialLoad.ToString(),
-            };
-
+            var request = CreateImportRequest(location, ImportMode.InitialLoad, setResourceType);
             await ImportCheckAsync(request, tempClient);
 
             // Only check metric for local tests
