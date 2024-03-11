@@ -33,10 +33,15 @@ jobs:
           script: |
             var errors = "";
             const title = "${{env.TITLE}}";
+            const body = context.payload.pull_request.body;
             const labels = "${{env.LABELS}}";
             
             if(title.toLowerCase().includes('personal') || (title.length > 65)) {
               errors += '- Title of the PR to be succinct and less than 65 characters. \n';
+            }
+
+            if(body.toLowerCase().includes('ab#') == false && body.toLowerCase().includes('/_workitems') == false) {
+              errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
             if(${{env.NO_MILESTONE}}) {
@@ -59,7 +64,7 @@ jobs:
                labels.includes("Dependencies") == false &&
                labels.includes("Build") == false &&
                labels.includes("Documentation") == false) {
-              errors += '- Tag the PR with **Open source only**, **Azure API for FHIR** (CosmosDB or common code) or **Azure Healthcare APIs** (SQL or common code) to specify where this change is intended to be released. ';
+              errors += '- Tag the PR with **Open source only**, **Azure API for FHIR** (CosmosDB or common code) or **Azure Healthcare APIs** (SQL or common code) to specify where this change is intended to be released. \n';
             }
 
             if(labels.includes("SQL Scripts") == true && 
