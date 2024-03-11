@@ -30,7 +30,6 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
 
-    // #TODO - confirm if this is the right policy with team.
     private static readonly AsyncPolicy _retryPolicy = Policy
         .Handle<RetriableJobException>()
         .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)

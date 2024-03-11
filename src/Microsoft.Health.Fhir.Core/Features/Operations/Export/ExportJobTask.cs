@@ -106,7 +106,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
 
-            // #TODO - check w/ team if this is needed.
             // Don't allow jobs to loop forever if they are failing.
             if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
             {
