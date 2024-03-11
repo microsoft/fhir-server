@@ -8,6 +8,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Completed);
 
-            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient());
+            var processingJob = new ExportProcessingJob(MakeMockJob, new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
             Assert.Equal(expectedResults, taskResult);
 
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var exceptionMessage = "Test job failed";
             var expectedResults = GenerateJobRecord(OperationStatus.Failed, exceptionMessage);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             var exception = await Assert.ThrowsAsync<JobExecutionException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
             Assert.Equal(exceptionMessage, exception.Message);
         }
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient());
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var expectedResults = GenerateJobRecord(status);
 
-            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient());
+            var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
             await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None));
         }
 
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
             var taskResult = await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), progress, CancellationToken.None);
 
             Assert.Single(queueClient.JobInfos);
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var expectedResults = GenerateJobRecord(OperationStatus.Running);
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             var runningJob = GenerateJobInfo(expectedResults);
             var followUpJob = GenerateJobInfo(expectedResults);
@@ -146,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             });
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             // Note: Feed ranges are different which means testRunningJob should queue the next job even though.
             var testRunningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running, resourceType: testRunningJobResourceType, feedRange: testRunningJobFeedRange));
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             });
 
             var queueClient = new TestQueueClient();
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, queueClient, new NullLogger<ExportProcessingJob>());
 
             var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
 
