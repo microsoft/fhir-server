@@ -1,0 +1,31 @@
+steps:
+
+- task: UseDotNet@2
+  displayName: 'Use .NET Core sdk (for GitVersion)'
+  inputs:
+    packageType: sdk
+    version: 3.1.x
+  
+- task: UseDotNet@2
+  inputs:
+    useGlobalJson: true
+    
+- powershell: |
+    dotnet tool install --global GitVersion.Tool
+
+    $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
+
+    Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
+    Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$($gitVersionJson.informationalVersion)"
+    Write-Host "##vso[task.setvariable variable=majorMinorPatch;isOutput=true]$($gitVersionJson.majorMinorPatch)"
+    Write-Host "##vso[task.setvariable variable=nuGetVersion;isOutput=true]$($gitVersionJson.semVer)"
+    Write-Host "##vso[task.setvariable variable=assemblySemVer;isOutput=true]$($gitVersionJson.assemblySemVer)"
+    Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]$($gitVersionJson.assemblySemFileVer)"
+
+    Write-Host "##vso[build.updatebuildnumber]$($gitVersionJson.semVer)"
+  name: SetVariablesFromGitVersion
+
+- powershell: |
+    Write-Host '----------Variables to use for build----------'
+    Write-Host 'semVer: $(semVer)'
+  name: PrintVariablesFromGitVersion

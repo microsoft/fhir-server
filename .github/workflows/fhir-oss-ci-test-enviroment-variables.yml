@@ -1,0 +1,10 @@
+variables:
+    ResourceGroupRegion: 'southcentralus'
+    # Due to deleting a keyvault with purge protection we must use a name other than msh-fhir-ci for 90 days after 5/20/2021.
+    resourceGroupRoot: 'msh-fhir-ci4'
+    appServicePlanName: '$(resourceGroupRoot)-linux'
+    DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    ResourceGroupName: '$(resourceGroupRoot)'
+    CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
+    TestEnvironmentName: 'OSS CI'
+    ImageTag: '$(build.BuildNumber)'
