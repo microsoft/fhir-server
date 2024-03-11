@@ -141,23 +141,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             // 5 versions total for Observations
-            var expectedObservationCount = 5 + stragglerResources.Count(r => r.Resource.TypeName == "Observation");
+            var allObservationStragglerResources = stragglerResources.Where(r => r.Resource.TypeName == "Observation");
+            var expectedObservationCount = 5 + allObservationStragglerResources.Count();
 
             if (allObservationSummaryCountResult.Resource.Total != expectedObservationCount || allObservationSummaryCountZero.Resource.Total != expectedObservationCount)
             {
                 Assert.Fail($"allSummaryCountResult or allSummaryCountZero not equal to {expectedObservationCount}. allObservationSummaryCountResult {allObservationSummaryCountResult.Resource.Total}. " +
                             $"allObservationSummaryCountZero {allObservationSummaryCountZero.Resource.Total}\n{await GetSummaryMessage($"Observation/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
-                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
+                            $"straggler resources {string.Join(',', allObservationStragglerResources.Select(r => r.Resource.Id))}.");
             }
 
             // 3 versions across single observation (create, update, delete).
-            var expectedSpecificObservationCount = 3 + stragglerResources.Count();
+            var specificObservationStragglerResources = stragglerResources.Where(r => r.Resource.TypeName == "Observation" && r.Resource.Id == firstTestResource.Id);
+            var expectedSpecificObservationCount = 3 + specificObservationStragglerResources.Count();
 
             if (observationSummaryCountResult.Resource.Total != expectedSpecificObservationCount || observationSummaryCountZero.Resource.Total != expectedSpecificObservationCount)
             {
                 Assert.Fail($"observationSummaryCountResult or observationSummaryCountZero not equal to {expectedSpecificObservationCount}. observationSummaryCountResult {observationSummaryCountResult.Resource.Total}. " +
                             $"observationSummaryCountZero {observationSummaryCountZero.Resource.Total}.\n{await GetSummaryMessage($"Observation/{firstTestResource.Id}/_history?_since={sinceTime}&_before={beforeTime}")}.\n" +
-                            $"straggler resources {string.Join(',', stragglerResources.Select(r => r.Resource.Id))}.");
+                            $"straggler resources {string.Join(',', specificObservationStragglerResources.Select(r => r.Resource.Id))}.");
             }
 
             // Cleanup
