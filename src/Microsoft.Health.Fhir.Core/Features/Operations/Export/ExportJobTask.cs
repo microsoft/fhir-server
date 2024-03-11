@@ -106,6 +106,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             var existingFhirRequestContext = _contextAccessor.RequestContext;
 
+            // #TODO - check w/ team if this is needed.
+            // Don't allow jobs to loop forever if they are failing.
+            if (exportJobRecord.RestartCount > _exportJobConfiguration.MaxJobRestartCount)
+            {
+                _exportJobRecord.Status = OperationStatus.Failed;
+                _exportJobRecord.FailureDetails = new JobFailureDetails("Job has been retried too many times.", HttpStatusCode.InternalServerError);
+                _logger.LogError("[JobId:{JobId}]" + _exportJobRecord.FailureDetails.FailureReason, _exportJobRecord.Id);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                return;
+            }
+
             try
             {
                 _exportJobRecord.Status = OperationStatus.Running;
@@ -540,11 +551,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 await ProcessProgressChange(
-                progress,
-                queryParametersList,
-                searchResult.ContinuationToken,
-                false,
-                cancellationToken);
+                    progress,
+                    queryParametersList,
+                    searchResult.ContinuationToken,
+                    false,
+                    cancellationToken);
             }
 
             // Commit one last time for any pending changes.
