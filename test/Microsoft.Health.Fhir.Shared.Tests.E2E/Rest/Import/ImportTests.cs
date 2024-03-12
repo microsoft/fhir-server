@@ -193,8 +193,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsImportBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.True(response.IsSuccessStatusCode);
+            CheckLoadedResources(response, ndJsons.Count());
+        }
+
+        private void CheckLoadedResources(HttpResponseMessage response, int loadedResources)
+        {
             var result = JsonConvert.DeserializeObject<ImportBundleResult>(response.Content.ReadAsStringAsync().Result);
-            Assert.Equal(ndJsons.Count(), result.LoadedResources);
+            Assert.Equal(loadedResources, result.LoadedResources);
         }
 
         private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString, bool check)
@@ -265,7 +270,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (useBundleEndpoint)
             {
                 var response = await _client.ImportBundleAsync(ndJson, true);
-                Assert.Equal(cnt, int.Parse(response.Headers.First(_ => _.Key == "LoadedResources").Value.First()));
+                CheckLoadedResources(response, cnt);
             }
             else
             {
