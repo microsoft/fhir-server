@@ -9,6 +9,14 @@ permissions:
    id-token: write
    contents: read
 jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{github.ref}}
   update-version:
     name: Determine Semver
     runs-on: ubuntu-latest
