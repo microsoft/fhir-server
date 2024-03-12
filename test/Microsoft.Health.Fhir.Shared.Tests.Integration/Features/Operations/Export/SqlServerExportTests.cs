@@ -128,7 +128,7 @@ END
 retryOnTestException:
             try
             {
-                await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
+                await coordJob.ExecuteAsync(jobInfo, cts.Token);
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
             }
             catch (Exception e)

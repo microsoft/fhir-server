@@ -895,9 +895,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
 
             _reindexJobWorker = new ReindexJobWorker(
-                () => _scopedOperationDataStore,
+                _scopedOperationDataStore.CreateMockScopeProviderFromScoped(),
                 Options.Create(_jobConfiguration),
-                InitializeReindexJobTask,
+                InitializeReindexJobTask().CreateMockScopeProvider(),
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
@@ -936,7 +936,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return searchParam;
         }
 
-        private ReindexJobTask InitializeReindexJobTask()
+        private IReindexJobTask InitializeReindexJobTask()
         {
             return new ReindexJobTask(
                 () => _scopedOperationDataStore,
@@ -1033,7 +1033,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var mediator = new Mediator(services);
 
-            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, () => _searchService, NullLogger<SearchParameterDefinitionManager>.Instance);
+            _searchParameterDefinitionManager2 = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, mediator, _searchService.CreateMockScopeProviderFromScoped(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager2.EnsureInitializedAsync(CancellationToken.None);
             _supportedSearchParameterDefinitionManager2 = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager2);
 

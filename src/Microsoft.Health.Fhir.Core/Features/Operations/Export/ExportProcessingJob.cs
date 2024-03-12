@@ -35,10 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
         }
 
-        public Task<string> ExecuteAsync(JobInfo jobInfo, IProgress<string> progress, CancellationToken cancellationToken)
+        public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(progress, nameof(progress));
 
             ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(string.IsNullOrEmpty(jobInfo.Result) ? jobInfo.Definition : jobInfo.Result);
             record.Id = jobInfo.Id.ToString();
@@ -87,7 +86,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             async Task<ExportJobOutcome> UpdateExportJob(ExportJobRecord exportJobRecord, WeakETag weakETag, CancellationToken innerCancellationToken)
             {
                 record = exportJobRecord;
-                progress.Report(JsonConvert.SerializeObject(exportJobRecord));
 
                 if (record.Status == OperationStatus.Running)
                 {

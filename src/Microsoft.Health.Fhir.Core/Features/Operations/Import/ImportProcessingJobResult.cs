@@ -32,10 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         public string ErrorDetails { get; set; }
 
-        public long SucceedCount { get; set; } // TODO: Remove in stage 3
-
-        public long FailedCount { get; set; } // TODO: Remove in stage 3
-
         /// <summary>
         /// Current index for last checkpoint
         /// </summary>

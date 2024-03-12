@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             var jobInfo = await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId);
 
-            await coordJob.ExecuteAsync(jobInfo, new Progress<string>(), cts.Token);
+            await coordJob.ExecuteAsync(jobInfo, cts.Token);
             await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
 
             var jobs = (await _queueClient.GetJobByGroupIdAsync(_queueType, groupId, false, cts.Token)).ToList();

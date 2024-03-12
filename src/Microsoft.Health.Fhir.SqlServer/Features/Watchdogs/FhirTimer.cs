@@ -42,11 +42,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         internal string LastException => _lastException;
 
-        protected internal async Task StartAsync(double periodSec, CancellationToken cancellationToken)
+        protected async Task StartAsync(double periodSec, CancellationToken cancellationToken)
         {
             PeriodSec = periodSec;
             _cancellationToken = cancellationToken;
+
+            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
             _timer = new Timer(async _ => await RunInternalAsync(), null, TimeSpan.FromSeconds(PeriodSec * RandomNumberGenerator.GetInt32(1000) / 1000), TimeSpan.FromSeconds(PeriodSec));
+
             _isStarted = true;
             await Task.CompletedTask;
         }
@@ -74,10 +77,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             {
                 try
                 {
-                    _logger.LogWarning(e.ToString()); // exceptions in logger should never bubble up
+                    _logger.LogWarning(e, "Error executing FHIR Timer"); // exceptions in logger should never bubble up
                 }
                 catch
                 {
+                    // ignored
                 }
 
                 _isFailing = true;
