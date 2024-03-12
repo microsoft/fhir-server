@@ -35,8 +35,8 @@ steps:
       $resource = "https://graph.windows.net/"
 
       $body = @{
-          client_id  = $clientId
           grant_type = "client_credentials"
+          client_id  = $clientId
           client_secret = $password_raw
           resource   = $resource
       }
