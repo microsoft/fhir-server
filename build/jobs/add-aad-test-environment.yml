@@ -20,9 +20,6 @@ steps:
 
       # Get admin token
 
-      # $username = "$(tenant-app-client-name)"
-      # $clientId = "$(tenant-app-client-id)"
-      # $password_raw =  "$(tenant-app-client-password)"
       $username = "$(tenant-admin-service-principal-name)"
       $clientId = "$(tenant-admin-service-principal-id)"
       $password_raw =  "$(tenant-admin-service-principal-password)"
