@@ -35,11 +35,10 @@ function Grant-ClientAppDelegatedPermissions {
     $resource = "https://graph.microsoft.com/"
 
     $body = @{
-        grant_type = "password"
-        username   = $TenantAdminCredential.GetNetworkCredential().UserName
-        password   = $TenantAdminCredential.GetNetworkCredential().Password
+        grant_type = "client_credentials"
+        client_id  = $TenantAdminCredential.GetNetworkCredential().UserName
+        client_secret = $TenantAdminCredential.GetNetworkCredential().Password
         resource   = $resource
-        client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
     }
 
     try {
