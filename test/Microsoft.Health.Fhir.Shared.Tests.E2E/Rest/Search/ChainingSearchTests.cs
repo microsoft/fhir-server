@@ -264,8 +264,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
         }
 
+        [Fact]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
         {
             string query = $"subject:Patient.gender=male";
