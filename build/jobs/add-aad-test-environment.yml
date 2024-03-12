@@ -29,8 +29,6 @@ steps:
       $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
       $adminCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $clientId, $password
 
-      Write-Host "Using credentials from $username app"
-
       $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
       $resource = "https://graph.windows.net/"
 
