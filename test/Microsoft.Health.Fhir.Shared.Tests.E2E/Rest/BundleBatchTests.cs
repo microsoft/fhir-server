@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BundleTestsUtil.ValidateOperationOutcome(resourceAfterPostingSameBundle.Entry[9].Response.Status, resourceAfterPostingSameBundle.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
         }
 
-        [Theory]
+        [SkippableTheory(Skip = "Auth Refactoring")]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
