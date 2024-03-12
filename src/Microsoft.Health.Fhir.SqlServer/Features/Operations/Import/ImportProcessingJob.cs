@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -109,10 +110,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
                     throw;
                 }
-                catch (RequestFailedException ex) when (ex.Status == 403)
+                catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
+                    throw new JobExecutionException(ex.Message, error, ex);
+                }
+                catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
+                {
+                    _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
+                    var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
