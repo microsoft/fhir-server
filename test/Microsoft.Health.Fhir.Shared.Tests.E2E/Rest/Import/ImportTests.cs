@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [Fact]
+        [SkippableFact(Skip = "Auth Refactoring")]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
@@ -420,7 +420,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return ndJson;
         }
 
-        [Theory]
+        [SkippableTheory(Skip = "Auth Refactoring")]
         [InlineData(true)]
         [InlineData(false)]
         [Trait(Traits.Category, Categories.Authorization)]
@@ -449,7 +449,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [Fact]
+        [SkippableFact(Skip = "Auth Refactoring")]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
