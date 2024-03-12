@@ -90,18 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _contextAccessor = contextAccessor;
             _searchParameterStatusManager = searchParameterStatusManager;
 
-            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default) || _configuration.Value.Versioning.ResourceTypeOverrides.Any())
-            {
-                StringBuilder versioning = new StringBuilder();
-                versioning.AppendLine($"Default version is: '{_configuration.Value.Versioning.Default ?? "(default)"}'.");
-
-                foreach (var resourceTypeVersioning in _configuration.Value.Versioning.ResourceTypeOverrides)
-                {
-                    versioning.AppendLine($"'{resourceTypeVersioning.Key}' version overridden to: '{resourceTypeVersioning.Value}'.");
-                }
-
-                _logger.LogInformation(versioning.ToString());
-            }
+            LogVersioningPolicyConfiguration();
         }
 
         public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
@@ -364,6 +353,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             finally
             {
                 _metadataSemaphore?.Release();
+            }
+        }
+
+        private void LogVersioningPolicyConfiguration()
+        {
+            if (!string.IsNullOrEmpty(_configuration.Value.Versioning.Default) || _configuration.Value.Versioning.ResourceTypeOverrides.Any())
+            {
+                StringBuilder versioning = new StringBuilder();
+                versioning.AppendLine($"Default version is: '{_configuration.Value.Versioning.Default ?? "(default)"}'.");
+
+                foreach (var resourceTypeVersioning in _configuration.Value.Versioning.ResourceTypeOverrides)
+                {
+                    versioning.AppendLine($"'{resourceTypeVersioning.Key}' version overridden to: '{resourceTypeVersioning.Value}'.");
+                }
+
+                _logger.LogInformation(versioning.ToString());
             }
         }
     }
