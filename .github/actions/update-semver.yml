@@ -1,31 +1,31 @@
+name: update-semver
+description: 'Update the build number with the SemVer from GitVersion'
+inputs:
+  configFilePath:
+    description: 'Path to the GitVersion configuration file'
+    required: true
+    default: './GitVersion.yml'
+outputs:
+  informationalVersion: ${{ steps.SetVariablesFromGitVersion.outputs.informationalVersion }}
+  majorMinorPatch: ${{ steps.SetVariablesFromGitVersion.outputs.majorMinorPatch }}
+  nuGetVersion: ${{ steps.SetVariablesFromGitVersion.outputs.nuGetVersion }}
+  assemblySemVer: ${{ steps.SetVariablesFromGitVersion.outputs.assemblySemVer }}
+  assemblySemFileVer: ${{ steps.SetVariablesFromGitVersion.outputs.assemblySemFileVer }}
+  semVer: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+  buildNumber: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+  buildVersion: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+  buildVersionName: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+  buildVersionNameWithBranch: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+
 steps:
-
-- task: UseDotNet@2
-  displayName: 'Use .NET Core sdk (for GitVersion)'
-  inputs:
-    packageType: sdk
-    version: 3.1.x
   
-- task: UseDotNet@2
-  inputs:
-    useGlobalJson: true
-    
-- powershell: |
-    dotnet tool install --global GitVersion.Tool
+  - name: Install GitVersion'
+    uses: gittools/actions/gitversion/setup@0.13.4
 
-    $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
-
-    Write-Host "##vso[task.setvariable variable=semVer]$($gitVersionJson.semVer)"
-    Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$($gitVersionJson.informationalVersion)"
-    Write-Host "##vso[task.setvariable variable=majorMinorPatch;isOutput=true]$($gitVersionJson.majorMinorPatch)"
-    Write-Host "##vso[task.setvariable variable=nuGetVersion;isOutput=true]$($gitVersionJson.semVer)"
-    Write-Host "##vso[task.setvariable variable=assemblySemVer;isOutput=true]$($gitVersionJson.assemblySemVer)"
-    Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]$($gitVersionJson.assemblySemFileVer)"
-
-    Write-Host "##vso[build.updatebuildnumber]$($gitVersionJson.semVer)"
-  name: SetVariablesFromGitVersion
-
-- powershell: |
-    Write-Host '----------Variables to use for build----------'
-    Write-Host 'semVer: $(semVer)'
-  name: PrintVariablesFromGitVersion
+  - name: SetVariablesFromGitVersion
+    id: -p:Version
+    uses: gittools/actions/gitversion/execute@0.13.4
+    with:
+      configFilePath: './GitVersion.yml'
+      targetFilePath: ${{github.workspace}}
+      useConfigFile: true

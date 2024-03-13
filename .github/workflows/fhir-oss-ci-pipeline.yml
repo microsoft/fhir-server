@@ -17,10 +17,19 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{github.ref}}
+
+      - name: Install Latest .Net SDK
+        uses: actions/setup-dotnet@v4
+
+      - name: Install Older .Net SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
   update-version:
     name: Determine Semver
     runs-on: ubuntu-latest
     needs: checkout
     steps:
       - name: Update Semver
-        uses: ./.github/actions/update-semver.yml
+        id: semver
+        uses: ./.github/actions/update-semver
