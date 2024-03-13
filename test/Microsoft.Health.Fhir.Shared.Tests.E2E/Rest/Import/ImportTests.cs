@@ -261,12 +261,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
@@ -420,14 +420,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return ndJson;
         }
 
-        [SkippableTheory(Skip = "Auth Refactoring")]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess(bool setResourceType)
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.BulkImportUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
@@ -449,11 +449,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
