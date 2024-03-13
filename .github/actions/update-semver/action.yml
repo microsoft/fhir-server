@@ -3,7 +3,7 @@ description: 'Update the build number with the SemVer from GitVersion'
 inputs:
   configFilePath:
     description: 'Path to the GitVersion configuration file'
-    required: true
+    required: false
     default: './GitVersion.yml'
 outputs:
   informationalVersion: ${{ steps.SetVariablesFromGitVersion.outputs.informationalVersion }}
@@ -16,16 +16,17 @@ outputs:
   buildVersion: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
   buildVersionName: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
   buildVersionNameWithBranch: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
+runs:
+  using: 'composite'
+  steps:
+    
+    - name: Install GitVersion'
+      uses: gittools/actions/gitversion/setup@0.13.4
 
-steps:
-  
-  - name: Install GitVersion'
-    uses: gittools/actions/gitversion/setup@0.13.4
-
-  - name: SetVariablesFromGitVersion
-    id: -p:Version
-    uses: gittools/actions/gitversion/execute@0.13.4
-    with:
-      configFilePath: './GitVersion.yml'
-      targetFilePath: ${{github.workspace}}
-      useConfigFile: true
+    - name: SetVariablesFromGitVersion
+      id: -p:Version
+      uses: gittools/actions/gitversion/execute@0.13.4
+      with:
+        configFilePath: './GitVersion.yml'
+        targetFilePath: ${{github.workspace}}
+        useConfigFile: true
