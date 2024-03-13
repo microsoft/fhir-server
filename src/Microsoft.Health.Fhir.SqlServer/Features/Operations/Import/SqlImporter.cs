@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             foreach (var resource in conflicts)
             {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FaildToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
             }
         }
 
