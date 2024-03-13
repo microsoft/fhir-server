@@ -5,12 +5,27 @@ inputs:
     description: 'Path to the GitVersion configuration file'
     required: false
     default: './GitVersion.yml'
+outputs:
+  assemblyVersion:
+    description: The assembly version for the shared components
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemVer }}
+  fileVersion:
+    description: The assembly file version for the shared components
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemFileVer }}
+  informationalVersion:
+    description: The assembly informational version for the shared components
+    value: ${{ steps.version.outputs.GitVersion_InformationalVersion }}
+  nugetVersion:
+    description: The NuGet package version for the shared components
+    value: ${{ steps.version.outputs.GitVersion_SemVer }}
 runs:
   using: 'composite'
   steps:
     
     - name: Install GitVersion'
       uses: gittools/actions/gitversion/setup@0.13.4
+      with:
+        versionSpec: '5.x'
 
     - name: SetVariablesFromGitVersion
       id: version
