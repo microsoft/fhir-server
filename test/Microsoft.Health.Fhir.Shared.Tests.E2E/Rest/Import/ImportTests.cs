@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
@@ -427,7 +427,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess(bool setResourceType)
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.BulkImportUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
@@ -453,7 +453,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
