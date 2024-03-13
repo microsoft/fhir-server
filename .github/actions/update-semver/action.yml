@@ -5,17 +5,6 @@ inputs:
     description: 'Path to the GitVersion configuration file'
     required: false
     default: './GitVersion.yml'
-outputs:
-  informationalVersion: ${{ steps.SetVariablesFromGitVersion.outputs.informationalVersion }}
-  majorMinorPatch: ${{ steps.SetVariablesFromGitVersion.outputs.majorMinorPatch }}
-  nuGetVersion: ${{ steps.SetVariablesFromGitVersion.outputs.nuGetVersion }}
-  assemblySemVer: ${{ steps.SetVariablesFromGitVersion.outputs.assemblySemVer }}
-  assemblySemFileVer: ${{ steps.SetVariablesFromGitVersion.outputs.assemblySemFileVer }}
-  semVer: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
-  buildNumber: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
-  buildVersion: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
-  buildVersionName: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
-  buildVersionNameWithBranch: ${{ steps.SetVariablesFromGitVersion.outputs.semVer }}
 runs:
   using: 'composite'
   steps:
@@ -24,9 +13,9 @@ runs:
       uses: gittools/actions/gitversion/setup@0.13.4
 
     - name: SetVariablesFromGitVersion
-      id: -p:Version
+      id: version
       uses: gittools/actions/gitversion/execute@0.13.4
       with:
-        configFilePath: './GitVersion.yml'
+        configFilePath: ${{inputs.configFilePath}}
         targetFilePath: ${{github.workspace}}
         useConfigFile: true
