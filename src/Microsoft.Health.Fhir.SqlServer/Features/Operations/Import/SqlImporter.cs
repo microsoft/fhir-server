@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await _model.EnsureInitialized();
 
                 long succeededCount = 0;
-                long failedCount = 0;
                 long processedBytes = 0;
                 long currentIndex = -1;
                 var importErrorBuffer = new List<string>();
@@ -70,12 +69,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         continue;
                     }
 
-                    ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
+                    var resultInt = await ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken);
+                    succeededCount += resultInt.LoadedCount;
+                    processedBytes += resultInt.ProcessedBytes;
                 }
 
-                ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken, ref succeededCount, ref failedCount, ref processedBytes);
+                var result = await ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken);
+                succeededCount += result.LoadedCount;
+                processedBytes += result.ProcessedBytes;
 
-                return await UploadImportErrorsAsync(importErrorStore, succeededCount, failedCount, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, importErrorBuffer.Count, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
             }
             finally
             {
@@ -83,21 +86,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private void ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, CancellationToken cancellationToken, ref long succeededCount, ref long failedCount, ref long processedBytes)
+        private async Task<(long LoadedCount, long ProcessedBytes)> ImportResourcesInBuffer(List<ImportResource> resources, List<string> errors, ImportMode importMode, CancellationToken cancellationToken)
         {
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
-            failedCount += errors.Count;
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var results = _store.ImportResourcesAsync(validResources, importMode, cancellationToken).Result;
+            var results = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
             var dups = validResources.Except(results.Loaded).Except(results.Conflicts);
             AppendErrorsToBuffer(dups, results.Conflicts, errors);
-
-            succeededCount += results.Loaded.Count;
-            failedCount += dups.Count() + results.Conflicts.Count;
-            processedBytes += resources.Sum(_ => (long)_.Length);
-
             resources.Clear();
+            return (results.Loaded.Count, resources.Sum(_ => (long)_.Length));
         }
 
         private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
