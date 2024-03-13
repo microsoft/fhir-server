@@ -138,9 +138,9 @@ function Add-AadTestAuthEnvironment {
 
     # 2 - Validating users
     $environmentUsers = @()
-    if ($testAuthEnvironment.users.length -eq 0) {
+    if ($testAuthEnvironment.users.length -gt 0) {
         Write-Host "Ensuring users and role assignments for API Application exist"
-        $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $KeyVaultName
+        $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.users -KeyVaultName $KeyVaultName
     }
 
     # 3 - Validating client applications
