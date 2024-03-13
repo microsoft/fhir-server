@@ -62,7 +62,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerEdgeCaseTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializerTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\IHeaderDictionaryExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerTests.cs" />

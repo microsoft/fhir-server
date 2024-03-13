@@ -781,8 +781,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.GetDisplayUrl(),
                 requestContext.BaseUri.OriginalString,
                 requestContext.CorrelationId,
-                requestHeaders: httpContext.Request.Headers.Clone(),
-                responseHeaders: httpContext.Response.Headers.Clone())
+                requestHeaders: httpContext.Request.Headers,
+                responseHeaders: httpContext.Response.Headers)
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
