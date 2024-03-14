@@ -32,5 +32,5 @@ runs:
       uses: gittools/actions/gitversion/execute@v0.13.4
       with:
         configFilePath: ${{inputs.configFilePath}}
-        targetFilePath: ${{github.workspace}}
+        targetPath: ${{github.workspace}}
         useConfigFile: true
