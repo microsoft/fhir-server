@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
+            EmitCrudLatency();
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -209,8 +209,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             RawResourceElement response = createResponse.Outcome.RawResourceElement;
 
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
-
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
                 .SetLastModifiedHeader()
@@ -232,7 +230,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
 
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
+            EmitCrudLatency();
 
             return ToSaveOutcomeResult(response);
         }
@@ -255,8 +253,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;
-
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
 
             return ToSaveOutcomeResult(saveOutcome);
         }
@@ -294,7 +290,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
+            EmitCrudLatency();
 
             return FhirResult.Create(response)
                 .SetETagHeader()
@@ -319,6 +315,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.ContinuationToken,
                 historyModel.Sort,
                 HttpContext.RequestAborted);
+
+            EmitSearchLatency();
 
             return FhirResult.Create(response);
         }
@@ -345,6 +343,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.ContinuationToken,
                 historyModel.Sort,
                 HttpContext.RequestAborted);
+
+            EmitSearchLatency();
 
             return FhirResult.Create(response);
         }
@@ -375,6 +375,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
+            EmitSearchLatency();
+
             return FhirResult.Create(response);
         }
 
@@ -393,6 +395,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             RawResourceElement response = await _mediator.GetResourceAsync(
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter, vidParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
+
+            EmitCrudLatency();
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()
@@ -418,7 +422,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
 
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
+            EmitCrudLatency();
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -472,8 +476,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 Response.Headers[KnownHeaders.ItemsDeleted] = (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture);
             }
-
-            _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
 
             return FhirResult.NoContent().SetETagHeader(response?.WeakETag);
         }
@@ -620,7 +622,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
-            _metriEmitter.EmitSearchLatency(_watch.ElapsedMilliseconds);
+            EmitSearchLatency();
 
             return FhirResult.Create(response);
         }
@@ -629,7 +631,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
-            _metriEmitter.EmitSearchLatency(_watch.ElapsedMilliseconds);
+            EmitSearchLatency();
 
             return FhirResult.Create(response);
         }
@@ -685,7 +687,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
-            _metriEmitter.EmitBundleLatency(_watch.ElapsedMilliseconds);
+            EmitBundleLatency();
 
             return FhirResult.Create(bundleResponse);
         }
@@ -730,6 +732,30 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 {
                     _fhirRequestContextAccessor.RequestContext.DecorateRequestContextWithOptimizedConcurrency();
                 }
+            }
+        }
+
+        // Metrics should be logged only if request context is not present or if the request is not part of a batch or transaction.
+        private static bool ShouldLogMetric(IFhirRequestContext requestContext) => requestContext == null || !requestContext.ExecutingBatchOrTransaction;
+
+        private void EmitBundleLatency()
+        {
+            _metriEmitter.EmitBundleLatency(_watch.ElapsedMilliseconds);
+        }
+
+        private void EmitCrudLatency()
+        {
+            if (ShouldLogMetric(_fhirRequestContextAccessor.RequestContext))
+            {
+                _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
+            }
+        }
+
+        private void EmitSearchLatency()
+        {
+            if (ShouldLogMetric(_fhirRequestContextAccessor.RequestContext))
+            {
+                _metriEmitter.EmitSearchLatency(_watch.ElapsedMilliseconds);
             }
         }
     }
