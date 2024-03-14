@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -70,7 +71,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             foreach (KeyValuePair<string, StringValues> header in Headers)
             {
-                response.Headers[header.Key] = header.Value;
+                try
+                {
+                    response.Headers[header.Key] = header.Value;
+                }
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
             }
 
             ActionResult result;
