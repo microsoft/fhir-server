@@ -6,6 +6,7 @@ runs:
   steps:
     - name: Set CI Build Variables
       id: defaultVariables
+      shell: bash
       run: |
         echo "resourceGroupRegion=southcentralus" >> "$GITHUB_ENV"
         echo "resourceGroupRoot=msh-fhir-ci4" >> "$GITHUB_ENV"

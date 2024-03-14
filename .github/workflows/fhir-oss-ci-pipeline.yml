@@ -1,7 +1,6 @@
 # DESCRIPTION: 	
 # Builds, tests, and packages the solution for the main branch.	
 
-run-name: ${{github.ref_name}}-${{github.run_id}}
 on: 
   pull_request
 

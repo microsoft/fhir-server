@@ -6,6 +6,7 @@ runs:
   steps:
     - name: Set Build Variables
       id: defaultVariables
+      shell: bash
       run: |
         echo "buildConfiguration=Release" >> "$GITHUB_ENV"
         echo "defaultBuildFramework=net8.0" >> "$GITHUB_ENV"
@@ -15,6 +16,7 @@ runs:
         echo "composeLocation=build/docker/docker-compose.yaml" >> "$GITHUB_ENV"
 
     - name: Set Build Urls using Deployment Environment
+      shell: bash
       run: |
         echo "azureContainerRegistry='$azureContainerRegistryName'.azurecr.io" >> "$GITHUB_ENV"
         echo "deploymentEnvironmentNameSql='$deploymentEnvironmentName-sql' >> "$GITHUB_ENV"
