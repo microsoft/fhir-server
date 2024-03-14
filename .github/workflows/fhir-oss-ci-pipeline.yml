@@ -33,5 +33,3 @@ jobs:
       - name: Update Semver
         id: semver
         uses: ./.github/actions/update-semver
-        with:
-          configFilePath: 
