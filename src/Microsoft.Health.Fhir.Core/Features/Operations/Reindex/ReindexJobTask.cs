@@ -456,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            Task.WaitAll(queryTasks.ToArray(), _cancellationToken);
+            await Task.WhenAll(queryTasks);
         }
 
         private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SearchResultReindex searchResultReindex, CancellationToken cancellationToken)

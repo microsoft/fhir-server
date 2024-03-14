@@ -158,9 +158,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Category, Categories.Authorization)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
