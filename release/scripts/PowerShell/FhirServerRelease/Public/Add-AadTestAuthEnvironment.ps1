@@ -125,14 +125,26 @@ function Add-AadTestAuthEnvironment {
     }
 
     Write-Host "Setting roles on API Application"
-    $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
+
+    # 1 - Setting up roles
+    if ($testAuthEnvironment.users.length -eq 0) {
+        # List of users can be empty, then rely only in the list of client applications
+        $appRoles = $testAuthEnvironment.clientApplications.roles | Select-Object -Unique
+    }
+    else {
+        $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
+    }    
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
-    Write-Host "Ensuring users and role assignments for API Application exist"
-    $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.Users -KeyVaultName $KeyVaultName
+    # 2 - Validating users
+    $environmentUsers = @()
+    if ($testAuthEnvironment.users.length -gt 0) {
+        Write-Host "Ensuring users and role assignments for API Application exist"
+        $environmentUsers = Set-FhirServerApiUsers -UserNamePrefix $EnvironmentName -TenantDomain $tenantInfo.TenantDomain -ApiAppId $application.AppId -UserConfiguration $testAuthEnvironment.users -KeyVaultName $KeyVaultName
+    }
 
+    # 3 - Validating client applications
     $environmentClientApplications = @()
-
     Write-Host "Ensuring client application exists"
     foreach ($clientApp in $testAuthEnvironment.clientApplications) {
         $displayName = Get-ApplicationDisplayName -EnvironmentName $EnvironmentName -AppId $clientApp.Id

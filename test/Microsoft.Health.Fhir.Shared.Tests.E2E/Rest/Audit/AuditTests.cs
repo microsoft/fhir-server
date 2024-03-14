@@ -467,7 +467,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Patient),
             };
 
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             await ExecuteAndValidateBundle(
                 () => tempClient.PostBundleAsync(batch),

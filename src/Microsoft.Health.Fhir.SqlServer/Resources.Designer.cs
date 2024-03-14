@@ -90,9 +90,9 @@ namespace Microsoft.Health.Fhir.SqlServer {
         /// <summary>
         ///   Looks up a localized string similar to Failed to import resource with version conflict, resource id: {0}, line: {1}.
         /// </summary>
-        internal static string FaildToImportConflictingVersion {
+        internal static string FailedToImportConflictingVersion {
             get {
-                return ResourceManager.GetString("FaildToImportConflictingVersion", resourceCulture);
+                return ResourceManager.GetString("FailedToImportConflictingVersion", resourceCulture);
             }
         }
         
