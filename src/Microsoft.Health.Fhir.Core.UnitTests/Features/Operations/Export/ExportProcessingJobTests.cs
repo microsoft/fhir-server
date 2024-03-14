@@ -168,13 +168,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             mockQueueClient.GetJobByGroupIdAsync(QueueType.Export, Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns([]);
 
-            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, mockQueueClient);
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, mockQueueClient, new NullLogger<ExportProcessingJob>());
             var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
 
-            var result = await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
-            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(result);
-
-            Assert.Equal(OperationStatus.Running, record.Status);
+            // This job is never set to complete since the queue client had an error. Jobs that don't complete are expected to throw the below exception.
+            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(runningJob, CancellationToken.None));
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)
