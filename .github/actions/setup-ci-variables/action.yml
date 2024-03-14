@@ -1,0 +1,17 @@
+name: setup ci build variables
+description: Sets ci build specific variables.
+
+runs:
+  using: composite
+  steps:
+    - name: Set CI Build Variables
+      id: defaultVariables
+      run: |
+        echo "resourceGroupRegion=southcentralus" >> "$GITHUB_ENV"
+        echo "resourceGroupRoot=msh-fhir-ci4" >> "$GITHUB_ENV"
+        echo "appServicePlanName=$resourceGroupRoot-linux" >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentName=$resourceGroupRoot" >> "$GITHUB_ENV"
+        echo "resourceGroupName=$resourceGroupRoot" >> "$GITHUB_ENV"
+        echo "crucibleEnvironmentUrl=https://crucible.mshapis.com/" >> "$GITHUB_ENV"
+        echo "testEnvironmentName=OSS CI" >> "$GITHUB_ENV"
+        echo "imageTag=$build.BuildNumber" >> "$GITHUB_ENV"
