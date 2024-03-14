@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -18,6 +20,7 @@ using Microsoft.Health.JobManagement.UnitTests;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -151,6 +154,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(queueClient.JobInfos.Count == 1);
             Assert.DoesNotContain(_progressToken, queueClient.JobInfos[0].Definition);
             Assert.Equal(existingCanceledJob, queueClient.JobInfos[0]);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJob_WhenItFinishesAPageOfResultsAndFailsToQueueNextPage_ThenJobIsStillRunning()
+        {
+            var mockQueueClient = Substitute.For<IQueueClient>();
+
+            mockQueueClient.EnqueueAsync((byte)QueueType.Export, Arg.Any<string[]>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<IReadOnlyList<JobInfo>>(new RequestRateExceededException(TimeSpan.FromSeconds(10))));
+
+            mockQueueClient.GetJobByGroupIdAsync(QueueType.Export, Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                .Returns([]);
+
+            var processingJob = new ExportProcessingJob(MakeMockJobWithProgressUpdate, mockQueueClient);
+            var runningJob = GenerateJobInfo(GenerateJobRecord(OperationStatus.Running));
+
+            var result = await processingJob.ExecuteAsync(runningJob, CancellationToken.None);
+            ExportJobRecord record = JsonConvert.DeserializeObject<ExportJobRecord>(result);
+
+            Assert.Equal(OperationStatus.Running, record.Status);
         }
 
         private string GenerateJobRecord(OperationStatus status, string failureReason = null, string resourceType = null, string feedRange = null)
