@@ -23,13 +23,13 @@ runs:
   steps:
     
     - name: Install GitVersion'
-      uses: gittools/actions/gitversion/setup@0.13.4
+      uses: gittools/actions/gitversion/setup@v0.13.4
       with:
         versionSpec: '5.x'
 
     - name: SetVariablesFromGitVersion
       id: version
-      uses: gittools/actions/gitversion/execute@0.13.4
+      uses: gittools/actions/gitversion/execute@v0.13.4
       with:
         configFilePath: ${{inputs.configFilePath}}
         targetFilePath: ${{github.workspace}}
