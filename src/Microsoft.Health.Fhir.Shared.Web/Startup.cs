@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using EnsureThat;
 using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -26,6 +27,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Telemetry;
+using Microsoft.Health.Fhir.Core.Logging;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.Shared.Web;
@@ -72,6 +74,8 @@ namespace Microsoft.Health.Fhir.Web
 
             // Set the runtime configuration for the up and running service.
             IFhirRuntimeConfiguration runtimeConfiguration = AddRuntimeConfiguration(Configuration, fhirServerBuilder);
+
+            AddMetricEmitter(services);
 
             AddDataStore(services, fhirServerBuilder, runtimeConfiguration);
 
@@ -363,6 +367,14 @@ namespace Microsoft.Health.Fhir.Web
                     Startup.AddAzureMonitorOpenTelemetry(services, configuration);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Registers the default metric emitter.
+        /// </summary>
+        private static void AddMetricEmitter(IServiceCollection services)
+        {
+            services.AddSingleton<IFhirMetricEmitter, DefaultMetricEmitter>();
         }
     }
 }
