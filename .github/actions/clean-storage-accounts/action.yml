@@ -12,6 +12,7 @@ runs:
     - name: Clean Storage Accounts
       uses: azure/powershell@v1
       with:
+        azPSVersion: "latest"
         inlineScript: |
           $currentUtcTime = [DateTime]::UtcNow
 
