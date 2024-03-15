@@ -52,4 +52,4 @@ jobs:
       - name: Clean Storage Accounts
         uses: ./.github/actions/clean-storage-accounts
         with:
-          environmentName: $vars.CIRESOURCEGROUPROOT
+          environmentName: ${{vars.CIRESOURCEGROUPROOT}}
