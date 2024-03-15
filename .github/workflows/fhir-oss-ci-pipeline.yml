@@ -7,18 +7,33 @@ on:
 permissions:
    id-token: write
    contents: read
+
+env:
+  buildConfiguration: Release
+  defaultBuildFramework: net8.0
+  azureSubscriptionEndpoint: docker-build
+  azureContainerRegistryName: healthplatformregistry
+  connectedServiceName: Microsoft Health Open Source Subscription
+  composeLocation: build/docker/docker-compose.yaml
+  resourceGroupRegion: southcentralus
+  resourceGroupRoot: msh-fhir-ci4
+  crucibleEnvironmentUrl: https://crucible.mshapis.com/
+  testEnvironmentName: OSS CI
+  imageTag: ${{github.run_number}}
+
 jobs:
-  checkout:
-    runs-on: ubuntu-latest
+  setup:
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    env:
+      deploymentEnvironmentName: $resourceGroupRoot
+      appServicePlanName: $resourceGroupRoot-linux
+      resourceGroupName: $resourceGroupRoot
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Set Build Variables
-        uses: ./.github/actions/setup-build-variables
-      - name: Set CI Test Variables
-        uses: ./.github/actions/setup-ci-variables
+
       - name: Install Latest .Net SDK
         uses: actions/setup-dotnet@v4
 
@@ -26,8 +41,19 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
+
       - name: Determine Semver
         id: semver
         uses: ./.github/actions/update-semver
-      # - name: Clean Storage Accounts
-      #   uses: ./.github/actions/clean-storage-accounts
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{secrets.AZURE_CLIENT_ID}}
+          subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+          tenant-id: ${{secrets.AZURE_TENANT_ID}}
+
+      - name: Clean Storage Accounts
+        uses: ./.github/actions/clean-storage-accounts
+        with:
+          environmentName: $deploymentEnvironmentName
