@@ -54,3 +54,33 @@ jobs:
         uses: ./.github/actions/clean-storage-accounts
         with:
           environmentName: ${{vars.CIRESOURCEGROUPROOT}}
+  buildonLinux:
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      matrix:
+        dotnet-version: [ '8.0.x', '6.0.x' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup dotnet ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}
+
+      - name: Build
+        uses: ./.github/actions/dotnet-build
+        with:
+          assemblyVersion: ${{steps.semver.outputs.assemblyVersion}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          fileVersion: ${{steps.semver.outputs.fileVersion}}
+          informationalVersion: ${{steps.semver.outputs.informationalVersion}}
+          dotnetVersion: ${{matrix.dotnet-version}}
+      # - name: Test
+      #   run: dotnet test --configuration ${{env.buildConfiguration}}
+
+      # - name: Publish
+      #   run: dotnet publish --configuration ${{env.buildConfiguration}} --output ./publish

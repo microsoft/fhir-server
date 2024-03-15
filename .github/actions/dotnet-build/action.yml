@@ -1,0 +1,28 @@
+name: dotnet build
+description: Builds the packages and ensures their quality by running tests.
+inputs:
+  assemblyVersion:
+    description: The scaler assembly's version.
+    required: true
+  buildConfiguration:
+    default: Debug
+    description: The dotnet build configuration.
+    required: false
+  fileVersion:
+    description: The scaler assembly's file version.
+    required: true
+  informationalVersion:
+    description: The scaler assembly's informational version.
+    required: true
+  dotnetVersion:
+    description: The version of dotnet to use.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup dotnet ${{ inputs.dotnetVersion }}
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnetVersion}}
+    
