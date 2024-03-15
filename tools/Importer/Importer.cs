@@ -90,13 +90,13 @@ namespace Microsoft.Health.Fhir.Importer
                 {
                     var incrementor = new IndexIncrementor(endpoints.Count);
                     var bundle = GetTextFromBlob(blobList.Item2.First());
-                    var sw = Stopwatch.StartNew();
                     if (BundleType == "import") // add profile
                     {
                         bundle = bundle.Replace("{\"resourceType\":\"Bundle\",", "{\"resourceType\":\"Bundle\",\"meta\":{\"profile\":[\"http://azurehealthcareapis.com/data-extensions/import-bundle\"]},", StringComparison.OrdinalIgnoreCase);
                     }
 
-                    PostBundle(bundle, incrementor, BundleType == "import");
+                    var sw = Stopwatch.StartNew();
+                    PostBundle(bundle, incrementor);
                     Interlocked.Add(ref sumLatency, (int)sw.Elapsed.TotalMilliseconds);
                     Interlocked.Increment(ref totalBlobs);
                     Interlocked.Add(ref totalWrites, BatchSize);
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Importer
             return builder.ToString();
         }
 
-        private static void PostBundle(string bundle, IndexIncrementor incrementor, bool useBundleImport)
+        private static void PostBundle(string bundle, IndexIncrementor incrementor)
         {
             var maxRetries = MaxRetries;
             var retries = 0;
@@ -227,11 +227,7 @@ namespace Microsoft.Health.Fhir.Importer
                     var sw = Stopwatch.StartNew();
                     using var content = new StringContent(bundle, Encoding.UTF8, UseBundleBlobs ? "application/json" : "application/fhir+ndjson");
                     using var request = new HttpRequestMessage(HttpMethod.Post, uri);
-                    if (useBundleImport)
-                    {
-                        request.Headers.Add("x-bundle-processing-logic", "parallel");
-                    }
-                    else
+                    if (BundleType != "import") // add parallel processing
                     {
                         request.Headers.Add("x-bundle-processing-logic", "parallel");
                     }
