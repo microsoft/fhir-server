@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
 {
-    public abstract class BaseLatencyMetricEmitterAttribute : ActionFilterAttribute
+    public abstract class BaseEndpointMetricEmitterAttribute : ActionFilterAttribute
     {
         private Stopwatch _stopwatch;
 
@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
         {
             base.OnActionExecuted(context);
 
-            OnActionExecuted(context, _stopwatch.ElapsedMilliseconds);
+            OnActionExecuted(context, new ActionExecutedStatistics() { ElapsedMilliseconds = _stopwatch.ElapsedMilliseconds });
         }
 
-        public abstract void OnActionExecuted(ActionExecutedContext context, long elapsedMilliseconds);
+        public abstract void OnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics);
     }
 }

@@ -11,21 +11,21 @@ using Microsoft.Health.Fhir.Core.Logging.Metrics;
 namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
 {
     [AttributeUsage(AttributeTargets.Method)]
-    public sealed class SearchLatencyMetricEmitterAttribute : BaseLatencyMetricEmitterAttribute
+    public sealed class SearchEndpointMetricEmitterAttribute : BaseEndpointMetricEmitterAttribute
     {
         private readonly SearchMetricHandler _metricHandler;
 
-        public SearchLatencyMetricEmitterAttribute(SearchMetricHandler metricHandler)
+        public SearchEndpointMetricEmitterAttribute(SearchMetricHandler metricHandler)
         {
             EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
             _metricHandler = metricHandler;
         }
 
-        // Under the scope of bundles, this methid is not called and no metrics are emitted.
-        public override void OnActionExecuted(ActionExecutedContext context, long elapsedMilliseconds)
+        // Under the scope of bundle requests, this methid is not called and no metrics are emitted.
+        public override void OnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics)
         {
-            _metricHandler.EmitSearchLatency(new SearchMetricNotification { ElapsedMilliseconds = elapsedMilliseconds });
+            _metricHandler.EmitSearchLatency(new SearchMetricNotification { ElapsedMilliseconds = statistics.ElapsedMilliseconds });
         }
     }
 }

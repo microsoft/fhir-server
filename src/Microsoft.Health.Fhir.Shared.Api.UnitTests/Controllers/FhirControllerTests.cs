@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
         {
             const string methodName = "BatchAndTransactions";
-            Type expectedCustomAttribute = typeof(BundleLatencyMetricEmitterAttribute);
+            Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
 
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, methodName, _targetFhirControllerClass);
         }
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void WhenProvidedAFhirController_CheckIfTheSearchEndpointsHaveTheLatencyMetricFilter()
         {
-            Type expectedCustomAttribute = typeof(SearchLatencyMetricEmitterAttribute);
+            Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
 
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchByResourceType", _targetFhirControllerClass);
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void WhenProvidedAFhirController_CheckIfTheCrudEndpointsHaveTheLatencyMetricFilter()
         {
-            Type expectedCustomAttribute = typeof(CrudLatencyMetricEmitterAttribute);
+            Type expectedCustomAttribute = typeof(CrudEndpointMetricEmitterAttribute);
 
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Create", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Update", _targetFhirControllerClass);

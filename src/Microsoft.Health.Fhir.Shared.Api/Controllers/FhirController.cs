@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
             RawResourceElement response = await _mediator.CreateResourceAsync(
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
-        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
-        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
             RawResourceElement response = await _mediator.GetResourceAsync(
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.History, Name = RouteNames.History)]
         [AuditEventType(AuditEventSubType.HistorySystem)]
-        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> SystemHistory(HistoryModel historyModel)
         {
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(
@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeHistory, Name = RouteNames.HistoryType)]
         [AuditEventType(AuditEventSubType.HistoryType)]
-        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> TypeHistory(
             string typeParameter,
             HistoryModel historyModel)
@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
         [AuditEventType(AuditEventSubType.HistoryInstance)]
-        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> History(
             string typeParameter,
             string idParameter,
@@ -373,7 +373,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
         [AuditEventType(AuditEventSubType.VRead)]
-        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
             RawResourceElement response = await _mediator.GetResourceAsync(
@@ -395,7 +395,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
@@ -574,7 +574,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
         [AuditEventType(AuditEventSubType.SearchType)]
-        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> SearchByResourceType(string typeParameter)
         {
             return await PerformSearch(typeParameter, GetQueriesForSearch());
@@ -594,7 +594,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
         [AuditEventType(AuditEventSubType.Search)]
-        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentTypeParameter, string idParameter, string typeParameter)
         {
             IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
@@ -662,7 +662,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.BundlePost)]
-        [TypeFilter(typeof(BundleLatencyMetricEmitterAttribute))]
+        [TypeFilter(typeof(BundleEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
