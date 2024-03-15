@@ -15,19 +15,15 @@ env:
   azureContainerRegistryName: healthplatformregistry
   connectedServiceName: Microsoft Health Open Source Subscription
   composeLocation: build/docker/docker-compose.yaml
-  resourceGroupRegion: southcentralus
-  resourceGroupRoot: msh-fhir-ci4
-  crucibleEnvironmentUrl: https://crucible.mshapis.com/
-  testEnvironmentName: OSS CI
   imageTag: ${{github.run_number}}
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     env:
-      deploymentEnvironmentName: $resourceGroupRoot
-      appServicePlanName: $resourceGroupRoot-linux
-      resourceGroupName: $resourceGroupRoot
+      deploymentEnvironmentName: $vars.CIRESOURCEGROUPROOT
+      appServicePlanName: $vars.CIRESOURCEGROUPROOT-linux
+      resourceGroupName: $vars.CIRESOURCEGROUPROOT
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,4 +52,4 @@ jobs:
       - name: Clean Storage Accounts
         uses: ./.github/actions/clean-storage-accounts
         with:
-          environmentName: $env.deploymentEnvironmentName
+          environmentName: $vars.CIRESOURCEGROUPROOT
