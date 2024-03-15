@@ -23,7 +23,7 @@ env:
 
 jobs:
   setup:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     env:
       deploymentEnvironmentName: $resourceGroupRoot
       appServicePlanName: $resourceGroupRoot-linux
