@@ -712,8 +712,5 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
             }
         }
-
-        // Metrics should be logged only if request context is not present or if the request is not part of a batch or transaction.
-        private static bool ShouldLogMetric(IFhirRequestContext requestContext) => requestContext == null || !requestContext.ExecutingBatchOrTransaction;
     }
 }
