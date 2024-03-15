@@ -82,11 +82,25 @@ namespace Microsoft.Health.Fhir.Importer
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(MaxBlobIndexForImport - NumberOfBlobsToSkip);
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
+            var first = true;
+            var locker = new object();
             if (UseBundleBlobs || BundleType == "import")
             {
                 var totalBlobs = 0L;
                 BatchExtensions.ExecuteInParallelBatches(blobs, WriteThreads, 1, (writer, blobList) =>
                 {
+                    if (first)
+                    {
+                        lock (locker)
+                        {
+                            if (first)
+                            {
+                                swWrites = new Stopwatch();
+                                first = false;
+                            }
+                        }
+                    }
+
                     var incrementor = new IndexIncrementor(endpoints.Count);
                     var bundle = GetTextFromBlob(blobList.Item2.First());
                     PostBundle(bundle, incrementor, BundleType == "import");
