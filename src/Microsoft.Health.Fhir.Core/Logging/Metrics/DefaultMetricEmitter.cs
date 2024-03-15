@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Logging
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
+
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
     /// <summary>
     /// <see cref="DefaultMetricEmitter"/> does not emit any metrics.
@@ -11,15 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Logging
     /// </summary>
     public sealed class DefaultMetricEmitter : IFhirMetricEmitter
     {
-        public void EmitBundleLatency(long latencyInMilliseconds)
+        public void EmitBundleLatency(ILatencyMetricNotification latencyMetricNotification)
         {
         }
 
-        public void EmitCrudLatency(long latencyInMilliseconds)
+        public void EmitCrudLatency(ILatencyMetricNotification latencyMetricNotification)
         {
         }
 
-        public void EmitSearchLatency(long latencyInMilliseconds)
+        public void EmitSearchLatency(ILatencyMetricNotification latencyMetricNotification)
         {
         }
     }

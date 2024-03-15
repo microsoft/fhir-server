@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -44,7 +45,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Logging;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -167,13 +168,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
+        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
             RawResourceElement response = await _mediator.CreateResourceAsync(
                 new CreateResourceRequest(resource.ToResourceElement(), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
-
-            EmitCrudLatency();
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -224,13 +224,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
+        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(
                 new UpsertResourceRequest(resource.ToResourceElement(), GetBundleResourceContext(), ifMatchHeader),
                 HttpContext.RequestAborted);
-
-            EmitCrudLatency();
 
             return ToSaveOutcomeResult(response);
         }
@@ -284,13 +283,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
+        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
             RawResourceElement response = await _mediator.GetResourceAsync(
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
-
-            EmitCrudLatency();
 
             return FhirResult.Create(response)
                 .SetETagHeader()
@@ -304,6 +302,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.History, Name = RouteNames.History)]
         [AuditEventType(AuditEventSubType.HistorySystem)]
+        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> SystemHistory(HistoryModel historyModel)
         {
             ResourceElement response = await _mediator.SearchResourceHistoryAsync(
@@ -316,8 +315,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            EmitSearchLatency();
-
             return FhirResult.Create(response);
         }
 
@@ -329,6 +326,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeHistory, Name = RouteNames.HistoryType)]
         [AuditEventType(AuditEventSubType.HistoryType)]
+        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> TypeHistory(
             string typeParameter,
             HistoryModel historyModel)
@@ -344,8 +342,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            EmitSearchLatency();
-
             return FhirResult.Create(response);
         }
 
@@ -358,6 +354,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
         [AuditEventType(AuditEventSubType.HistoryInstance)]
+        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> History(
             string typeParameter,
             string idParameter,
@@ -375,8 +372,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 historyModel.Sort,
                 HttpContext.RequestAborted);
 
-            EmitSearchLatency();
-
             return FhirResult.Create(response);
         }
 
@@ -390,13 +385,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
         [AuditEventType(AuditEventSubType.VRead)]
+        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
             RawResourceElement response = await _mediator.GetResourceAsync(
                 new GetResourceRequest(new ResourceKey(typeParameter, idParameter, vidParameter), GetBundleResourceContext()),
                 HttpContext.RequestAborted);
-
-            EmitCrudLatency();
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()
@@ -413,6 +407,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
+        [TypeFilter(typeof(CrudLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
@@ -421,8 +416,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
                     GetBundleResourceContext()),
                 HttpContext.RequestAborted);
-
-            EmitCrudLatency();
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -593,6 +586,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
         [AuditEventType(AuditEventSubType.SearchType)]
+        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> SearchByResourceType(string typeParameter)
         {
             return await PerformSearch(typeParameter, GetQueriesForSearch());
@@ -612,6 +606,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.CompartmentTypeByResourceType, Name = RouteNames.SearchCompartmentByResourceType)]
         [AuditEventType(AuditEventSubType.Search)]
+        [TypeFilter(typeof(SearchLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> SearchCompartmentByResourceType(string compartmentTypeParameter, string idParameter, string typeParameter)
         {
             IReadOnlyList<Tuple<string, string>> queries = GetQueriesForSearch();
@@ -622,16 +617,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceElement response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
-            EmitSearchLatency();
-
             return FhirResult.Create(response);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
             ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
-
-            EmitSearchLatency();
 
             return FhirResult.Create(response);
         }
@@ -683,11 +674,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route("", Name = RouteNames.PostBundle)]
         [AuditEventType(AuditEventSubType.BundlePost)]
+        [TypeFilter(typeof(BundleLatencyMetricEmitterAttribute))]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
-
-            EmitBundleLatency();
 
             return FhirResult.Create(bundleResponse);
         }
@@ -737,26 +727,5 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         // Metrics should be logged only if request context is not present or if the request is not part of a batch or transaction.
         private static bool ShouldLogMetric(IFhirRequestContext requestContext) => requestContext == null || !requestContext.ExecutingBatchOrTransaction;
-
-        private void EmitBundleLatency()
-        {
-            _metriEmitter.EmitBundleLatency(_watch.ElapsedMilliseconds);
-        }
-
-        private void EmitCrudLatency()
-        {
-            if (ShouldLogMetric(_fhirRequestContextAccessor.RequestContext))
-            {
-                _metriEmitter.EmitCrudLatency(_watch.ElapsedMilliseconds);
-            }
-        }
-
-        private void EmitSearchLatency()
-        {
-            if (ShouldLogMetric(_fhirRequestContextAccessor.RequestContext))
-            {
-                _metriEmitter.EmitSearchLatency(_watch.ElapsedMilliseconds);
-            }
-        }
     }
 }

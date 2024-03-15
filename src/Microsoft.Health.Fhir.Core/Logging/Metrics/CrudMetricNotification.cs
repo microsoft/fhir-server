@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Logging
+namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public interface IFhirMetricEmitter
+    public sealed class CrudMetricNotification : ILatencyMetricNotification
     {
-        void EmitBundleLatency(long latencyInMilliseconds);
-
-        void EmitSearchLatency(long latencyInMilliseconds);
-
-        void EmitCrudLatency(long latencyInMilliseconds);
+        public long ElapsedMilliseconds { get; set; }
     }
 }

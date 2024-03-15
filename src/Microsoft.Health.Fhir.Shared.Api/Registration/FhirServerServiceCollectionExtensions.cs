@@ -12,6 +12,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
@@ -28,6 +29,7 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
+using Microsoft.Health.Fhir.Core.Logging.Metrics;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -115,6 +117,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 }
             }
 
+            AddMetricEmitter(services);
+
             return new FhirServerBuilder(services);
         }
 
@@ -151,6 +155,20 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddSingleton<IBundleOrchestrator, BundleOrchestrator>();
 
             return fhirServerBuilder;
+        }
+
+        /// <summary>
+        /// Registers the default metric emitter.
+        /// </summary>
+        private static void AddMetricEmitter(IServiceCollection services)
+        {
+            // Try registering a metric emitter. If a custom metric emitter is not registered, the default metric emitter will be used.
+            services.TryAddSingleton<IFhirMetricEmitter, DefaultMetricEmitter>();
+
+            // Register the metric handlers used by the service.
+            services.TryAddSingleton<BundleMetricHandler>();
+            services.TryAddSingleton<CrudMetricHandler>();
+            services.TryAddSingleton<SearchMetricHandler>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder
