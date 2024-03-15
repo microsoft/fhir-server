@@ -48,50 +48,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoCreatePermissions_WhenCreatingAResource_TheServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoWritePermissions_WhenUpdatingAResource_TheServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync(createdResource));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.HardDeleteAsync(createdResource));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithHardDeletePermissions_WhenHardDeletingAResource_TheServerShouldReturnSuccess()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = _client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
+            tempClient = _client.CreateClientForClientApplication(TestApplications.AdminUser);
 
             // Hard-delete the resource.
             await tempClient.HardDeleteAsync(createdResource);
 
-            tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             // Getting the resource should result in NotFound.
             await ExecuteAndValidateNotFoundStatus(() => tempClient.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
@@ -104,14 +104,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithUpdatePermissions_WhenUpdatingAResource_TheServerShouldReturnSuccess()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.AdminUser);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
 
             createdResource.Text = new Narrative
             {
@@ -179,14 +179,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithReadPermissions_WhenGettingAResource_TheServerShouldReturnSuccess()
         {
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.GlobalAdminServicePrincipal);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             using FhirResponse<Observation> readResponse = await tempClient.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id);
 
             Observation readResource = readResponse.Resource;
@@ -196,22 +196,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(createdResource.Meta.LastUpdated, readResource.Meta.LastUpdated);
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoExportPermissions_WhenExportResources_TheServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await tempClient.ExportAsync());
             Assert.StartsWith(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithExportPermissions_WhenExportResources_TheServerShouldReturnSuccess()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ExportUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ExportUser);
 
             Uri contentLocation = await tempClient.ExportAsync();
             await tempClient.CancelExport(contentLocation);
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
 
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
 
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ConvertDataUser);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
             var response = await tempClient.ConvertDataAsync(parameters);
 
@@ -245,62 +245,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(result);
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.CreateAsync<ValueSet>(resource, "identifier=boo"));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
             var weakETag = "W/\"identifier=boo\"";
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.UpdateAsync<ValueSet>(resource, weakETag));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenDeleteProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadWriteUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
 
             await RunRequestsSupposedToFailWithForbiddenAccessAsync(async () => await tempClient.DeleteAsync<ValueSet>(resource));
         }
 
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithProfileAdminPermission_WhenCUDActionOnProfileDefinitionResource_ThenServerShouldReturnOk()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.AdminUser);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
             var valueSetResponse = await tempClient.CreateAsync<ValueSet>(resource);
             Assert.Equal(HttpStatusCode.Created, valueSetResponse.Response.StatusCode);

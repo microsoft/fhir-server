@@ -167,7 +167,7 @@
   <data name="ResourceNotAvailable" xml:space="preserve">
     <value>Resource with type {0} and ID {1} is not available.</value>
   </data>
-  <data name="FaildToImportConflictingVersion" xml:space="preserve">
+  <data name="FailedToImportConflictingVersion" xml:space="preserve">
     <value>Failed to import resource with version conflict, resource id: {0}, line: {1}</value>
   </data>
 </root>

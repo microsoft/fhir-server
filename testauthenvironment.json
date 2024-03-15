@@ -1,5 +1,7 @@
 {
     "users": [
+    ],
+    "clientApplications": [
         {
             "id": "globalReaderUser",
             "roles": [
@@ -35,9 +37,7 @@
             "roles": [
                 "globalAdmin"
             ]
-        }
-    ],
-    "clientApplications": [
+        },
         {
             "id": "globalAdminServicePrincipal",
             "roles": [

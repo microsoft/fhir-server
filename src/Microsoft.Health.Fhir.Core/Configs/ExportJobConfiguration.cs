@@ -72,5 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines the approximate file size for a single exported file.
         /// </summary>
         public uint RollingFileSizeInMB { get; set; } = 64;
+
+        /// <summary>
+        /// The maximum number of times a job can be restarted before it is considered failed.
+        /// </summary>
+        public uint MaxJobRestartCount { get; set; } = 64;
     }
 }

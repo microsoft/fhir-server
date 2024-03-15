@@ -33,7 +33,7 @@ public class CosmosQueueClient : IQueueClient
         .Handle<RetriableJobException>()
         .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
         .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
+        .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
@@ -160,7 +160,7 @@ public class CosmosQueueClient : IQueueClient
         }
 
         using IScoped<Container> container = _containerFactory.Invoke();
-        ItemResponse<JobGroupWrapper> result = await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken);
+        ItemResponse<JobGroupWrapper> result = await _retryPolicy.ExecuteAsync(async () => await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken));
 
         return result.Resource.ToJobInfo().ToList();
     }
@@ -551,11 +551,12 @@ public class CosmosQueueClient : IQueueClient
 
         try
         {
-            await container.Value.UpsertItemAsync(
-                definition,
-                new PartitionKey(definition.PartitionKey),
-                ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
-                cancellationToken: cancellationToken);
+            await _retryPolicy.ExecuteAsync(async () =>
+                await container.Value.UpsertItemAsync(
+                    definition,
+                    new PartitionKey(definition.PartitionKey),
+                    ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
+                    cancellationToken: cancellationToken));
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
         {
