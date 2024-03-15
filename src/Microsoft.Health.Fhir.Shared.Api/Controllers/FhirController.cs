@@ -68,46 +68,34 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class FhirController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirMetricEmitter _metriEmitter;
-        private readonly Stopwatch _watch;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
         /// </summary>
         /// <param name="mediator">The mediator.</param>
-        /// <param name="logger">The logger.</param>
         /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlResolver">The urlResolver.</param>
         /// <param name="uiConfiguration">The UI configuration.</param>
         /// <param name="authorizationService">The authorization service.</param>
-        /// <param name="metricEmitter">Metric emitter.</param>
         public FhirController(
             IMediator mediator,
-            ILogger<FhirController> logger,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
-            IAuthorizationService authorizationService,
-            IFhirMetricEmitter metricEmitter)
+            IAuthorizationService authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(uiConfiguration, nameof(uiConfiguration));
             EnsureArg.IsNotNull(uiConfiguration.Value, nameof(uiConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
-            EnsureArg.IsNotNull(metricEmitter, nameof(metricEmitter));
 
             _mediator = mediator;
-            _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
-            _metriEmitter = metricEmitter;
-            _watch = Stopwatch.StartNew();
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
