@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
@@ -71,6 +71,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     await transaction.ExecuteAsync(cancellationToken);
                 }
+            }
+            else
+            {
+              // TODO: new logic for update searchparameter
+              // check if the storeproc tobeexecuted more than once
             }
         }
     }

@@ -5,7 +5,7 @@
 
 using System;
 using System.Linq;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Xunit;
 
 namespace CosmosDb.Initialization.UnitTests

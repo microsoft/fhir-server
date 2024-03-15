@@ -10,12 +10,12 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Core;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.Versioning
 {
     /// <summary>
     /// Updates a document collection to the latest index
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 });
 
                 containerResponse.Resource.IndexingPolicy.ExcludedPaths.Clear();
-                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.RawResource}/*", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{Constants.RawResource}/*", });
                 containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/\"_etag\"/?", });
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
 
-            // TODO:Validate this logic
+            // TODO: This logic needs to move cosmosdbsearchpaarmetersinitializer
             else if (thisVersion.Version < CollectionSettingsVersion)
             {
                 await _updateSP.Execute(container.Scripts, cancellationToken);

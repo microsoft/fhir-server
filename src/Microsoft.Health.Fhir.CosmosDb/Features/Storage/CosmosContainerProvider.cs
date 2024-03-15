@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
+            ICollectionSetup collectionSetup,
+            RetryExceptionPolicyFactory retryPolicyFactory,
             ILogger<CosmosContainerProvider> logger,
             IMediator mediator,
             IEnumerable<ICollectionInitializer> collectionInitializers)
@@ -55,16 +57,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
-
-            _initializationOperation = new RetryableInitializationOperation(() => { return Task.CompletedTask; });
-
-            // _initializationOperation = new RetryableInitializationOperation(
-            //    () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
-
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
                 collectionId));
+            _initializationOperation = new RetryableInitializationOperation(async () =>
+            {
+                await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
+                await collectionSetup.CreateCollection(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
+                await collectionSetup.UpdateFhirCollectionSettings(_container.Value, CancellationToken.None);
+            });
+
+            // _initializationOperation = new RetryableInitializationOperation(
+            //    () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
         }
 
         public Container Container

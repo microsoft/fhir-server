@@ -12,9 +12,8 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
     public abstract class StoredProcedureBase : IStoredProcedure
     {

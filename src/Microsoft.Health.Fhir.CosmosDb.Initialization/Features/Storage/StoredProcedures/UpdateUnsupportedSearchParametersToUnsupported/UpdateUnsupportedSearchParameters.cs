@@ -7,12 +7,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.UpdateUnsupportedSearchParametersToUnsupported
 {
-    internal class UpdateUnsupportedSearchParameters : StoredProcedureBase
+    public class UpdateUnsupportedSearchParameters : StoredProcedureBase
     {
+        private const string _searchParameterStatusPartitionKey = "__searchparameterstatus__";
+
         public UpdateUnsupportedSearchParameters()
         : base(new UpdateUnsupportedSearchParametersMetadata())
         {
@@ -22,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Updat
         {
             EnsureArg.IsNotNull(client, nameof(client));
 
-            return await ExecuteStoredProc<string>(client, CosmosDbReindexConstants.SearchParameterStatusPartitionKey, cancellationToken);
+            return await ExecuteStoredProc<string>(client, _searchParameterStatusPartitionKey, cancellationToken);
         }
     }
 }

@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos.Scripts;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
     public interface IStoredProcedureMetadata
     {

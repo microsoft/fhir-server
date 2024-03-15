@@ -36,9 +36,9 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Queues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.Versioning;
 using Microsoft.Health.JobManagement;
 using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
@@ -171,6 +171,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
+
             services.Add<DataPlaneStoredProcedureInstaller>()
                 .Transient()
                 .AsService<IStoredProcedureInstaller>();
@@ -199,6 +200,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<FhirCosmosClientInitializer>()
                 .Singleton()
                 .AsService<ICosmosClientInitializer>();
+
+            services.Add<DataPlaneCollectionSetup>()
+                .Singleton()
+                .AsService<ICollectionSetup>();
 
             services.Add<CosmosResponseProcessor>()
                 .Singleton()
