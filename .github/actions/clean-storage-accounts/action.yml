@@ -15,7 +15,7 @@ runs:
         azPSVersion: "latest"
         inlineScript: |
           $currentUtcTime = [DateTime]::UtcNow
-
+          Get-AzContext
           $storageAccounts = Get-AzStorageAccount -ResourceGroupName ${{ inputs.environmentName }}
           foreach ($storageAccount in $storageAccounts) {
 

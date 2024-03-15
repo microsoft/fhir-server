@@ -48,6 +48,7 @@ jobs:
           client-id: ${{secrets.AZURE_CLIENT_ID}}
           subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
           tenant-id: ${{secrets.AZURE_TENANT_ID}}
+          enable-AzPSSession: true
 
       - name: Clean Storage Accounts
         uses: ./.github/actions/clean-storage-accounts
