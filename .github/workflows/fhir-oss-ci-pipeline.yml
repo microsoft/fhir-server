@@ -23,7 +23,7 @@ env:
 
 jobs:
   setup:
-    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    runs-on: linux-latest
     env:
       deploymentEnvironmentName: $resourceGroupRoot
       appServicePlanName: $resourceGroupRoot-linux
