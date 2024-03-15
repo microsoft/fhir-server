@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Importer
                 {
                     var incrementor = new IndexIncrementor(endpoints.Count);
                     var bundle = GetTextFromBlob(blobList.Item2.First());
-                    if (BundleType == "import") // add profile
+                    if (BundleType == "import" && UseBundleBlobs) // add profile
                     {
                         bundle = bundle.Replace("{\"resourceType\":\"Bundle\",", "{\"resourceType\":\"Bundle\",\"meta\":{\"profile\":[\"http://azurehealthcareapis.com/data-extensions/import-bundle\"]},", StringComparison.OrdinalIgnoreCase);
                     }
