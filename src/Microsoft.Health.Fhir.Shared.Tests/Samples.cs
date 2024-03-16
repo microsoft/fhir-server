@@ -51,6 +51,14 @@ namespace Microsoft.Health.Fhir.Tests.Common
         }
 
         /// <summary>
+        /// This returns a practitioner sample from the json files
+        /// </summary>
+        public static ResourceElement GetDefaultPractitioner()
+        {
+            return GetJsonSample("Practitioner");
+        }
+
+        /// <summary>
         /// This returns a list sample from the json files
         /// </summary>
         public static ResourceElement GetDefaultList()
