@@ -11,10 +11,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
 {
     public class ImportBundleResult
     {
-        public ImportBundleResult(int loaded, int failed, IList<string> errors)
+        public ImportBundleResult(int loadedResources, IReadOnlyList<string> errors)
         {
-            LoadedResources = loaded;
-            FailedResources = failed;
+            LoadedResources = loadedResources;
             Errors = errors;
         }
 
@@ -26,10 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         [JsonProperty("loadedResources")]
         public int LoadedResources { get; private set; }
 
-        [JsonProperty("failedResources")]
-        public int FailedResources { get; private set; }
-
         [JsonProperty("errors")]
-        public IList<string> Errors { get; private set; }
+        public IReadOnlyList<string> Errors { get; private set; }
     }
 }

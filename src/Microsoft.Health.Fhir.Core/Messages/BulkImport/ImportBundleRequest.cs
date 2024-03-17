@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class ImportBundleRequest : IRequest<ImportBundleResponse>
     {
-        public ImportBundleRequest(IList<ImportResource> resources)
+        public ImportBundleRequest(IReadOnlyList<ImportResource> resources)
         {
             Resources = EnsureArg.IsNotNull(resources, nameof(resources));
         }
@@ -23,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// <summary>
         /// Resources to import
         /// </summary>
-        public IList<ImportResource> Resources { get; }
+        public IReadOnlyList<ImportResource> Resources { get; }
     }
 }

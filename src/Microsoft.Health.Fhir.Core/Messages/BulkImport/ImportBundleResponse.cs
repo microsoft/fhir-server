@@ -9,17 +9,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
     public class ImportBundleResponse
     {
-        public ImportBundleResponse(int loaded, int failed, IList<string> errors)
+        public ImportBundleResponse(int loaded, IReadOnlyList<string> errors)
         {
             LoadedResources = loaded;
-            FailedResources = failed;
             Errors = errors;
         }
 
         public int LoadedResources { get; private set; }
 
-        public int FailedResources { get; private set; }
-
-        public IList<string> Errors { get; private set; }
+        public IReadOnlyList<string> Errors { get; private set; }
     }
 }

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ImportBundleResponse> ImportBundleAsync(
             this IMediator mediator,
-            IList<ImportResource> resources,
+            IReadOnlyList<ImportResource> resources,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

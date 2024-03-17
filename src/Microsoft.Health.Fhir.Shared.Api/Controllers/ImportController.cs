@@ -146,17 +146,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var importRequest = new ImportBundleRequest(importResources);
             var response = await mediator.ImportBundleAsync(importRequest.Resources, cancel);
-            var failed = errors.Count + response.FailedResources;
-            if (response.Errors != null)
-            {
-                errors.AddRange(response.Errors);
-            }
-
-            var result = new ImportBundleActionResult(new ImportBundleResult(response.LoadedResources, failed, errors), HttpStatusCode.OK);
+            errors.AddRange(response.Errors);
+            var loaded = importRequest.Resources.Count - response.Errors.Count;
+            var failed = errors.Count;
+            var result = new ImportBundleActionResult(new ImportBundleResult(loaded, errors), HttpStatusCode.OK);
             result.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
 
-            await mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, response.LoadedResources), CancellationToken.None);
-            logger.LogInformation("Loaded={LoadedResources}, failed={FailedResources} resources, elapsed {Milliseconds} milliseconds.", response.LoadedResources, failed, (int)sw.Elapsed.TotalMilliseconds);
+            await mediator.Publish(new ImportBundleMetricsNotification(startDate, DateTime.UtcNow, loaded), CancellationToken.None);
+            logger.LogInformation("Loaded={LoadedResources}, failed={FailedResources} resources, elapsed={Milliseconds} milliseconds.", loaded, failed, (int)sw.Elapsed.TotalMilliseconds);
 
             return result;
 
