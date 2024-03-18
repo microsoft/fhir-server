@@ -529,14 +529,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 {
                     var notificationList = _bundleMetricHandler.NotificationMapping[typeof(ImportBundleMetricsNotification)];
                     Assert.Single(notificationList);
-                    var notification = notificationList.First() as ImportBundleMetricsNotification;
+                    var notification = (ImportBundleMetricsNotification)notificationList[0];
                     Assert.Equal(1, notification.SucceededCount);
                 }
                 else
                 {
                     var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
                     Assert.Single(notificationList);
-                    var notification = notificationList.First() as ImportJobMetricsNotification;
+                    var notification = (ImportJobMetricsNotification)notificationList[0];
                     Assert.Equal(1, notification.SucceededCount);
                 }
             }
