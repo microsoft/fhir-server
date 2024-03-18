@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
     {
         private MetricHandler _metricHandler;
 
+        private MetricHandler _bundleMetricHandler;
+
         public ImportTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
@@ -24,6 +26,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public MetricHandler MetricHandler
         {
             get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportJobMetricsNotification>>());
+        }
+
+        public MetricHandler BundleMetricHandler
+        {
+            get => _bundleMetricHandler ?? (_bundleMetricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportBundleMetricsNotification>>());
         }
 
         public ImportTestStorageAccount StorageAccount { get; private set; }

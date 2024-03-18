@@ -179,12 +179,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
 
                 var importResource = importParser.Parse(index, 0, 0, resource, ImportMode.IncrementalLoad);
-                var key = importResource.ResourceWrapper.ToResourceKey(true);
-                if (!keys.Add(key))
-                {
-                    throw new RequestNotValidException(string.Format(Resources.ResourcesMustBeUnique, key));
-                }
-
                 importResources.Add(importResource);
                 index++;
             }

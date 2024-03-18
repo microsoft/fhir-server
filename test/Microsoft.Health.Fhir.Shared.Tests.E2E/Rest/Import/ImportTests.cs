@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
@@ -41,25 +42,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         private readonly TestFhirClient _client;
         private readonly MetricHandler _metricHandler;
+        private readonly MetricHandler _bundleMetricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
+            _bundleMetricHandler = fixture.BundleMetricHandler;
             _fixture = fixture;
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap(bool useBundleEndpoint)
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "2", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
+
+            await Import(ndJson + ndJson2 + ndJson3, 2, 1, useBundleEndpoint);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -72,6 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Theory]
+        [InlineData(true)]
         [InlineData(false)]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting(bool useBundleEndpoint)
         {
@@ -80,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "3", "2003");
 
-            await Import(ndJson + ndJson2 + ndJson3, 3, useBundleEndpoint);
+            await Import(ndJson + ndJson2 + ndJson3, 3, 0, useBundleEndpoint);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -181,7 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var oid = Guid.NewGuid().ToString("N");
             ndJson2 = ndJson2.Replace("##ObservationID##", oid).Replace("##PatientID##", pid);
 
-            await Import(ndJson1 + ndJson2, 2, useBundleEndpoint);
+            await Import(ndJson1 + ndJson2, 2, 0, useBundleEndpoint);
 
             var patient = await _client.ReadAsync<Patient>(ResourceType.Patient, pid);
             Assert.Equal("1", patient.Resource.Meta.VersionId);
@@ -193,13 +198,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             var response = await _client.ImportBundleAsync(isNdJson ? string.Join(string.Empty, ndJsons) : DressAsImportBundle(ndJsons.Select(_ => DressAsBundleEntry(_))), isNdJson);
             Assert.True(response.IsSuccessStatusCode);
-            CheckLoadedResources(response, ndJsons.Count());
+            CheckLoadedResources(response, ndJsons.Count(), 0);
         }
 
-        private void CheckLoadedResources(HttpResponseMessage response, int loadedResources)
+        private void CheckLoadedResources(HttpResponseMessage response, int loadedResources, int errors)
         {
             var result = JsonConvert.DeserializeObject<ImportBundleResult>(response.Content.ReadAsStringAsync().Result);
             Assert.Equal(loadedResources, result.LoadedResources);
+            Assert.Equal(errors, result.Errors.Count);
         }
 
         private static (string ResourceType, string ResourceId) GetResourceKey(string jsonString, bool check)
@@ -265,18 +271,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return builder.ToString();
         }
 
-        private async Task Import(string ndJson, int cnt, bool useBundleEndpoint)
+        private async Task Import(string ndJson, int loaded, int errors, bool useBundleEndpoint)
         {
             if (useBundleEndpoint)
             {
                 var response = await _client.ImportBundleAsync(ndJson, true);
-                CheckLoadedResources(response, cnt);
+                CheckLoadedResources(response, loaded, errors);
             }
             else
             {
                 var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
                 var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
-                await ImportCheckAsync(request, null);
+                await ImportCheckAsync(request, null, errors);
             }
         }
 
@@ -317,24 +323,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2000"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceExisting_VersionConflict()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceExisting_VersionConflict(bool useBundleEndPoint)
         {
             var id = Guid.NewGuid().ToString("N");
 
             // set existing
             var ndJson2 = PrepareResource(id, "2", "2002");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson2, _fixture.StorageAccount);
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null);
+            await Import(ndJson2, 1, 0, useBundleEndPoint);
 
             // set input
             var ndJson = PrepareResource(id, "1", "2001");
             //// keep ndJson2 as is
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
+            await Import(ndJson + ndJson2 + ndJson3, 2, 1, useBundleEndPoint);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -348,17 +352,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceNotExisting()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_MultipleInputVersions_ResourceNotExisting(bool useBundleEndPoint)
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, "2", "2002");
             var ndJson3 = PrepareResource(id, "3", "2003");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
 
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null);
+            await Import(ndJson + ndJson2 + ndJson3, 3, 0, useBundleEndPoint);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -470,15 +474,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_WhenOutOfOrder_ThenCurrentDatabaseVersionShouldRemain()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_WhenOutOfOrder_ThenCurrentDatabaseVersionShouldRemain(bool useBundleEndPoint)
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "2", "2002");
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
-
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null);
+            await Import(ndJson, 1, 0, useBundleEndPoint);
 
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.NotNull(result);
@@ -486,10 +489,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal("2", result.Resource.Meta.VersionId);
 
             ndJson = PrepareResource(id, "1", "2001");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
-
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null);
+            await Import(ndJson, 1, 0, useBundleEndPoint);
 
             result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.NotNull(result);
@@ -501,24 +501,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept(bool useBundleEndPoint)
         {
+            _metricHandler?.ResetCount();
+            _bundleMetricHandler?.ResetCount();
+
             var id = Guid.NewGuid().ToString("N");
             var versionId = 2.ToString();
             var lastUpdatedYear = "2021";
             var lastUpdated = GetLastUpdated(lastUpdatedYear);
             var ndJson = PrepareResource(id, versionId, lastUpdatedYear);
             ndJson = ndJson + ndJson; // add one dup
-            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount);
-
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 1);
+            await Import(ndJson, 1, 1, useBundleEndPoint);
 
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.NotNull(result);
             Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
             Assert.Equal(versionId, result.Resource.Meta.VersionId);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                if (useBundleEndPoint)
+                {
+                    var notificationList = _bundleMetricHandler.NotificationMapping[typeof(ImportBundleMetricsNotification)];
+                    Assert.Single(notificationList);
+                    var notification = notificationList.First() as ImportBundleMetricsNotification;
+                    Assert.Equal(1, notification.SucceededCount);
+                }
+                else
+                {
+                    var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
+                    Assert.Single(notificationList);
+                    var notification = notificationList.First() as ImportJobMetricsNotification;
+                    Assert.Equal(1, notification.SucceededCount);
+                }
+            }
         }
 
         [Fact]
@@ -1151,7 +1172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
-            if (errorCount != null)
+            if (errorCount != null && errorCount != 0)
             {
                 Assert.Equal(errorCount.Value, result.Error.First().Count);
             }
