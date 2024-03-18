@@ -118,7 +118,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var sw = Stopwatch.StartNew();
             var startDate = DateTime.UtcNow;
             var importResources = new List<ImportResource>();
-            var keys = new HashSet<ResourceKey>();
             var fhirParser = new FhirJsonParser();
             var importParser = new ImportResourceParser(fhirParser, resourceWrapperFactory);
             using var reader = new StreamReader(request.Body, Encoding.UTF8);
