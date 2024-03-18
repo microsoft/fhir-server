@@ -4,7 +4,7 @@
 variables:
   buildConfiguration: 'Release' 
   defaultBuildFramework: 'net8.0' 
-  azureSubscriptionEndpoint: 'docker-build'
+  azureSubscriptionEndpoint: 'docker-build-1'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   composeLocation: 'build/docker/docker-compose.yaml'
