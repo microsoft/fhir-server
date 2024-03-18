@@ -506,8 +506,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData(false)]
         public async Task GivenIncrementalLoad_ThenInputLastUpdatedAndVersionShouldBeKept(bool useBundleEndPoint)
         {
-            _metricHandler?.ResetCount();
-            _bundleMetricHandler?.ResetCount();
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                _metricHandler.ResetCount();
+                _bundleMetricHandler.ResetCount();
+            }
 
             var id = Guid.NewGuid().ToString("N");
             var versionId = 2.ToString();
@@ -522,7 +525,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(lastUpdated, result.Resource.Meta.LastUpdated);
             Assert.Equal(versionId, result.Resource.Meta.VersionId);
 
-            // Only check metric for local tests
             if (_fixture.IsUsingInProcTestServer)
             {
                 if (useBundleEndPoint)
