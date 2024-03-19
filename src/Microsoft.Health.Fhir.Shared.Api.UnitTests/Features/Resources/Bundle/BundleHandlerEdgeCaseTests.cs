@@ -168,6 +168,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 fhirRequestContextAccessor,
                 fhirJsonSerializer,
                 fhirJsonParser,
+                Deserializers.ResourceDeserializer,
                 transactionHandler,
                 bundleHttpContextAccessor,
                 bundleOrchestrator,

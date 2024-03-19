@@ -30,26 +30,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ResourceDeserializer _deserializer;
         private readonly IArrayPool<char> _charPool;
-        private readonly BundleSerializer _bundleSerializer;
         private readonly IModelInfoProvider _modelInfoProvider;
 
         public FhirJsonOutputFormatter(
             FhirJsonSerializer fhirJsonSerializer,
             ResourceDeserializer deserializer,
             ArrayPool<char> charPool,
-            BundleSerializer bundleSerializer,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
-            EnsureArg.IsNotNull(bundleSerializer, nameof(bundleSerializer));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _fhirJsonSerializer = fhirJsonSerializer;
             _deserializer = deserializer;
             _charPool = new JsonArrayPool(charPool);
-            _bundleSerializer = bundleSerializer;
             _modelInfoProvider = modelInfoProvider;
 
             SupportedEncodings.Add(Encoding.UTF8);
@@ -94,9 +90,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)
                     {
-                        if (rawBundleEntryComponent is RawBundleEntryComponent)
+                        if (rawBundleEntryComponent is RawBundleEntryComponent { ResourceElement: not null } entry)
                         {
-                            rawBundleEntryComponent.Resource = ((RawBundleEntryComponent)rawBundleEntryComponent).ResourceElement.ToPoco<Resource>(_deserializer);
+                            Resource poco = entry.ResourceElement.ToPoco<Resource>(_deserializer);
+                            if (poco.TypeName == KnownResourceTypes.OperationOutcome)
+                            {
+                                rawBundleEntryComponent.Response.Outcome = poco;
+                            }
+                            else
+                            {
+                                rawBundleEntryComponent.Resource = poco;
+                            }
+
                             if (hasElements)
                             {
                                 var typeinfo = summaryProvider.Provide(rawBundleEntryComponent.Resource.TypeName);
@@ -108,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body, pretty);
+                    await BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body, pretty);
                     return;
                 }
             }
@@ -118,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
-                    resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
+                    resource = ((RawResourceElement)context.Object).ToPoco<Resource>(_deserializer);
                     if (hasElements)
                     {
                         var typeinfo = summaryProvider.Provide(resource.TypeName);
@@ -128,7 +133,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    await (context.Object as RawResourceElement).SerializeToStreamAsUtf8Json(context.HttpContext.Response.Body, pretty);
+                    await ((RawResourceElement)context.Object).SerializeToStreamAsUtf8Json(context.HttpContext.Response.Body, pretty);
                     return;
                 }
             }
@@ -149,19 +154,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 additionalElements.Add("meta");
             }
 
-            using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
-            using (var jsonWriter = new JsonTextWriter(textWriter))
+            await using TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding);
+            await using var jsonWriter = new JsonTextWriter(textWriter);
+            jsonWriter.ArrayPool = _charPool;
+
+            if (pretty)
             {
-                jsonWriter.ArrayPool = _charPool;
-
-                if (pretty)
-                {
-                    jsonWriter.Formatting = Formatting.Indented;
-                }
-
-                await _fhirJsonSerializer.SerializeAsync(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
-                await jsonWriter.FlushAsync();
+                jsonWriter.Formatting = Formatting.Indented;
             }
+
+            await _fhirJsonSerializer.SerializeAsync(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
+            await jsonWriter.FlushAsync();
         }
     }
 }

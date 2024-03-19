@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -36,21 +38,34 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
+            var buffer = SerializeToBytes(rawResource, pretty);
+            using MemoryStream memory = ResourceDeserializer.MemoryStreamManager.GetStream(buffer);
+            await memory.CopyToAsync(outputStream);
+        }
+
+        public static byte[] SerializeToBytes(this RawResourceElement rawResource, bool pretty = false)
+        {
+            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
+
+            using MemoryStream output = ResourceDeserializer.MemoryStreamManager.GetStream();
+
             if (rawResource.RawResource.IsMetaSet && !pretty)
             {
-                await using var sw = new StreamWriter(outputStream, leaveOpen: true);
-                await sw.WriteAsync(rawResource.RawResource.Data);
-                return;
+                using var sw = new StreamWriter(output, leaveOpen: true);
+                sw.Write(rawResource.RawResource.Data);
+                sw.Flush();
+                return output.ToArray();
             }
 
             var jsonDocument = JsonDocument.Parse(rawResource.RawResource.Data);
 
-            await using var writer = new Utf8JsonWriter(outputStream, pretty ? _indentedWriterOptions : _writerOptions);
+            using var writer = new Utf8JsonWriter(output, pretty ? _indentedWriterOptions : _writerOptions);
 
             if (rawResource.RawResource.IsMetaSet && pretty)
             {
                 jsonDocument.WriteTo(writer);
-                return;
+                writer.Flush();
+                return output.ToArray();
             }
 
             writer.WriteStartObject();
@@ -123,8 +138,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             writer.WriteEndObject();
-
-            await writer.FlushAsync();
+            writer.Flush();
+            return output.ToArray();
         }
     }
 }

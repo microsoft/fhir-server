@@ -6,158 +6,85 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
+using EnsureThat;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public class BundleSerializer
+    public static class BundleSerializer
     {
-        private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions
+        /// <summary>
+        /// Serializer for Bundles made up of RawBundleEntryComponents
+        /// </summary>
+        /// <param name="bundle">Bundle</param>
+        /// <param name="outputStream">OutputStream</param>
+        /// <param name="pretty">Pretty formatting</param>
+        public static async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream, bool pretty = false)
         {
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        };
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+            EnsureArg.IsNotNull(outputStream, nameof(outputStream));
 
-        private readonly JsonWriterOptions _indentedWriterOptions = new JsonWriterOptions
-        {
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            Indented = true,
-        };
-
-        public BundleSerializer()
-        {
-        }
-
-        public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream, bool pretty = false)
-        {
-            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, pretty ? _indentedWriterOptions : _writerOptions);
-            await using StreamWriter streamWriter = new StreamWriter(outputStream, leaveOpen: true);
-
-            writer.WriteStartObject();
-
-            writer.WriteString("resourceType", bundle.TypeName);
-            writer.WriteString("id", bundle.Id);
-
-            SerializeMetadata();
-
-            writer.WriteString("type", bundle.Type?.GetLiteral());
-
-            SerializeLinks();
-
-            if (bundle.Total.HasValue)
-            {
-                writer.WriteNumber("total", bundle.Total.Value);
-            }
-
-            await SerializeEntries();
-
-            writer.WriteEndObject();
-            await writer.FlushAsync();
-
-            void SerializeMetadata()
-            {
-                if (bundle.Meta != null)
-                {
-                    writer.WriteStartObject("meta");
-                    writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString());
-                    writer.WriteEndObject();
-                }
-            }
-
-            void SerializeLinks()
-            {
-                if (bundle.Link?.Any() == true)
-                {
-                    writer.WriteStartArray("link");
-
-                    foreach (var link in bundle.Link)
-                    {
-                        writer.WriteStartObject();
-                        writer.WritePropertyName("relation");
-                        writer.WriteStringValue(link.Relation);
-                        writer.WritePropertyName("url");
-                        writer.WriteStringValue(link.Url);
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndArray();
-                }
-            }
-
-            async Task SerializeEntries()
-            {
-                if (bundle.Entry?.Any() == true)
-                {
-                    writer.WriteStartArray("entry");
-                    foreach (var entry in bundle.Entry)
-                    {
-                        if (!(entry is RawBundleEntryComponent rawBundleEntry))
+            await using FhirJsonWriter writer = FhirJsonWriter.Create(outputStream, pretty)
+                .WriteStartObject()
+                .WriteString("resourceType", bundle.TypeName)
+                .WriteOptionalString("id", bundle.Id)
+                .Condition(
+                    () => bundle.Meta != null,
+                    b => b.WriteObject(
+                            "meta",
+                            _ => b.WriteOptionalString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString())))
+                .WriteOptionalString("type", bundle.Type?.GetLiteral())
+                .Condition(
+                    () => bundle.Link?.Any() == true,
+                    b => b.WriteArray(
+                        "link",
+                        bundle.Link,
+                        (_, link) =>
+                            b.WriteString("relation", link.Relation)
+                                .WriteString("url", link.Url)))
+                .WriteOptionalNumber("total", bundle.Total)
+                .Condition(
+                    () => bundle.Entry?.Count > 0,
+                    b => b.WriteArray(
+                        name: "entry",
+                        values: bundle.Entry.Cast<RawBundleEntryComponent>(),
+                        itemWriter: (_, component) =>
                         {
-                            throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
-                        }
-
-                        bool wroteFullUrl = false;
-                        writer.WriteStartObject();
-
-                        if (!string.IsNullOrEmpty(rawBundleEntry.FullUrl))
-                        {
-                            writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
-                            await writer.FlushAsync();
-                            await streamWriter.WriteAsync(",");
-                            wroteFullUrl = true;
-                        }
-
-                        await writer.FlushAsync();
-                        await streamWriter.WriteAsync("\"resource\":");
-                        await streamWriter.FlushAsync();
-
-                        await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
-
-                        if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
-                        {
-                            // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
-                            // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
-                            await streamWriter.WriteAsync(",");
-                            await streamWriter.FlushAsync();
-                        }
-
-                        if (rawBundleEntry?.Search?.Mode != null)
-                        {
-                            writer.WriteStartObject("search");
-                            writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
-                            writer.WriteEndObject();
-                        }
-
-                        if (rawBundleEntry.Request != null)
-                        {
-                            writer.WriteStartObject("request");
-
-                            writer.WriteString("method", rawBundleEntry.Request.Method.GetLiteral());
-                            writer.WriteString("url", rawBundleEntry.Request.Url);
-
-                            writer.WriteEndObject();
-                        }
-
-                        if (rawBundleEntry.Response != null)
-                        {
-                            writer.WriteStartObject("response");
-
-                            writer.WriteString("status", rawBundleEntry.Response.Status);
-                            writer.WriteString("etag", rawBundleEntry.Response.Etag);
-                            writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
-
-                            writer.WriteEndObject();
-                        }
-
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndArray();
-                }
-            }
+                            b.WriteOptionalString("fullUrl", component.FullUrl)
+                                .Condition(
+                                    () => component.ResourceElement != null && !string.Equals(component.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
+                                    _ => b.WriteRawProperty("resource", component.ResourceElement.SerializeToBytes()))
+                                .Condition(
+                                    () => component.Search?.Mode != null,
+                                    _ => b.WriteObject(
+                                        "search",
+                                        _ => b.WriteString("mode", component.Search?.Mode?.GetLiteral())))
+                                .Condition(
+                                    () => component.Request != null,
+                                    _ => b.WriteObject(
+                                        "request",
+                                        _ => b.WriteString("method", component.Request.Method.GetLiteral())
+                                            .WriteString("url", component.Request.Url)))
+                                .Condition(
+                                    () => component.Response != null,
+                                    _ => b.WriteObject(
+                                        "response",
+                                        _ => b.WriteString("status", component.Response.Status)
+                                            .WriteOptionalString("etag", component.Response.Etag)
+                                            .WriteOptionalString("lastModified", component.Response.LastModified?.ToInstantString())
+                                            .Condition(
+                                                () => string.Equals(component.ResourceElement?.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
+                                                _ => b.WriteRawProperty("outcome", component.ResourceElement.SerializeToBytes()))
+                                            .Condition(
+                                                () => component.ResourceElement == null && component.Response.Outcome != null,
+                                                _ => b.WriteRawProperty("outcome", component.Response.Outcome.ToJsonBytes()))));
+                        }))
+                .WriteEndObject();
         }
     }
 }
