@@ -26,7 +26,7 @@ variables:
   TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
   #-----------------------------------------------------------------------------------------
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
-  ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+  ConnectedServiceName: 'Microsoft Health Open Source Subscription - new'
   WindowsVmImage: 'windows-latest'
   LinuxVmImage: 'ubuntu-latest'  
   TestApplicationResource: 'https://$(DeploymentEnvironmentName).$(tenantDomain)'

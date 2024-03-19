@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-        [SkippableFact(Skip = "Auth Refactoring")]
+        [Fact]
         public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
         {
             string query = $"subject:Patient.gender=male";

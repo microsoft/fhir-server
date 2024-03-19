@@ -37,7 +37,7 @@
       "test\\Microsoft.Health.Fhir.Shared.Tests.Crucible\\Microsoft.Health.Fhir.Shared.Tests.Crucible.shproj",
       "test\\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.shproj",
       "test\\Microsoft.Health.Fhir.Shared.Tests.E2E\\Microsoft.Health.Fhir.Shared.Tests.E2E.shproj",
-      "test\\Microsoft.Health.Fhir.Shared.Tests.Integration\\Microsoft.Health.Fhir.Shared.Tests.Integration.shproj",
+      "test\\Microsoft.Health.Fhir.Shared.Tests.Integration\\Microsoft.Health.Fhir.Shared.Tests.Integration.shproj"
     ]
   }
 }
