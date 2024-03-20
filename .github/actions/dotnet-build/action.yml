@@ -22,7 +22,31 @@ runs:
   using: composite
   steps:
     - name: Setup dotnet ${{ inputs.dotnetVersion }}
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ inputs.dotnetVersion}}
+
+    - name: Restore Dependencies
+      shell: bash
+      run: dotnet restore
     
+    - name: Build
+      shell: bash
+      run: dotnet build --configuration $(inputs.buildConfiguration) -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="$(inputs.assemblyVersion)" -p:FileVersion="$(inputs.fileVersion)" -p:InformationalVersion="$(inputs.informationalVersion)" -p:Version="$(majorMinorPatch)" -warnaserror -f ${{inputs.dotnetVersion}}
+
+    - name: Test
+      shell: bash
+      run: dotnet test --no-restore --no-build --verbosity normal -f ${{ inputs.dotnetVersion}} --collect:"XPlat Code Coverage" --results-directory ./coverage
+    - name: Code Coverage Report
+      uses: irongut/CodeCoverageSummary@v1.3.0
+      with:
+        filename: coverage/**/coverage.cobertura.xml
+        badge: true
+        fail_below_min: true
+        format: markdown
+        hide_branch_rate: false
+        hide_complexity: true
+        indicators: true
+        output: both
+        thresholds: '60 80'  
+# Code coverage? How often to trigger

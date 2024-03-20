@@ -10,7 +10,6 @@ permissions:
 
 env:
   buildConfiguration: Release
-  defaultBuildFramework: net8.0
   azureSubscriptionEndpoint: docker-build
   azureContainerRegistryName: healthplatformregistry
   connectedServiceName: Microsoft Health Open Source Subscription
@@ -32,11 +31,6 @@ jobs:
 
       - name: Install Latest .Net SDK
         uses: actions/setup-dotnet@v4
-
-      - name: Install Older .Net SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 6.0.x
 
       - name: Determine Semver
         id: semver
@@ -67,7 +61,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup dotnet ${{ matrix.dotnet-version }}
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet-version }}
 
