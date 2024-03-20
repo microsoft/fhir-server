@@ -412,7 +412,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 const string message = "Duplicate file detected in list of files to import.";
                 _logger.LogJobError(ex, orchestratorInfo, message);
-                throw new JobExecutionException(message, ex);
+                throw new ImportProcessingException(message, ex);
             }
             catch (Exception ex)
             {
