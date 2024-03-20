@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden_WithNoImportNotification()
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
@@ -427,7 +427,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess(bool setResourceType)
         {
             _metricHandler?.ResetCount();
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.BulkImportUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
@@ -453,7 +453,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.StorageAccount);
 
@@ -539,10 +539,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var checkLocation1 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var checkLocation2 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             Assert.Equal(checkLocation1, checkLocation2); // idempotent registration
+            await ImportWaitAsync(checkLocation1);
 
             request.Input = new List<InputResource>() { new InputResource() { Url = location, Type = "Patient", Etag = etag } };
             var checkLocation3 = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             Assert.NotEqual(checkLocation1, checkLocation3);
+            await ImportWaitAsync(checkLocation3);
         }
 
         [Fact]
@@ -975,11 +977,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
-            HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(2));
-            }
+            var response = await ImportWaitAsync(checkLocation, client);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
@@ -996,6 +994,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Request);
 
             return checkLocation;
+        }
+
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, TestFhirClient client = null)
+        {
+            client = client ?? _client;
+            HttpResponseMessage response;
+            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
+
+            return response;
         }
     }
 }
