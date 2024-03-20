@@ -280,10 +280,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 },
             };
 
-            // Create 1001 patients that exceed the sub-query limit
-            foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(100))
+            try
             {
-                await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
+                // Safe number to create resources without hitting any Cosmos DB limit, as the number of RUs assigned is low.
+                const int batchSize = 10;
+
+                // Create 1001 patients that exceed the sub-query limit
+                foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(batchSize))
+                {
+                    await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed while creating resources: {ex.Message}", ex);
             }
 
             try
