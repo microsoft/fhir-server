@@ -66,12 +66,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             ResourceElement SetMetadata(Resource resource, bool isMetaSet, string versionId, DateTimeOffset? lastModified)
             {
-                if (!isMetaSet)
+                // There is no longer any consistency.
+                // In various different functions, Cosmos assumes IsMetaSet is true for versionId, Sql assumes IsMetaSet is true for lastModified
+
+                if (!string.IsNullOrEmpty(versionId))
                 {
                     resource.VersionId = versionId;
                 }
 
-                if (lastModified.HasValue && lastModified != DateTimeOffset.MinValue)
+                if (lastModified.GetValueOrDefault() != DateTimeOffset.MinValue)
                 {
                     resource.Meta.LastUpdated = lastModified;
                 }
@@ -87,11 +90,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Json, (rawResource, version, lastModified) =>
                         {
                             var resource = jsonParser.Parse<Resource>(rawResource.Data);
-                            if (rawResource.IsMetaSet)
-                            {
-                                return resource.ToResourceElement();
-                            }
-
                             return SetMetadata(resource, rawResource.IsMetaSet, version, lastModified);
                         }
                     },
@@ -99,11 +97,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Xml, (rawResource, version, lastModified) =>
                         {
                             var resource = xmlParser.Parse<Resource>(rawResource.Data);
-                            if (rawResource.IsMetaSet)
-                            {
-                                return resource.ToResourceElement();
-                            }
-
                             return SetMetadata(resource, rawResource.IsMetaSet, version, lastModified);
                         }
                     },
