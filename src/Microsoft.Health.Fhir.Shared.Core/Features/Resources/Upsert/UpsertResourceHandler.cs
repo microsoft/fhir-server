@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -26,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// </summary>
     public partial class UpsertResourceHandler : BaseResourceHandler, IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>
     {
+        private readonly ResourceReferenceResolver _referenceResolver;
+        private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private readonly IModelInfoProvider _modelInfoProvider;
 
         public UpsertResourceHandler(
@@ -33,13 +36,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
+            ResourceReferenceResolver referenceResolver,
             IAuthorizationService<DataActions> authorizationService,
             IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
 
+            _referenceResolver = referenceResolver;
             _modelInfoProvider = modelInfoProvider;
+            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken)
@@ -56,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
             bool requireETagOnUpdate = await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken);
+
+            await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = ResourceWrapperFactory.CreateResourceWrapper(resource, ResourceIdProvider, deleted: false, keepMeta: allowCreate);
 

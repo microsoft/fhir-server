@@ -40,11 +40,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             _versionsResult = versionsResult;
         }
 
-        public override Task ExecuteResultAsync(ActionContext context)
+        public override async Task ExecuteResultAsync(ActionContext context)
         {
             _httpContext = context.HttpContext;
             _acceptHeaders = _httpContext.Request.GetTypedHeaders().Accept;
-            return base.ExecuteResultAsync(context);
+            await base.ExecuteResultAsync(context);
         }
 
         protected override object GetResultToSerialize()

@@ -564,7 +564,7 @@
             ],
             "properties": {
                 "roleDefinitionId": "[concat(subscription().Id, '/providers/Microsoft.Authorization/roleDefinitions/', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]", // Role definition ID for "Key Vault Secrets Officer"
-                "principalId": "b542f965-4eec-4682-8999-78dd501df864"
+                "principalId": "3cd8f0ad-3c21-47f1-9a15-b01d9958909a"
             }
         },
         {

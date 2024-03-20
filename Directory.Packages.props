@@ -108,7 +108,6 @@
     <PackageVersion Include="System.Collections.Immutable" Version="7.0.0" />
     <PackageVersion Include="System.CommandLine.NamingConventionBinder" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageVersion Include="System.Configuration.Configuration" Version="6.0.1" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
     <PackageVersion Include="System.Data.SqlClient" Version="4.8.6" />
     <PackageVersion Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />

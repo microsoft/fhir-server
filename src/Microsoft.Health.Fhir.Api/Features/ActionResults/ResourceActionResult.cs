@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -21,9 +22,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     {
         protected ResourceActionResult()
         {
+            Headers = new HeaderDictionary();
         }
 
         protected ResourceActionResult(TResult result)
+            : this()
         {
             Result = result;
         }
@@ -47,9 +50,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Gets or sets the action result Headers.
         /// </summary>
-        internal IHeaderDictionary Headers { get; } = new HeaderDictionary();
+        internal IHeaderDictionary Headers { get; }
 
-        public override Task ExecuteResultAsync(ActionContext context)
+        public override async Task ExecuteResultAsync(ActionContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
@@ -68,12 +71,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
             foreach (KeyValuePair<string, StringValues> header in Headers)
             {
-                if (response.Headers.ContainsKey(header.Key))
+                try
                 {
-                    response.Headers.Remove(header.Key);
+                    response.Headers[header.Key] = header.Value;
                 }
-
-                response.Headers.Add(header);
+                catch (InvalidOperationException ioe)
+                {
+                    // Catching operations that change non-concurrent collections.
+                    throw new InvalidOperationException($"Failed to set header '{header.Key}'.", ioe);
+                }
             }
 
             ActionResult result;
@@ -86,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
                 result = new ObjectResult(GetResultToSerialize());
             }
 
-            return result.ExecuteResultAsync(context);
+            await result.ExecuteResultAsync(context);
         }
 
         protected virtual object GetResultToSerialize()

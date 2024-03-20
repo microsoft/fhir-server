@@ -109,6 +109,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPracititioner_WhenUpdatingAPatientWithAReferenceToAnIdentifier_ThenResolveTheReferenceProperly()
+        {
+            // Step 0 - Define the identifiers to be used.
+            string practitionerIdentifierSystem = "http://hl7.org/fhir/sid/us-npi";
+            string practitionerIdentifierValue = Guid.NewGuid().ToString();
+
+            // Step 1 - Create the Practitioner.
+            var practitionerToCreate = Samples.GetDefaultPractitioner().ToPoco<Practitioner>();
+            practitionerToCreate.Id = Guid.NewGuid().ToString();
+            practitionerToCreate.Identifier = new List<Identifier> { new Identifier(practitionerIdentifierSystem, practitionerIdentifierValue) };
+
+            using FhirResponse<Practitioner> createdPractitionerResponse = await _client.UpdateAsync(practitionerToCreate);
+            ValidateUpdateResponse(practitionerToCreate, createdPractitionerResponse, false, HttpStatusCode.Created);
+
+            // Step 2 - Create the Patient.
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Id = Guid.NewGuid().ToString();
+            patient.GeneralPractitioner = new List<ResourceReference> { new ResourceReference($"Practitioner?identifier={practitionerIdentifierSystem}|{practitionerIdentifierValue}") };
+
+            using FhirResponse<Patient> createdPatientResponse = await _client.UpdateAsync(patient);
+            ValidateUpdateResponse(patient, createdPatientResponse, false, HttpStatusCode.Created);
+
+            // Step 3 - Validate that the Patient's GeneralPractitioner reference is correctly resolved.
+            string expectedPractitionerReference = $"Practitioner/{practitionerToCreate.Id}";
+            string currentPractitionerReference = createdPatientResponse.Resource.GeneralPractitioner[0].Reference;
+            Assert.True(
+                expectedPractitionerReference == currentPractitionerReference,
+                $"Expected Practitioner reference is '{expectedPractitionerReference}', but it's '{currentPractitionerReference}'. Upserting commands are not resolving resource references correctly.");
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResourceWithMetaSet_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
@@ -267,13 +299,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updateResponseAfterMetaUpdated.Resource.Meta.Tag, t => t.Code == "TestCode2");
         }
 
-        private static void ValidateUpdateResponse(Observation oldResource, FhirResponse<Observation> newResponse, bool same, HttpStatusCode expectedStatusCode)
+        private static void ValidateUpdateResponse<T>(T oldResource, FhirResponse<T> newResponse, bool same, HttpStatusCode expectedStatusCode)
+            where T : DomainResource
         {
             Assert.Equal(expectedStatusCode, newResponse.StatusCode);
 
             var newResource = newResponse.Resource;
-            Assert.NotNull(newResource);
-            Assert.Equal(oldResource.Id, newResource.Id);
+            Assert.True(newResource != null, "New response's resource is never expected to be null.");
+            Assert.True(newResource.Meta != null, "New resource's meta is never expected to be null.");
+            Assert.True(oldResource.Id == newResource.Id, "Old and new resource are expected to have the same id.");
 
             if (same)
             {
@@ -283,9 +317,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
             else
             {
-                // Check new version is created. versionId and lastUpdated are updated
-                Assert.NotEqual(oldResource.Meta.VersionId, newResource.Meta.VersionId);
-                Assert.NotEqual(oldResource.Meta.LastUpdated, newResource.Meta.LastUpdated);
+                // Check new version is created. versionId and lastUpdated are updated. Meta in the old resource can be null.
+                Assert.NotEqual(oldResource.Meta?.VersionId, newResource.Meta.VersionId);
+                Assert.NotEqual(oldResource.Meta?.LastUpdated, newResource.Meta.LastUpdated);
             }
         }
 
