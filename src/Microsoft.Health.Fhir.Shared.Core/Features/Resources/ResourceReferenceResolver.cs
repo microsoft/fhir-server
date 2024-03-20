@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             _queryStringParser = queryStringParser;
         }
 
-        public async Task ResolveReferencesAsync(Resource resource, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
+        public async Task ResolveReferencesAsync(Resource resource, IDictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
         {
             IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
 
