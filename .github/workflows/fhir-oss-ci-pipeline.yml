@@ -73,8 +73,4 @@ jobs:
           fileVersion: ${{steps.semver.outputs.fileVersion}}
           informationalVersion: ${{steps.semver.outputs.informationalVersion}}
           dotnetVersion: ${{matrix.dotnet-version}}
-      # - name: Test
-      #   run: dotnet test --configuration ${{env.buildConfiguration}}
-
-      # - name: Publish
-      #   run: dotnet publish --configuration ${{env.buildConfiguration}} --output ./publish
+          majorMinorPatch: ${{steps.semver.outputs.majorMinorPatch}}

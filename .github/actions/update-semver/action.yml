@@ -18,6 +18,9 @@ outputs:
   nugetVersion:
     description: The NuGet package version for the shared components
     value: ${{ steps.version.outputs.GitVersion_SemVer }}
+  majorMinorPatch:
+    description: The major.minor.patch version for the shared components
+    value: ${{ steps.version.outputs.GitVersion_MajorMinorPatch }}
 runs:
   using: 'composite'
   steps:
