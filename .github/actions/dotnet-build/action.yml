@@ -35,7 +35,7 @@ runs:
     
     - name: Build
       shell: bash
-      run: dotnet build --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror -f ${{inputs.dotnetVersion}}
+      run: dotnet build --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
 
     - name: Test
       shell: bash
