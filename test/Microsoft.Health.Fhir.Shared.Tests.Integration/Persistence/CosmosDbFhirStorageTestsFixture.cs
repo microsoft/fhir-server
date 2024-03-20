@@ -44,7 +44,6 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.Versioning;
 using Microsoft.Health.JobManagement;
 using Microsoft.Health.JobManagement.UnitTests;
 using NSubstitute;
@@ -124,16 +123,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var updaters = new ICollectionUpdater[]
             {
-                new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
+               // new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
 
                 // new DataPlaneStoredProcedureInstaller(fhirStoredProcs),
 
-                new CosmosDbSearchParameterStatusInitializer(
-                    () => _filebasedSearchParameterStatusDataStore,
-                    new CosmosQueryFactory(
-                        new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
-                        NullFhirCosmosQueryLogger.Instance),
-                    _cosmosDataStoreConfiguration),
+                // new CosmosDbSearchParameterStatusInitializer(
+                //    () => _filebasedSearchParameterStatusDataStore,
+                //    new CosmosQueryFactory(
+                //        new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
+                //        NullFhirCosmosQueryLogger.Instance),
+                //    _cosmosDataStoreConfiguration),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);

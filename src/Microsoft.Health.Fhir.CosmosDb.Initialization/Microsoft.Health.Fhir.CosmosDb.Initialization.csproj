@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Storage\Versioning\" />
+  </ItemGroup>
+
 </Project>

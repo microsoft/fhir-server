@@ -38,7 +38,6 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.Versioning;
 using Microsoft.Health.JobManagement;
 using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
@@ -175,10 +174,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<DataPlaneStoredProcedureInstaller>()
                 .Transient()
                 .AsService<IStoredProcedureInstaller>();
-
-            services.Add<FhirCollectionSettingsUpdater>()
-                .Transient()
-                .AsService<ICollectionUpdater>();
 
             services.Add<CosmosDbSearchParameterStatusInitializer>()
                 .Transient()

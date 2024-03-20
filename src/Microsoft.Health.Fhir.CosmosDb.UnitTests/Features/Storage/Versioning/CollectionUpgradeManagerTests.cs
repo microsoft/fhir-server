@@ -11,7 +11,6 @@ using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             collectionVersionWrappers.ReadNextAsync(Arg.Any<CancellationToken>())
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
-            var updaters = new ICollectionUpdater[] { new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance), };
+            var updaters = new ICollectionUpdater[] { /*new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),*/ };
             _manager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
 
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();

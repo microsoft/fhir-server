@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
             ICollectionSetup collectionSetup,
+            ICollectionDataUpdater collectionDataUpdater,
             RetryExceptionPolicyFactory retryPolicyFactory,
             ILogger<CosmosContainerProvider> logger,
             IMediator mediator,
@@ -66,6 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
                 await collectionSetup.CreateCollection(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
                 await collectionSetup.UpdateFhirCollectionSettings(_container.Value, CancellationToken.None);
+                await collectionDataUpdater.ExecuteAsync(_container.Value, CancellationToken.None);
             });
 
             // _initializationOperation = new RetryableInitializationOperation(
