@@ -54,6 +54,7 @@ jobs:
     strategy:
       matrix:
         dotnet-version: [ '8.0.x', '6.0.x' ]
+        targetFrameworks: [ 'net8', 'net6']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
