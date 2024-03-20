@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -477,6 +478,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
+        public async Task GivenIncrementalLoad_WhenSoftDeleted_ThenSoftDeletedShouldBePersisted(bool useBundleEndPoint)
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "2", "2002", true);
+            await Import(ndJson, 1, 0, useBundleEndPoint);
+
+            var result = (await _client.SearchAsync($"Patient/{id}/_history")).Resource;
+            Assert.Equal("2", result.Entry.First().Resource.VersionId);
+
+            ndJson = PrepareResource(id, "1", "2001");
+            await Import(ndJson, 1, 0, useBundleEndPoint);
+
+            var patient = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.NotNull(result);
+            Assert.Equal(GetLastUpdated("2001"), patient.Resource.Meta.LastUpdated);
+
+            ndJson = PrepareResource(id, "3", "2003");
+            await Import(ndJson, 1, 0, useBundleEndPoint);
+
+            patient = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "3");
+            Assert.NotNull(result);
+            Assert.Equal(GetLastUpdated("2003"), patient.Resource.Meta.LastUpdated);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
         public async Task GivenIncrementalLoad_WhenOutOfOrder_ThenCurrentDatabaseVersionShouldRemain(bool useBundleEndPoint)
         {
             var id = Guid.NewGuid().ToString("N");
@@ -587,7 +615,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
         }
 
-        private static string PrepareResource(string id, string version, string lastUpdatedYear)
+        private static string PrepareResource(string id, string version, string lastUpdatedYear, bool isDeleted = false)
         {
             var ndJson = Samples.GetNdJson("Import-SinglePatientTemplate"); // "\"lastUpdated\":\"2020-01-01T00:00+00:00\"" "\"versionId\":\"1\"" "\"value\":\"654321\""
             ndJson = ndJson.Replace("##PatientID##", id);
@@ -607,6 +635,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             else
             {
                 ndJson = ndJson.Replace("\"lastUpdated\":\"2020-01-01T00:00:00.000+00:00\",", string.Empty);
+            }
+
+            if (isDeleted)
+            {
+                ndJson = ndJson.Replace(",\"meta\":{", ",\"meta\":{\"extension\":[{\"url\":\"http://azurehealthcareapis.com/data-extensions/deleted-state\",\"valueString\":\"soft-deleted\"}],");
             }
 
             return ndJson;
