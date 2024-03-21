@@ -33,7 +33,6 @@ jobs:
         uses: actions/setup-dotnet@v4
 
       - name: Determine Semver
-        id: semver
         uses: ./.github/actions/update-semver
 
       - name: Azure Login
@@ -68,9 +67,9 @@ jobs:
       - name: Build
         uses: ./.github/actions/dotnet-build
         with:
-          assemblyVersion: ${{steps.semver.outputs.assemblyVersion}}
+          assemblyVersion: ${{needs.setup.outputs.assemblyVersion}}
           buildConfiguration: ${{env.buildConfiguration}}
-          fileVersion: ${{steps.semver.outputs.fileVersion}}
-          informationalVersion: ${{steps.semver.outputs.informationalVersion}}
+          fileVersion: ${{needs.setup.outputs.fileVersion}}
+          informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           dotnetVersion: ${{matrix.dotnet-version}}
-          majorMinorPatch: ${{steps.semver.outputs.majorMinorPatch}}
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
