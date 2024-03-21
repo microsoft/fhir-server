@@ -23,6 +23,11 @@ jobs:
       deploymentEnvironmentName: $vars.CIRESOURCEGROUPROOT
       appServicePlanName: $vars.CIRESOURCEGROUPROOT-linux
       resourceGroupName: $vars.CIRESOURCEGROUPROOT
+    outputs:
+      assemblyVersion: ${{ steps.version.outputs.assemblyVersion }}
+      fileVersion: ${{ steps.version.outputs.fileVersion }}
+      informationalVersion: ${{ steps.version.outputs.informationalVersion }}
+      majorMinorPatch: ${{ steps.version.outputs.majorMinorPatch }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,9 +73,9 @@ jobs:
       - name: Build
         uses: ./.github/actions/dotnet-build
         with:
-          assemblyVersion: ${{needs.setup.version.outputs.assemblyVersion}}
+          assemblyVersion: ${{needs.setup.outputs.assemblyVersion}}
           buildConfiguration: ${{env.buildConfiguration}}
-          fileVersion: ${{needs.setup.version.outputs.fileVersion}}
-          informationalVersion: ${{needs.setup.version.outputs.informationalVersion}}
+          fileVersion: ${{needs.setup.outputs.fileVersion}}
+          informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           dotnetVersion: ${{matrix.dotnet-version}}
-          majorMinorPatch: ${{needs.setup.version.outputs.majorMinorPatch}}
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
