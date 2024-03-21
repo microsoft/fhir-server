@@ -817,7 +817,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (subResource != null)
             {
-                newFhirRequestContext.Properties[SubRequest.SubRequestResource] = subResource;
+                newFhirRequestContext.Properties[BundleSubRequest.Model] = subResource;
             }
 
             // Copy allowed resource actions to the new FHIR Request Context.

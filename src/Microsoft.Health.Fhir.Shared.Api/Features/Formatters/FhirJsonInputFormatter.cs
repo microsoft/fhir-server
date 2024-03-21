@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Newtonsoft.Json;
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
             if (_fhirRequestContextAccessor.RequestContext != null &&
-                _fhirRequestContextAccessor.RequestContext.Properties.TryGetValue(SubRequest.SubRequestResource, out var subRequestModel))
+                _fhirRequestContextAccessor.RequestContext.Properties.TryGetValue(BundleSubRequest.Model, out var subRequestModel))
             {
                 return await InputFormatterResult.SuccessAsync(subRequestModel);
             }

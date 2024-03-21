@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Context;
+namespace Microsoft.Health.Fhir.Api.Features.Bundle;
 
-internal class SubRequest
+internal class BundleSubRequest
 {
-    public const string SubRequestResource = nameof(SubRequestResource);
+    public const string Model = nameof(Model);
 }
