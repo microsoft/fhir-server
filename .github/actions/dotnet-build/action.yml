@@ -35,11 +35,11 @@ runs:
     
     - name: Build
       shell: bash
-      run: dotnet build --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
+      run: dotnet build Microsoft.Health.Fhir.sln --output output--configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
 
     - name: Test
       shell: bash
-      run: dotnet test **/*UnitTests/*.csproj --no-restore --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+      run: dotnet test **/*UnitTests/*.csproj --no-restore --no-build --verbosity normal --collect:"XPlat Code Coverage" -s "CodeCoverage.runsettings" -v normal --results-directory ./coverage
     - name: Code Coverage Report
       uses: irongut/CodeCoverageSummary@v1.3.0
       with:
@@ -51,5 +51,20 @@ runs:
         hide_complexity: true
         indicators: true
         output: both
-        thresholds: '60 80'  
-# Code coverage? How often to trigger
+        thresholds: '60 80'
+    # - run: mkdir -p coverage
+    #   shell: bash
+    # - run: mkdir -p artifacts
+    #   shell: bash
+    # - name: actions/upload-artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: fhirBuild-${{inputs.dotnetVersion}}
+    #     path: artifacts
+    #     retention-days: 1
+    # - name: Upload Code Coverage Results
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: fhirBuild-${{inputs.dotnetVersion}}
+    #     path: artifacts
+    #     retention-days: 1
