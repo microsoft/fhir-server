@@ -8,19 +8,19 @@ inputs:
 outputs:
   assemblyVersion:
     description: The assembly version for the build
-    value: ${{ steps.version.outputs.assemblySemVer }}
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemVer }}
   fileVersion:
     description: The assembly file version for the build
-    value: ${{ steps.version.outputs.assemblySemFileVer }}
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemFileVer }}
   informationalVersion:
     description: The assembly informational version for the build
-    value: ${{ steps.version.outputs.informationalVersion }}
+    value: ${{ steps.version.outputs.GitVersion_InformationalVersion }}
   nugetVersion:
     description: The NuGet package version for the build
-    value: ${{ steps.version.outputs.semVer }}
+    value: ${{ steps.version.outputs.GitVersion_SemVer }}
   majorMinorPatch:
     description: The major.minor.patch version for the build
-    value: ${{ steps.version.outputs.majorMinorPatch }}
+    value: ${{ steps.version.outputs.GitVersion_MajorMinorPatch }}
 runs:
   using: 'composite'
   steps:
