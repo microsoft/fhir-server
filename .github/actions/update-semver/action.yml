@@ -7,20 +7,20 @@ inputs:
     default: './GitVersion.yml'
 outputs:
   assemblyVersion:
-    description: The assembly version for the shared components
-    value: ${{ steps.version.outputs.GitVersion_AssemblySemVer }}
+    description: The assembly version for the build
+    value: ${{ steps.version.outputs.assemblySemVer }}
   fileVersion:
-    description: The assembly file version for the shared components
-    value: ${{ steps.version.outputs.GitVersion_AssemblySemFileVer }}
+    description: The assembly file version for the build
+    value: ${{ steps.version.outputs.assemblySemFileVer }}
   informationalVersion:
-    description: The assembly informational version for the shared components
-    value: ${{ steps.version.outputs.GitVersion_InformationalVersion }}
+    description: The assembly informational version for the build
+    value: ${{ steps.version.outputs.informationalVersion }}
   nugetVersion:
-    description: The NuGet package version for the shared components
-    value: ${{ steps.version.outputs.GitVersion_SemVer }}
+    description: The NuGet package version for the build
+    value: ${{ steps.version.outputs.semVer }}
   majorMinorPatch:
-    description: The major.minor.patch version for the shared components
-    value: ${{ steps.version.outputs.GitVersion_MajorMinorPatch }}
+    description: The major.minor.patch version for the build
+    value: ${{ steps.version.outputs.majorMinorPatch }}
 runs:
   using: 'composite'
   steps:
