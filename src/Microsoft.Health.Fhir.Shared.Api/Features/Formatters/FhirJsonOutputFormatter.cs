@@ -84,8 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 resource = bundle;
 
                 if (hasElements ||
-                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
-                    !bundle.Entry.All(x => x is RawBundleEntryComponent))
+                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)

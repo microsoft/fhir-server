@@ -139,26 +139,30 @@ public class FhirJsonWriter : IDisposable, IAsyncDisposable
         return this;
     }
 
-    public FhirJsonWriter Condition(Action<FhirJsonWriter> action)
-    {
-        action(this);
-        return this;
-    }
-
     /// <summary>
     /// Conditionally writes the provided action if the predicate is true.
     /// </summary>
     /// <param name="predicate">Expression to test.</param>
     /// <param name="action">Action to run.</param>
     /// <returns><see cref="FhirJsonWriter" /></returns>
-    public FhirJsonWriter Condition(Func<bool> predicate, Action<FhirJsonWriter> action)
+    public FhirJsonWriter Condition(bool predicate, Action<FhirJsonWriter> action)
     {
-        if (predicate())
+        if (predicate)
         {
             action(this);
         }
 
         return this;
+    }
+
+    public BundleIfElse ConditionIf(bool predicate, Action<FhirJsonWriter> action)
+    {
+        if (predicate)
+        {
+            action(this);
+        }
+
+        return new BundleIfElse(this, predicate);
     }
 
     public void Dispose()

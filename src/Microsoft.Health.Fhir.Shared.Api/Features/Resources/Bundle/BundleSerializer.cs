@@ -34,13 +34,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 .WriteString("resourceType", bundle.TypeName)
                 .WriteOptionalString("id", bundle.Id)
                 .Condition(
-                    () => bundle.Meta != null,
+                    bundle.Meta != null,
                     b => b.WriteObject(
                             "meta",
                             _ => b.WriteOptionalString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString())))
                 .WriteOptionalString("type", bundle.Type?.GetLiteral())
                 .Condition(
-                    () => bundle.Link?.Any() == true,
+                    bundle.Link?.Any() == true,
                     b => b.WriteArray(
                         "link",
                         bundle.Link,
@@ -49,39 +49,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 .WriteString("url", link.Url)))
                 .WriteOptionalNumber("total", bundle.Total)
                 .Condition(
-                    () => bundle.Entry?.Count > 0,
+                    bundle.Entry?.Count > 0,
                     b => b.WriteArray(
                         name: "entry",
-                        values: bundle.Entry.Cast<RawBundleEntryComponent>(),
+                        values: bundle.Entry,
                         itemWriter: (_, component) =>
                         {
+                            var rawComponent = component as RawBundleEntryComponent;
                             b.WriteOptionalString("fullUrl", component.FullUrl)
+                                .ConditionIf(/* Support raw strings */
+                                    rawComponent?.ResourceElement != null && !string.Equals(rawComponent.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
+                                    _ => b.WriteRawProperty("resource", rawComponent?.ResourceElement.SerializeToBytes()))
+                                .ElseIf(/* Support POCOs */
+                                    rawComponent == null && component.Resource != null,
+                                    _ => b.WriteRawProperty("resource", component.Resource.ToJsonBytes()))
                                 .Condition(
-                                    () => component.ResourceElement != null && !string.Equals(component.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
-                                    _ => b.WriteRawProperty("resource", component.ResourceElement.SerializeToBytes()))
-                                .Condition(
-                                    () => component.Search?.Mode != null,
+                                    component.Search?.Mode != null,
                                     _ => b.WriteObject(
                                         "search",
                                         _ => b.WriteString("mode", component.Search?.Mode?.GetLiteral())))
                                 .Condition(
-                                    () => component.Request != null,
+                                    component.Request != null,
                                     _ => b.WriteObject(
                                         "request",
-                                        _ => b.WriteString("method", component.Request.Method.GetLiteral())
-                                            .WriteString("url", component.Request.Url)))
+                                        _ => b.WriteString("method", component.Request?.Method?.GetLiteral())
+                                            .WriteString("url", component.Request?.Url)))
                                 .Condition(
-                                    () => component.Response != null,
+                                    component.Response != null,
                                     _ => b.WriteObject(
                                         "response",
                                         _ => b.WriteString("status", component.Response.Status)
                                             .WriteOptionalString("etag", component.Response.Etag)
                                             .WriteOptionalString("lastModified", component.Response.LastModified?.ToInstantString())
                                             .Condition(
-                                                () => string.Equals(component.ResourceElement?.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
-                                                _ => b.WriteRawProperty("outcome", component.ResourceElement.SerializeToBytes()))
+                                                string.Equals(rawComponent?.ResourceElement?.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
+                                                _ => b.WriteRawProperty("outcome", rawComponent?.ResourceElement.SerializeToBytes()))
                                             .Condition(
-                                                () => component.ResourceElement == null && component.Response.Outcome != null,
+                                                rawComponent?.ResourceElement == null && component.Response.Outcome != null,
                                                 _ => b.WriteRawProperty("outcome", component.Response.Outcome.ToJsonBytes()))));
                         }))
                 .WriteEndObject();
