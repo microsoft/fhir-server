@@ -162,9 +162,28 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
+            GetSmartConfigurationResponse response = await mediator.Send(new GetSmartConfigurationRequest(), cancellationToken);
 
-            return new SmartConfigurationResult(response.AuthorizationEndpoint, response.TokenEndpoint, response.Capabilities);
+            var result = new SmartConfigurationResult(
+                response.Issuer,
+                response.JwksUri,
+                response.AuthorizationEndpoint,
+                response.GrantTypeSupported,
+                response.TokenEndpoint,
+                response.TokenEndpointAuthMethodsSupported,
+                response.RegistrationEndpoint,
+                response.SmartAppStateEndpoint,
+                response.PatientAccessBrandBundle,
+                response.PatientAccessBrandIdentifier,
+                response.ScopesSupported,
+                response.ResponseTypesSupported,
+                response.ManagementEndpoint,
+                response.IntrospectionEndpoint,
+                response.RevocationEndpoint,
+                response.Capabilities,
+                response.CodeChallengeMethodsSupported);
+
+            return result;
         }
 
         public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)

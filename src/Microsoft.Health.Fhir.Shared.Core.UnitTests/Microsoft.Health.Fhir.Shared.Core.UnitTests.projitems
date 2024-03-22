@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetSmartConfigurationHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\Providers\WellKnownConfigurationProviderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\MockLogger.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandlerTests.cs" />
@@ -135,5 +136,8 @@
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-JsonCompliantSamples.json" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlNonCompliantSamples.xml" />
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)TestFiles\USCoreMissinData-XmlCompliantSamples.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Conformance\Providers\" />
   </ItemGroup>
 </Project>
