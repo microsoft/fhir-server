@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = false });
 
             body.Mode = ImportMode.InitialLoad.ToString();
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.ImportJob(body.ToParameters()));
         }
 
         [Theory]
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
             body.Mode = ImportMode.InitialLoad.ToString();
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.ImportJob(body.ToParameters()));
         }
 
         [Fact]
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             Parameters parameters = null;
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(parameters));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.ImportJob(parameters));
         }
 
         private ImportController GetController(ImportTaskConfiguration bulkImportConfig)

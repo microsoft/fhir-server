@@ -35,6 +35,10 @@ namespace Microsoft.Health.Fhir.Web
                     builder.AddDevelopmentAuthEnvironmentIfConfigured(builtConfig);
                 })
                 .UseStartup<Startup>()
+                .UseKestrel(options =>
+                {
+                    options.Limits.MaxRequestBodySize = 262144000;
+                })
                 .Build();
 
             host.Run();

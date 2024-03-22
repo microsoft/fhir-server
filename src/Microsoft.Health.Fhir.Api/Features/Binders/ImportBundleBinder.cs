@@ -6,6 +6,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 

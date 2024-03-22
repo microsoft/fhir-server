@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -36,6 +37,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
+using SharpCompress.Common;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -61,8 +64,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
-        private readonly IImporter _importer;
-        private readonly IImportResourceParser _parser;
         private readonly ImportTaskConfiguration _importConfig;
 
         public ImportController(
@@ -71,9 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
-            ILogger<ImportController> logger,
-            IImporter importer,
-            IImportResourceParser parser)
+            ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
@@ -88,8 +87,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _features = features.Value;
             _mediator = mediator;
             _logger = logger;
-            _importer = importer;
-            _parser = parser;
         }
 
         [HttpPost]
@@ -135,7 +132,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Import)]
         [Consumes("application/fhir+json", "application/json")]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> ImportBundle(ImportBundleParser bundleParser, [FromServices] FhirJsonParser fhirJsonParser)
+        public async Task<IActionResult> ImportBundle(
+            ImportBundleParser bundleParser,
+            [FromServices] IImporter importer,
+            [FromServices] IImportResourceParser parser,
+            [FromServices] FhirJsonParser fhirJsonParser)
         {
             // Move to handler
             using (bundleParser)
@@ -147,23 +148,53 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     throw new RequestNotValidException("Importing history bundles is not supported.");
                 }
 
-                var outputChannel = Channel.CreateBounded<ImportResource>(500);
+                var outputChannel = Channel.CreateBounded<ImportResource>(new BoundedChannelOptions(500) { SingleReader = true });
+                var jsonChannel = Channel.CreateBounded<(long, string)>(new BoundedChannelOptions(500) { SingleWriter = true });
 
                 long index = 0;
+                bool parsingComplete = false;
                 var importReadTask = System.Threading.Tasks.Task.Run(
                     async () =>
                     {
-                        await foreach (var entry in bundleParser.ReadEntries())
+                        try
                         {
-                            ImportResource resource = _parser.Parse(index++, 0L, entry.Length, entry, ImportMode.IncrementalLoad);
-                            await outputChannel.Writer.WriteAsync(resource);
+                            await foreach (var entry in bundleParser.ReadEntries())
+                            {
+                                await jsonChannel.Writer.WriteAsync((index++, entry));
+                            }
                         }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                        }
+                        finally
+                        {
+                            jsonChannel.Writer.Complete();
+                            parsingComplete = true;
+                        }
+                    });
 
-                        outputChannel.Writer.Complete();
+                long itemsRead = 0;
+                var importEntryTask = Parallel.ForEachAsync(
+                    jsonChannel.Reader.ReadAllAsync(),
+                    HttpContext.RequestAborted,
+                    async (source, token) =>
+                    {
+                        // For some reason its more efficient to parse again from raw json then go JObject => FhirJsonNode => Poco
+                        var poco = await fhirJsonParser.ParseAsync<Resource>(source.Item2);
+
+                        ImportResource resource = parser.Parse(source.Item1, poco, ImportMode.IncrementalLoad);
+                        await outputChannel.Writer.WriteAsync(resource, token);
+                        var read = Interlocked.Increment(ref itemsRead);
+
+                        if (parsingComplete && read == index)
+                        {
+                            outputChannel.Writer.Complete();
+                        }
                     });
 
                 var errorStore = new InMemoryImportErrorStore();
-                await _importer.Import(outputChannel, errorStore, ImportMode.IncrementalLoad, HttpContext.RequestAborted);
+                await importer.Import(outputChannel, errorStore, ImportMode.IncrementalLoad, HttpContext.RequestAborted);
 
                 var responseBundle = new Bundle
                 {
@@ -173,7 +204,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                 responseBundle.Entry = new List<Bundle.EntryComponent>(new Bundle.EntryComponent[index]);
 
-                for (int i = 0; i < index - 1; i++)
+                for (int i = 0; i < index; i++)
                 {
                     var error = errorStore.ImportErrors.FirstOrDefault(x => x.Line == i + 1);
 
@@ -214,6 +245,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
 
                 await importReadTask;
+                await importEntryTask;
 
                 return FhirResult.Create(responseBundle.ToResourceElement());
             }

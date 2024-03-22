@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Hl7.Fhir.Model;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
@@ -20,5 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <param name="importMode">import mode.</param>
         /// <returns>ImportResource</returns>
         public ImportResource Parse(long index, long offset, int length, string rawResource, ImportMode importMode);
+
+        public ImportResource Parse(long index, Resource resource, ImportMode importMode, long offset = 0, int length = 0);
     }
 }
