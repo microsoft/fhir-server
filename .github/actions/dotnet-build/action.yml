@@ -39,7 +39,7 @@ runs:
 
     - name: Test
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+      run: dotnet test "Microsoft.Health.Fhir.sln" --settings test/Configuration/testconfiguration.json --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
     # - name: Code Coverage Report
     #   uses: irongut/CodeCoverageSummary@v1.3.0
     #   with:
