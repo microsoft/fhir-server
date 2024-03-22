@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Properties used by sql task to generate full script -->
   <PropertyGroup>
-    <LatestSchemaVersion>74</LatestSchemaVersion>
+    <LatestSchemaVersion>75</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
   </PropertyGroup>
 
@@ -74,6 +74,9 @@
     <Compile Remove="**\*.generated.cs" />
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Features\Schema\Migrations\75.diff.sql" />
   </ItemGroup>
   
   <ItemGroup>
