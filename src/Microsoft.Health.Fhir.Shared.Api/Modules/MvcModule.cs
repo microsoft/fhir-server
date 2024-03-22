@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.PostConfigure<MvcOptions>(options =>
             {
+                options.ModelBinderProviders.Insert(0, new ImportBundleBinderProvider());
                 options.ModelBinderProviders.Insert(0, new PartialDateTimeBinderProvider());
 
                 // This filter should run first because it populates data for FhirRequestContext.

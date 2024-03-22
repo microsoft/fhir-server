@@ -5,11 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -57,6 +61,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
+        private readonly IImporter _importer;
+        private readonly IImportResourceParser _parser;
         private readonly ImportTaskConfiguration _importConfig;
 
         public ImportController(
@@ -65,7 +71,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
-            ILogger<ImportController> logger)
+            ILogger<ImportController> logger,
+            IImporter importer,
+            IImportResourceParser parser)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
@@ -80,13 +88,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _features = features.Value;
             _mediator = mediator;
             _logger = logger;
+            _importer = importer;
+            _parser = parser;
         }
 
         [HttpPost]
+        [PreferRespondAsyncSelector]
         [Route(KnownRoutes.Import)]
         [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> Import([FromBody] Parameters importTaskParameters)
+        public async Task<IActionResult> ImportJob([FromBody] Parameters importTaskParameters)
         {
             CheckIfImportIsEnabled();
             ImportRequest importRequest = importTaskParameters?.ExtractImportRequest();
@@ -118,6 +129,94 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
             return bulkImportResult;
+        }
+
+        [HttpPost]
+        [Route(KnownRoutes.Import)]
+        [Consumes("application/fhir+json", "application/json")]
+        [AuditEventType(AuditEventSubType.Import)]
+        public async Task<IActionResult> ImportBundle(ImportBundleParser bundleParser, [FromServices] FhirJsonParser fhirJsonParser)
+        {
+            // Move to handler
+            using (bundleParser)
+            {
+                var bundleType = await bundleParser.ReadBundleType();
+
+                if (bundleType == "history")
+                {
+                    throw new RequestNotValidException("Importing history bundles is not supported.");
+                }
+
+                var outputChannel = Channel.CreateBounded<ImportResource>(500);
+
+                long index = 0;
+                var importReadTask = System.Threading.Tasks.Task.Run(
+                    async () =>
+                    {
+                        await foreach (var entry in bundleParser.ReadEntries())
+                        {
+                            ImportResource resource = _parser.Parse(index++, 0L, entry.Length, entry, ImportMode.IncrementalLoad);
+                            await outputChannel.Writer.WriteAsync(resource);
+                        }
+
+                        outputChannel.Writer.Complete();
+                    });
+
+                var errorStore = new InMemoryImportErrorStore();
+                await _importer.Import(outputChannel, errorStore, ImportMode.IncrementalLoad, HttpContext.RequestAborted);
+
+                var responseBundle = new Bundle
+                {
+                    Type = Bundle.BundleType.BatchResponse,
+                    Id = Activity.Current.Id,
+                };
+
+                responseBundle.Entry = new List<Bundle.EntryComponent>(new Bundle.EntryComponent[index]);
+
+                for (int i = 0; i < index - 1; i++)
+                {
+                    var error = errorStore.ImportErrors.FirstOrDefault(x => x.Line == i + 1);
+
+                    if (error.Outcome != null)
+                    {
+                        responseBundle.Entry[i] = new Bundle.EntryComponent
+                        {
+                            Response = new()
+                            {
+                                Status = $"{(int)HttpStatusCode.BadRequest} {HttpStatusCode.BadRequest}",
+                                Outcome = await fhirJsonParser.ParseAsync<OperationOutcome>(error.Outcome),
+                            },
+                        };
+                    }
+                    else
+                    {
+                        var outcome = new Bundle.EntryComponent
+                        {
+                            Response = new()
+                            {
+                                Status = $"{(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
+                                Outcome = new OperationOutcome
+                                {
+                                    Issue =
+                                    [
+                                        new()
+                                        {
+                                            Severity = OperationOutcome.IssueSeverity.Information,
+                                            Code = OperationOutcome.IssueType.Informational,
+                                            Diagnostics = "OK",
+                                        }
+                                    ],
+                                },
+                            },
+                        };
+                        responseBundle.Entry[i] = outcome;
+                    }
+                }
+
+                await importReadTask;
+
+                return FhirResult.Create(responseBundle.ToResourceElement());
+            }
         }
 
         [HttpDelete]
