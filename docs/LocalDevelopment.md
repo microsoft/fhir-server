@@ -1,4 +1,4 @@
-# Local Development with FHIR Server
+# Running FHIR server locally for development and testing
 
 ## Purpose of this document
 This document provides guidance on how to set up a local development environment for using the FHIR Server.
@@ -18,14 +18,17 @@ We’ll leverage Docker to run the FHIR Server as a local dependency for our app
 1. In the client application create a docker-compose file to run the application and the FHIR server in containers. Detailed sample docker compose is [here](../samples/docker/docker-compose.yaml) with its [instructions](../samples/docker/README.md).
 1. Run the docker-compose file to start the application and the FHIR server in containers.
 1. Test the application using the FHIR server running in the container.
-1. You can use a REST client like Postman to test the FHIR Server ( sample REST call is provided below under resources)
+1. You can use a REST client like Postman to test that the FHIR Server is up ( sample REST call is provided below under resources)
 
 ### Resources
 
 
 #### Sample REST call ( using Postman)
 
-```json
-http://localhost:8080/metadata/
+```bash
+GET http://localhost:8080/metadata
 
 ```
+
+![](./images/local-testing/local-fhir-postman.png)
+
