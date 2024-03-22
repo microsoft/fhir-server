@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardD
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            return await ExecuteStoredProc<IList<string>>(client, key.ToPartitionKey(), cancellationToken, key.ResourceType, key.Id, keepCurrentVersion);
+            return await ExecuteStoredProcAsync<IList<string>>(client, key.ToPartitionKey(), cancellationToken, key.ResourceType, key.Id, keepCurrentVersion);
         }
     }
 }

@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Acqui
         {
             EnsureArg.IsNotNull(client, nameof(client));
 
-            return await ExecuteStoredProc<IReadOnlyCollection<CosmosReindexJobRecordWrapper>>(
+            return await ExecuteStoredProcAsync<IReadOnlyCollection<CosmosReindexJobRecordWrapper>>(
                 client,
                 CosmosDbReindexConstants.ReindexJobPartitionKey,
                 cancellationToken,

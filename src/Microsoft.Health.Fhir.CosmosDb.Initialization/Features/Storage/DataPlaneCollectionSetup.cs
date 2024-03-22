@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
+            EnsureArg.IsNotNull(retryPolicy, nameof(retryPolicy));
 
             try
             {
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             }
         }
 
-        public async Task CreateCollection(CosmosClient client, IEnumerable<ICollectionInitializer> collectionInitializers, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
+        public async Task CreateCollectionAsync(CosmosClient client, IEnumerable<ICollectionInitializer> collectionInitializers, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -89,11 +90,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             }
         }
 
-        public async Task UpdateFhirCollectionSettings(Container container, CancellationToken cancellationToken)
+        public async Task UpdateFhirCollectionSettingsAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
-            var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
+            var thisVersion = await GetLatestCollectionVersionAsync(container, cancellationToken);
 
             if (thisVersion.Version < 2)
             {
@@ -122,17 +123,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 thisVersion.Version = CollectionSettingsVersion;
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
-
-            // TODO:Need to Validate this logic
-           /* else if (thisVersion.Version < CollectionSettingsVersion)
-            {
-                await _updateSP.Execute(container.Scripts, cancellationToken);
-                thisVersion.Version = CollectionSettingsVersion;
-                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
-            } */
         }
 
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken)
+        private static async Task<CollectionVersion> GetLatestCollectionVersionAsync(Container container, CancellationToken cancellationToken)
         {
             FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
                 new QueryDefinition("SELECT * FROM root r"),

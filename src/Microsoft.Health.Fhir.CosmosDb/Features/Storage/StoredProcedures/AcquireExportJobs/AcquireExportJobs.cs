@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Acqui
         {
             EnsureArg.IsNotNull(client, nameof(client));
 
-            return await ExecuteStoredProc<IReadOnlyCollection<CosmosExportJobRecordWrapper>>(
+            return await ExecuteStoredProcAsync<IReadOnlyCollection<CosmosExportJobRecordWrapper>>(
                 client,
                 CosmosDbExportConstants.ExportJobPartitionKey,
                 cancellationToken,

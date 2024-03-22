@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Repla
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             StoredProcedureExecuteResponse<FhirCosmosResourceWrapper> result =
-                await ExecuteStoredProc<FhirCosmosResourceWrapper>(
+                await ExecuteStoredProcAsync<FhirCosmosResourceWrapper>(
                     client,
                     resource.PartitionKey,
                     cancellationToken,

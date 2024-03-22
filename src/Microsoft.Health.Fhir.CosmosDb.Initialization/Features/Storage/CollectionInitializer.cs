@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             _logger.LogInformation("Creating Cosmos Container if not exits: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             ContainerResponse containerResponse = await retryPolicy.ExecuteAsync(async () =>
-                await database.CreateContainerIfNotExistsAsync(
+                    await database.CreateContainerIfNotExistsAsync(
                     _cosmosCollectionConfiguration.CollectionId,
                     $"/{KnownDocumentProperties.PartitionKey}",
                     _cosmosCollectionConfiguration.InitialCollectionThroughput));
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             {
                 try
                 {
-                 await _clientTestProvider.PerformTestAsync(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration, cancellationToken);
+                    await _clientTestProvider.PerformTestAsync(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration, cancellationToken);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.TooManyRequests)
                 {

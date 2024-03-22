@@ -19,8 +19,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
     {
         public Task CreateDatabaseAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken);
 
-        public Task CreateCollection(CosmosClient client, IEnumerable<ICollectionInitializer> collectionInitializers, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default);
+        public Task CreateCollectionAsync(CosmosClient client, IEnumerable<ICollectionInitializer> collectionInitializers, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default);
 
-        public Task UpdateFhirCollectionSettings(Container container, CancellationToken cancellationToken);
+        public Task UpdateFhirCollectionSettingsAsync(Container container, CancellationToken cancellationToken);
     }
 }

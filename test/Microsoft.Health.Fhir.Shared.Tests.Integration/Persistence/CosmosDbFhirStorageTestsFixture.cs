@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -121,23 +122,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IMediator mediator = Substitute.For<IMediator>();
 
-            var updaters = new ICollectionUpdater[]
-            {
-               // new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
+            IStoredProcedureInstaller storedProcedureInstallter = new DataPlaneStoredProcedureInstaller(fhirStoredProcs);
 
-                // new DataPlaneStoredProcedureInstaller(fhirStoredProcs),
-
-                // new CosmosDbSearchParameterStatusInitializer(
-                //    () => _filebasedSearchParameterStatusDataStore,
-                //    new CosmosQueryFactory(
-                //        new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
-                //        NullFhirCosmosQueryLogger.Instance),
-                //    _cosmosDataStoreConfiguration),
-            };
+            ICollectionDataUpdater dataCollectionUpdater = new CosmosDbSearchParameterStatusInitializer(
+                () => _filebasedSearchParameterStatusDataStore,
+                new CosmosQueryFactory(
+                    new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
+                    NullFhirCosmosQueryLogger.Instance),
+                _cosmosDataStoreConfiguration);
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
-            var upgradeManager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
+            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, storedProcedureInstallter, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
@@ -148,16 +144,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, retryExceptionPolicyFactory, NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
-           // var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, retryExceptionPolicyFactory, testProvider, NullLogger<CollectionInitializer>.Instance);
+            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, testProvider, NullLogger<CollectionInitializer>.Instance);
 
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
             await CollectionInitializationSemaphore.WaitAsync();
-
+            var datacollectionSetup = new DataPlaneCollectionSetup(NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
+                // TODO: we need to replce this logic with DataPlanecollectionsetup createDatabase method
                 // await documentClientInitializer.InitializeDataStoreAsync(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }, CancellationToken.None);
-                    _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
+               await datacollectionSetup.CreateDatabaseAsync(_cosmosClient, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+               await datacollectionSetup.CreateCollectionAsync(_cosmosClient, new List<ICollectionInitializer> { fhirCollectionInitializer }, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+               _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally
             {

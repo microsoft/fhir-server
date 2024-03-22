@@ -14,12 +14,12 @@ using Microsoft.Health.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
-    public class StoredProcedureMetadataBase : IStoredProcedureMetadata
+    public abstract class StoredProcedureMetadataBase : IStoredProcedureMetadata
     {
         private readonly Lazy<string> _body;
         private readonly Lazy<string> _versionedName;
 
-        public StoredProcedureMetadataBase()
+        protected StoredProcedureMetadataBase()
         {
             _body = new Lazy<string>(GetBody);
             _versionedName = new Lazy<string>(() => $"{Name}_{_body.Value.ComputeHash()}");

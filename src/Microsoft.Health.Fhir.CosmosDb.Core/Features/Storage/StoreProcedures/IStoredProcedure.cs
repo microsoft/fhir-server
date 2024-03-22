@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
     public interface IStoredProcedure
     {
-         Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProc<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters);
+         Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProcAsync<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters);
     }
 }

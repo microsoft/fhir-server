@@ -19,6 +19,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -27,7 +28,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// Provides an <see cref="Container"/> instance that is opened and whose collection has been properly initialized for use.
     /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
-    /// TODO: need modify this class to call new CosmosDB .Initialization functions
     /// // now some existing call are commented
     public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
@@ -64,10 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 collectionId));
             _initializationOperation = new RetryableInitializationOperation(async () =>
             {
-                await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
-                await collectionSetup.CreateCollection(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
-                await collectionSetup.UpdateFhirCollectionSettings(_container.Value, CancellationToken.None);
-                await collectionDataUpdater.ExecuteAsync(_container.Value, CancellationToken.None);
+                await InitializeDataStoreAsync(collectionSetup, collectionDataUpdater, cosmosDataStoreConfiguration, retryPolicyFactory, collectionInitializers);
             });
 
             // _initializationOperation = new RetryableInitializationOperation(
@@ -86,6 +83,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 return _container.Value;
+            }
+        }
+
+        private async Task InitializeDataStoreAsync(
+          ICollectionSetup collectionSetup,
+          ICollectionDataUpdater collectionDataUpdater,
+          CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+          RetryExceptionPolicyFactory retryPolicyFactory,
+          IEnumerable<ICollectionInitializer> collectionInitializers)
+        {
+            try
+            {
+                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
+
+                await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
+                await collectionSetup.CreateCollectionAsync(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
+                await collectionSetup.UpdateFhirCollectionSettingsAsync(_container.Value, CancellationToken.None);
+                await collectionDataUpdater.ExecuteAsync(_container.Value, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                LogLevel logLevel = LogLevel.Critical;
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
+                throw;
             }
         }
 

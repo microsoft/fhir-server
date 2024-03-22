@@ -13,22 +13,22 @@ using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures
 {
-    public class DataPlaneStoredProcedureInstaller : IStoredProcedureInstaller
+    public sealed class DataPlaneStoredProcedureInstaller : IStoredProcedureInstaller
     {
-        private readonly IEnumerable<IStoredProcedureMetadata> _storedProcedures;
+        private readonly IEnumerable<IStoredProcedureMetadata> _storeProceduresMetadata;
 
         // TODO: refactor constructor to have dependency on container
         public DataPlaneStoredProcedureInstaller(IEnumerable<IStoredProcedureMetadata> storedProcedures)
         {
             EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
 
-            _storedProcedures = storedProcedures;
+            _storeProceduresMetadata = storedProcedures;
         }
 
         // TODO: refactor method to have dependency on IReadOnlyList<Istoredproceduremetada>
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
-            foreach (IStoredProcedureMetadata storedProc in _storedProcedures)
+            foreach (IStoredProcedureMetadata storedProc in _storeProceduresMetadata)
             {
                 try
                 {

@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     public interface ICollectionDataUpdater
     {

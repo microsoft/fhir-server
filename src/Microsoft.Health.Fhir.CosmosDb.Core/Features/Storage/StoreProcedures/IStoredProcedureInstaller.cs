@@ -2,14 +2,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
+
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos.Scripts;
+using Microsoft.Azure.Cosmos;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
-    public interface IStoredProcedure
+    public interface IStoredProcedureInstaller
     {
-         Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProc<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters);
+        Task ExecuteAsync(Container container, CancellationToken cancellationToken);
     }
 }

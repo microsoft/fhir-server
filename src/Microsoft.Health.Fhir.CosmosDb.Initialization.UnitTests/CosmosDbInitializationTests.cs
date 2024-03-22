@@ -8,20 +8,21 @@ using System.Linq;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Xunit;
 
-namespace CosmosDb.Initialization.UnitTests
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
 {
     public class CosmosDbInitializationTests
     {
         [Fact]
-        public void Test1()
+        public void GivenList_ThenStoreProcedresshouldreturnValidList()
         {
             var storeProcs = new string[] { "AcquireExportJobsMetadata", "AcquireReindexJobsMetadata", "HardDeleteMetadata", "ReplaceSingleResourceMetadata", "UpdateUnsupportedSearchParametersMetadata" };
             var fhirStoredProcsClasses = typeof(StoredProcedureMetadataBase).Assembly
-              .GetTypes().Where(x => !x.IsAbstract && typeof(StoredProcedureMetadataBase).IsAssignableFrom(x))
-                .ToArray();
+              .GetTypes()
+              .Where(x => !x.IsAbstract && typeof(StoredProcedureMetadataBase).IsAssignableFrom(x))
+              .ToArray();
             foreach (var storeproc in fhirStoredProcsClasses)
             {
-                Assert.Contains(storeproc.Name, storeProcs);
+               Assert.Contains(storeproc.Name, storeProcs);
             }
         }
     }

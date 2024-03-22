@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredP
         {
             EnsureArg.IsNotNull(client, nameof(client));
 
-            return await ExecuteStoredProc<string>(client, _searchParameterStatusPartitionKey, cancellationToken);
+            return await ExecuteStoredProcAsync<string>(client, _searchParameterStatusPartitionKey, cancellationToken);
         }
     }
 }
