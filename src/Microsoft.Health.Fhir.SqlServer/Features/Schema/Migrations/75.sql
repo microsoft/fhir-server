@@ -3701,10 +3701,12 @@ BEGIN TRY
                            dbo.Resource AS B WITH (ROWLOCK, HOLDLOCK)
                            ON B.ResourceTypeId = A.ResourceTypeId
                               AND B.ResourceSurrogateId = A.ResourceSurrogateId
-                              AND B.ResourceId = A.ResourceId
-                              AND B.Version = A.Version
+                    WHERE  B.IsHistory = 0
+                           AND B.ResourceId = A.ResourceId
+                           AND B.Version = A.Version
                     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
-                    IF @@rowcount > 0
+                    IF @@rowcount = (SELECT count(*)
+                                     FROM   @Resources)
                         SET @IsRetry = 1;
                     IF @IsRetry = 0
                         COMMIT TRANSACTION;
