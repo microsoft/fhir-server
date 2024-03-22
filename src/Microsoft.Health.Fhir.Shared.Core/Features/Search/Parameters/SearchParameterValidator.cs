@@ -5,16 +5,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -29,8 +32,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ISearchParameterConflictingCodeValidator _searchParameterConflictingCodeValidator;
 
         private const string HttpPostName = "POST";
         private const string HttpPutName = "PUT";
@@ -41,22 +45,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             IAuthorizationService<DataActions> authorizationService,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator
             ILogger<SearchParameterValidator> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _modelInfoProvider = modelInfoProvider;
+            _contextAccessor = contextAccessor;
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _searchParameterConflictingCodeValidator = searchParameterConflictingCodeValidator;
         }
 
         public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
         {
+            Uri duplicateOf = null;
+
             if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
@@ -72,7 +82,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 }
             }
 
-            var validationFailures = new List<ValidationFailure>();
+            var validationFailures = new Collection<ValidationFailure>();
 
             if (string.IsNullOrEmpty(searchParam.Url))
             {
@@ -107,10 +117,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                     nameof(searchParam.Url),
                                     string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
                         }
-                        else if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            CheckForConflictingCodeValue(searchParam, validationFailures);
-                        }
                     }
                     else
                     {
@@ -125,9 +131,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                     nameof(searchParam.Url),
                                     string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
                         }
-
-                        CheckForConflictingCodeValue(searchParam, validationFailures);
                     }
+
+                    duplicateOf = _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(searchParam, validationFailures);
                 }
             }
 
@@ -135,66 +141,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 throw new ResourceNotValidException(validationFailures);
             }
-        }
-
-        private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
-        {
-            // Ensure the search parameter's code value does not already exist for its base type(s)
-            foreach (ResourceType? baseType in searchParam.Base)
+            else if (duplicateOf != null)
             {
-                if (searchParam.Code is null)
-                {
-                    _logger.LogInformation("Search parameter definition has a null or empty code value. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType.ToString());
-                    validationFailures.Add(
-                        new ValidationFailure(
-                            nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
-                }
-                else
-                {
-                    if (string.Equals(baseType.ToString(), KnownResourceTypes.Resource, StringComparison.OrdinalIgnoreCase))
-                    {
-                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
-                        {
-                            if (_searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
-                            {
-                                _logger.LogInformation("Search parameter definition has a conflicting code value. code: {Code}, baseType: {BaseType}", searchParam.Code, resource);
-                                validationFailures.Add(
-                                    new ValidationFailure(
-                                    nameof(searchParam.Code),
-                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
-                                break;
-                            }
-                        }
-                    }
-                    else if (baseType.ToString() == KnownResourceTypes.DomainResource)
-                    {
-                        foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
-                        {
-                            Type type = _modelInfoProvider.GetTypeForFhirType(resource);
-                            string fhirBaseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
-
-                            if (fhirBaseType == KnownResourceTypes.DomainResource && _searchParameterDefinitionManager.TryGetSearchParameter(resource, searchParam.Code, out _))
-                            {
-                                _logger.LogInformation("Search parameter definition has a conflicting code value. code: {Code}, baseType: {BaseType}", searchParam.Code, resource);
-                                validationFailures.Add(
-                                    new ValidationFailure(
-                                    nameof(searchParam.Code),
-                                    string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, resource)));
-                                break;
-                            }
-                        }
-                    }
-                    else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
-                    {
-                        // The search parameter's code value conflicts with an existing one
-                        _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}", searchParam.Code, baseType.ToString());
-                        validationFailures.Add(
-                        new ValidationFailure(
-                            nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
-                    }
-                }
+                _contextAccessor.RequestContext.Properties.Add(Constants.DuplicateSearchParameterUrl, duplicateOf);
             }
         }
     }
