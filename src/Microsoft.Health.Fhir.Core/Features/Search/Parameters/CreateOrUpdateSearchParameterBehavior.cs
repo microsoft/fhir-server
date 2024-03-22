@@ -4,9 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using FluentValidation.Results;
+using Hl7.Fhir.Rest;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -21,7 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private ISearchParameterOperations _searchParameterOperations;
         private IFhirDataStore _fhirDataStore;
 
-        public CreateOrUpdateSearchParameterBehavior(ISearchParameterOperations searchParameterOperations, IFhirDataStore fhirDataStore)
+        public CreateOrUpdateSearchParameterBehavior(
+            ISearchParameterOperations searchParameterOperations,
+            IFhirDataStore fhirDataStore,
+            ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -32,6 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
+            CheckForConflictingCodeValue(searchParam, validationFailures);
+
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
                 // Before committing the SearchParameter resource to the data store, add it to the SearchParameterDefinitionManager
@@ -52,6 +60,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+
+                CheckForConflictingCodeValue(searchParam, validationFailures);
+
                 if (prevSearchParamResource != null)
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
