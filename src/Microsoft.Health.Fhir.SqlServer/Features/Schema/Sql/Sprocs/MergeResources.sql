@@ -75,7 +75,7 @@ BEGIN TRY
               (  ResourceTypeId,           SurrogateId )
         SELECT B.ResourceTypeId, B.ResourceSurrogateId
           FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
-               JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
+               JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId AND B.ResourceId = A.ResourceId
           WHERE B.IsHistory = 0
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
