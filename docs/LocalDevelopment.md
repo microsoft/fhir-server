@@ -30,5 +30,5 @@ GET http://localhost:8080/metadata
 
 ```
 
-![](./images/local-testing/local-fhir-postman.png)
+![local fhir metadata](./images/local-testing/local-fhir-postman.png)
 
