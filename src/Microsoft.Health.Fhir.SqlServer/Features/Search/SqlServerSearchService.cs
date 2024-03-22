@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -537,7 +538,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
                 },
-                cancellationToken);
+                cancellationToken,
+                true); // this enables reads from replicas
             return searchResult;
         }
 
@@ -919,6 +921,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 results = new SearchResult(0, new List<Tuple<string, string>>());
             }
 
+            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
             return results;
         }
 

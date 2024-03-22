@@ -19,6 +19,11 @@ on:
 
 jobs:
   CodeQL-Build:
+    permissions:
+        actions: read
+        contents: read
+        pull-requests: write
+        security-events: write
 
     strategy:
       fail-fast: false
@@ -33,6 +38,10 @@ jobs:
     - name: Fetch all history for all tags and branches
       run: |
         git fetch --prune --unshallow
+
+    - uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: ./global.json
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL

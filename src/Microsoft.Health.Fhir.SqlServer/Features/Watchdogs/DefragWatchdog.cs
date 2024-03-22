@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task ChangeDatabaseSettingsAsync(bool isOn, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings") { CommandType = CommandType.StoredProcedure};
+            await using var cmd = new SqlCommand("dbo.DefragChangeDatabaseSettings") { CommandType = CommandType.StoredProcedure};
             cmd.Parameters.AddWithValue("@IsOn", isOn);
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
 
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
             _logger.LogInformation("Beginning defrag on Table: {Table}, Index: {Index}, Partition: {PartitionNumber}", table, index, partitionNumber);
 
-            using var cmd = new SqlCommand("dbo.Defrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            await using var cmd = new SqlCommand("dbo.Defrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
             cmd.Parameters.AddWithValue("@TableName", table);
             cmd.Parameters.AddWithValue("@IndexName", index);
             cmd.Parameters.AddWithValue("@PartitionNumber", partitionNumber);
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<int> InitDefragAsync(long groupId, CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.InitDefrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
+            await using var cmd = new SqlCommand("dbo.InitDefrag") { CommandType = CommandType.StoredProcedure, CommandTimeout = 0 }; // this is long running
             cmd.Parameters.AddWithValue("@QueueType", QueueType);
             cmd.Parameters.AddWithValue("@GroupId", groupId);
             var defragItemsParam = new SqlParameter("@DefragItems", SqlDbType.Int) { Direction = ParameterDirection.Output };
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task<(long groupId, long jobId, long version, int activeDefragItems)> GetActiveCoordinatorJobAsync(CancellationToken cancellationToken)
         {
-            using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
+            await using var cmd = new SqlCommand("dbo.GetActiveJobs") { CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@QueueType", QueueType);
             (long groupId, long jobId, long version) id = (-1, -1, -1);
             var activeDefragItems = 0;

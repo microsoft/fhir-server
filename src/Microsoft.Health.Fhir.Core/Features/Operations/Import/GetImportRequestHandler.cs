@@ -125,12 +125,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var definition = JsonConvert.DeserializeObject<ImportProcessingJobDefinition>(job.Definition);
                 var result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(job.Result);
-                var succeeded = result.SucceededResources == 0 ? result.SucceedCount : result.SucceededResources; // TODO: Remove in stage 3
-                var failed = result.FailedResources == 0 ? result.FailedCount : result.FailedResources; // TODO: Remove in stage 3
-                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = succeeded, InputUrl = new Uri(definition.ResourceLocation) });
-                if (failed > 0)
+                completedOperationOutcome.Add(new ImportOperationOutcome() { Type = definition.ResourceType, Count = result.SucceededResources, InputUrl = new Uri(definition.ResourceLocation) });
+                if (result.FailedResources > 0)
                 {
-                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = failed, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
+                    failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = definition.ResourceType, Count = result.FailedResources, InputUrl = new Uri(definition.ResourceLocation), Url = result.ErrorLogLocation });
                 }
             }
 
