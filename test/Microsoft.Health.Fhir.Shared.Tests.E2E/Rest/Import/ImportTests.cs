@@ -334,24 +334,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
         }
 
-        [Fact(Skip = "requires new stored procedures")]
-        public async Task GivenIncrementalLoad_SameLastUpdated_DifferentContent_ShouldProduceConflict()
-        {
-            var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"));
-
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 0);
-
-            ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), null, "2000");
-            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 1);
-
-            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
-        }
-
         [Fact]
         public async Task GivenIncrementalLoad_SameLastUpdated_SameVersion_DifferentContent_ShouldProduceConflict()
         {
@@ -363,24 +345,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             await ImportCheckAsync(request, null, 0);
 
             ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "2", "2000");
-            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 1);
-
-            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
-        }
-
-        [Fact(Skip = "requires new stored procedures")]
-        public async Task GivenIncrementalLoad_SameLastUpdated_DifferentVersion_ShouldProduceConflict()
-        {
-            var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "2");
-
-            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 0);
-
-            ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "1");
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             await ImportCheckAsync(request, null, 1);
