@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using IdentityServer4.Models;
 using MediatR;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly TestFhirClient _client;
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
+        private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
@@ -165,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             var ndJson3 = PrepareResource(id, "3", "2003");
             (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
+            await ImportCheckAsync(request2, null, 0);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -330,6 +332,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
             Assert.NotNull(result);
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_SameLastUpdated_SameVersion_DifferentContent_ShouldProduceConflict()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "2");
+
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+
+            ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "2", "2000");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 1);
+
+            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_SameLastUpdated_SameVersion_Run2Times_ShouldProduceSameResult()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "2");
+
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+
+            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_SameLastUpdated_Run2Times_ShouldProduceSameResult()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"));
+
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+
+            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
         [Fact]
@@ -982,7 +1036,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
-            if (errorCount != null)
+            if (errorCount != null && errorCount != 0)
             {
                 Assert.Equal(errorCount.Value, result.Error.First().Count);
             }
@@ -1006,6 +1060,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             return response;
+        }
+
+        private string CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, string birhDate = null, bool deleted = false)
+        {
+            var rtn = new Patient()
+            {
+                Id = id ?? Guid.NewGuid().ToString("N"),
+                Meta = new(),
+            };
+
+            if (lastUpdated is not null)
+            {
+                rtn.Meta = new Meta { LastUpdated = lastUpdated };
+            }
+
+            if (versionId is not null)
+            {
+                rtn.Meta.VersionId = versionId;
+            }
+
+            if (birhDate != null)
+            {
+                rtn.BirthDate = birhDate;
+            }
+
+            if (deleted)
+            {
+                rtn.Meta.Extension = new List<Extension> { { new Extension(Core.Models.KnownFhirPaths.AzureSoftDeletedExtensionUrl, new FhirString("soft-deleted")) } };
+            }
+
+            return _fhirJsonSerializer.SerializeToString(rtn) + Environment.NewLine;
         }
     }
 }
