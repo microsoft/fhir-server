@@ -36,10 +36,11 @@ runs:
       id: convert_version
       shell: bash
       run: |
-          version=$( echo "${{inputs.dotnetVerison}}" | sed '^.*?(?=\.)')
+          dotnetVersion=${{inputs.dotnetVersion}}
+          version=$( echo "dotnetVersion" | sed '^.*?(?=\.)')
           netVersion="net${version}.0"
           echo "$netVersion"
-          echo "net_version=$netVersion  >> $GITHUB_OUTPUT"
+          echo "net_version=$netVersion"  >> "$GITHUB_OUTPUT"
           
     - name: Build
       shell: bash
