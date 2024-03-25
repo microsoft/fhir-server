@@ -378,7 +378,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results;
         }
 
-        public async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, CancellationToken cancellationToken)
+        internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, CancellationToken cancellationToken)
         {
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var retries = 0;
