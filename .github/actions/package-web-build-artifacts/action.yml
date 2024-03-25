@@ -1,0 +1,35 @@
+name: Package Web Build Artifacts
+description: 'Packages the web build artifacts for deployment'
+inputs:
+  fhirSchemaVersion:
+    description: 'The FHIR schema version to package'
+    required: true
+  majorMinorPatch:
+    description: 'The version of the Nuget package'
+    required: true
+  outputPath:
+    description: 'The path to the output directory'
+    required: true
+  buildConfiguration:
+    description: 'The build configuration to use'
+    required: true
+  dotnetVerison:
+    description: 'The version of dotnet to use'
+    required: true
+  semVer:
+    description: 'The SemVer to use'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Nuget packages
+      shell: bash
+      run: |
+        echo "Creating Nuget packages for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+        dotnet pack ${{github.workspace}} --output ${{input.outputPath}}/nupkgs --no-build --configuration=${{inputs.buildConfiguration}} -p:PackageVersion=${{inputs.majorMinorPatch}}
+    - name: Package Web Artifacts
+      shell: bash
+      run: |
+        echo "Packaging web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+        dotnet publish ${{github.workspace}}/**/*Web.csproj --output ${{input.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -f ${{inputs.dotnetVerison}}
+    

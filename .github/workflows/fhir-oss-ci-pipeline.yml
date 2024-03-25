@@ -20,6 +20,7 @@ env:
   connectedServiceName: Microsoft Health Open Source Subscription
   composeLocation: build/docker/docker-compose.yaml
   imageTag: ${{github.run_number}}
+  outputPath: ${{github.workspace}}/artifacts
 
 jobs:
   setup:
@@ -33,6 +34,7 @@ jobs:
       fileVersion: ${{ steps.version.outputs.fileVersion }}
       informationalVersion: ${{ steps.version.outputs.informationalVersion }}
       majorMinorPatch: ${{ steps.version.outputs.majorMinorPatch }}
+      semVer: ${{steps.version.outputs.SemVer}}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +66,7 @@ jobs:
     strategy:
       matrix:
         dotnet-version: [ '8.0.x', '6.0.x' ]
+        fhirSchemaVersion: ["Stu3", "R4", "R4B", "R5"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,17 +87,27 @@ jobs:
           informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           dotnetVersion: ${{matrix.dotnet-version}}
           majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
-          buildOutput: ${{github.workspace}}/artifacts
+
+      - name: Package Web Build Artifacts
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: ${{ matrix.fhirSchemaVersion }}
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          dotnetVersion: ${{matrix.dotnet-version}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
       - name: Generate SBOM
         run: |
           curl -Lo $RUNNER_TEMP/sbom-tool https://github.com/microsoft/sbom-tool/releases/latest/download/sbom-tool-linux-x64
           chmod +x $RUNNER_TEMP/sbom-tool
-          $RUNNER_TEMP/sbom-tool generate -b ./buildOutput -bc . -V Verbose
+          $RUNNER_TEMP/sbom-tool generate -b ./artifacts -bc . -V Verbose
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          path: buildOutput
+          path: ${{env.outputPath}}
 
   runIntegrationTests:
     runs-on: ubuntu-latest

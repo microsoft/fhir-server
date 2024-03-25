@@ -15,7 +15,7 @@ outputs:
   informationalVersion:
     description: The assembly informational version for the build
     value: ${{ steps.version.outputs.GitVersion_InformationalVersion }}
-  nugetVersion:
+  semVer:
     description: The NuGet package version for the build
     value: ${{ steps.version.outputs.GitVersion_SemVer }}
   majorMinorPatch:
