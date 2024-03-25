@@ -1206,13 +1206,9 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam (
     Code1               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2           INT           NULL,
     Code2               VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL,
     CodeOverflow1       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL,
     CodeOverflow2       VARCHAR (MAX) COLLATE Latin1_General_100_CS_AS NULL
 );
-
-ALTER TABLE dbo.TokenTokenCompositeSearchParam
-    ADD CONSTRAINT DF_TokenTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam
     ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256
@@ -1258,12 +1254,8 @@ CREATE TABLE dbo.UriSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
-    Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL
+    Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL
 );
-
-ALTER TABLE dbo.UriSearchParam
-    ADD CONSTRAINT DF_UriSearchParam_IsHistory DEFAULT 0 FOR IsHistory;
 
 ALTER TABLE dbo.UriSearchParam SET (LOCK_ESCALATION = AUTO);
 
