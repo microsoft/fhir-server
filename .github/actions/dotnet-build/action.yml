@@ -36,17 +36,17 @@ runs:
       id: convert_version
       shell: bash
       run: |
-          version=${${{inputs.dotnetVerison}}%%.*}
+          version=${VERSION%%.*}
           netVersion="net${version}.0"
           echo "$netVersion"
           echo "::set-output name=net_version::$netVersion"
       env:
-          VERSION: ${{ steps.get_version.outputs.version }}
+          VERSION: ${{ inputs.dotnet-version }}
           
     - name: Build
       shell: bash
-      run: dotnet build --targetFrameworkVersion ${{inputs.dotnetVersion}} --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
+      run: dotnet build --targetFrameworkVersion ${{steps.convert_version.outputs.net_version}} --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
 
     - name: Test
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" --targetFrameworkVersion ${{inputs.dotnetVersion}} --filter "FullyQualifiedName\~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+      run: dotnet test "Microsoft.Health.Fhir.sln" --targetFrameworkVersion ${{steps.convert_version.outputs.net_version}} --filter "FullyQualifiedName\~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
