@@ -37,7 +37,7 @@ runs:
       shell: bash
       run: |
           dotnetVersion=${{inputs.dotnetVersion}}
-          version=$( echo "$dotnetVersion" | sed '^.*?(?=\.)')
+          version=$( echo $dotnetVersion | sed '^.*?(?=\.)')
           netVersion="net${version}.0"
           echo "$netVersion"
           echo "net_version=$netVersion"  >> "$GITHUB_OUTPUT"
