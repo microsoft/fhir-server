@@ -334,7 +334,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated); // version 1 imported
         }
 
-        [Fact]
+        [Fact(Skip = "requires new stored procedures")]
         public async Task GivenIncrementalLoad_SameLastUpdated_DifferentContent_ShouldProduceConflict()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -347,10 +347,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), null, "2000");
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 0); // TODO: change to 1 once new checks are in place.
+            await ImportCheckAsync(request, null, 1);
 
-            // TODO: uncomment once new checks are in place
-            ////Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
+            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
         [Fact]
@@ -371,7 +370,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
-        [Fact]
+        [Fact(Skip = "requires new stored procedures")]
         public async Task GivenIncrementalLoad_SameLastUpdated_DifferentVersion_ShouldProduceConflict()
         {
             var id = Guid.NewGuid().ToString("N");
@@ -384,10 +383,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ndJson = CreateTestPatient(id, DateTimeOffset.Parse("2021-01-01Z00:00"), "1");
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 0); // TODO: change to 1 once new checks are in place.
+            await ImportCheckAsync(request, null, 1);
 
-            // TODO: uncomment once new checks are in place
-            ////Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
+            Assert.Single((await _client.SearchAsync($"Patient/{id}/_history")).Resource.Entry);
         }
 
         [Fact]
