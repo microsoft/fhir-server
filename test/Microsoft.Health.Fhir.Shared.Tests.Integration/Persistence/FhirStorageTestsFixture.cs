@@ -205,8 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Mediator = new Mediator(services);
 
-            Deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => JsonParser.Parse(str).ToResourceElement())));
+            Deserializer = Deserializers.ResourceDeserializer;
         }
 
         public async Task DisposeAsync()

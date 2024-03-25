@@ -12,7 +12,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -20,14 +22,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     internal class FhirJsonInputFormatter : TextInputFormatter
     {
         private readonly FhirJsonParser _parser;
+        private readonly FhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IArrayPool<char> _charPool;
 
-        public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool)
+        public FhirJsonInputFormatter(FhirJsonParser parser, ArrayPool<char> charPool, FhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _parser = parser;
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(UTF8EncodingWithoutBOM);
@@ -54,6 +59,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
+
+            if (_fhirRequestContextAccessor.RequestContext != null &&
+                _fhirRequestContextAccessor.RequestContext.Properties.TryGetValue(BundleSubRequest.Model, out var subRequestModel))
+            {
+                return await InputFormatterResult.SuccessAsync(subRequestModel);
+            }
 
             var request = context.HttpContext.Request;
 

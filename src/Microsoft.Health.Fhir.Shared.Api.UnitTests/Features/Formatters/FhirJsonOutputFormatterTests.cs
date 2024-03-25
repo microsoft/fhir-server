@@ -57,7 +57,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
                new FhirJsonSerializer(),
                Deserializers.ResourceDeserializer,
                ArrayPool<char>.Shared,
-               new BundleSerializer(),
                ModelInfoProvider.Instance);
 
             var defaultHttpContext = new DefaultHttpContext();

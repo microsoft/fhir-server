@@ -18,6 +18,7 @@ grant_type=client_credentials
 POST https://{{hostname}}
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
+x-bundle-processing-logic: Parallel
 
 < ./Data/SearchDataBatch.json
 

@@ -8,21 +8,30 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
+    public delegate ResourceElement DeserializeFromString(RawResource rawResource, string versionId, DateTimeOffset? lastUpdated);
+
     public class ResourceDeserializer : IResourceDeserializer
     {
-        private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
+        /// <summary>
+        /// A reusable memory stream manager for serializing and deserializing resources.
+        /// </summary>
+        internal static readonly RecyclableMemoryStreamManager MemoryStreamManager = new();
 
-        public ResourceDeserializer(IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> deserializers)
+        private readonly IReadOnlyDictionary<FhirResourceFormat, DeserializeFromString> _deserializers;
+
+        public ResourceDeserializer(
+            IReadOnlyDictionary<FhirResourceFormat, DeserializeFromString> deserializers)
         {
             EnsureArg.IsNotNull(deserializers, nameof(deserializers));
 
             _deserializers = deserializers;
         }
 
-        public ResourceDeserializer(params (FhirResourceFormat Format, Func<string, string, DateTimeOffset, ResourceElement> Func)[] deserializers)
+        public ResourceDeserializer(params (FhirResourceFormat Format, DeserializeFromString Func)[] deserializers)
         {
             EnsureArg.IsNotNull(deserializers, nameof(deserializers));
 
@@ -56,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new NotSupportedException();
             }
 
-            return deserializer(rawResource.Data, version, lastModified);
+            return deserializer(rawResource, version, lastModified);
         }
 
         internal ResourceElement DeserializeRawResourceElement(RawResourceElement rawResourceElement)
@@ -68,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new NotSupportedException();
             }
 
-            return deserializer(rawResourceElement.RawResource.Data, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
+            return deserializer(rawResourceElement.RawResource, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
         }
     }
 }
