@@ -36,7 +36,7 @@ runs:
       id: convert_version
       shell: bash
       run: |
-          version=${env.VERSION%%.*}
+          version=${{env.VERSION}}%%.*
           netVersion="net${version}.0"
           echo "$netVersion"
           echo "net_version=$netVersion  >> $GITHUB_OUTPUT"
