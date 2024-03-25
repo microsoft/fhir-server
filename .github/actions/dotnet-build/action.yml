@@ -32,46 +32,21 @@ runs:
       shell: bash
       run: dotnet restore
     
+    - name: Convert version
+      id: convert_version
+      shell: bash
+      run: |
+          version=${${{inputs.dotnetVerison}}%%.*}
+          netVersion="net${version}.0"
+          echo "$netVersion"
+          echo "::set-output name=net_version::$netVersion"
+      env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+          
     - name: Build
       shell: bash
-      run: dotnet build --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
+      run: dotnet build --targetFrameworkVersion ${{inputs.dotnetVersion}} --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
 
     - name: Test
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" --filter "FullyQualifiedName\~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
-
-    # - name: Publish Artifacts
-    #   shell: bash
-    #   run: dotnet publish "Microsoft.Health.Fhir.sln" --output $(Build.ArtifactStagingDirectory)/web --configuration ${{inputs.buildConfiguration}} --no-build -f $(defaultBuildFramework)
-    # - name: Pack nugets
-    #   shell: bash
-    #   run: dotnet pack "Microsoft.Health.Fhir.sln" --output $(Build.ArtifactStagingDirectory)/nupkgs --no-build --configuration=Release -p:PackageVersion=${{inputs.nugetVersion}}
-      #Try pack command here to see if it picks up both framework outputs. It may not without referencing output of each job
-    # - name: Code Coverage Report
-    #   uses: irongut/CodeCoverageSummary@v1.3.0
-    #   with:
-    #     filename: coverage/**/coverage.cobertura.xml
-    #     badge: true
-    #     fail_below_min: true
-    #     format: markdown
-    #     hide_branch_rate: false
-    #     hide_complexity: true
-    #     indicators: true
-    #     output: both
-    #     thresholds: '60 80'
-    # - run: mkdir -p coverage
-    #   shell: bash
-    # - run: mkdir -p artifacts
-    #   shell: bash
-    # - name: actions/upload-artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: fhirBuild-${{inputs.dotnetVersion}}
-    #     path: artifacts
-    #     retention-days: 1
-    # - name: Upload Code Coverage Results
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: fhirBuild-${{inputs.dotnetVersion}}
-    #     path: artifacts
-    #     retention-days: 1
+      run: dotnet test "Microsoft.Health.Fhir.sln" --targetFrameworkVersion ${{inputs.dotnetVersion}} --filter "FullyQualifiedName\~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
