@@ -36,12 +36,10 @@ runs:
       id: convert_version
       shell: bash
       run: |
-          version=${{env.VERSION}}%%.*
+          version=${{inputs.dotnetVerison}}%%.*
           netVersion="net${version}.0"
           echo "$netVersion"
           echo "net_version=$netVersion  >> $GITHUB_OUTPUT"
-      env:
-          VERSION: ${{ inputs.dotnet-version }}
           
     - name: Build
       shell: bash
