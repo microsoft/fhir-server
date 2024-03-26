@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case (int)HttpStatusCode.MethodNotAllowed:
                     issueType = OperationOutcome.IssueType.NotSupported;
                     returnCode = HttpStatusCode.MethodNotAllowed;
-                    diagnosticInfo = Resources.OperationNotImplemented;
+                    diagnosticInfo = Resources.OperationNotSupported;
                     break;
                 default:
                     issueType = OperationOutcome.IssueType.Exception;
