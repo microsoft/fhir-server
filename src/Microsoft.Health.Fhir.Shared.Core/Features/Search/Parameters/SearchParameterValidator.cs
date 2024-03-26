@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator
+            ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator,
             ILogger<SearchParameterValidator> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -131,9 +131,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                     nameof(searchParam.Url),
                                     string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
                         }
-                    }
 
-                    duplicateOf = _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(searchParam, validationFailures);
+                        duplicateOf = _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(searchParam, validationFailures);
+                    }
                 }
             }
 

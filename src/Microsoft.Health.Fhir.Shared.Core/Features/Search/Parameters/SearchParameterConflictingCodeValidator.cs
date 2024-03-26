@@ -137,7 +137,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     foreach (var componentInfo in conflictingSearchParam.Component)
                     {
                         // find matching component in the new search parameter
+#if Stu3
                         var matchingComponent = searchParam.Component.Where(c => c.Definition.ReferenceElement.ToString() == componentInfo.DefinitionUrl.ToString()).FirstOrDefault();
+#else
+                        var matchingComponent = searchParam.Component.Where(c => c.Definition == componentInfo.DefinitionUrl.ToString()).FirstOrDefault();
+#endif
                         if (matchingComponent == null)
                         {
                             componentsMatch = false;
