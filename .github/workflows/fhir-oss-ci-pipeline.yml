@@ -86,6 +86,11 @@ jobs:
           informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           dotnetVersion: ${{matrix.dotnet-version}}
           majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+      - name: Test
+        uses: ./.github/actions/dotnet-test
+        if: ${{ matrix.dotnet-version == '8.0.x' }}
+        with:
+          buildConfiguration: ${{env.buildConfiguration}}
 
       - name: Generate SBOM
         run: |
