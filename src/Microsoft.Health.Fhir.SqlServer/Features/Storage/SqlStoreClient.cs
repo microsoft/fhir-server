@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal async Task<(long TransactionId, int Sequence)> MergeResourcesBeginTransactionAsync(int resourceVersionCount, CancellationToken cancellationToken, DateTime? heartbeatDate = null)
         {
             Stopwatch stopwatch = new Stopwatch();
-            _logger.LogInformation("Profiling - Executing MergeResourcesBeginTransactionAsync");
+            _logger.LogInformation("Profiling - Executing MergeResourcesBeginTransactionAsync outside");
             stopwatch.Start();
             using var cmd = new SqlCommand() { CommandText = "dbo.MergeResourcesBeginTransaction", CommandType = CommandType.StoredProcedure };
             cmd.Parameters.AddWithValue("@Count", resourceVersionCount);
