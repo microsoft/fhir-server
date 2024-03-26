@@ -132,6 +132,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\Practitioner.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore.json" />

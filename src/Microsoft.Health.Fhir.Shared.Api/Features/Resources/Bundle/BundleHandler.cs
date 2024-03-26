@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ILogger<BundleHandler> _logger;
         private readonly HTTPVerb[] _verbExecutionOrder;
         private readonly List<int> _emptyRequestsOrder;
-        private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
+        private readonly ConcurrentDictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
@@ -151,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _requestServices = outerHttpContext.RequestServices;
             _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
-            _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
+            _referenceIdDictionary = new ConcurrentDictionary<string, (string resourceId, string resourceType)>();
 
             // Retrieve bundle processing logic.
             _bundleProcessingLogic = GetBundleProcessingLogic(outerHttpContext, _logger);
@@ -780,8 +781,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.GetDisplayUrl(),
                 requestContext.BaseUri.OriginalString,
                 requestContext.CorrelationId,
-                httpContext.Request.Headers,
-                httpContext.Response.Headers)
+                requestHeaders: httpContext.Request.Headers,
+                responseHeaders: httpContext.Response.Headers)
             {
                 Principal = requestContext.Principal,
                 ResourceType = resourceType?.ToString(),
@@ -839,7 +840,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, Dictionary<string, (string resourceId, string resourceType)> idDictionary)
+        private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)
         {
             foreach (EntryComponent entry in bundleEntries)
             {

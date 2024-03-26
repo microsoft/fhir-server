@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (processingLogic == FhirBundleProcessingLogic.Parallel)
             {
-                // Duplicated records. Only one should successed. As the requests are processed in parallel,
+                // Duplicated records. Only one should succeed. As the requests are processed in parallel,
                 // it's not possible to pick the one that will be processed.
                 if (resource.Entry[2].Response.Status == "200")
                 {
@@ -158,9 +158,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Category, Categories.Authorization)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });
