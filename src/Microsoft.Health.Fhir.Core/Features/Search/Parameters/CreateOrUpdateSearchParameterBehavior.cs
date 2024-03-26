@@ -26,8 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public CreateOrUpdateSearchParameterBehavior(
             ISearchParameterOperations searchParameterOperations,
-            IFhirDataStore fhirDataStore,
-            ISearchParameterConflictingCodeValidator searchParameterConflictingCodeValidator)
+            IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -38,8 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
-            CheckForConflictingCodeValue(searchParam, validationFailures);
-
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
                 // Before committing the SearchParameter resource to the data store, add it to the SearchParameterDefinitionManager
@@ -60,8 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-
-                CheckForConflictingCodeValue(searchParam, validationFailures);
 
                 if (prevSearchParamResource != null)
                 {
