@@ -1,4 +1,4 @@
-﻿--DROP PROCEDURE dbo.MergeResources
+--DROP PROCEDURE dbo.MergeResources
 GO
 CREATE PROCEDURE dbo.MergeResources
 -- This stored procedure can be used for:
