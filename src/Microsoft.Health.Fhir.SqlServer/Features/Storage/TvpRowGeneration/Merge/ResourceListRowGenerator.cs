@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         private readonly ISqlServerFhirModel _model;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
-        private readonly ILogger<ResourceListRowGenerator> _logger;
+        private readonly ILogger<SqlServerFhirDataStore> _logger;
 
-        public ResourceListRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter, ILogger<ResourceListRowGenerator> logger)
+        public ResourceListRowGenerator(ISqlServerFhirModel model, ICompressedRawResourceConverter compressedRawResourceConverter, ILogger<SqlServerFhirDataStore> logger)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
