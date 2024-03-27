@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 stopwatch.Start();
                 var wrapper = merge.ResourceWrapper;
                 using var stream = new RecyclableMemoryStream(_memoryStreamManager, tag: nameof(ResourceListRowGenerator));
-                _compressedRawResourceConverter.WriteCompressedRawResource(stream, "test data");
+                _compressedRawResourceConverter.WriteCompressedRawResource(stream, wrapper.RawResource.Data);
                 stream.Seek(0, 0);
                 _logger.LogInformation($"Profiling - Ending the compression {stopwatch.ElapsedMilliseconds}");
                 stopwatch.Stop();

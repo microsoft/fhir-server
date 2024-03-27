@@ -578,8 +578,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             Stopwatch stopwatch1 = new Stopwatch();
             stopwatch1.Start();
             await cmd.ExecuteNonQueryAsync(cancellationToken);
-            _logger.LogInformation($"Profiling - Finished calling DB MergeResourcesWrapperAsync {stopwatch.ElapsedMilliseconds}");
-            stopwatch.Stop();
+            _logger.LogInformation($"Profiling - Finished calling DB MergeResourcesWrapperAsync {stopwatch1.ElapsedMilliseconds}");
+            stopwatch1.Stop();
         }
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapperOperation resource, CancellationToken cancellationToken)
