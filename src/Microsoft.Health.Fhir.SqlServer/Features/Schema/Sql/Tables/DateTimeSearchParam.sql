@@ -6,12 +6,9 @@
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
-    IsHistory bit NOT NULL,
     IsMin bit CONSTRAINT date_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax bit CONSTRAINT date_IsMax_Constraint DEFAULT 0 NOT NULL
 )
-
-ALTER TABLE dbo.DateTimeSearchParam ADD CONSTRAINT DF_DateTimeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
