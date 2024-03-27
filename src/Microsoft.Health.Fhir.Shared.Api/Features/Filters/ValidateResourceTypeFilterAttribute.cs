@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+using AngleSharp.Text;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
@@ -17,6 +19,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     internal sealed class ValidateResourceTypeFilterAttribute : ParameterCompatibleFilter
     {
+        private static readonly string[] _httpMethodsRequiringValidResources = new string[]
+        {
+            HttpMethod.Patch.ToString(),
+        };
+
         public ValidateResourceTypeFilterAttribute(bool allowParametersResource = false)
             : base(allowParametersResource)
         {
@@ -26,17 +33,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
-                context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
+            object actionModelType = null;
+            object parsedModel = null;
+            string httpMethod = context.HttpContext?.Request?.Method;
+
+            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out actionModelType) &&
+                context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out parsedModel))
             {
                 var resource = ParseResource((Resource)parsedModel);
                 ValidateType(resource, (string)actionModelType);
+            }
+            else if (_httpMethodsRequiringValidResources.Contains(httpMethod, StringComparison.OrdinalIgnoreCase) && actionModelType != null && parsedModel == null)
+            {
+                // In this case, the resource type requires a valid resource as part of the request.
+                ValidateType(parsedModel as Resource, actionModelType as string);
             }
         }
 
         private static void ValidateType(Resource resource, string expectedType)
         {
-            if (!string.Equals(expectedType, resource.TypeName, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(expectedType, resource?.TypeName, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                     {
