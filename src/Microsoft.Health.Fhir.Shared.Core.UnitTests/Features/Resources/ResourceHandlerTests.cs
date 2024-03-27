@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.HardDelete)).ResourceKey;
 
-            await _fhirDataStore.Received(1).HardDeleteAsync(resourceKey, Arg.Any<bool>(), Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(1).HardDeleteAsync(resourceKey, Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
 
             Assert.NotNull(resultKey);
             Assert.Equal(resourceKey.Id, resultKey.Id);

@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
             Assert.NotNull(resource);
 
-            await store.HardDeleteAsync(new ResourceKey("Organization", create.Id), false, cts.Token);
+            await store.HardDeleteAsync(new ResourceKey("Organization", create.Id), false, false, cts.Token);
 
             resource = await store.GetAsync(new ResourceKey("Organization", create.Id, create.VersionId), CancellationToken.None);
             Assert.Null(resource);
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var id = create.Id;
 
             var store = (SqlServerFhirDataStore)_fixture.DataStore;
-            await store.HardDeleteAsync(new ResourceKey("Organization", id), false, CancellationToken.None);
+            await store.HardDeleteAsync(new ResourceKey("Organization", id), false, false, CancellationToken.None);
 
             var reCreate = await _fixture.Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization().UpdateId(id));
             Assert.Equal(id, reCreate.RawResourceElement.Id);

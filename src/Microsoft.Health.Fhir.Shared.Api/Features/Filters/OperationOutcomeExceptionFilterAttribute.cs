@@ -218,6 +218,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case AuditHeaderTooLargeException _:
                         healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
+                    case PartialDeleteSuccessException partialDeleteSuccessException:
+                        healthExceptionResult = CreateOperationOutcomeResult(partialDeleteSuccessException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Throttled, HttpStatusCode.TooManyRequests);
+                        break;
                     default:
                         healthExceptionResult = CreateOperationOutcomeResult(string.Empty, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                         break;
