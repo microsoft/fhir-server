@@ -72,8 +72,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             storeProcedureInstaller.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
                .Returns(Task.CompletedTask);
 
-            // TODO: need to changes as per CosmosDbFhirStorageTestsFixture for CollectionUpgradeManager class
-            var updaters = new ICollectionUpdater[] { /*new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),*/ };
             _manager = new CollectionUpgradeManager(collectionDataupdater, storeProcedureInstaller, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
 
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();

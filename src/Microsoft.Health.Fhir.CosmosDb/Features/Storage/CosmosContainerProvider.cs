@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// Provides an <see cref="Container"/> instance that is opened and whose collection has been properly initialized for use.
     /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
-    /// // now some existing call are commented
     public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
         private readonly ILogger<CosmosContainerProvider> _logger;
@@ -66,9 +65,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 await InitializeDataStoreAsync(collectionSetup, collectionDataUpdater, cosmosDataStoreConfiguration, retryPolicyFactory, collectionInitializers);
             });
-
-            // _initializationOperation = new RetryableInitializationOperation(
-            //    () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
         }
 
         public Container Container
@@ -105,7 +101,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             catch (Exception ex)
             {
                 LogLevel logLevel = LogLevel.Critical;
-                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} Initialization has failed.", cosmosDataStoreConfiguration.DatabaseId);
                 throw;
             }
         }

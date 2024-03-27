@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
+            EnsureArg.IsNotNull(retryPolicy, nameof(retryPolicy));
 
             try
             {

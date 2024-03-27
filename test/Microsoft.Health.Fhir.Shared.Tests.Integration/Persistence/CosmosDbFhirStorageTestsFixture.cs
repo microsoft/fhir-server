@@ -52,8 +52,6 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    // TODO: need modify this class to call new CosmosDB .Initialization project
-    // now some existing call are commented
     public class CosmosDbFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
         private static readonly SemaphoreSlim CollectionInitializationSemaphore = new SemaphoreSlim(1, 1);
@@ -152,11 +150,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var datacollectionSetup = new DataPlaneCollectionSetup(NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
-                // TODO: we need to replce this logic with DataPlanecollectionsetup createDatabase method
-                // await documentClientInitializer.InitializeDataStoreAsync(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer }, CancellationToken.None);
-               await datacollectionSetup.CreateDatabaseAsync(_cosmosClient, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
-               await datacollectionSetup.CreateCollectionAsync(_cosmosClient, new List<ICollectionInitializer> { fhirCollectionInitializer }, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
-               _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
+                await datacollectionSetup.CreateDatabaseAsync(_cosmosClient, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await datacollectionSetup.CreateCollectionAsync(_cosmosClient, new List<ICollectionInitializer> { fhirCollectionInitializer }, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally
             {

@@ -81,12 +81,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
             else
             {
-                // TODO: new logic for update searchparameter
                 await _updateSP.Execute(container.Scripts, cancellationToken);
                 thisVersion.Version = CollectionSettingsVersion;
                 await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
-
-                // check if the storeproc tobeexecuted more than once
             }
         }
 
