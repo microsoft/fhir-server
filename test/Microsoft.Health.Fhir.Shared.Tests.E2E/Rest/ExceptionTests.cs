@@ -107,8 +107,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANotAllowedMethod_WhenRequestIsSent_TheServerShouldReturnMethodNotSupported()
         {
-            var requestMessage = new HttpRequestMessage();
-            string uriString = _client.HttpClient.BaseAddress.ToString() + "admin.html";
+            using var requestMessage = new HttpRequestMessage();
+            string uriString = _client.HttpClient.BaseAddress + "admin.html";
             requestMessage.RequestUri = new Uri(uriString);
             requestMessage.Method = HttpMethod.Head;
             HttpResponseMessage response = await _client.HttpClient.SendAsync(requestMessage);
