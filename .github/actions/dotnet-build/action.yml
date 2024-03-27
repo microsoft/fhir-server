@@ -14,34 +14,12 @@ inputs:
   informationalVersion:
     description: The scaler assembly's informational version.
     required: true
-  dotnetVersion:
-    description: The version of dotnet to use.
-    required: true
   majorMinorPatch:
     description: The major.minor.patch version to use.
     required: true
 runs:
   using: composite
   steps:
-    - name: Setup dotnet ${{ inputs.dotnetVersion }}
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ inputs.dotnetVersion}}
-
-    - name: Restore Dependencies
-      shell: bash
-      run: dotnet restore
-    
-    - name: Convert version
-      id: convert_version
-      shell: bash
-      run: |
-          dotnetVersion=${{inputs.dotnetVersion}}
-          version=$( echo "$dotnetVersion" | sed 's/^\([0-9]*\)\..*/\1/')
-          netVersion="net${version}.0"
-          echo "$netVersion"
-          echo "net_version=$netVersion"  >> "$GITHUB_OUTPUT"
-          
     - name: Build
       shell: bash
-      run: dotnet build -f ${{steps.convert_version.outputs.net_version}} --no-restore --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror
+      run: dotnet build --configuration ${{inputs.buildConfiguration}} -p:ContinuousIntegrationBuild=true -p:AssemblyVersion="${{inputs.assemblyVersion}}" -p:FileVersion="${{inputs.fileVersion}}" -p:InformationalVersion="${{inputs.informationalVersion}}" -p:Version="${{inputs.majorMinorPatch}}" -warnaserror

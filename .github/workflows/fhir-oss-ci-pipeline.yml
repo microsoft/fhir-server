@@ -43,6 +43,11 @@ jobs:
 
       - name: Install Latest .Net SDK
         uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: 'global.json'
+          dotnet-version: |
+            6.x
+            8.x
 
       - name: Determine Semver
         id: version
@@ -63,19 +68,19 @@ jobs:
   buildAndUnitTest:
     runs-on: ubuntu-latest
     needs: setup
-    strategy:
-      matrix:
-        dotnet-version: [ '8.0.x']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup dotnet ${{ matrix.dotnet-version }}
+      - name: Install Latest .Net SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ matrix.dotnet-version }}
+          global-json-file: 'global.json'
+          dotnet-version: |
+            6.x
+            8.x
 
       - name: Build
         uses: ./.github/actions/dotnet-build
@@ -84,11 +89,9 @@ jobs:
           buildConfiguration: ${{env.buildConfiguration}}
           fileVersion: ${{needs.setup.outputs.fileVersion}}
           informationalVersion: ${{needs.setup.outputs.informationalVersion}}
-          dotnetVersion: ${{matrix.dotnet-version}}
           majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
       - name: Test
         uses: ./.github/actions/dotnet-test
-        if: ${{ matrix.dotnet-version == '8.0.x' }}
         with:
           buildConfiguration: ${{env.buildConfiguration}}
 

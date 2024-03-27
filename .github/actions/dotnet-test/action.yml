@@ -4,13 +4,9 @@ inputs:
   buildConfiguration:
     description: 'The build configuration to use'
     required: true
-  dotnetVersion:
-    description: 'The version of dotnet to use'
-    default: net8.0
-    required: true
 runs:
   using: 'composite'
   steps:
     - name: Run Unit Tests
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" -f ${{inputs.dotnetVersion}} --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+      run: dotnet test "Microsoft.Health.Fhir.sln" --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
