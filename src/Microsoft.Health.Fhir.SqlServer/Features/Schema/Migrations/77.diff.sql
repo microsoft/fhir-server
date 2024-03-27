@@ -9,7 +9,7 @@ BEGIN
 END
 GO
 DECLARE @Names TABLE (Name varchar(100) PRIMARY KEY)
-INSERT INTO @Names SELECT name FROM sys.types WHERE name LIKE '%[0-9]' AND name NOT IN ('SearchParamTableType_2','BulkReindexResourceTableType_1')
+INSERT INTO @Names SELECT name FROM sys.types WHERE is_user_defined = 1 AND name LIKE '%[0-9]' AND name NOT IN ('SearchParamTableType_2','BulkReindexResourceTableType_1')
 DECLARE @Name varchar(100)
 WHILE EXISTS (SELECT * FROM @Names)
 BEGIN
