@@ -40,10 +40,12 @@ https://test-fhir-server/$export
 
 For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir/export-data). 
 
-In addition to the query parameters specified in the Azure API For FHIR documentation, users can also use the \_format in FHIR Server. \_format allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/'), and known tags. The tags will be replaced with data when the job is run. The three supported tags are: 
+Below are set of additional query parameters users can specify in addition to ones defined in the Azure API For FHIR documentation
+1. \_format in FHIR Server:  \_format allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/'), and known tags. The tags will be replaced with data when the job is run. The three supported tags are: 
 * **resourcename**: replaces with the resource type being exported
 * **timestamp**: replaces with a timestamp of the job's queried time
 * **id**: replaces with the GUID of the export job
+1. \_max_count:  \_max_count allows to reduce the number of resources exported by a single job. Users can use the _maxCount=xxxx query parameter or set MaximumNumberOfResourcesPerQuery in the export configuration section. The default is 10,000. Export operation needs memory to serialize the data when it is writing to the lake. To reduce out of memory exceptions due to additional memory, user can choose to reduce the _max_count value by decrements of 1000. It would be beneficial for user to increase the compute memory on FHIR server as well.
 
 To use the format, you will need to set the following settings in the appSettings:
 
