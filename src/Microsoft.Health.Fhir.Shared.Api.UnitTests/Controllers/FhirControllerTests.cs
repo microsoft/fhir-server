@@ -5,10 +5,12 @@
 
 using System;
 using System.Linq;
+using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Filters.Metrics;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -19,8 +21,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     [Trait(Traits.Category, Categories.Web)]
     public sealed class FhirControllerTests
     {
+        private readonly Type _targetFhirControllerClass = typeof(FhirController);
+
         [Fact]
-        public void WhenProviderAFhirController_CheckIfAllExpectedServiceFilterAttributesArePresent()
+        public void WhenProvidedAFhirController_CheckIfAllExpectedServiceFilterAttributesArePresent()
         {
             Type[] expectedCustomAttributes = new Type[]
             {
@@ -30,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 typeof(QueryLatencyOverEfficiencyFilterAttribute),
             };
 
-            ServiceFilterAttribute[] serviceFilterAttributes = Attribute.GetCustomAttributes(typeof(FhirController), typeof(ServiceFilterAttribute))
+            ServiceFilterAttribute[] serviceFilterAttributes = Attribute.GetCustomAttributes(_targetFhirControllerClass, typeof(ServiceFilterAttribute))
                 .Select(a => a as ServiceFilterAttribute)
                 .ToArray();
 
@@ -40,10 +44,56 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
                 if (!attributeWasFound)
                 {
-                    string errorMessage = $"The custom attribute '{expectedCustomAttribute.ToString()}' is not assigned to '{nameof(FhirController)}'.";
+                    string errorMessage = $"The custom attribute '{expectedCustomAttribute}' is not assigned to '{nameof(FhirController)}'.";
                     Assert.Fail(errorMessage);
                 }
             }
+        }
+
+        [Fact]
+        public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
+        {
+            const string methodName = "BatchAndTransactions";
+            Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
+
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, methodName, _targetFhirControllerClass);
+        }
+
+        [Fact]
+        public void WhenProvidedAFhirController_CheckIfTheSearchEndpointsHaveTheLatencyMetricFilter()
+        {
+            Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
+
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchByResourceType", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "History", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
+        }
+
+        [Fact]
+        public void WhenProvidedAFhirController_CheckIfTheCrudEndpointsHaveTheLatencyMetricFilter()
+        {
+            Type expectedCustomAttribute = typeof(CrudEndpointMetricEmitterAttribute);
+
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Create", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Update", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Read", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "VRead", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Delete", _targetFhirControllerClass);
+        }
+
+        private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, string methodName, Type targetClassType)
+        {
+            MethodInfo bundleMethodInfo = targetClassType.GetMethod(methodName);
+            Assert.True(bundleMethodInfo != null, $"The method '{methodName}' was not found in '{targetClassType.Name}'. Was it renamed or removed?");
+
+            TypeFilterAttribute latencyFilter = Attribute.GetCustomAttributes(bundleMethodInfo, typeof(TypeFilterAttribute))
+                .Select(a => a as TypeFilterAttribute)
+                .Where(a => a.ImplementationType == expectedCustomAttributeType)
+                .SingleOrDefault();
+
+            Assert.True(latencyFilter != null, $"The expected filter '{expectedCustomAttributeType.Name}' was not found in the method '{methodName}' from '{targetClassType.Name}'.");
         }
     }
 }
