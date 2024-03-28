@@ -1,0 +1,25 @@
+name: cleanup integration test databases
+description: Deletes databases used for integration tests from previous runs
+
+inputs:
+  environmentName:
+    description: Deployment environment name
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Remove Integration Test Databases
+      uses: azure/powershell@v1
+      with:
+        azPSVersion: "latest"
+        inlineScript: |
+          Get-AzContext
+          $testNamePatterns = @("SNAPSHOT*","FHIRCOMPATIBILITYTEST*","FHIRINTEGRATIONTEST*","FHIRRESOURCECHANGEDISABLEDTEST*","BASE*","SNAPSHOT*")
+          foreach ($pattern in $testNamePatterns) {
+            $resources = Get-AzResource -ResourceGroupName ${{ inputs.environmentName }} -ResourceType 'Microsoft.Sql/servers/databases' -Name $pattern
+            foreach ($resource in $resources) {
+              Write-Host "Cleaning up $($resource.ResourceName)"
+              Remove-AzResource -ResourceId $resource.ResourceId -Force
+            }
+          }
