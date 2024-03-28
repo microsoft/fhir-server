@@ -12,10 +12,10 @@ using Microsoft.Health.Abstractions.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class PartialDeleteSuccessException : MicrosoftHealthException
+    public class IncompleteDeleteException : RequestTooCostlyException
     {
-        public PartialDeleteSuccessException(int numberOfResourceVersionsDeleted)
-            : base(Resources.PartialDeleteSuccess.Replace("{0}", numberOfResourceVersionsDeleted.ToString(), StringComparison.Ordinal))
+        public IncompleteDeleteException(int numberOfResourceVersionsDeleted)
+            : base(message: string.Format(Resources.PartialDeleteSuccess, numberOfResourceVersionsDeleted.ToString(), StringComparison.Ordinal))
         {
         }
     }

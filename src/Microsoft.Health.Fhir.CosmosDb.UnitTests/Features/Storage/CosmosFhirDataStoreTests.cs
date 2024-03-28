@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             });
             _container.Value.Scripts.Returns(scripts);
 
-            await Assert.ThrowsAsync<PartialDeleteSuccessException>(() => _dataStore.HardDeleteAsync(resourceKey, false, true, CancellationToken.None));
+            await Assert.ThrowsAsync<IncompleteDeleteException>(() => _dataStore.HardDeleteAsync(resourceKey, false, true, CancellationToken.None));
         }
 
         private void CreateResponses(int pageSize, string continuationToken, params FeedResponse<int>[] responses)

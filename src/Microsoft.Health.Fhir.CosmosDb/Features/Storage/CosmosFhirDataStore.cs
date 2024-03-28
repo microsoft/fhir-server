@@ -509,7 +509,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 if (response.Resource > 0)
                 {
                     _logger.LogInformation("Partial success of delete operation. Deleted {NumDeleted} versions of the resource.", response.Resource);
-                    throw new PartialDeleteSuccessException(response.Resource);
+                    throw new IncompleteDeleteException(response.Resource);
                 }
             }
             catch (CosmosException exception)
