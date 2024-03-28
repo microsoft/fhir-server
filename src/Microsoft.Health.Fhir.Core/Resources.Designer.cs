@@ -989,6 +989,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Deleted {0} versions of the target resource..
+        /// </summary>
+        internal static string PartialDeleteSuccess {
+            get {
+                return ResourceManager.GetString("PartialDeleteSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Patching immutable properties is not allowed..
         /// </summary>
         internal static string PatchImmutablePropertiesIsNotValid {

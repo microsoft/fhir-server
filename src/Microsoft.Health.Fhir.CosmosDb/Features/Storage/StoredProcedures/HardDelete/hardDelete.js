@@ -6,9 +6,10 @@
 * @param {string} resourceTypeName - The resource type name.
 * @param {string} resourceId - The resource id.
 * @param {boolean} keepCurrentVersion - Specifies if the current version of the resource should be kept.
+* @param {boolean} partialSuccess - Specifies if partial success of the delete is allowed. This will allow for some versions of the resource to be deleted even if it isn't possible to do all of them in one go.
 */
 
-function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
+function hardDelete(resourceTypeName, resourceId, keepCurrentVersion, partialSuccess) {
     const collection = getContext().getCollection();
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
@@ -21,8 +22,8 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
     if (!resourceId) {
         throwArgumentValidationError("The resourceId is undefined or null");
     }
-
-    let deletedResourceIdList = new Array();
+    
+    let deletedResourceCount = 0;
 
     tryQueryAndHardDelete();
 
@@ -53,7 +54,7 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
                     tryHardDelete(documents);
                 } else {
                     // There is no more documents so we are finished.
-                    response.setBody(deletedResourceIdList);
+                    response.setBody(0);
                 }
             });
 
@@ -65,7 +66,6 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
 
     function tryHardDelete(documents) {
         if (documents.length > 0) {
-            deletedResourceIdList.push(documents[0].id);
 
             // Delete the first item.
             var isAccepted = collection.deleteDocument(
@@ -77,6 +77,7 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
                     }
 
                     // Successfully deleted the item, continue deleting.
+                    deletedResourceCount++;
                     documents.shift();
                     tryHardDelete(documents);
                 });
@@ -96,6 +97,11 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
     }
 
     function throwTooManyRequestsError() {
-        throw new Error(429, `The request could not be completed.`);
+        if (!partialSuccess) {
+            throw new Error(429, `The request could not be completed.`);
+        }
+        else {
+            response.setBody(deletedResourceCount)
+        }
     }
 }

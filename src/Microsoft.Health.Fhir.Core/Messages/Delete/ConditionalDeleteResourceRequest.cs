@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             int? maxDeleteCount,
             BundleResourceContext bundleResourceContext = null,
             bool deleteAll = false,
-            ResourceVersionType versionType = ResourceVersionType.Latest)
+            ResourceVersionType versionType = ResourceVersionType.Latest,
+            bool allowPartialSuccess = false)
             : base(resourceType, conditionalParameters, bundleResourceContext)
         {
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
@@ -32,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             MaxDeleteCount = maxDeleteCount;
             DeleteAll = deleteAll;
             VersionType = versionType;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
         public DeleteOperation DeleteOperation { get; }
@@ -41,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public bool DeleteAll { get; }
 
         public ResourceVersionType VersionType { get; }
+
+        public bool AllowPartialSuccess { get; }
 
         protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }

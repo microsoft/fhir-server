@@ -14,16 +14,17 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null)
+        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
             DeleteOperation = deleteOperation;
             BundleResourceContext = bundleResourceContext;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
-        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null)
+        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation, BundleResourceContext bundleResourceContext = null, bool allowPartialSuccess = false)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
             ResourceKey = new ResourceKey(type, id);
             DeleteOperation = deleteOperation;
             BundleResourceContext = bundleResourceContext;
+            AllowPartialSuccess = allowPartialSuccess;
         }
 
         public ResourceKey ResourceKey { get; }
@@ -38,6 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public BundleResourceContext BundleResourceContext { get; }
 
         public DeleteOperation DeleteOperation { get; }
+
+        public bool AllowPartialSuccess { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

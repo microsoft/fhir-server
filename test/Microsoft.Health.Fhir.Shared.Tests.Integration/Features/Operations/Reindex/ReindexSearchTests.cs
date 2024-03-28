@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 if (testPatient != null)
                 {
-                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, CancellationToken.None);
+                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, false, CancellationToken.None);
                 }
             }
         }
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             {
                 if (testPatient != null)
                 {
-                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, CancellationToken.None);
+                    await _scopedDataStore.Value.HardDeleteAsync(testPatient.ToResourceKey(), false, false, CancellationToken.None);
                 }
             }
         }

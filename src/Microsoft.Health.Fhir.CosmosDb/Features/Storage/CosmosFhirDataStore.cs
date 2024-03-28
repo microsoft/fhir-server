@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
@@ -497,15 +497,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug("Obliterating {ResourceType}/{Id}. Keep current version: {KeepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
-                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
+                StoredProcedureExecuteResponse<int> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
                         keepCurrentVersion,
+                        allowPartialSuccess,
                         ct),
                     cancellationToken);
 
-                _logger.LogDebug("Hard-deleted {Count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {Resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
+                if (response.Resource > 0)
+                {
+                    _logger.LogInformation("Partial success of delete operation. Deleted {NumDeleted} versions of the resource.", response.Resource);
+                    throw new PartialDeleteSuccessException(response.Resource);
+                }
             }
             catch (CosmosException exception)
             {

@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
@@ -280,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(resourcesToDelete, cancellationToken, async (item, innerCt) =>
                 {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add(item.Resource.ResourceId);
                 });
             }
