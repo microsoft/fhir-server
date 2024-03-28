@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
@@ -520,29 +521,41 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
-        using IScoped<Container> container = _containerFactory.Invoke();
+        IScoped<Container> container = null;
 
-        ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
-            container.Value,
-            new CosmosQueryContext(
-                sqlQuerySpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
-
-        var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response;
-
-        while (itemCount == null || items.Count < itemCount.Value)
+        try
         {
-            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
-            items.AddRange(response);
-
-            if (string.IsNullOrEmpty(response.ContinuationToken))
-            {
-                break;
-            }
+            _containerFactory.Invoke();
+        }
+        catch (ObjectDisposedException ode)
+        {
+            throw new FhirServiceUnavailableException("Not able to run a new query.", ode);
         }
 
-        return items;
+        using (container)
+        {
+            ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
+                container.Value,
+                new CosmosQueryContext(
+                    sqlQuerySpec,
+                    new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
+
+            var items = new List<JobGroupWrapper>();
+            FeedResponse<JobGroupWrapper> response;
+
+            while (itemCount == null || items.Count < itemCount.Value)
+            {
+                response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+                items.AddRange(response);
+
+                if (string.IsNullOrEmpty(response.ContinuationToken))
+                {
+                    break;
+                }
+            }
+
+            return items;
+        }
     }
 
     private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
