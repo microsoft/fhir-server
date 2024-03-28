@@ -577,6 +577,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger.LogInformation($"Profiling - Calling DB MergeResourcesWrapperAsync for Transaction Id {transactionId}");
             Stopwatch stopwatch1 = new Stopwatch();
             stopwatch1.Start();
+            _logger.LogInformation($"Profiling - Log UTCDate {DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff")}");
             cmd.Parameters.AddWithValue("@StartTimeOnServer", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             await cmd.ExecuteNonQueryAsync(cancellationToken);
             _logger.LogInformation($"Profiling - Finished calling DB MergeResourcesWrapperAsync {stopwatch1.ElapsedMilliseconds}");
