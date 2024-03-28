@@ -3659,7 +3659,7 @@ SET NOCOUNT ON;
 DECLARE @st AS DATETIME = getUTCdate(), @SP AS VARCHAR (100) = object_name(@@procid), @DummyTop AS BIGINT = 9223372036854775807, @InitialTranCount AS INT = @@trancount, @IsRetry AS BIT = 0;
 DECLARE @Mode AS VARCHAR (200) = isnull((SELECT 'RT=[' + CONVERT (VARCHAR, min(ResourceTypeId)) + ',' + CONVERT (VARCHAR, max(ResourceTypeId)) + '] Sur=[' + CONVERT (VARCHAR, min(ResourceSurrogateId)) + ',' + CONVERT (VARCHAR, max(ResourceSurrogateId)) + '] V=' + CONVERT (VARCHAR, max(Version)) + ' Rows=' + CONVERT (VARCHAR, count(*))
                                          FROM   @Resources), 'Input=Empty');
-SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' ST=' + isnull(CONVERT (VARCHAR, @StartTimeOnServer, 121), 'NULL') + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
+SET @Mode += ' E=' + CONVERT (VARCHAR, @RaiseExceptionOnConflict) + ' STime=' + isnull(CONVERT (VARCHAR, @StartTimeOnServer, 121), 'NULL') + ' CC=' + CONVERT (VARCHAR, @IsResourceChangeCaptureEnabled) + ' IT=' + CONVERT (VARCHAR, @InitialTranCount) + ' T=' + isnull(CONVERT (VARCHAR, @TransactionId), 'NULL');
 SET @AffectedRows = 0;
 BEGIN TRY
     DECLARE @Existing AS TABLE (
