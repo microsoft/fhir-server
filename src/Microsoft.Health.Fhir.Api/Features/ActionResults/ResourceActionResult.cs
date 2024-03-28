@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
@@ -56,7 +57,16 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            var fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+            RequestContextAccessor<IFhirRequestContext> fhirContext = null;
+
+            try
+            {
+                fhirContext = context.HttpContext.RequestServices.GetService<RequestContextAccessor<IFhirRequestContext>>();
+            }
+            catch (ObjectDisposedException ode)
+            {
+                throw new FhirServiceUnavailableException("Not able to create final result.", ode);
+            }
 
             HttpResponse response = context.HttpContext.Response;
 

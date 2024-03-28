@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             public const string Throttled = nameof(Throttled);
             public const string Timeout = nameof(Timeout);
             public const string TooCostly = nameof(TooCostly);
+            public const string Transient = nameof(Transient);
         }
     }
 }

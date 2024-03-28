@@ -209,11 +209,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 Stopwatch sw = Stopwatch.StartNew();
                 for (int i = 0; i < _rebuildDelay; i++)
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    await Task.Delay(TimeSpan.FromMinutes(1), _cancellationTokenSource.Token);
 
                     if (_disposed)
                     {
                         _logger.LogError("SystemConformanceProvider is already disposed. SystemConformanceProvider's BackgroudLoop is completed.");
+                        return;
                     }
 
                     if (_cancellationTokenSource.IsCancellationRequested)
@@ -238,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     _builder.SyncProfiles();
                 }
 
-                await (_metadataSemaphore?.WaitAsync(CancellationToken.None) ?? Task.CompletedTask);
+                await (_metadataSemaphore?.WaitAsync(_cancellationTokenSource.Token) ?? Task.CompletedTask);
                 try
                 {
                     _metadata = null;
@@ -265,6 +266,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public async ValueTask DisposeAsync()
         {
             _logger.LogInformation("SystemConformanceProvider: DisposeAsync invoked.");
+
+            if (_disposed)
+            {
+                _logger.LogInformation("SystemConformanceProvider: Instance is already disposed.");
+                return;
+            }
 
             if (!_cancellationTokenSource.IsCancellationRequested)
             {
