@@ -121,6 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorMessage = taskCanceledEx.Message,
                 };
 
+                ////TODO: Remove
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
@@ -135,6 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorMessage = canceledEx.Message,
                 };
 
+                ////TODO: Remove
                 // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
@@ -174,6 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorDetails = processingEx.ToString(),
                 };
 
+                ////TODO: Remove
                 // Cancel other processing jobs
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
@@ -195,6 +198,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     ErrorDetails = ex.ToString(),
                 };
 
+                ////TODO: Remove
                 // Cancel processing jobs for critical error in orchestrator job
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);

@@ -11,9 +11,14 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Azure;
 using EnsureThat;
+using MediatR;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -26,25 +31,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     public class ImportProcessingJob : IJob
     {
         private const string CancelledErrorMessage = "Import processing job is canceled.";
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
+        private readonly IMediator _mediator;
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
+        private readonly IAuditLogger _auditLogger;
 
         public ImportProcessingJob(
+            IMediator mediator,
             IImportResourceLoader importResourceLoader,
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            IAuditLogger auditLogger)
         {
+            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
             _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
+            _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -71,11 +83,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Initialize error store
+                // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
                 currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
-                // Load and parse resource from bulk resource
+                // Design of resource loader is too complex. There is no need to have any channel and separate load task.
+                // This design was driven from assumption that worker/processing job deals with entire large file.
+                // This is not true anymore, as worker deals with just small portion of file accessing it by offset.
+                // We should just open reader and walk through all needed records in a single thread.
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
@@ -85,7 +100,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                     currentResult.SucceededResources = importProgress.SucceededResources;
                     currentResult.FailedResources = importProgress.FailedResources;
-                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation; // I don't see a point of providing error file location when there are no errors.
                     currentResult.ProcessedBytes = importProgress.ProcessedBytes;
 
                     _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
@@ -129,6 +144,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
+
+                ////await SendImportMetricsNotification(jobInfo, currentResult, definition.ImportMode, fhirRequestContext);
+
                 return JsonConvert.SerializeObject(currentResult);
             }
             catch (TaskCanceledException canceledEx)
@@ -154,6 +172,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
+        }
+
+        private async Task SendImportMetricsNotification(JobInfo jobInfo, ImportProcessingJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
+        {
+            _logger.LogJobInformation(jobInfo, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
+
+            if (importMode == ImportMode.IncrementalLoad)
+            {
+                var incrementalImportProperties = new Dictionary<string, string>();
+                incrementalImportProperties["JobId"] = jobInfo.Id.ToString();
+                incrementalImportProperties["SucceededResources"] = currentResult.SucceededResources.ToString();
+                incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
+
+                _auditLogger.LogAudit(
+                    AuditAction.Executed,
+                    operation: "import/" + ImportMode.IncrementalLoad.ToString(),
+                    resourceType: string.Empty,
+                    requestUri: fhirRequestContext.Uri,
+                    statusCode: HttpStatusCode.Accepted,
+                    correlationId: fhirRequestContext.CorrelationId,
+                    callerIpAddress: null,
+                    callerClaims: null,
+                    customHeaders: null,
+                    operationType: string.Empty,
+                    callerAgent: DefaultCallerAgent,
+                    additionalProperties: incrementalImportProperties);
+
+                _logger.LogJobInformation(jobInfo, "Audit logs for incremental import are added.");
+            }
+
+            var importJobMetricsNotification = new ImportJobMetricsNotification(
+                jobInfo.Id.ToString(),
+                JobStatus.Completed.ToString(),
+                jobInfo.CreateDate,
+                Clock.UtcNow,
+                currentResult.ProcessedBytes,
+                currentResult.SucceededResources,
+                currentResult.FailedResources,
+                importMode);
+
+            await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
         }
 
         private static string GetErrorFileName(string resourceType, long groupId, long jobId)
