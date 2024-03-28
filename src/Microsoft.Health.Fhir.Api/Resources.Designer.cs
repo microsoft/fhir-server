@@ -565,6 +565,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested operation is not supported..
+        /// </summary>
+        public static string OperationNotSupported {
+            get {
+                return ResourceManager.GetString("OperationNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to FHIR Server.
         /// </summary>
         public static string PageTitle {

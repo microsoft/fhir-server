@@ -182,6 +182,9 @@
     <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
+  <data name="OperationNotSupported" xml:space="preserve">
+    <value>The requested operation is not supported.</value>
+  </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder="FHIR"}</comment>
