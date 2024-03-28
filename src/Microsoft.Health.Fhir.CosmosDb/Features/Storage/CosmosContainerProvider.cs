@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,9 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -37,6 +40,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
+            ICollectionSetup collectionSetup,
+            ICollectionDataUpdater collectionDataUpdater,
+            RetryExceptionPolicyFactory retryPolicyFactory,
             ILogger<CosmosContainerProvider> logger,
             IMediator mediator,
             IEnumerable<ICollectionInitializer> collectionInitializers)
@@ -51,14 +57,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
-
-            _initializationOperation = new RetryableInitializationOperation(
-                () => cosmosClientInitializer.InitializeDataStoreAsync(_client, cosmosDataStoreConfiguration, collectionInitializers));
-
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
                 collectionId));
+            _initializationOperation = new RetryableInitializationOperation(async () =>
+            {
+                await InitializeDataStoreAsync(collectionSetup, collectionDataUpdater, cosmosDataStoreConfiguration, retryPolicyFactory, collectionInitializers);
+            });
         }
 
         public Container Container
@@ -73,6 +79,30 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 return _container.Value;
+            }
+        }
+
+        private async Task InitializeDataStoreAsync(
+          ICollectionSetup collectionSetup,
+          ICollectionDataUpdater collectionDataUpdater,
+          CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+          RetryExceptionPolicyFactory retryPolicyFactory,
+          IEnumerable<ICollectionInitializer> collectionInitializers)
+        {
+            try
+            {
+                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
+
+                await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
+                await collectionSetup.CreateCollectionAsync(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
+                await collectionSetup.UpdateFhirCollectionSettingsAsync(_container.Value, CancellationToken.None);
+                await collectionDataUpdater.ExecuteAsync(_container.Value, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                LogLevel logLevel = LogLevel.Critical;
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} Initialization has failed.", cosmosDataStoreConfiguration.DatabaseId);
+                throw;
             }
         }
 

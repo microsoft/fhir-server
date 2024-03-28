@@ -7,9 +7,12 @@ using System.Threading;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -46,7 +49,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             var factory = Substitute.For<ICosmosDbDistributedLockFactory>();
             var cosmosDbDistributedLock = Substitute.For<ICosmosDbDistributedLock>();
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
-
+            var collectionDataupdater = Substitute.For<ICollectionDataUpdater>();
+            var storeProcedureInstaller = Substitute.For<IStoredProcedureInstaller>();
             optionsMonitor.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             factory.Create(Arg.Any<Container>(), Arg.Any<string>()).Returns(cosmosDbDistributedLock);
@@ -62,8 +66,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             collectionVersionWrappers.ReadNextAsync(Arg.Any<CancellationToken>())
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
-            var updaters = new ICollectionUpdater[] { new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance), };
-            _manager = new CollectionUpgradeManager(updaters, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
+            collectionDataupdater.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
+                .Returns(Task.CompletedTask);
+
+            storeProcedureInstaller.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
+               .Returns(Task.CompletedTask);
+
+            _manager = new CollectionUpgradeManager(collectionDataupdater, storeProcedureInstaller, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
 
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();
 
