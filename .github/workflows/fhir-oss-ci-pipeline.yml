@@ -134,7 +134,7 @@ jobs:
             8.x
       - name: Nuget Restore
         shell: bash
-        run: dotnet restore Microsoft.Health.Fhir.sln
+        run: dotnet restore ./Microsoft.Health.Fhir.sln
       - name: Download Build Artifacts from Job Cache
         uses: actions/download-artifact@v4
         with:
