@@ -113,6 +113,10 @@ jobs:
       matrix:
         fhirSchemaVersion: ["Stu3", "R4", "R4B", "R5"]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Download Build Artifacts from Job Cache
         uses: actions/download-artifact@v4
         with:
