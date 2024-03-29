@@ -1,0 +1,100 @@
+parameters:
+- name: version
+  type: string
+
+jobs:
+- job: "integrationTests_${{ parameters.version }}"
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+  
+  - task: ExtractFiles@1
+    displayName: 'Extract Integration Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - powershell: |
+      $sapassword = -join((((33,35,37,38,42,43,45,46,95) + (48..57) + (65..90) + (97..122) | Get-Random -Count 20) + ((33,35,37,38,42,43,45,46,95) | Get-Random -Count 1) + ((48..57) | Get-Random -Count 1) + ((65..90) | Get-Random -Count 1) + ((97..122) | Get-Random -Count 1) | Get-Random -Count 24) | % {[char]$_})
+      Write-Host "##vso[task.setvariable variable=sapassword;isOutput=true]$sapassword"
+    displayName: 'Generate random password'
+
+  - task: Bash@3
+    displayName: 'Start SQL Server'
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=T3stP@ssw0rd" -p 1433:1433 -d --rm --name sql-server mcr.microsoft.com/mssql/server:2019-latest
+
+  - task: Bash@3
+    displayName: 'Start Azure Cosmos DB Emulator'
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker run \
+          -p 8081:8081 \
+          -p 10250-10255:10250-10255 \
+          -d \
+          --rm \
+          --name cosmos \
+          -e "AZURE_COSMOS_EMULATOR_PARTITION_COUNT=2" \
+          mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        for i in {1..20}; do docker exec sql-server sh -c "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "T3stP@ssw0rd" -Q 'SELECT * FROM INFORMATION_SCHEMA.TABLES'" && exit 0 || sleep 5; done; exit 1
+    displayName: 'Wait for SQL Server'
+
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        HTTPD="0"
+        until [ "$HTTPD" == "200" ]; do
+            printf '.'
+            sleep 5
+            HTTPD=`curl -A "Web Check" -sLk --connect-timeout 3 -w "%{http_code}\n" "https://localhost:8081/_explorer/emulator.pem" -o /dev/null`
+        done
+
+        curl -k https://localhost:8081/_explorer/emulator.pem > ~/emulatorcert.crt
+        sudo cp ~/emulatorcert.crt /usr/local/share/ca-certificates/
+        sudo update-ca-certificates
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Integration Tests'
+    inputs:
+      command: test
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: '${{ parameters.version }} Integration'
+    env:
+      'SqlServer:ConnectionString': 'Server=(local);Persist Security Info=False;User ID=sa;Password=T3stP@ssw0rd;MultipleActiveResultSets=False;Connection Timeout=30;TrustServerCertificate=true'
+
+  - task: Bash@3
+    displayName: 'Stop Sql Server'
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker stop sql-server
+
+  - task: Bash@3
+    displayName: 'Stop Cosmos'
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker stop cosmos
