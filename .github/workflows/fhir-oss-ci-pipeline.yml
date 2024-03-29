@@ -128,7 +128,7 @@ jobs:
             6.x
             8.x
       - name: Nuget Restore
-        working-directory: ${{github.workspace}}/fhirserver/fhirserver
+        working-directory: ${{github.workspace}}/fhirserver
         shell: bash
         run: dotnet restore --verbosity detailed
       - name: Download Build Artifacts from Job Cache
