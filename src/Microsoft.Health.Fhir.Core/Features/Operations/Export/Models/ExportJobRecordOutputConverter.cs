@@ -12,10 +12,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     /// <summary>
     /// A custom converter for de-serializing the Output property in ExportJobRecord correctly.
-    /// In SchemaVersion v1 for EJR, Output is of Dictionary<string, ExportFileInfo> format.
-    /// In SchemaVersion v2 it is of Dictionary<string, List<ExportFileInfo>> format.
+    /// In SchemaVersion v1 for EJR, Output is of Dictionary&gt;string, ExportFileInfo&gt; format.
+    /// In SchemaVersion v2 it is of Dictionary&gt;string, List&gt;ExportFileInfo&gt;&gt; format.
     /// This converter makes sure the updated code can still read v1 by returning a
-    /// List<ExportFileInfo> always.
+    /// List&lt;ExportFileInfo&gt; always.
     /// </summary>
     public class ExportJobRecordOutputConverter : JsonConverter
     {

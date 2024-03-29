@@ -588,7 +588,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// <summary>
         /// Get all the results for given search string matching the tag
         /// </summary>
-        /// <returns>List<Bundle.EntryComponent> for the given search string</returns>
+        /// <returns>List of Bundle.EntryComponent for the given search string</returns>
         private async Task<List<Bundle.EntryComponent>> GetAllResultsWithMatchingTagForGivenSearch(string searchString, string tag)
         {
             FhirResponse<Bundle> response;
