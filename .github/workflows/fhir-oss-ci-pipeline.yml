@@ -53,18 +53,18 @@ jobs:
         id: version
         uses: ./.github/actions/update-semver
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{secrets.AZURE_CLIENT_ID}}
-          subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          tenant-id: ${{secrets.AZURE_TENANT_ID}}
-          enable-AzPSSession: true
+      # - name: Azure Login
+      #   uses: azure/login@v2
+      #   with:
+      #     client-id: ${{secrets.AZURE_CLIENT_ID}}
+      #     subscription-id: ${{secrets.AZURE_SUBSCRIPTION_ID}}
+      #     tenant-id: ${{secrets.AZURE_TENANT_ID}}
+      #     enable-AzPSSession: true
 
-      - name: Clean Storage Accounts
-        uses: ./.github/actions/clean-storage-accounts
-        with:
-          environmentName: ${{vars.CIRESOURCEGROUPROOT}}
+      # - name: Clean Storage Accounts
+      #   uses: ./.github/actions/clean-storage-accounts
+      #   with:
+      #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
       # - name: Cleanup Integration Test databases
       #   uses: ./.github/actions/cleanup-integration-test-databases
       #   with:
@@ -128,7 +128,7 @@ jobs:
             6.x
             8.x
       - name: Nuget Restore
-        working-directory: ${{github.workspace}}/fhirserver
+        working-directory: ${{github.workspace}}
         shell: bash
         run: dotnet restore --verbosity detailed
       - name: Download Build Artifacts from Job Cache
