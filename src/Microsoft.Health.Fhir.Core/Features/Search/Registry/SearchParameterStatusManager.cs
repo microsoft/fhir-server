@@ -136,9 +136,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
-                // first check if this parameter is marked as duplicate.  If so, not status updates are allowed.
+                // first check if this parameter is marked as duplicate.  If so, only status updates to deleted are allowed.
                 var existinParameterFound = parameters.TryGetValue(uri, out var existingStatus);
-                if (existinParameterFound && existingStatus.Status == SearchParameterStatus.Duplicate)
+                if (existinParameterFound && existingStatus.Status == SearchParameterStatus.Duplicate &&
+                    (status != SearchParameterStatus.Duplicate && status != SearchParameterStatus.Deleted))
                 {
                     _logger.LogWarning("SearchParameterStatusManager: Attempting to update status of duplicate search parameter {Uri}", uri);
                     throw new InvalidOperationException(string.Format(Core.Resources.SearchParameterStatusManagerDuplicate, uri));
