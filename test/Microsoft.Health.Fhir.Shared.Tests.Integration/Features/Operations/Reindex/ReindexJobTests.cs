@@ -38,6 +38,7 @@ using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -85,11 +86,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISearchParameterOperations _searchParameterOperations2 = null;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator = Substitute.For<IDataStoreSearchParameterValidator>();
 
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
+
         public ReindexJobTests(FhirStorageTestsFixture fixture, ITestOutputHelper output)
         {
             _fixture = fixture;
             _testHelper = _fixture.TestHelper;
             _output = output;
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
         }
 
         public async Task InitializeAsync()
@@ -130,6 +136,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
                 () => _searchService,
+                _fhirRequestContextAccessor,
                 NullLogger<SearchParameterOperations>.Instance);
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
@@ -1047,6 +1054,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterSupportResolver,
                 _dataStoreSearchParameterValidator,
                 () => _searchService,
+                _fhirRequestContextAccessor,
                 NullLogger<SearchParameterOperations>.Instance);
         }
     }
