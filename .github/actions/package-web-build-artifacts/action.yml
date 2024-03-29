@@ -28,5 +28,5 @@ runs:
       shell: bash
       run: |
         echo "Packaging web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        dotnet publish ${{github.workspace}}/**/*Web.csproj --output ${{inputs.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build
+        dotnet publish ${{github.workspace}}/**/*Web.csproj --output ${{inputs.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}}
     
