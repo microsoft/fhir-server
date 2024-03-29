@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// The format definition string. An export job's format is used to create the folder stucture inside the container.
         /// The format is defined by tags and characters. Supported tags are defined below. The / character is used to indicate a subfolder.
-        /// <timestamp> - Places a timestamp corisponding to the time the export job was enqueued.
-        /// <resourcename> - The name of the resource currently being exported.
-        /// <id> - The GUID id of the export job.
+        /// &lt;timestamp&gt; - Places a timestamp corisponding to the time the export job was enqueued.
+        /// &lt;resourcename&gt; - The name of the resource currently being exported.
+        /// &lt;id&gt; - The GUID id of the export job.
         /// </summary>
         public string Format { get; set; }
 

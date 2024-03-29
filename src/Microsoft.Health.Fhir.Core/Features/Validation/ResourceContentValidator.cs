@@ -17,7 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <summary>
     /// Validates content of resource.
     /// </summary>
-    /// <typeparam name="T">The type of the element.</typeparam>
     /// <remarks>
     /// Even if we correctly parsed resource into object it doesn't mean resource is valid.
     /// We need to check that properties have right cardinality, correct types, proper format, etc.

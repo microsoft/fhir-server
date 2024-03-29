@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         /// <summary>
         /// Get or add the value to cache.
         /// </summary>
-        /// <typeparam name="T">Type of the value in cache</typeparam>
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
         /// <returns>Value in cache</returns>
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
         }
 
         /// <summary>
-        /// Try to retrieve an item from cache, if it does not exist then returns the <see cref="default"/> for that generic type.
+        /// Try to retrieve an item from cache, if it does not exist then returns the default for that generic type.
         /// </summary>
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
