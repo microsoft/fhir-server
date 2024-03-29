@@ -111,7 +111,7 @@ jobs:
           path: ${{env.outputPath}}
   packageBuildArtifacts:
     runs-on: ubuntu-latest
-    needs: buildAndUnitTest
+    needs: [setup, buildAndUnitTest]
     strategy:
       matrix:
         fhirSchemaVersion: ["Stu3", "R4", "R4B", "R5"]
