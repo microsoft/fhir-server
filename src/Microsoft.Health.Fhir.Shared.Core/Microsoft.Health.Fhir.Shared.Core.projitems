@@ -56,7 +56,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\FhirPathPatchBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\ElementModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\FhirParametersExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\Constants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\ISearchParameterConflictingCodeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterConflictingCodeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)\Features\Resources\Patch\FhirPathPatch\Operations\PatchOperationType.cs" />

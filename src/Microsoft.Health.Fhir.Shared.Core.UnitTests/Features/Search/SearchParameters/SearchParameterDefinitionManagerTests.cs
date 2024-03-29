@@ -135,6 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterSupportResolver,
                 searchParameterDataStoreValidator,
                 () => searchService.CreateMockScope(),
+                _fhirRequestContextAccessor,
                 NullLogger<SearchParameterOperations>.Instance);
         }
 

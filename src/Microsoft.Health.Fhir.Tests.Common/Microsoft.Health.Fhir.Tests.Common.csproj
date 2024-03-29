@@ -14,7 +14,13 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+    <None Remove="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_baseResourceMismatch.json" />
+    <None Remove="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_dup.json" />
+    <None Remove="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_expressionMismatch.json" />
+    <None Remove="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_expressionMismatch_Resource.json" />
     <None Remove="TestFiles\Normative\MemberMatch.json" />
+    <None Remove="TestFiles\Normative\SearchParameterComponentDuplicate.json" />
+    <None Remove="TestFiles\Normative\SearchParameterComponentDuplicate_mismatch.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
@@ -22,6 +28,10 @@
   <ItemGroup>
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_baseResourceMismatch.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_dup.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_expressionMismatch_Resource.json" />
+	  <EmbeddedResource Include="TestFiles\Normative\ExplanationOfBenefit_Identifier_CDEX_expressionMismatch.json" />
 	  <EmbeddedResource Include="TestFiles\Normative\Import-Observation.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\LegacyRawReindexJobRecord.json" />
     <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
@@ -64,6 +74,8 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-SpecimenStatus.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterComponentDuplicate.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterComponentDuplicate_mismatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\sql_8623_script.sql" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowChargeItem.json" />
     <EmbeddedResource Include="TestFiles\Normative\TokenOverflowPatient.json" />

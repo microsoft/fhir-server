@@ -11,9 +11,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -30,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
 
         public SearchParameterOperations(
@@ -39,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
@@ -47,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
@@ -55,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
             _searchServiceFactory = searchServiceFactory;
+            _contextAccessor = contextAccessor;
             _logger = logger;
         }
 
@@ -62,35 +68,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
-                // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                bool duplicateSearchParameter = IsSearchParameterDuplicate();
 
-                if (searchParameterInfo.Component?.Any() == true)
+                if (!duplicateSearchParameter)
                 {
-                    foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                    // verify the parameter is supported before continuing
+                    var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+
+                    if (searchParameterInfo.Component?.Any() == true)
                     {
-                        c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                        foreach (SearchParameterComponentInfo c in searchParameterInfo.Component)
+                        {
+                            c.ResolvedSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl.OriginalString);
+                        }
                     }
-                }
 
-                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                    (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
-                if (!supportedResult.Supported)
-                {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
-                }
+                    if (!supportedResult.Supported)
+                    {
+                        throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    }
 
-                // check data store specific support for SearchParameter
-                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
-                {
-                    throw new SearchParameterNotSupportedException(errorMessage);
+                    // check data store specific support for SearchParameter
+                    if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                    {
+                        throw new SearchParameterNotSupportedException(errorMessage);
+                    }
                 }
 
                 _logger.LogTrace("Adding the search parameter '{Url}'", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(
+                    new List<string> { searchParameterWrapper.Url },
+                    cancellationToken,
+                    duplicateSearchParameter ? SearchParameterStatus.Duplicate : SearchParameterStatus.Supported);
             }
             catch (FhirException fex)
             {
@@ -167,18 +181,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 await GetAndApplySearchParameterUpdates(cancellationToken);
 
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                bool duplicateSearchParameter = IsSearchParameterDuplicate();
 
-                if (!supportedResult.Supported)
+                if (!duplicateSearchParameter)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
-                }
+                    var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                    (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
-                // check data store specific support for SearchParameter
-                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
-                {
-                    throw new SearchParameterNotSupportedException(errorMessage);
+                    if (!supportedResult.Supported)
+                    {
+                        throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    }
+
+                    // check data store specific support for SearchParameter
+                    if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                    {
+                        throw new SearchParameterNotSupportedException(errorMessage);
+                    }
                 }
 
                 var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParam);
@@ -193,7 +212,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 _logger.LogTrace("Adding the search parameter '{Url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(
+                    new List<string>() { searchParameterWrapper.Url },
+                    cancellationToken,
+                    duplicateSearchParameter ? SearchParameterStatus.Duplicate : SearchParameterStatus.Supported);
             }
             catch (FhirException fex)
             {
@@ -301,6 +323,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             return null;
+        }
+
+        private bool IsSearchParameterDuplicate()
+        {
+            return _contextAccessor.RequestContext.Properties.TryGetValue(Constants.DuplicateSearchParameterUrl, out _);
         }
     }
 }

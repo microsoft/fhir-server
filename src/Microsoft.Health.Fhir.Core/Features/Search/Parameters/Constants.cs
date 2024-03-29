@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public static class Constants
     {

@@ -1,0 +1,83 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "explanationofbenefit-identifier",
+    "meta": {
+        "versionId": "1",
+        "lastUpdated": "2020-03-31T06:41:13.000+00:00"
+    },
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>ExplanationOfBenefit_Identifier <a style=\"padding-left: 3px; padding-right: 3px; border: 1px grey solid; font-weight: bold; color: black; background-color: #efefef\" href=\"http://hl7.org/fhir/R4/versions.html#std-process\" title=\"Standards Status = Draft\">D</a></h2><p>Parameter <code>identifier</code>:<code>token</code></p><div><p>The business/claim identifier of the Explanation of Benefit</p>\n</div><table class=\"grid\"><tr><td>Resource</td><td><a href=\"http://hl7.org/fhir/R4/explanationofbenefit.html\">ExplanationOfBenefit</a></td></tr><tr><td>Expression</td><td><code>ExplanationOfBenefit.identifier</code></td></tr><tr><td>Processing Mode</td><td>Normal</td></tr><tr><td>Multiples</td><td><ul><li>multipleAnd: It's up to the server whether the parameter may repeat in order to specify multiple values that must all be true</li><li>multipleOr: It's up to the server whether the parameter can have multiple values (separated by comma) where at least one must be true</li></ul></td></tr></table></div>"
+    },
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "draft"
+        },
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-wg",
+            "valueCode": "fm"
+        }
+    ],
+    "url": "http://hl7.org/fhir/us/davinci-pdex/SearchParameter/explanationofbenefit-identifier",
+    "version": "2.0.0",
+    "name": "ExplanationOfBenefit_Identifier",
+    "derivedFrom": "http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-identifier",
+    "status": "draft",
+    "experimental": false,
+    "date": "2020-03-31T19:48:45+10:00",
+    "publisher": "HL7 International / Financial Management",
+    "contact": [
+        {
+            "name": "HL7 International / Financial Management",
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/fm"
+                },
+                {
+                    "system": "email",
+                    "value": "fm@lists.HL7.org"
+                }
+            ]
+        },
+        {
+            "name": "Mark Scrimshire (mark.scrimshire@onyxhealth.io)",
+            "telecom": [
+                {
+                    "system": "email",
+                    "value": "mailto:mark.scrimshire@onyxhealth.io"
+                }
+            ]
+        },
+        {
+            "name": "HL7 International - Financial Management",
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/fm"
+                }
+            ]
+        }
+    ],
+    "description": "The business/claim identifier of the Explanation of Benefit",
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US",
+                    "display": "United States of America"
+                }
+            ]
+        }
+    ],
+    "code": "identifier",
+    "base": [
+        "Patient",
+        "ExplanationOfBenefit"
+    ],
+    "type": "token",
+    "expression": "ExplanationOfBenefit.identifier",
+    "xpathUsage": "normal"
+}

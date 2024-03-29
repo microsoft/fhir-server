@@ -136,6 +136,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
+                // first check if this parameter is marked as duplicate.  If so, not status updates are allowed.
+                var existinParameterFound = parameters.TryGetValue(uri, out var existingStatus);
+                if (existinParameterFound && existingStatus.Status == SearchParameterStatus.Duplicate)
+                {
+                    _logger.LogWarning("SearchParameterStatusManager: Attempting to update status of duplicate search parameter {Uri}", uri);
+                    throw new InvalidOperationException(string.Format(Core.Resources.SearchParameterStatusManagerDuplicate, uri));
+                }
+
                 _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
                 SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
@@ -143,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                if (parameters.TryGetValue(uri, out var existingStatus))
+                if (existinParameterFound)
                 {
                     existingStatus.LastUpdated = Clock.UtcNow;
                     existingStatus.Status = status;
@@ -172,11 +180,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
+        internal async Task AddSearchParameterStatusAsync(
+            IReadOnlyCollection<string> searchParamUris,
+            CancellationToken cancellationToken,
+            SearchParameterStatus status = SearchParameterStatus.Supported)
         {
-            // new search parameters are added as supported, until reindexing occurs, when
+            // new search parameters are normally added as supported, until reindexing occurs, when
             // they will be fully enabled
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
+            // However, if the SearchParameter is a duplicate of an existing parameter, it will be added
+            // duplicate status to ensure it does not trigger a Reindexing operation
+            await UpdateSearchParameterStatusAsync(searchParamUris, status, cancellationToken);
         }
 
         internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)

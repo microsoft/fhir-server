@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             }
 
             // check each component
-            if (conflictingSearchParam.Component!.Count > 0)
+            if (conflictingSearchParam.Component?.Count > 0)
             {
                 var componentsMatch = true;
 

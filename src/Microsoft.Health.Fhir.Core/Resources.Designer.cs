@@ -1457,6 +1457,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to SearchParameter with Uri: {0} is a duplicate of another search parameter and cannot have it&apos;s status changed..
+        /// </summary>
+        internal static string SearchParameterStatusManagerDuplicate {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusManagerDuplicate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search Parameter Status was not found..
         /// </summary>
         internal static string SearchParameterStatusNotFound {
