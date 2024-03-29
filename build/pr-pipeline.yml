@@ -65,8 +65,7 @@ stages:
     - template: ./jobs/build.yml
       parameters:
         targetBuildFramework: 'net6.0'
-  
- 
+
 - stage: BuildArtifacts
   displayName: 'Build artifacts'
   dependsOn:
@@ -94,7 +93,6 @@ stages:
 - stage: AnalyzeSecurity
   displayName: 'Run Security Analysis and Validate'
   dependsOn:
-  - BuildUnitTests
   - BuildArtifacts
   jobs:
   - job: Guardian
@@ -113,6 +111,24 @@ stages:
   - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
+
+- stage: runIntegrationTests
+  displayName: 'Integration Tests'
+  dependsOn:
+  - BuildArtifacts
+  jobs:
+  - template: ./jobs/run-integration-tests.yml
+    parameters:
+      version: Stu3
+  - template: ./jobs/run-integration-tests.yml
+    parameters:
+      version: R4
+  - template: ./jobs/run-integration-tests.yml
+    parameters:
+      version: R4B
+  - template: ./jobs/run-integration-tests.yml
+    parameters:
+      version: R5
 
 - stage: provisionEnvironment
   displayName: Provision Environment
