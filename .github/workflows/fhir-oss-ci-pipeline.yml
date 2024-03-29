@@ -105,11 +105,6 @@ jobs:
       #     chmod +x $RUNNER_TEMP/sbom-tool
       #     $RUNNER_TEMP/sbom-tool generate -b . -bc . -V Verbose -ps "Organization: Microsoft" -pv ${{needs.setup.outputs.majorMinorPatch}} -pn ${{needs.setup.outputs.informationalVersion}}
 
-      # - name: Docker Build
-      #   uses: ./.github/actions/docker-build
-      #   with:
-      #     assemblySemFileVer: ${{needs.setup.outputs.semVer}}
-
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -133,6 +128,7 @@ jobs:
             6.x
             8.x
       - name: Nuget Restore
+        working-directory: ${{github.workspace}}/fhirserver/fhirserver
         shell: bash
         run: dotnet restore --verbosity detailed
       - name: Download Build Artifacts from Job Cache
@@ -147,11 +143,33 @@ jobs:
           outputPath: ${{env.outputPath}}
           buildConfiguration: ${{env.buildConfiguration}}
           semVer: ${{needs.setup.outputs.semVer}}
+      # - name: Docker Build
+      #   uses: ./.github/actions/docker-build
+      #   with:
+      #     assemblySemFileVer: ${{needs.setup.outputs.semVer}}
   # runIntegrationTests:
   #   runs-on: ubuntu-latest
   #   needs : buildAndUnitTest
   #   steps:
+    # - name: Checkout
+    #     uses: actions/checkout@v4
+    #     with:
+    #       fetch-depth: 0
   #     - name: Download Build Artifact for Testing
   #       uses: actions/download-artifact@v4
   #       with:
   #         path: artifacts
+      # - name: Install Latest .Net SDK
+      #   uses: actions/setup-dotnet@v4
+      #   with:
+      #     global-json-file: 'global.json'
+      #     dotnet-version: |
+      #       6.x
+      #       8.x
+      # -  name: Docker add main tag
+      #   uses: ./.github/actions/docker-add-main-tag
+      #   with:
+      #     assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+      #     imageTag: ${{env.imageTag}}
+      #     azureContainerRegistryName: ${{env.azureContainerRegistryName}}
+      #     connectedServiceName: ${{env.connectedServiceName}}
