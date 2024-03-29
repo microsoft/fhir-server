@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class IncompleteDeleteException : RequestTooCostlyException
     {
         public IncompleteDeleteException(int numberOfResourceVersionsDeleted)
-            : base(message: string.Format(Resources.PartialDeleteSuccess, numberOfResourceVersionsDeleted.ToString(), StringComparison.Ordinal))
+            : base(message: string.Format(Resources.PartialDeleteSuccess, numberOfResourceVersionsDeleted, StringComparison.Ordinal))
         {
         }
     }
