@@ -126,6 +126,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     returnCode = HttpStatusCode.NotFound;
                     diagnosticInfo = Resources.NotFoundException;
                     break;
+                case (int)HttpStatusCode.MethodNotAllowed:
+                    issueType = OperationOutcome.IssueType.NotSupported;
+                    returnCode = HttpStatusCode.MethodNotAllowed;
+                    diagnosticInfo = Resources.OperationNotSupported;
+                    break;
                 default:
                     issueType = OperationOutcome.IssueType.Exception;
                     returnCode = HttpStatusCode.InternalServerError;

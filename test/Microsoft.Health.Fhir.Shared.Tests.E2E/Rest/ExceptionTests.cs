@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
 using Microsoft.AspNetCore.Builder;
@@ -100,6 +101,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestHelper.AssertSecurityHeaders(fhirException.Headers);
 
             DotNetAttributeValidation.Validate(operationOutcome, true);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenANotAllowedMethod_WhenRequestIsSent_TheServerShouldReturnMethodNotSupported()
+        {
+            using var requestMessage = new HttpRequestMessage();
+            string uriString = _client.HttpClient.BaseAddress + "admin.html";
+            requestMessage.RequestUri = new Uri(uriString);
+            requestMessage.Method = HttpMethod.Head;
+            HttpResponseMessage response = await _client.HttpClient.SendAsync(requestMessage);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
 
         public class StartupWithThrowingMiddleware : StartupBaseForCustomProviders
