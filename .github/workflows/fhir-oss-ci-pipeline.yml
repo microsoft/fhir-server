@@ -123,13 +123,13 @@ jobs:
           dotnet-version: |
             6.x
             8.x
+      - name: Nuget Restore
+        shell: bash
+        run: dotnet restore
       - name: Download Build Artifacts from Job Cache
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Nuget Restore
-        shell: bash
-        run: dotnet restore
       - name: Package Web Build Artifacts
         uses: ./.github/actions/package-web-build-artifacts
         with:
