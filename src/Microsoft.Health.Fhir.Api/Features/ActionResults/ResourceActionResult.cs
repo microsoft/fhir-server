@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
             catch (ObjectDisposedException ode)
             {
-                throw new FhirServiceUnavailableException("Not able to create final result.", ode);
+                throw new InstanceUnavailableException("Not able to create final result.", ode);
             }
 
             HttpResponse response = context.HttpContext.Response;

@@ -525,11 +525,11 @@ public class CosmosQueueClient : IQueueClient
 
         try
         {
-            _containerFactory.Invoke();
+            container = _containerFactory.Invoke();
         }
         catch (ObjectDisposedException ode)
         {
-            throw new FhirServiceUnavailableException("Not able to run a new query.", ode);
+            throw new InstanceUnavailableException("Not able to run a new query.", ode);
         }
 
         using (container)

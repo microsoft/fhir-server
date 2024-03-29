@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public sealed class FhirServiceUnavailableException : FhirException
+    public sealed class InstanceUnavailableException : FhirException
     {
-        public FhirServiceUnavailableException(string message, Exception innerException = null)
+        public InstanceUnavailableException(string message, Exception innerException = null)
             : base(message, innerException)
         {
             EnsureArg.IsNotNullOrEmpty(message, nameof(message));
