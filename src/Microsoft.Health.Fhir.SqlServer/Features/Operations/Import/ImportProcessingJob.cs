@@ -174,46 +174,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task SendImportMetricsNotification(JobInfo jobInfo, ImportProcessingJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
-        {
-            _logger.LogJobInformation(jobInfo, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
+        ////private async Task SendImportMetricsNotification(JobInfo jobInfo, ImportProcessingJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
+        ////{
+        ////    _logger.LogJobInformation(jobInfo, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
 
-            if (importMode == ImportMode.IncrementalLoad)
-            {
-                var incrementalImportProperties = new Dictionary<string, string>();
-                incrementalImportProperties["JobId"] = jobInfo.Id.ToString();
-                incrementalImportProperties["SucceededResources"] = currentResult.SucceededResources.ToString();
-                incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
+        ////    if (importMode == ImportMode.IncrementalLoad)
+        ////    {
+        ////        var incrementalImportProperties = new Dictionary<string, string>();
+        ////        incrementalImportProperties["JobId"] = jobInfo.Id.ToString();
+        ////        incrementalImportProperties["SucceededResources"] = currentResult.SucceededResources.ToString();
+        ////        incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
 
-                _auditLogger.LogAudit(
-                    AuditAction.Executed,
-                    operation: "import/" + ImportMode.IncrementalLoad.ToString(),
-                    resourceType: string.Empty,
-                    requestUri: fhirRequestContext.Uri,
-                    statusCode: HttpStatusCode.Accepted,
-                    correlationId: fhirRequestContext.CorrelationId,
-                    callerIpAddress: null,
-                    callerClaims: null,
-                    customHeaders: null,
-                    operationType: string.Empty,
-                    callerAgent: DefaultCallerAgent,
-                    additionalProperties: incrementalImportProperties);
+        ////        _auditLogger.LogAudit(
+        ////            AuditAction.Executed,
+        ////            operation: "import/" + ImportMode.IncrementalLoad.ToString(),
+        ////            resourceType: string.Empty,
+        ////            requestUri: fhirRequestContext.Uri,
+        ////            statusCode: HttpStatusCode.Accepted,
+        ////            correlationId: fhirRequestContext.CorrelationId,
+        ////            callerIpAddress: null,
+        ////            callerClaims: null,
+        ////            customHeaders: null,
+        ////            operationType: string.Empty,
+        ////            callerAgent: DefaultCallerAgent,
+        ////            additionalProperties: incrementalImportProperties);
 
-                _logger.LogJobInformation(jobInfo, "Audit logs for incremental import are added.");
-            }
+        ////        _logger.LogJobInformation(jobInfo, "Audit logs for incremental import are added.");
+        ////    }
 
-            var importJobMetricsNotification = new ImportJobMetricsNotification(
-                jobInfo.Id.ToString(),
-                JobStatus.Completed.ToString(),
-                jobInfo.CreateDate,
-                Clock.UtcNow,
-                currentResult.ProcessedBytes,
-                currentResult.SucceededResources,
-                currentResult.FailedResources,
-                importMode);
+        ////    var importJobMetricsNotification = new ImportJobMetricsNotification(
+        ////        jobInfo.Id.ToString(),
+        ////        JobStatus.Completed.ToString(),
+        ////        jobInfo.CreateDate,
+        ////        Clock.UtcNow,
+        ////        currentResult.ProcessedBytes,
+        ////        currentResult.SucceededResources,
+        ////        currentResult.FailedResources,
+        ////        importMode);
 
-            await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
-        }
+        ////    await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
+        ////}
 
         private static string GetErrorFileName(string resourceType, long groupId, long jobId)
         {
