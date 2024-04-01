@@ -16,9 +16,6 @@ inputs:
   semVer:
     description: 'The SemVer to use'
     required: true
-  dotnetVersion:
-    description: 'The version of dotnet to use'
-    required: true
 runs:
   using: 'composite'
   steps:
@@ -31,5 +28,5 @@ runs:
       shell: bash
       run: |
         echo "Packaging web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{inputs.dotnetVersion}}
+        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}}
     
