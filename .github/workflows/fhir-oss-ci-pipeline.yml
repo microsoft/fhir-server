@@ -105,7 +105,7 @@ jobs:
           outputPath: ${{env.outputPath}}
           buildConfiguration: ${{env.buildConfiguration}}
           semVer: ${{needs.setup.outputs.semVer}}
-          dotnetVersion: 6.x
+          dotnetVersion: net6.0
       - name: Package Web Build Artifacts 8.x
         uses: ./.github/actions/package-web-build-artifacts
         with:
@@ -114,7 +114,7 @@ jobs:
           outputPath: ${{env.outputPath}}
           buildConfiguration: ${{env.buildConfiguration}}
           semVer: ${{needs.setup.outputs.semVer}}
-          dotnetVersion: 8.x
+          dotnetVersion: net8.0
       # - name: Test
       #   uses: ./.github/actions/dotnet-test
       #   with:
