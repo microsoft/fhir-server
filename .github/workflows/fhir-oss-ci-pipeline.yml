@@ -109,42 +109,59 @@ jobs:
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4
         with:
+          name: build
           path: ${{env.outputPath}}
       - name: Create Nuget packages
         shell: bash
         run: |
           echo "Creating Nuget packages"
           dotnet pack ${{github.workspace}} --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
+
       - name: Upload Nuget Packages
         uses: actions/upload-artifact@v4
         with:
-          name: nupkgs
+          name: nuget
           path: ${{env.outputPath}}/nupkgs
-      - name: Publish testauthenvironment.json to deploy directory
+
+      - name: samples
         shell: bash
         run: |
-          echo "Publishing testauthenvironment.json to deploy directory"
-          dotnet publish ${{github.workspace}}/testauthenvironment.json --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
-      - name: Publish global.json to deploy directory
+          echo "Copying samples to deploy directory"
+          cp -r ${{github.workspace}}/samples ${{env.outputPath}}/deploy
+      - name: Copying testauthenvironment.json to deploy directory
         shell: bash
         run: |
-          echo "Publishing global.json to deploy directory"
-          dotnet publish ${{github.workspace}}/global.json --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
-      - name: Publish test configuration jsons to deploy directory
+          echo "Copying testauthenvironment.json to deploy directory"
+          cp ${{github.workspace}}/testauthenvironment.json ${{env.outputPath}}/deploy/
+      - name: Copying global.json to deploy directory
         shell: bash
         run: |
-          echo "Publishing test configuration jsons to deploy directory"
-          dotnet publish ${{github.workspace}}/test/Configuration --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
-      - name: Publish release directory to deploy directory
+          echo "Copying global.json to deploy directory"
+          cp ${{github.workspace}}/global.json ${{env.outputPath}}/deploy/
+
+      - name: Copying test configuration json to deploy directory
         shell: bash
         run: |
-          echo "Publishing release directory to deploy directory"
-          dotnet publish ${{github.workspace}}/release --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+          echo "Copying test configuration json to deploy directory"
+          cp ${{github.workspace}}/test/Configuration/testconfiguration.json ${{env.outputPath}}/deploy/
+
+      - name: Copying release directory to deploy directory
+        shell: bash
+        run: |
+          echo "Copying release directory to deploy directory"
+          cp -r ${{github.workspace}}/release ${{env.outputPath}}/deploy
+
       - name: Upload deploy directory
         uses: actions/upload-artifact@v4
         with:
           name: deploy
           path: ${{env.outputPath}}/deploy
+
+      # - name: Upload Symbols
+      #   uses: actions/ipload-artifact@v4
+      #   with:
+      #     name: symbols
+      #     path: ${{env.outputPath}}/bin/${{env.buildConfiguration}}/net5.0/publish
   packageBuildArtifacts:
     runs-on: ubuntu-latest
     needs: [setup, buildAndUnitTest]
@@ -167,10 +184,12 @@ jobs:
         working-directory: ${{github.workspace}}
         shell: bash
         run: dotnet restore --verbosity detailed
+
       - name: Download Build Artifacts from Job Cache
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: artifacts/build
+
       - name: Package and Publish Artifacts
         uses: ./.github/actions/package-web-build-artifacts
         with:
