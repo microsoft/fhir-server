@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IMediator mediator = Substitute.For<IMediator>();
             IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -139,6 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             ImportProcessingJob job = new ImportProcessingJob(
                                     mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -163,6 +165,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IMediator mediator = Substitute.For<IMediator>();
             IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -177,6 +180,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 
             ImportProcessingJob job = new ImportProcessingJob(
                                     mediator,
+                                    queueClient,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -200,6 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IMediator mediator = Substitute.For<IMediator>();
             IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
+            IQueueClient queueClient = Substitute.For<IQueueClient>();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -249,7 +254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return progress;
                 });
 
-            var job = new ImportProcessingJob(mediator, loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory, auditLogger);
+            var job = new ImportProcessingJob(mediator, queueClient, loader, importer, importErrorStoreFactory, contextAccessor, loggerFactory, auditLogger);
 
             string resultString = await job.ExecuteAsync(GetJobInfo(inputData, currentResult), CancellationToken.None);
             ImportProcessingJobResult result = JsonConvert.DeserializeObject<ImportProcessingJobResult>(resultString);

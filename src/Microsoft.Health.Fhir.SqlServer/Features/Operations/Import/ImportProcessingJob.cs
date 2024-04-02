@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
 
         private readonly IMediator _mediator;
+        private readonly IQueueClient _queueClient;
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public ImportProcessingJob(
             IMediator mediator,
+            IQueueClient queueClient,
             IImportResourceLoader importResourceLoader,
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
@@ -51,6 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             IAuditLogger auditLogger)
         {
             _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
@@ -129,13 +132,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    var outEx = new JobExecutionException(ex.Message, error, ex);
+                    outEx.RequestCancellationOnFailure = true;
+                    throw outEx;
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
-                    throw new JobExecutionException(ex.Message, error, ex);
+                    var outEx = new JobExecutionException(ex.Message, error, ex);
+                    outEx.RequestCancellationOnFailure = true;
+                    throw outEx;
                 }
                 catch (Exception ex)
                 {
@@ -145,7 +152,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
 
-                ////await SendImportMetricsNotification(jobInfo, currentResult, definition.ImportMode, fhirRequestContext);
+                // jobs are small, send on success only
+                await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, TranslateResult(currentResult), definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
 
                 return JsonConvert.SerializeObject(currentResult);
             }
@@ -153,13 +161,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
+                var outEx = new JobExecutionException(canceledEx.Message, error, canceledEx);
+                outEx.RequestCancellationOnFailure = true;
+                throw outEx;
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
+                var outEx = new JobExecutionException(canceledEx.Message, error, canceledEx);
+                outEx.RequestCancellationOnFailure = true;
+                throw outEx;
             }
             catch (RetriableJobException retriableEx)
             {
@@ -170,50 +182,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
-                throw new JobExecutionException(ex.Message, error, ex);
+                var outEx = new JobExecutionException(ex.Message, error, ex);
+                outEx.RequestCancellationOnFailure = true;
+                throw outEx;
             }
         }
 
-        ////private async Task SendImportMetricsNotification(JobInfo jobInfo, ImportProcessingJobResult currentResult, ImportMode importMode, FhirRequestContext fhirRequestContext)
-        ////{
-        ////    _logger.LogJobInformation(jobInfo, "SucceededResources {SucceededResources} and FailedResources {FailedResources} in Import", currentResult.SucceededResources, currentResult.FailedResources);
-
-        ////    if (importMode == ImportMode.IncrementalLoad)
-        ////    {
-        ////        var incrementalImportProperties = new Dictionary<string, string>();
-        ////        incrementalImportProperties["JobId"] = jobInfo.Id.ToString();
-        ////        incrementalImportProperties["SucceededResources"] = currentResult.SucceededResources.ToString();
-        ////        incrementalImportProperties["FailedResources"] = currentResult.FailedResources.ToString();
-
-        ////        _auditLogger.LogAudit(
-        ////            AuditAction.Executed,
-        ////            operation: "import/" + ImportMode.IncrementalLoad.ToString(),
-        ////            resourceType: string.Empty,
-        ////            requestUri: fhirRequestContext.Uri,
-        ////            statusCode: HttpStatusCode.Accepted,
-        ////            correlationId: fhirRequestContext.CorrelationId,
-        ////            callerIpAddress: null,
-        ////            callerClaims: null,
-        ////            customHeaders: null,
-        ////            operationType: string.Empty,
-        ////            callerAgent: DefaultCallerAgent,
-        ////            additionalProperties: incrementalImportProperties);
-
-        ////        _logger.LogJobInformation(jobInfo, "Audit logs for incremental import are added.");
-        ////    }
-
-        ////    var importJobMetricsNotification = new ImportJobMetricsNotification(
-        ////        jobInfo.Id.ToString(),
-        ////        JobStatus.Completed.ToString(),
-        ////        jobInfo.CreateDate,
-        ////        Clock.UtcNow,
-        ////        currentResult.ProcessedBytes,
-        ////        currentResult.SucceededResources,
-        ////        currentResult.FailedResources,
-        ////        importMode);
-
-        ////    await _mediator.Publish(importJobMetricsNotification, CancellationToken.None);
-        ////}
+        private static ImportOrchestratorJobResult TranslateResult(ImportProcessingJobResult result)
+        {
+            return new ImportOrchestratorJobResult { SucceededResources = result.SucceededResources, FailedResources = result.FailedResources, TotalBytes = result.ProcessedBytes };
+        }
 
         private static string GetErrorFileName(string resourceType, long groupId, long jobId)
         {
