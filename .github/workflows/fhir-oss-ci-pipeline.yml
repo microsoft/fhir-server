@@ -118,6 +118,7 @@ jobs:
       - name: Upload Nuget Packages
         uses: actions/upload-artifact@v4
         with:
+          name: nupkgs
           path: ${{env.outputPath}}/nupkgs
       - name: Publish testauthenvironment.json to deploy directory
         shell: bash
@@ -142,6 +143,7 @@ jobs:
       - name: Upload deploy directory
         uses: actions/upload-artifact@v4
         with:
+          name: deploy
           path: ${{env.outputPath}}/deploy
   packageBuildArtifacts:
     runs-on: ubuntu-latest
