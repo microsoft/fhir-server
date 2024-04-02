@@ -132,17 +132,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
-                    var outEx = new JobExecutionException(ex.Message, error, ex);
-                    outEx.RequestCancellationOnFailure = true;
-                    throw outEx;
+                    throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
                     var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
-                    var outEx = new JobExecutionException(ex.Message, error, ex);
-                    outEx.RequestCancellationOnFailure = true;
-                    throw outEx;
+                    throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
                 {
@@ -161,17 +157,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
-                var outEx = new JobExecutionException(canceledEx.Message, error, canceledEx);
-                outEx.RequestCancellationOnFailure = true;
-                throw outEx;
+                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
-                var outEx = new JobExecutionException(canceledEx.Message, error, canceledEx);
-                outEx.RequestCancellationOnFailure = true;
-                throw outEx;
+                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (RetriableJobException retriableEx)
             {
@@ -182,9 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
-                var outEx = new JobExecutionException(ex.Message, error, ex);
-                outEx.RequestCancellationOnFailure = true;
-                throw outEx;
+                throw new JobExecutionException(ex.Message, error, ex);
             }
         }
 
