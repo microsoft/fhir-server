@@ -736,4 +736,8 @@
     <value>A resource should only appear once in each Bundle.</value>
     <comment>Error message for a duplicate resource key in the same bundle</comment>
   </data>
+  <data name="PartialDeleteSuccess" xml:space="preserve">
+    <value>Deleted {0} versions of the target resource.</value>
+    <comment>{0} is replaced with the number of deleted versions of the resource.</comment>
+  </data>
 </root>
