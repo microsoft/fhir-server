@@ -113,8 +113,8 @@ jobs:
       - name: Create Nuget packages
         shell: bash
         run: |
-          echo "Creating Nuget packages for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-          dotnet pack ${{github.workspace}} --output ${{inputs.outputPath}}/nupkgs --no-build --configuration=${{inputs.buildConfiguration}} -p:PackageVersion=${{inputs.majorMinorPatch}}
+          echo "Creating Nuget packages"
+          dotnet pack ${{github.workspace}} --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
       - name: Upload Nuget Packages
         uses: actions/upload-artifact@v4
         with:
@@ -123,22 +123,22 @@ jobs:
         shell: bash
         run: |
           echo "Publishing testauthenvironment.json to deploy directory"
-          dotnet publish ${{github.workspace}}/testauthenvironment.json --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+          dotnet publish ${{github.workspace}}/testauthenvironment.json --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
       - name: Publish global.json to deploy directory
         shell: bash
         run: |
           echo "Publishing global.json to deploy directory"
-          dotnet publish ${{github.workspace}}/global.json --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+          dotnet publish ${{github.workspace}}/global.json --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
       - name: Publish test configuration jsons to deploy directory
         shell: bash
         run: |
           echo "Publishing test configuration jsons to deploy directory"
-          dotnet publish ${{github.workspace}}/test/Configuration --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+          dotnet publish ${{github.workspace}}/test/Configuration --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
       - name: Publish release directory to deploy directory
         shell: bash
         run: |
           echo "Publishing release directory to deploy directory"
-          dotnet publish ${{github.workspace}}/release --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+          dotnet publish ${{github.workspace}}/release --output ${{env.outputPath}}/deploy --configuration ${{env.buildConfiguration}} --version-suffix ${{needs.setup.outputs.semVer}} --no-build -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
       - name: Upload deploy directory
         uses: actions/upload-artifact@v4
         with:
