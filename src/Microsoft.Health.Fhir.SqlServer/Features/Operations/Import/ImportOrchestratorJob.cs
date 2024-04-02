@@ -114,81 +114,68 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (TaskCanceledException taskCanceledEx)
             {
                 _logger.LogJobInformation(taskCanceledEx, jobInfo, "Import job canceled. {Message}", taskCanceledEx.Message);
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = taskCanceledEx.Message,
                 };
-
                 await SendNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import job canceled. {Message}", canceledEx.Message);
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = canceledEx.Message,
                 };
-
                 await SendNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
                 _logger.LogJobInformation(integrationDataStoreEx, jobInfo, "Failed to access input files.");
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = integrationDataStoreEx.StatusCode,
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
-
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
                 _logger.LogJobInformation(eTagEx, jobInfo, "Import file etag not match.");
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = eTagEx.Message,
                 };
-
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (ImportProcessingException processingEx)
             {
                 _logger.LogJobInformation(processingEx, jobInfo, "Failed to process input resources.");
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = processingEx.Message,
                     ErrorDetails = processingEx.ToString(),
                 };
-
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
-            catch (RetriableJobException ex)
-            {
-                _logger.LogJobInformation(ex, jobInfo, "Failed with RetriableJobException.");
-
-                throw;
-            }
+            ////catch (RetriableJobException ex)
+            ////{
+            ////    _logger.LogJobInformation(ex, jobInfo, "Failed with RetriableJobException.");
+            ////    throw;
+            ////}
             catch (Exception ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Failed to import data.");
-
                 errorResult = new ImportOrchestratorJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
                     ErrorDetails = ex.ToString(),
                 };
-
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
 
