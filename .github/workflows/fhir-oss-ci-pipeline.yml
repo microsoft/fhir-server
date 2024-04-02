@@ -110,6 +110,39 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ${{env.outputPath}}
+      - name: Create Nuget packages
+        shell: bash
+        run: |
+          echo "Creating Nuget packages for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+          dotnet pack ${{github.workspace}} --output ${{inputs.outputPath}}/nupkgs --no-build --configuration=${{inputs.buildConfiguration}} -p:PackageVersion=${{inputs.majorMinorPatch}}
+      - name: Upload Nuget Packages
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{env.outputPath}}/nupkgs
+      - name: Publish testauthenvironment.json to deploy directory
+        shell: bash
+        run: |
+          echo "Publishing testauthenvironment.json to deploy directory"
+          dotnet publish ${{github.workspace}}/testauthenvironment.json --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+      - name: Publish global.json to deploy directory
+        shell: bash
+        run: |
+          echo "Publishing global.json to deploy directory"
+          dotnet publish ${{github.workspace}}/global.json --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+      - name: Publish test configuration jsons to deploy directory
+        shell: bash
+        run: |
+          echo "Publishing test configuration jsons to deploy directory"
+          dotnet publish ${{github.workspace}}/test/Configuration --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+      - name: Publish release directory to deploy directory
+        shell: bash
+        run: |
+          echo "Publishing release directory to deploy directory"
+          dotnet publish ${{github.workspace}}/release --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}} --force
+      - name: Upload deploy directory
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{env.outputPath}}/deploy
   packageBuildArtifacts:
     runs-on: ubuntu-latest
     needs: [setup, buildAndUnitTest]
@@ -136,7 +169,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Package Web Build Artifacts
+      - name: Package and Publish Artifacts
         uses: ./.github/actions/package-web-build-artifacts
         with:
           fhirschemaversion: ${{ matrix.fhirSchemaVersion }}

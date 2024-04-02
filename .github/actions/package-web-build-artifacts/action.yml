@@ -19,14 +19,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Create Nuget packages
+    - name: Publish Web Artifacts
       shell: bash
       run: |
-        echo "Creating Nuget packages for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        dotnet pack ${{github.workspace}} --output ${{inputs.outputPath}}/nupkgs --no-build --configuration=${{inputs.buildConfiguration}} -p:PackageVersion=${{inputs.majorMinorPatch}}
-    - name: Package Web Artifacts
-      shell: bash
-      run: |
-        echo "Packaging web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}}
-    
+        echo "Publishing web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}}
