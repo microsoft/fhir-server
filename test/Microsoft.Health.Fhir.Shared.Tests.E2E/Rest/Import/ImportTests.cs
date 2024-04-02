@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using IdentityServer4.Models;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -42,12 +43,116 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
+        private static readonly string _enqueueJobs = @"
+CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'EnqueueJobs'
+       ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
+                           +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
+                           +' G='+isnull(convert(varchar,@GroupId),'NULL')
+                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
+                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
+       ,@st datetime = getUTCdate()
+       ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
+       ,@MaxJobId bigint
+       ,@Rows int
+       ,@msg varchar(1000)
+       ,@JobIds BigintList
+       ,@InputRows int
+
+BEGIN TRY
+  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
+  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
+  SET @InputRows = @@rowcount
+
+  INSERT INTO @JobIds
+    SELECT JobId
+      FROM @Input A
+           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
+  
+  IF @@rowcount < @InputRows
+  BEGIN
+    BEGIN TRANSACTION  
+
+    EXECUTE sp_getapplock @Lock, 'Exclusive'
+
+    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
+      RAISERROR('There are other active job groups',18,127)
+
+    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
+  
+    INSERT INTO dbo.JobQueue
+        (
+             QueueType
+            ,GroupId
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status
+        )
+      OUTPUT inserted.JobId INTO @JobIds
+      SELECT @QueueType
+            ,GroupId = isnull(@GroupId,@MaxJobId+1)
+            ,JobId
+            ,Definition
+            ,DefinitionHash
+            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
+        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
+        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
+    SET @Rows = @@rowcount
+
+    COMMIT TRANSACTION
+  END
+
+  IF @ReturnJobs = 1
+    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+";
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+        }
+
+        private void ExecuteSql(string sql)
+        {
+            using var conn = new SqlConnection(_fixture.ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.ExecuteNonQuery();
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithMissingEnqueue_ImportShouldFail()
+        {
+            try
+            {
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                ExecuteSql("DROP PROCEDURE dbo.EnqueueJobs");
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains(e.Message, "M");
+            }
+            finally
+            {
+                ExecuteSql(_enqueueJobs);
+            }
         }
 
         [Fact]
@@ -1036,7 +1141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
-            var response = await ImportWaitAsync(checkLocation, client);
+            var response = await ImportWaitAsync(checkLocation);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
@@ -1055,16 +1160,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return checkLocation;
         }
 
-        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, TestFhirClient client = null)
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation)
         {
-            client = client ?? _client;
-            HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+            try
             {
-                await Task.Delay(TimeSpan.FromSeconds(2));
-            }
+                HttpResponseMessage response;
+                while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2));
+                }
 
-            return response;
+                return response;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
         }
 
         private string CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, string birhDate = null, bool deleted = false)
