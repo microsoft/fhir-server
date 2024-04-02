@@ -178,7 +178,7 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {
