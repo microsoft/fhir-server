@@ -387,6 +387,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobWarning(ex, orchestratorInfo, ex.Message);
                 if (retries++ < 3)
                 {
+                    await Task.Delay(5000, cancellationToken);
                     goto retry;
                 }
 
