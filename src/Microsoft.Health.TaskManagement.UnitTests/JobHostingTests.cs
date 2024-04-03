@@ -83,11 +83,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
             string groupDefinition2 = "groupDefinition2";
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, 1, false, false, CancellationToken.None)).First();
-            JobInfo job2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, 2, false, false, CancellationToken.None)).First();
-
-            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition1 }, 1, false, false, CancellationToken.None)).First();
-            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition2 }, 2, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, [groupDefinition1], 1, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, [definition1], 1, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, [groupDefinition2], 2, false, false, CancellationToken.None)).First();
+            JobInfo job2 = (await queueClient.EnqueueAsync(0, [definition2], 2, false, false, CancellationToken.None)).First();
 
             int executeCount = 0;
             TestJobFactory factory = new TestJobFactory(t =>
@@ -98,7 +97,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         (token) =>
                         {
                             Interlocked.Increment(ref executeCount);
-
                             throw new JobExecutionException(errorMessage, error);
                         });
                 }
@@ -138,9 +136,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             Assert.Equal(JobStatus.Failed, job2.Status);
 
-            // Job2's error includes the stack trace with can't be easily added to the expected value, so we just look for the message.
+            // Job2's error includes the stack trace whitch can't be easily added to the expected value, so we just look for the message.
             Assert.Contains(errorMessage, job2.Result);
-            Assert.Equal(JobStatus.Cancelled, jobGroup2.Status);
+            Assert.Equal(JobStatus.Completed, jobGroup2.Status);
         }
 
         [Fact]
