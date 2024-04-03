@@ -104,7 +104,7 @@ jobs:
       #   run: |
       #     curl -Lo $RUNNER_TEMP/sbom-tool https://github.com/microsoft/sbom-tool/releases/latest/download/sbom-tool-linux-x64
       #     chmod +x $RUNNER_TEMP/sbom-tool
-      #     $RUNNER_TEMP/sbom-tool generate -b . -bc . -V Verbose -ps "Organization: Microsoft" -pv ${{needs.setup.outputs.majorMinorPatch}} -pn ${{needs.setup.outputs.informationalVersion}}
+      #     $RUNNER_TEMP/sbom-tool generate -b ${{env.outputPath}} -bc . -V Verbose -ps "Organization: Microsoft" -pv ${{needs.setup.outputs.majorMinorPatch}} -pn ${{needs.setup.outputs.informationalVersion}}
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4

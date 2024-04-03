@@ -23,4 +23,4 @@ runs:
       shell: bash
       run: |
         echo "Publishing web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -p:PackageVersion=${{inputs.majorMinorPatch}} -f ${{env.defaultDotNetVersion}}
+        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/deploy --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -f ${{env.defaultDotNetVersion}}
