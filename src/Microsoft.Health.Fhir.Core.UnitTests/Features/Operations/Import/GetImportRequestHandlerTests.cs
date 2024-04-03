@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnCompletedImportJobWithFailure_ThenHttpResponseCodeShouldBeExpected()
         {
-            var orchestratorJobResult = new ImportOrchestratorJobErrorResult()
+            var orchestratorJobResult = new ImportJobErrorResult()
             {
                 HttpStatusCode = HttpStatusCode.BadRequest,
                 ErrorMessage = "error",

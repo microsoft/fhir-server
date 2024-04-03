@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
-        private static readonly string _enqueueJobs = @"
+        private static readonly string _createEnqueueJobs = @"
 CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
 AS
 set nocount on
@@ -118,6 +118,57 @@ BEGIN CATCH
 END CATCH
 ";
 
+        private static readonly string _createCommitTransaction = @"
+CREATE PROCEDURE dbo.MergeResourcesCommitTransaction @TransactionId bigint, @FailureReason varchar(max) = NULL, @OverrideIsControlledByClientCheck bit = 0
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'MergeResourcesCommitTransaction'
+       ,@st datetime = getUTCdate()
+       ,@InitialTranCount int = @@trancount
+       ,@IsCompletedBefore bit
+       ,@Rows int
+       ,@msg varchar(1000)
+
+DECLARE @Mode varchar(200) = 'TR='+convert(varchar,@TransactionId)+' OC='+isnull(convert(varchar,@OverrideIsControlledByClientCheck),'NULL')
+
+BEGIN TRY
+  IF @InitialTranCount = 0 BEGIN TRANSACTION
+
+  UPDATE dbo.Transactions
+    SET IsCompleted = 1
+       ,@IsCompletedBefore = IsCompleted
+       ,EndDate = getUTCdate()
+       ,IsSuccess = CASE WHEN @FailureReason IS NULL THEN 1 ELSE 0 END
+       ,FailureReason = @FailureReason
+    WHERE SurrogateIdRangeFirstValue = @TransactionId
+      AND (IsControlledByClient = 1 OR @OverrideIsControlledByClientCheck = 1)
+  SET @Rows = @@rowcount
+
+  IF @Rows = 0
+  BEGIN
+    SET @msg = 'Transaction ['+convert(varchar(20),@TransactionId)+'] is not controlled by client or does not exist.'
+    RAISERROR(@msg, 18, 127)
+  END
+
+  IF @IsCompletedBefore = 1
+  BEGIN
+    -- To make this call idempotent
+    IF @InitialTranCount = 0 ROLLBACK TRANSACTION
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows,@Target='@IsCompletedBefore',@Text='=1'
+    RETURN
+  END
+
+  IF @InitialTranCount = 0 COMMIT TRANSACTION
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF @InitialTranCount = 0 AND @@trancount > 0 ROLLBACK TRANSACTION
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
+";
+
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
             _client = fixture.TestFhirClient;
@@ -134,7 +185,7 @@ END CATCH
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_WithMissingEnqueue_ImportShouldFail()
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
         {
             try
             {
@@ -147,11 +198,33 @@ END CATCH
             }
             catch (Exception e)
             {
-                Assert.Contains(e.Message, "M");
+                Assert.Contains("InternalServerError", e.Message);
             }
             finally
             {
-                ExecuteSql(_enqueueJobs);
+                ExecuteSql(_createEnqueueJobs);
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
+        {
+            try
+            {
+                ExecuteSql("DROP PROCEDURE dbo.MergeResourcesCommitTransaction");
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains("InternalServerError", e.Message);
+            }
+            finally
+            {
+                ExecuteSql(_createCommitTransaction);
             }
         }
 

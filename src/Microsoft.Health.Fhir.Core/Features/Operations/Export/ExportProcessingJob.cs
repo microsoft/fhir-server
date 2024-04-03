@@ -64,9 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                             return JsonConvert.SerializeObject(record);
                         case OperationStatus.Failed:
-                            var exception = new JobExecutionException(record.FailureDetails.FailureReason, record);
-                            exception.RequestCancellationOnFailure = true;
-                            throw exception;
+                            throw new JobExecutionException(record.FailureDetails.FailureReason, record);
                         case OperationStatus.Canceled:
                             // This throws a RetriableJobException so the job handler doesn't change the job status. The job will not be retried as cancelled jobs are ignored.
                             throw new RetriableJobException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");

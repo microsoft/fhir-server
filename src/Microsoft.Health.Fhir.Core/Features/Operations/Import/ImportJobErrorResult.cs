@@ -3,12 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Net;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProcessingJobErrorResult
+    public class ImportJobErrorResult
     {
-        public string Message { get; set; }
+        /// <summary>
+        /// Err http status code
+        /// </summary>
+        public HttpStatusCode HttpStatusCode { get; set; }
 
-        public string Details { get; set; }
+        /// <summary>
+        /// Error message
+        /// </summary>
+        public string ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Details
+        /// </summary>
+        public string ErrorDetails { get; set; }
     }
 }

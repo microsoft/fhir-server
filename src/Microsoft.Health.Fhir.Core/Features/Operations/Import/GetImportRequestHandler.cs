@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coordInfo.Status == JobStatus.Failed)
             {
-                ImportOrchestratorJobErrorResult errorResult = JsonConvert.DeserializeObject<ImportOrchestratorJobErrorResult>(coordInfo.Result);
+                ImportJobErrorResult errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coordInfo.Result);
 
                 string failureReason = errorResult.ErrorMessage;
                 HttpStatusCode failureStatusCode = errorResult.HttpStatusCode;

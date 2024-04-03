@@ -39,7 +39,5 @@ namespace Microsoft.Health.JobManagement
         }
 
         public object Error { get; private set; }
-
-        public bool RequestCancellationOnFailure { get; set; }
     }
 }
