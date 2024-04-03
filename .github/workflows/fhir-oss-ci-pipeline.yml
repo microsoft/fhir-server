@@ -153,12 +153,12 @@ jobs:
           echo "Copying release directory to deploy directory"
           cp -r ${{github.workspace}}/release ${{env.outputPath}}/deploy
 
-      - name: Copying pdb files to symbols directory
-        shell: bash
-        run: |
-          echo "Copying pdb files to deploy symbols"
-          shopt -s globstar
-          cp -r ${{github.workspace}}/src/**/*.pdb ${{env.outputPath}}/symbols
+      # - name: Copying pdb files to symbols directory
+      #   shell: bash
+      #   run: |
+      #     echo "Copying pdb files to deploy symbols"
+      #     shopt -s globstar
+      #     cp -r ${{github.workspace}}/src/**/*.pdb ${{env.outputPath}}/symbols
 
       - name: Publish Stu3 Web Artifacts to deploy directory
         uses: ./.github/actions/package-web-build-artifacts
