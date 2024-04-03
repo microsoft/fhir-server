@@ -51,23 +51,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportJob_WhenItIsCancelled_ThenAnExceptionIsThrown()
+        public async Task GivenAnExportJob_WhenItIsCancelled_ThenEmptyResultIsReturned()
         {
             var expectedResults = GenerateJobRecord(OperationStatus.Canceled);
 
             var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJob), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
+            Assert.Equal(string.Empty, await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
         [Theory]
         [InlineData(OperationStatus.Queued)]
         [InlineData(OperationStatus.Running)]
-        public async Task GivenAnExportJob_WhenItFinishesInANonTerminalState_ThenAnExceptionIsThrown(OperationStatus status)
+        public async Task GivenAnExportJob_WhenItFinishesInANonTerminalState_ThenEmptyResultIsReturned(OperationStatus status)
         {
             var expectedResults = GenerateJobRecord(status);
 
             var processingJob = new ExportProcessingJob(new Func<IExportJobTask>(MakeMockJobThatReturnsImmediately), new TestQueueClient(), new NullLogger<ExportProcessingJob>());
-            await Assert.ThrowsAsync<RetriableJobException>(() => processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
+            Assert.Equal(string.Empty, await processingJob.ExecuteAsync(GenerateJobInfo(expectedResults), CancellationToken.None));
         }
 
         [Fact]
