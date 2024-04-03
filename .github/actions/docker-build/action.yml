@@ -2,9 +2,6 @@ name: Docker Build
 description: 'Builds images for all supported FHIR versions'
 
 inputs:
-  tag:
-    description: 'The tag to apply to the images'
-    required: true
   fhirSchemaVersion:
     description: 'The FHIR schema version to package'
     required: true
@@ -18,7 +15,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Build and Push Docker Images
+    - name: Build Docker Image
       shell: bash
       run: |
         echo "Building and pushing Docker images for FHIR schema version ${{inputs.fhirSchemaVersion}}"

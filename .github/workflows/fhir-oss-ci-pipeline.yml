@@ -128,11 +128,13 @@ jobs:
         run: |
           echo "Copying samples to deploy directory"
           cp -r ${{github.workspace}}/samples ${{env.outputPath}}/deploy
+
       - name: Copying testauthenvironment.json to deploy directory
         shell: bash
         run: |
           echo "Copying testauthenvironment.json to deploy directory"
           cp ${{github.workspace}}/testauthenvironment.json ${{env.outputPath}}/deploy/
+
       - name: Copying global.json to deploy directory
         shell: bash
         run: |
@@ -151,6 +153,77 @@ jobs:
           echo "Copying release directory to deploy directory"
           cp -r ${{github.workspace}}/release ${{env.outputPath}}/deploy
 
+      - name: Copying pdb files to symbols directory
+        shell: bash
+        run: |
+          echo "Copying pdb files to deploy symbols"
+          shopt -s globstar
+          cp -r ${{github.workspace}}/src/**/*.pdb ${{env.outputPath}}/symbols
+
+      - name: Publish Stu3 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "Stu3"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R4 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R4"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R4B Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R4B"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Publish R5 Web Artifacts to deploy directory
+        uses: ./.github/actions/package-web-build-artifacts
+        with:
+          fhirschemaversion: "R5"
+          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
+          outputPath: ${{env.outputPath}}
+          buildConfiguration: ${{env.buildConfiguration}}
+          semVer: ${{needs.setup.outputs.semVer}}
+
+      - name: Docker Build Stu3 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+          fhirSchemaVersion: "Stu3"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R4 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+          fhirSchemaVersion: "R4"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R4B Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+          fhirSchemaVersion: "R4B"
+          composeLocation: ${{env.composeLocation}}
+
+      - name: Docker Build R5 Image
+        uses: ./.github/actions/docker-build
+        with:
+          assemblySemFileVer: ${{needs.setup.outputs.semVer}}
+          fhirSchemaVersion: "R5"
+          composeLocation: ${{env.composeLocation}}
+
       - name: Upload deploy directory
         uses: actions/upload-artifact@v4
         with:
@@ -158,50 +231,11 @@ jobs:
           path: ${{env.outputPath}}/deploy
 
       # - name: Upload Symbols
-      #   uses: actions/ipload-artifact@v4
+      #   uses: actions/upload-artifact@v4
       #   with:
       #     name: symbols
       #     path: ${{env.outputPath}}/bin/${{env.buildConfiguration}}/net5.0/publish
-  packageBuildArtifacts:
-    runs-on: ubuntu-latest
-    needs: [setup, buildAndUnitTest]
-    strategy:
-      matrix:
-        fhirSchemaVersion: ["Stu3", "R4", "R4B", "R5"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install Latest .Net SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: 'global.json'
-          dotnet-version: |
-            6.x
-            8.x
-      - name: Nuget Restore
-        working-directory: ${{github.workspace}}
-        shell: bash
-        run: dotnet restore --verbosity detailed
 
-      - name: Download Build Artifacts from Job Cache
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/build
-
-      - name: Package and Publish Artifacts
-        uses: ./.github/actions/package-web-build-artifacts
-        with:
-          fhirschemaversion: ${{ matrix.fhirSchemaVersion }}
-          majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
-          outputPath: ${{env.outputPath}}
-          buildConfiguration: ${{env.buildConfiguration}}
-          semVer: ${{needs.setup.outputs.semVer}}
-      # - name: Docker Build
-      #   uses: ./.github/actions/docker-build
-      #   with:
-      #     assemblySemFileVer: ${{needs.setup.outputs.semVer}}
   # runIntegrationTests:
   #   runs-on: ubuntu-latest
   #   needs : buildAndUnitTest
