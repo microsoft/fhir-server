@@ -187,6 +187,11 @@ END CATCH
         [Fact]
         public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
             try
             {
                 var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
@@ -209,6 +214,11 @@ END CATCH
         [Fact]
         public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
         {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
             try
             {
                 ExecuteSql("DROP PROCEDURE dbo.MergeResourcesCommitTransaction");
