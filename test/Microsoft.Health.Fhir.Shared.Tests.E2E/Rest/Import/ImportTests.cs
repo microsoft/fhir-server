@@ -1230,21 +1230,13 @@ END CATCH
 
         private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation)
         {
-            try
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
             {
-                HttpResponseMessage response;
-                while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2));
-                }
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
 
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                throw;
-            }
+            return response;
         }
 
         private string CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, string birhDate = null, bool deleted = false)
