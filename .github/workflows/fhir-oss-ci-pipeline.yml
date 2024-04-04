@@ -151,7 +151,7 @@ jobs:
         shell: bash
         run: |
           echo "Copying docker compose root file to deploy directory"
-          cp ${{github.workspace}}/docker-compose.yaml ${{env.outputPath}}/deploy
+          cp ${{github.workspace}}/release/docker-compose.yaml ${{env.outputPath}}/deploy
 
       # - name: Copying pdb files to symbols directory
       #   shell: bash
