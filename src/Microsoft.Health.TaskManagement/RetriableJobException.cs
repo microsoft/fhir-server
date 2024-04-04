@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Runtime;
 using EnsureThat;
 
 namespace Microsoft.Health.JobManagement
