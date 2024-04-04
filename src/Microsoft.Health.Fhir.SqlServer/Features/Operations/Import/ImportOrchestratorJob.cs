@@ -372,11 +372,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
 
             var orchestratorInfo = new JobInfo() { GroupId = groupId, Id = groupId };
-            var retries = 0;
-            retry:
             try
             {
-                var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList();
+                var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
             }
             catch (SqlException ex) when (ex.Number == 2627)
@@ -385,17 +383,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobError(ex, orchestratorInfo, message);
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
                 throw new JobExecutionException(message, error, ex);
-            }
-            catch (SqlException ex) when (ex.IsExecutionTimeout())
-            {
-                _logger.LogJobWarning(ex, orchestratorInfo, ex.Message);
-                if (retries++ < 3)
-                {
-                    await Task.Delay(5000, cancellationToken);
-                    goto retry;
-                }
-
-                throw new JobExecutionException(ex.Message, ex);
             }
             catch (Exception ex)
             {

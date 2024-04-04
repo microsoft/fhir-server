@@ -5,12 +5,14 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.JobManagement;
 using Microsoft.IO;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -20,6 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private Uri _fileUri;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
         private ILogger<ImportErrorStore> _logger;
+        private static readonly AsyncPolicy _retries = Policy
+            .Handle<IntegrationDataStoreException>()
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri, ILogger<ImportErrorStore> logger)
         {
@@ -48,9 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 return;
             }
 
-            var retries = 0;
-            retry:
-            try
+            await _retries.ExecuteAsync(async () =>
             {
                 using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(ImportErrorStore));
                 using StreamWriter writer = new StreamWriter(stream);
@@ -60,25 +63,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     await writer.WriteLineAsync(error);
                 }
 
-#pragma warning disable CA2016 // .NET 6 does not have cancel. Remove when we switch to .NET8
                 await writer.FlushAsync();
                 stream.Position = 0;
 
                 string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
                 await _integrationDataStoreClient.UploadBlockAsync(_fileUri, stream, blockId, cancellationToken);
                 await _integrationDataStoreClient.AppendCommitAsync(_fileUri, [blockId], cancellationToken);
-            }
-            catch (IntegrationDataStoreException ex)
-            {
-                _logger.LogWarning(ex, "Failed to upload import error log.");
-                if (retries++ < 3)
-                {
-                    await Task.Delay(5000, cancellationToken);
-                    goto retry;
-                }
-
-                throw;
-            }
+            });
         }
     }
 }
