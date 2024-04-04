@@ -147,11 +147,11 @@ jobs:
           echo "Copying test configuration json to deploy directory"
           cp ${{github.workspace}}/test/Configuration/testconfiguration.json ${{env.outputPath}}/deploy/
 
-      - name: Copying release directory to deploy directory
+      - name: Copying docker compose root file to deploy directory
         shell: bash
         run: |
-          echo "Copying release directory to deploy directory"
-          cp -r ${{github.workspace}}/release ${{env.outputPath}}/deploy
+          echo "Copying docker compose root file to deploy directory"
+          cp ${{github.workspace}}/docker-compose.yaml ${{env.outputPath}}/deploy
 
       # - name: Copying pdb files to symbols directory
       #   shell: bash
