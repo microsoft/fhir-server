@@ -134,6 +134,78 @@ END CATCH
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            try
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                ExecuteSql(@"
+CREATE TRIGGER JobQueue_Trigger ON JobQueue INSTEAD OF INSERT
+AS
+RAISERROR('Test',18,127)
+                ");
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains("InternalServerError", e.Message);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            try
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+                ExecuteSql(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions INSTEAD OF UPDATE
+AS
+RAISERROR('Test',18,127)
+                ");
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains("InternalServerError", e.Message);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
+        }
+
+        private void ExecuteSql(string sql)
+        {
+            using var conn = new SqlConnection(_fixture.ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.ExecuteNonQuery();
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_WithMissingEnqueue_ImportShouldFail()
         {
             try
@@ -1162,21 +1234,13 @@ END CATCH
 
         private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation)
         {
-            try
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
             {
-                HttpResponseMessage response;
-                while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2));
-                }
+                await Task.Delay(TimeSpan.FromSeconds(2));
+            }
 
-                return response;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                throw;
-            }
+            return response;
         }
 
         private string CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null, string versionId = null, string birhDate = null, bool deleted = false)

@@ -61,13 +61,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenAnOrchestratorJob_WhenSomeJobsCancelled_ThenOperationCanceledExceptionShouldBeThrowAndWaitForOtherSubJobsCompleted()
+        public async Task GivenAnOrchestratorJob_WhenSomeJobsCancelled_ThenOperationCanceledExceptionShouldBeThrownAndWaitForOtherSubJobsCompleted()
         {
             await VerifyJobStatusChangedAsync(100, JobStatus.Cancelled, 20, 20);
         }
 
         [Fact]
-        public async Task GivenAnOrchestratorJob_WhenSomeJobsFailed_ThenImportProcessingExceptionShouldBeThrowAndWaitForOtherSubJobsCompleted()
+        public async Task GivenAnOrchestratorJob_WhenSomeJobsFailed_ThenExceptionWithBadRequestShouldBeThrownAndWaitForOtherSubJobsCompleted()
         {
             await VerifyJobStatusChangedAsync(100, JobStatus.Failed, 14, 14);
         }
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJobAndWrongEtag_WhenOrchestratorJobStart_ThenJobShouldFailedWithDetails(ImportMode importMode)
+        public async Task GivenAnOrchestratorJobAndWrongEtag_WhenOrchestratorJobStart_ThenJobShouldFailWithDetails(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 auditLogger);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenIntegrationExceptionThrow_ThenJobShouldFailedWithDetails(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenIntegrationExceptionThrown_ThenJobShouldFailWithDetails(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 auditLogger);
 
             JobExecutionException jobExecutionException = await Assert.ThrowsAsync<JobExecutionException>(async () => await orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.Unauthorized, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
@@ -265,66 +265,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenRetriableExceptionThrow_ThenJobExecutionShuldFailedWithRetriableException(ImportMode importMode)
-        {
-            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            ILoggerFactory loggerFactory = new NullLoggerFactory();
-            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
-            IMediator mediator = Substitute.For<IMediator>();
-            ImportOrchestratorJobDefinition importOrchestratorInputData = new ImportOrchestratorJobDefinition();
-            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
-            IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
-
-            importOrchestratorInputData.BaseUri = new Uri("http://dummy");
-            var inputs = new[] { new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") } };
-            importOrchestratorInputData.Input = inputs;
-            importOrchestratorInputData.InputFormat = "ndjson";
-            importOrchestratorInputData.InputSource = new Uri("http://dummy");
-            importOrchestratorInputData.RequestUri = new Uri("http://dummy");
-            importOrchestratorInputData.ImportMode = importMode;
-
-            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    throw new RetriableJobException("test");
-                    #pragma warning disable CS0162 // Unreachable code detected
-                    return new Dictionary<string, object>();
-                });
-
-            TestQueueClient testQueueClient = new TestQueueClient();
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorInputData) }, 1, false, false, CancellationToken.None)).First();
-
-            ImportOrchestratorJob orchestratorJob = new ImportOrchestratorJob(
-                mediator,
-                contextAccessor,
-                integrationDataStoreClient,
-                testQueueClient,
-                Options.Create(new ImportTaskConfiguration()),
-                loggerFactory,
-                auditLogger);
-            orchestratorJob.PollingPeriodSec = 0;
-
-            await Assert.ThrowsAnyAsync<RetriableJobException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-
-            _ = mediator.DidNotReceive().Publish(
-                Arg.Any<ImportJobMetricsNotification>(),
-                Arg.Any<CancellationToken>());
-
-            auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
-                        auditAction: default,
-                        operation: default,
-                        resourceType: default,
-                        requestUri: default,
-                        statusCode: default,
-                        correlationId: default,
-                        callerIpAddress: default,
-                        callerClaims: default);
-        }
-
-        [InlineData(ImportMode.InitialLoad)]
-        [InlineData(ImportMode.IncrementalLoad)]
-        [Theory]
-        public async Task GivenAnOrchestratorJob_WhenLastSubJobFailed_ThenImportProcessingExceptionShouldBeThrowAndWaitForOtherSubJobsCancelledAndCompleted(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenLastSubJobFailed_ThenExceptionWithBadRequestShouldThrownAndWaitForOtherSubJobsCancelledAndCompleted(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -342,7 +283,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 if (jobInfo.Id == 3)
                 {
                     jobInfo.Status = JobStatus.Failed;
-                    jobInfo.Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "Job Failed" });
+                    jobInfo.Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "Job Failed", HttpStatusCode = HttpStatusCode.BadRequest });
                 }
 
                 return jobInfo;
@@ -396,7 +337,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
 
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.Equal(1, testQueueClient.JobInfos.Count(t => t.Status == JobStatus.Failed));
             Assert.Equal(2, testQueueClient.JobInfos.Count(t => t.Status == JobStatus.Cancelled));
@@ -445,7 +386,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenSubJobFailedAndOthersRunning_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenSubJobFailedAndOthersRunning_ThenExceptionWithBadRequestShouldThrownAndContextUpdated(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -463,7 +404,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     {
                         Id = id,
                         Status = JobManagement.JobStatus.Failed,
-                        Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "error" }),
+                        Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "error", HttpStatusCode = HttpStatusCode.BadRequest }),
                     };
                 }
 
@@ -529,7 +470,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
 
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
 
@@ -579,7 +520,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhneSubJobCancelledAfterThreeCalls_ThenOperationCanceledExceptionShouldBeThrowAndContextUpdate(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhneSubJobCancelledAfterThreeCalls_ThenOperationCanceledExceptionShouldBeThrownAndContextUpdate(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -595,7 +536,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 if (++callTime > 3)
                 {
                     jobInfo.Status = JobStatus.Cancelled;
-                    jobInfo.Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "Job Cancelled" });
+                    jobInfo.Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "Job Cancelled" });
                 }
 
                 return jobInfo;
@@ -632,7 +573,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
 
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
 
@@ -682,7 +623,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenSubJobFailedAfterThreeCalls_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenSubJobFailedAfterThreeCalls_ThenExceptionWithBadRequestShouldThrownAndContextUpdated(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -698,7 +639,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 if (++callTime > 3)
                 {
                     jobInfo.Status = JobStatus.Failed;
-                    jobInfo.Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "error" });
+                    jobInfo.Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "error", HttpStatusCode = HttpStatusCode.BadRequest });
                 }
 
                 return jobInfo;
@@ -735,7 +676,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
 
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.Equal("error", resultDetails.ErrorMessage);
@@ -786,7 +727,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenSubJobCancelled_ThenOperationCancelledExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenSubJobCancelled_ThenOperationCancelledExceptionShouldBeThrownAndContextUpdated(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -800,7 +741,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 JobInfo jobInfo = new JobInfo()
                 {
                     Status = JobManagement.JobStatus.Cancelled,
-                    Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "error" }),
+                    Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "error" }),
                 };
 
                 return jobInfo;
@@ -839,7 +780,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
 
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
 
@@ -889,7 +830,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         [InlineData(ImportMode.InitialLoad)]
         [InlineData(ImportMode.IncrementalLoad)]
         [Theory]
-        public async Task GivenAnOrchestratorJob_WhenSubJobFailed_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated(ImportMode importMode)
+        public async Task GivenAnOrchestratorJob_WhenSubJobFailed_ThenExceptionWithBadRequestShouldThrownAndContextUpdated(ImportMode importMode)
         {
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -903,7 +844,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 JobInfo jobInfo = new JobInfo()
                 {
                     Status = JobManagement.JobStatus.Failed,
-                    Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "error" }),
+                    Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "error", HttpStatusCode = HttpStatusCode.BadRequest }),
                 };
 
                 return jobInfo;
@@ -942,7 +883,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             orchestratorJob.PollingPeriodSec = 0;
 
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.Equal("error", resultDetails.ErrorMessage);
@@ -1078,7 +1019,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return null;
                 }
 
-                if (jobInfo.Status == JobManagement.JobStatus.Completed)
+                if (jobInfo.Status == JobStatus.Completed)
                 {
                     return jobInfo;
                 }
@@ -1089,7 +1030,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     {
                         Id = jobInfo.Id,
                         Status = jobStatus,
-                        Result = JsonConvert.SerializeObject(new ImportProcessingJobErrorResult() { Message = "error" }),
+                        Result = JsonConvert.SerializeObject(new ImportJobErrorResult() { ErrorMessage = "error", HttpStatusCode = HttpStatusCode.BadRequest }),
                     };
                 }
 
@@ -1100,7 +1041,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 processingResult.ErrorLogLocation = "http://dummy/error";
 
                 jobInfo.Result = JsonConvert.SerializeObject(processingResult);
-                jobInfo.Status = JobManagement.JobStatus.Completed;
+                jobInfo.Status = JobStatus.Completed;
                 return jobInfo;
             };
 
@@ -1150,7 +1091,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             importOrchestratorJobInputData.InputFormat = "ndjson";
             importOrchestratorJobInputData.InputSource = new Uri("http://dummy");
             importOrchestratorJobInputData.RequestUri = new Uri("http://dummy");
-            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, new string[] { JsonConvert.SerializeObject(importOrchestratorJobInputData) }, 1, false, false, CancellationToken.None)).First();
+            JobInfo orchestratorJobInfo = (await testQueueClient.EnqueueAsync(0, [JsonConvert.SerializeObject(importOrchestratorJobInputData)], 1, false, false, CancellationToken.None)).First();
 
             integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
@@ -1171,7 +1112,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                 auditLogger);
             orchestratorJob.PollingPeriodSec = 0;
             var jobExecutionException = await Assert.ThrowsAnyAsync<JobExecutionException>(() => orchestratorJob.ExecuteAsync(orchestratorJobInfo, CancellationToken.None));
-            ImportOrchestratorJobErrorResult resultDetails = (ImportOrchestratorJobErrorResult)jobExecutionException.Error;
+            ImportJobErrorResult resultDetails = (ImportJobErrorResult)jobExecutionException.Error;
 
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             _ = mediator.Received().Publish(

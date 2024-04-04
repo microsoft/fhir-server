@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
 
         /// <summary>
         /// Reference for template collection.
-        /// The format is "<registryServer>/<imageName>:<imageTag>" for template collection stored in container registries.
+        /// The format is "&lt;registryServer&gt;/&lt;imageName&gt;:&lt;imageTag&gt;" for template collection stored in container registries.
         /// Also supports image digest as reference. Will use 'latest' if no tag or digest present.
         /// </summary>
         public string TemplateCollectionReference { get; }

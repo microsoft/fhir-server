@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
+        public async Task GivenImportInput_WhenExceptionThrowForLoad_ThenJobExecutionExceptionShouldBeThrown()
         {
             ImportProcessingJobDefinition inputData = GetInputData();
             ImportProcessingJobResult result = new ImportProcessingJobResult();
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                                     loggerFactory,
                                     auditLogger);
 
-            await Assert.ThrowsAsync<RetriableJobException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
+            await Assert.ThrowsAsync<JobExecutionException>(() => job.ExecuteAsync(GetJobInfo(inputData, result), CancellationToken.None));
         }
 
         [Fact]
