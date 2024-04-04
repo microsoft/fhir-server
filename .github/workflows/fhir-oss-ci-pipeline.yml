@@ -25,7 +25,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
     env:
       deploymentEnvironmentName: $vars.CIRESOURCEGROUPROOT
       appServicePlanName: $vars.CIRESOURCEGROUPROOT-linux
@@ -71,7 +71,7 @@ jobs:
       #   with:
       #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
   buildAndUnitTest:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
     needs: setup
     steps:
       - name: Checkout
@@ -237,7 +237,7 @@ jobs:
       #     path: ${{env.outputPath}}/bin/${{env.buildConfiguration}}/net5.0/publish
 
   # runIntegrationTests:
-  #   runs-on: ubuntu-latest
+  #   runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
   #   needs : buildAndUnitTest
   #   steps:
     # - name: Checkout
