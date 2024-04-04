@@ -19,4 +19,4 @@ runs:
       shell: bash
       run: |
         echo "Building and pushing Docker images for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        docker-compose -f ${{inputs.composeLocation}} build -p ${{inputs.fhirSchemaVersion}} --build-arg FHIR_VERSION=${{inputs.fhirSchemaVersion}} --build-arg ASSEMBLY_VER=${{inputs.assemblyVersion}}
+        docker-compose build --build-arg FHIR_VERSION=${{inputs.fhirSchemaVersion}} --build-arg ASSEMBLY_VER=${{inputs.assemblyVersion}}

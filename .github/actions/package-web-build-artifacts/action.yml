@@ -24,4 +24,4 @@ runs:
       run: |
         echo "Publishing web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
         dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/deploy/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -f ${{env.defaultDotNetVersion}}
-        zip -r Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.zip ${{inputs.outputPath}}/deploy/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web
+        zip Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.zip ${{inputs.outputPath}}/deploy/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web
