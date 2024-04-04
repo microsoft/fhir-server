@@ -15,6 +15,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using IdentityServer4.Models;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -48,6 +49,78 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+        }
+
+        private void ExecuteSql(string sql)
+        {
+            using var conn = new SqlConnection(_fixture.ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.ExecuteNonQuery();
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            try
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                ExecuteSql(@"
+CREATE TRIGGER JobQueue_Trigger ON JobQueue INSTEAD OF INSERT
+AS
+RAISERROR('Test',18,127)
+                ");
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains("InternalServerError", e.Message);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            try
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+                ExecuteSql(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions INSTEAD OF UPDATE
+AS
+RAISERROR('Test',18,127)
+                ");
+                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+                await ImportWaitAsync(checkLocation);
+            }
+            catch (Exception e)
+            {
+                Assert.Contains("InternalServerError", e.Message);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
         }
 
         [Fact]
@@ -1031,7 +1104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
-            var response = await ImportWaitAsync(checkLocation, client);
+            var response = await ImportWaitAsync(checkLocation);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
@@ -1050,11 +1123,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return checkLocation;
         }
 
-        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, TestFhirClient client = null)
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation)
         {
-            client = client ?? _client;
             HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
