@@ -199,28 +199,28 @@ jobs:
       - name: Docker Build Stu3 Image
         uses: ./.github/actions/docker-build
         with:
-          assemblyVersion: ${{needs.setup.outputs.semVer}}
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
           fhirSchemaVersion: "Stu3"
           composeLocation: ${{env.composeLocation}}
 
       - name: Docker Build R4 Image
         uses: ./.github/actions/docker-build
         with:
-          assemblyVersion: ${{needs.setup.outputs.semVer}}
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
           fhirSchemaVersion: "R4"
           composeLocation: ${{env.composeLocation}}
 
       - name: Docker Build R4B Image
         uses: ./.github/actions/docker-build
         with:
-          assemblyVersion: ${{needs.setup.outputs.semVer}}
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
           fhirSchemaVersion: "R4B"
           composeLocation: ${{env.composeLocation}}
 
       - name: Docker Build R5 Image
         uses: ./.github/actions/docker-build
         with:
-          assemblyVersion: ${{needs.setup.outputs.semVer}}
+          assemblyVersion: ${{needs.setup.outputs.majorMinorPatch}}
           fhirSchemaVersion: "R5"
           composeLocation: ${{env.composeLocation}}
 
