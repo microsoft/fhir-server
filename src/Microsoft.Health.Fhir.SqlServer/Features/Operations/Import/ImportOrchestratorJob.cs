@@ -282,16 +282,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var jobIdsToCheck = jobIds.Take(20).ToList();
                 var jobInfos = new List<JobInfo>();
                 double duration;
+                var retries = 0;
+                retry:
                 try
                 {
                     var start = Stopwatch.StartNew();
                     jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync(QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken));
                     duration = start.Elapsed.TotalSeconds;
                 }
-                catch (Exception ex)
+                catch (SqlException ex)
                 {
+                    if (ex.IsExecutionTimeout() && retries++ < 3)
+                    {
+                        _logger.LogJobWarning(ex, orchestratorInfo, "Failed to get running jobs.");
+                        await Task.Delay(5000, cancellationToken);
+                        goto retry;
+                    }
+
                     _logger.LogJobError(ex, orchestratorInfo, "Failed to get running jobs.");
-                    throw new RetriableJobException(ex.Message, ex);
+                    throw new JobExecutionException(ex.Message, ex);
                 }
 
                 foreach (var jobInfo in jobInfos)
@@ -418,23 +427,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task WaitCancelledJobCompletedAsync(JobInfo jobInfo)
         {
+            var retries = 0;
             while (true)
             {
                 try
                 {
                     _logger.LogJobInformation(jobInfo, nameof(WaitCancelledJobCompletedAsync));
-
-                    IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None);
-
+                    var jobInfos = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None);
                     if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == jobInfo.Id))
                     {
                         break;
                     }
                 }
-                catch (Exception ex)
+                catch (SqlException ex)
                 {
                     _logger.LogJobWarning(ex, jobInfo, "Failed to get jobs by groupId {GroupId}.", jobInfo.GroupId);
-                    throw new RetriableJobException(ex.Message, ex);
+                    var isTimeout = ex.IsExecutionTimeout();
+                    if (!isTimeout || (isTimeout && retries++ >= 3))
+                    {
+                        throw new JobExecutionException(ex.Message, ex);
+                    }
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(5));

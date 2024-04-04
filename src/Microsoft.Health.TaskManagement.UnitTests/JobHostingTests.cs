@@ -215,42 +215,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenJobWithRetriableException_WhenJobHostingStart_ThenJobShouldBeRetry()
-        {
-            int executeCount0 = 0;
-            TestJobFactory factory = new TestJobFactory(t =>
-            {
-                return new TestJob(
-                    (token) =>
-                    {
-                        Interlocked.Increment(ref executeCount0);
-                        if (executeCount0 <= 1)
-                        {
-                            throw new RetriableJobException("test");
-                        }
-
-                        return Task.FromResult(t.Result);
-                    });
-            });
-
-            TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
-
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
-            jobHosting.PollingFrequencyInSeconds = 0;
-            jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
-            await jobHosting.ExecuteAsync(0, "test", tokenSource);
-
-            Assert.Equal(JobStatus.Completed, job1.Status);
-            Assert.Equal(2, executeCount0);
-        }
-
-        [Fact]
         public async Task GivenJobWithInvalidOperationException_WhenJobHostingStart_ThenJobFail()
         {
             int executeCount0 = 0;

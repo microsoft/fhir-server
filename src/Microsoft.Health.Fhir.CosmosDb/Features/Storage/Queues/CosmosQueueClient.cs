@@ -30,7 +30,7 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private static readonly AsyncPolicy _retryPolicy = Policy
-        .Handle<RetriableJobException>()
+        .Handle<CosmosException>(ex => ex.StatusCode == HttpStatusCode.PreconditionFailed)
         .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
         .Or<RequestRateExceededException>()
         .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
@@ -557,14 +557,6 @@ public class CosmosQueueClient : IQueueClient
                     new PartitionKey(definition.PartitionKey),
                     ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
                     cancellationToken: cancellationToken));
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
-        {
-            throw new RetriableJobException("Job precondition failed.", ex);
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
-        {
-            throw new RetriableJobException("Service too busy.", ex);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {

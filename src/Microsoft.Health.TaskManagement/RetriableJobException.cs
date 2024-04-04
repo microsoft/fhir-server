@@ -8,6 +8,7 @@ using EnsureThat;
 
 namespace Microsoft.Health.JobManagement
 {
+    [Obsolete("RetriableJobException class is deprecated. Replace by in-place retries.")]
     public class RetriableJobException : Exception
     {
         public RetriableJobException(string message)
