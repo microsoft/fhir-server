@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime;
 using EnsureThat;
 
 namespace Microsoft.Health.JobManagement
 {
+#pragma warning disable CS0618 // Type or member is obsolete. We should remove this from the code.
     public class RetriableJobException : Exception
     {
         public RetriableJobException(string message)
@@ -23,4 +25,5 @@ namespace Microsoft.Health.JobManagement
             EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
+#pragma warning restore CS0618 // Type or member is obsolete
 }

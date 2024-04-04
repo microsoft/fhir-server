@@ -66,12 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         case OperationStatus.Failed:
                             throw new JobExecutionException(record.FailureDetails.FailureReason, record);
                         case OperationStatus.Canceled:
-                            _logger.LogJobError(jobInfo, $"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
-                            return string.Empty;
+                            // This throws a RetriableJobException so the job handler doesn't change the job status. The job will not be retried as cancelled jobs are ignored.
+                            throw new RetriableJobException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job cancelled.");
                         case OperationStatus.Queued:
                         case OperationStatus.Running:
-                            _logger.LogJobError(jobInfo, $"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.");
-                            return string.Empty;
+                            throw new RetriableJobException($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Export job finished in non-terminal state. See logs from ExportJobTask.");
                         default:
 #pragma warning disable CA2201 // Do not raise reserved exception types. This exception shouldn't be reached, but a switch statement needs a default condition. Nothing really fits here.
                             throw new Exception($"[GroupId:{jobInfo.GroupId}/JobId:{jobInfo.Id}] Job status not set.");
