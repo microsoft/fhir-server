@@ -19,5 +19,5 @@ runs:
       shell: bash
       run: |
         echo "Building and pushing Docker images for FHIR schema version ${{inputs.fhirSchemaVersion}}"
-        cd ${{github.workspace}}/build
+        cd ${{github.workspace}}
         docker-compose build --build-arg FHIR_VERSION=${{inputs.fhirSchemaVersion}} --build-arg ASSEMBLY_VER=${{inputs.assemblyVersion}}
