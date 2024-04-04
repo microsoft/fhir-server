@@ -6,7 +6,7 @@
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.AcquireExportJobs
 {
     public sealed class AcquireExportJobsMetadata : StoredProcedureMetadataBase
     {

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.Replace;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace
 {

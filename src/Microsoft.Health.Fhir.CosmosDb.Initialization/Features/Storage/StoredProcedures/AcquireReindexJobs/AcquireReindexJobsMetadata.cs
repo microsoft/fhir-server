@@ -6,7 +6,7 @@
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.AcquireReindexJobs
 {
     public sealed class AcquireReindexJobsMetadata : StoredProcedureMetadataBase
     {

@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public virtual async Task InitializeAsync()
         {
-            var fhirStoredProcs = typeof(IStoredProcedureMetadata).Assembly
+            var fhirStoredProcs = typeof(DataPlaneCollectionSetup).Assembly
                 .GetTypes()
                 .Where(x => !x.IsAbstract && typeof(IStoredProcedureMetadata).IsAssignableFrom(x))
                 .ToArray()

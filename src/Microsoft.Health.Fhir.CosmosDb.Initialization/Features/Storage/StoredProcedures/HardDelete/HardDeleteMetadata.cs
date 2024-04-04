@@ -6,7 +6,7 @@
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.HardDelete
 {
     public sealed class HardDeleteMetadata : StoredProcedureMetadataBase
     {

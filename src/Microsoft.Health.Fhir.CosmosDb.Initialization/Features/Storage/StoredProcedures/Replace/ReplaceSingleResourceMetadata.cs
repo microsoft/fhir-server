@@ -5,7 +5,7 @@
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace
+namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.Replace
 {
     public sealed class ReplaceSingleResourceMetadata : StoredProcedureMetadataBase
     {

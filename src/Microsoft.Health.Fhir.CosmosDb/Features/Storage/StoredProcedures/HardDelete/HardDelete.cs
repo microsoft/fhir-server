@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures.HardDelete;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete
 {
