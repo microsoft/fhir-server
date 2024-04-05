@@ -71,7 +71,7 @@ jobs:
       #   with:
       #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
   buildAndUnitTest:
-    runs-on: [self-hosted, 1ES.Pool=GithubRunPool, Windows]
+    runs-on: windows-latest
     needs: setup
     steps:
       - name: Checkout
