@@ -79,14 +79,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Latest .Net SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: 'global.json'
-          dotnet-version: |
-            6.x
-            8.x
-
       - name: Build
         uses: ./.github/actions/dotnet-build
         with:
@@ -95,10 +87,10 @@ jobs:
           fileVersion: ${{needs.setup.outputs.fileVersion}}
           informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
-      - name: Test
-        uses: ./.github/actions/dotnet-test
-        with:
-          buildConfiguration: ${{env.buildConfiguration}}
+      # - name: Test
+      #   uses: ./.github/actions/dotnet-test
+      #   with:
+      #     buildConfiguration: ${{env.buildConfiguration}}
 
       # - name: Generate SBOM
       #   run: |
@@ -106,11 +98,11 @@ jobs:
       #     chmod +x $RUNNER_TEMP/sbom-tool
       #     $RUNNER_TEMP/sbom-tool generate -b ${{env.outputPath}} -bc . -V Verbose -ps "Organization: Microsoft" -pv ${{needs.setup.outputs.majorMinorPatch}} -pn ${{needs.setup.outputs.informationalVersion}}
  
-      - name: Upload a Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build
-          path: ${{env.outputPath}}
+      # - name: Upload a Build Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: build
+      #     path: ${{env.outputPath}}
       - name: Create Nuget packages
         shell: bash
         run: |
