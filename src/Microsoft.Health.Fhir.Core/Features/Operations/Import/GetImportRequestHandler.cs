@@ -61,7 +61,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             else if (coordInfo.Status == JobStatus.Failed)
             {
                 var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coordInfo.Result);
-                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, errorResult.ErrorMessage), errorResult.HttpStatusCode);
+                if (errorResult.HttpStatusCode == 0)
+                {
+                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                }
+
+                // hide error message for InternalServerError
+                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
             }
             else if (coordInfo.Status == JobStatus.Completed)
             {
