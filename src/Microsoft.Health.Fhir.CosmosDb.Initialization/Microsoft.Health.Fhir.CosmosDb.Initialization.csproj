@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection"></PackageReference>
+  </ItemGroup>
+  
   <ItemGroup>
     <None Remove="Features\Storage\StoredProcedures\UpdateUnsupportedSearchParametersToUnsupported\updateUnsupportedSearchParameters.js" />
   </ItemGroup>

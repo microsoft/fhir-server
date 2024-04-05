@@ -39,6 +39,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Registration;
 using Microsoft.Health.JobManagement;
 using Constants = Microsoft.Health.Fhir.CosmosDb.Constants;
 
@@ -166,8 +167,6 @@ namespace Microsoft.Extensions.DependencyInjection
                         upgradeManager,
                         cosmosClientTestProvider,
                         loggerFactory.CreateLogger<CollectionInitializer>());
-
-                      // retryExceptionPolicyFactory,
                 })
                 .Singleton()
                 .AsService<ICollectionInitializer>();
@@ -178,13 +177,15 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<CosmosDbSearchParameterStatusInitializer>()
                 .Transient()
-                .AsService<ICollectionUpdater>();
+                .AsService<ICollectionDataUpdater>();
 
             services.TypesInSameAssemblyAs<IStoredProcedure>()
                 .AssignableTo<IStoredProcedure>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IStoredProcedure>();
+
+            services.AddDataPlaneDepencies();
 
             services.Add<CosmosFhirOperationDataStore>()
                 .Scoped()

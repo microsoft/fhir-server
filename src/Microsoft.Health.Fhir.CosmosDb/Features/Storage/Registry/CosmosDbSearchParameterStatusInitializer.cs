@@ -19,8 +19,6 @@ using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProce
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    // Note:We should keep this class as is and we need new Interface like ICollectionDataUpdater instead of ICollectionUpdater
-    // ICollectionDataUpdater should  only be in cosmosdb project
     public class CosmosDbSearchParameterStatusInitializer : ICollectionDataUpdater
     {
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
