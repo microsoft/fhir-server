@@ -9,4 +9,4 @@ runs:
   steps:
     - name: Run Unit Tests
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-restore --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+      run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
