@@ -52,13 +52,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "duplicate", out _).Returns(true);
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
             _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
-            _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(Arg.Any<SearchParameter>(), Arg.Any<Collection<ValidationFailure>>()).ReturnsNull<Uri>();
         }
 
         [Theory]
         [MemberData(nameof(InvalidSearchParamData))]
         public async Task GivenInvalidSearchParam_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
+            _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(Arg.Any<SearchParameter>(), Arg.Any<Collection<ValidationFailure>>())
+                .Returns(x =>
+                {
+                    ((Collection<ValidationFailure>)x[1]).Add(new ValidationFailure());
+                    return null;
+                });
             var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _fhirRequestContextAccessor, _searchParameterConflictingCodeValidator, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
@@ -67,6 +72,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(ValidSearchParamData))]
         public async Task GivenValidSearchParam_WhenValidatingSearchParam_ThenNoExceptionThrown(SearchParameter searchParam, string method)
         {
+            _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(Arg.Any<SearchParameter>(), Arg.Any<Collection<ValidationFailure>>())
+                .Returns(x => { return null; });
             var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _fhirRequestContextAccessor, _searchParameterConflictingCodeValidator, NullLogger<SearchParameterValidator>.Instance);
             await validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None);
         }
@@ -96,6 +103,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [MemberData(nameof(DuplicateCodeAtBaseResourceData))]
         public async Task GivenInvalidSearchParamWithDuplicateCode_WhenValidatingSearchParam_ThenResourceNotValidExceptionThrown(SearchParameter searchParam, string method)
         {
+            _searchParameterConflictingCodeValidator.CheckForConflictingCodeValue(Arg.Any<SearchParameter>(), Arg.Any<Collection<ValidationFailure>>())
+                .Returns(x =>
+                {
+                    ((Collection<ValidationFailure>)x[1]).Add(new ValidationFailure());
+                    return null;
+                });
             var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager, _modelInfoProvider, _fhirRequestContextAccessor, _searchParameterConflictingCodeValidator, NullLogger<SearchParameterValidator>.Instance);
             await Assert.ThrowsAsync<ResourceNotValidException>(() => validator.ValidateSearchParameterInput(searchParam, method, CancellationToken.None));
         }
