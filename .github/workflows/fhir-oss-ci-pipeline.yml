@@ -157,7 +157,7 @@ jobs:
         shell: bash
         run: |
           echo "Copying pdb files to deploy symbols"
-          find ${{github.workspace}}/src -type f -name "*.pdb" ! -name "*UnitTest*"-exec cp {} ${{env.outputPath}}/symbols \;
+          find ${{github.workspace}}/src -type f -name "*.pdb" ! -name "*UnitTest*" -exec cp {} ${{env.outputPath}}/symbols \;
 
       - name: Publish Stu3 Web Artifacts to deploy directory
         uses: ./.github/actions/package-web-build-artifacts
