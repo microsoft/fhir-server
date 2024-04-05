@@ -22,4 +22,4 @@ runs:
   steps:
     - name: Build
       shell: bash
-      run: dotnet build "./Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror
+      run: dotnet build "./Microsoft.Health.Fhir.sln" --maxcpucount:1 --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror
