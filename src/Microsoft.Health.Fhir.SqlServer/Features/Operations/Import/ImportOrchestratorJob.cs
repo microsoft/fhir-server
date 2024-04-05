@@ -115,56 +115,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await EnqueueProcessingJobsAsync(jobInfo, inputData, currentResult, cancellationToken);
                 _logger.LogJobInformation(jobInfo, "SubJobs Completed.");
             }
-            catch (TaskCanceledException taskCanceledEx)
+            catch (TaskCanceledException ex)
             {
-                _logger.LogJobInformation(taskCanceledEx, jobInfo, "Import job canceled. {Message}", taskCanceledEx.Message);
-                errorResult = new ImportJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.BadRequest,
-                    ErrorMessage = taskCanceledEx.Message,
-                };
+                _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
-            catch (OperationCanceledException canceledEx)
-                errorResult = new ImportJobErrorResult()
-
-                errorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.BadRequest,
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest };
                 await SendNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-                await WaitCancelledJobCompletedAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
-            catch (IntegrationDataStoreException integrationDataStoreEx)
-                errorResult = new ImportJobErrorResult()
-
-                errorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = integrationDataStoreEx.StatusCode,
+            catch (IntegrationDataStoreException ex)
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Failed to access input files.");
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
+            catch (JobExecutionException ex)
+            {
                 _logger.LogJobInformation(ex, jobInfo, "Failed to process input resources.");
                 errorResult = ex.Error != null ? (ImportJobErrorResult)ex.Error : new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
                 if (errorResult.HttpStatusCode == 0)
-
+                {
                     errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
                 }
 
-                await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-                await CancelProcessingJobsAsync(jobInfo);
-                throw;
+                await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
             catch (Exception ex)
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
-                await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-                await CancelProcessingJobsAsync(jobInfo);
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Failed to import data.");
+                errorResult = new ImportJobErrorResult()
+                {
+                    ErrorMessage = ex.Message,
+                    ErrorDetails = ex.ToString(),
+                    HttpStatusCode = HttpStatusCode.InternalServerError,
+                };
+                await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
 
             if (errorResult != null)
@@ -268,9 +257,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             numberOfStreams = numberOfStreams == 0 ? 1 : numberOfStreams; // record blob even if it is empty
             for (var stream = 0; stream < numberOfStreams; stream++)
             {
+                yield return (long)stream * bytesToRead; // make sure that arithmetic on long is used
+            }
         }
-                            throw new OperationCanceledException(message);
-                        }
 
         private async Task<IList<long>> EnqueueProcessingJobsAsync(IEnumerable<InputResource> inputs, long groupId, ImportOrchestratorJobDefinition coordDefinition, CancellationToken cancellationToken)
         {

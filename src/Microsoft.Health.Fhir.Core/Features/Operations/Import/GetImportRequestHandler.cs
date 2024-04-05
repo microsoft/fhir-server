@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coordInfo.Status == JobStatus.Failed)
             {
-                var errorResult = JsonConvert.DeserializeObject<ImportOrchestratorJobErrorResult>(coordInfo.Result);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coordInfo.Result);
                 throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, errorResult.ErrorMessage), errorResult.HttpStatusCode);
             }
             else if (coordInfo.Status == JobStatus.Completed)
@@ -79,9 +79,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 else if (failedJobsExist)
                 {
                     var failed = jobs.First(x => x.Status == JobStatus.Failed);
-                    var errorResult = JsonConvert.DeserializeObject<ImportProcessingJobErrorResult>(failed.Result);
-                    var failureReason = errorResult.Message;
-                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), HttpStatusCode.InternalServerError);
+                    var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(failed.Result);
+                    if (errorResult.HttpStatusCode == 0)
+                    {
+                        errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                    }
+
+                    // hide error message for InternalServerError
+                    var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                    throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
                 }
                 else // no failures here
                 {

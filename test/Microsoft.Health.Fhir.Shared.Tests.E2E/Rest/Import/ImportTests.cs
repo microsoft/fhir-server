@@ -43,80 +43,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
         private static readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
-        private static readonly string _enqueueJobs = @"
-CREATE PROCEDURE dbo.EnqueueJobs @QueueType tinyint, @Definitions StringList READONLY, @GroupId bigint = NULL, @ForceOneActiveJobGroup bit = 1, @IsCompleted bit = NULL, @ReturnJobs bit = 1
-AS
-set nocount on
-DECLARE @SP varchar(100) = 'EnqueueJobs'
-       ,@Mode varchar(100) = 'Q='+isnull(convert(varchar,@QueueType),'NULL')
-                           +' D='+convert(varchar,(SELECT count(*) FROM @Definitions))
-                           +' G='+isnull(convert(varchar,@GroupId),'NULL')
-                           +' F='+isnull(convert(varchar,@ForceOneActiveJobGroup),'NULL')
-                           +' C='+isnull(convert(varchar,@IsCompleted),'NULL')
-       ,@st datetime = getUTCdate()
-       ,@Lock varchar(100) = 'EnqueueJobs_'+convert(varchar,@QueueType)
-       ,@MaxJobId bigint
-       ,@Rows int
-       ,@msg varchar(1000)
-       ,@JobIds BigintList
-       ,@InputRows int
-
-BEGIN TRY
-  DECLARE @Input TABLE (DefinitionHash varbinary(20) PRIMARY KEY, Definition varchar(max))
-  INSERT INTO @Input SELECT DefinitionHash = hashbytes('SHA1',String), Definition = String FROM @Definitions
-  SET @InputRows = @@rowcount
-
-  INSERT INTO @JobIds
-    SELECT JobId
-      FROM @Input A
-           JOIN dbo.JobQueue B ON B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5
-  
-  IF @@rowcount < @InputRows
-  BEGIN
-    BEGIN TRANSACTION  
-
-    EXECUTE sp_getapplock @Lock, 'Exclusive'
-
-    IF @ForceOneActiveJobGroup = 1 AND EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND Status IN (0,1) AND (@GroupId IS NULL OR GroupId <> @GroupId))
-      RAISERROR('There are other active job groups',18,127)
-
-    SET @MaxJobId = isnull((SELECT TOP 1 JobId FROM dbo.JobQueue WHERE QueueType = @QueueType ORDER BY JobId DESC),0)
-  
-    INSERT INTO dbo.JobQueue
-        (
-             QueueType
-            ,GroupId
-            ,JobId
-            ,Definition
-            ,DefinitionHash
-            ,Status
-        )
-      OUTPUT inserted.JobId INTO @JobIds
-      SELECT @QueueType
-            ,GroupId = isnull(@GroupId,@MaxJobId+1)
-            ,JobId
-            ,Definition
-            ,DefinitionHash
-            ,Status = CASE WHEN @IsCompleted = 1 THEN 2 ELSE 0 END
-        FROM (SELECT JobId = @MaxJobId + row_number() OVER (ORDER BY Dummy), * FROM (SELECT *, Dummy = 0 FROM @Input) A) A -- preserve input order
-        WHERE NOT EXISTS (SELECT * FROM dbo.JobQueue B WITH (INDEX = IX_QueueType_DefinitionHash) WHERE B.QueueType = @QueueType AND B.DefinitionHash = A.DefinitionHash AND B.Status <> 5)
-    SET @Rows = @@rowcount
-
-    COMMIT TRANSACTION
-  END
-
-  IF @ReturnJobs = 1
-    EXECUTE dbo.GetJobs @QueueType = @QueueType, @JobIds = @JobIds
-
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
-END TRY
-BEGIN CATCH
-  IF @@trancount > 0 ROLLBACK TRANSACTION
-  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
-  THROW
-END CATCH
-";
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
@@ -195,57 +121,6 @@ RAISERROR('Test',18,127)
             {
                 ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
             }
-        }
-
-        private void ExecuteSql(string sql)
-        {
-            using var conn = new SqlConnection(_fixture.ConnectionString);
-            conn.Open();
-            using var cmd = new SqlCommand(sql, conn);
-            cmd.ExecuteNonQuery();
-        }
-
-        [Fact]
-        public async Task GivenIncrementalLoad_WithMissingEnqueue_ImportShouldFail()
-        {
-            try
-            {
-                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
-                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-                ExecuteSql("DROP PROCEDURE dbo.EnqueueJobs");
-                await ImportWaitAsync(checkLocation);
-            }
-            catch (Exception e)
-            {
-                Assert.Contains(e.Message, "M");
-            }
-            finally
-            {
-                ExecuteSql(_enqueueJobs);
-            }
-        }
-
-        [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap()
-        {
-            var id = Guid.NewGuid().ToString("N");
-            var ndJson = PrepareResource(id, "1", "2001");
-            var ndJson2 = PrepareResource(id, null, "2002");
-            var ndJson3 = PrepareResource(id, "2", "2003");
-            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
-
-            // check current
-            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
-            Assert.Equal("2", result.Resource.Meta.VersionId);
-            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
-
-            // check history
-            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
-            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
         }
 
         [Fact]
