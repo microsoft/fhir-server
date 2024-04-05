@@ -21,9 +21,17 @@
     <None Remove="TestFiles\Normative\MemberMatch.json" />
     <None Remove="TestFiles\Normative\SearchParameterComponentDuplicate.json" />
     <None Remove="TestFiles\Normative\SearchParameterComponentDuplicate_mismatch.json" />
+    <None Remove="TestFiles\Normative\SearchParameterUsCoreConditionCode.json" />
+    <None Remove="TestFiles\Normative\SearchParameterUsCoreOrganizationName.json" />
+    <None Remove="TestFiles\Normative\SearchParameterUsCoreRelatedPersonId.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterUsCoreConditionCode.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterUsCoreOrganizationName.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameterUsCoreRelatedPersonId.json" />
   </ItemGroup>
   <ItemGroup>
 	  <EmbeddedResource Include="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />

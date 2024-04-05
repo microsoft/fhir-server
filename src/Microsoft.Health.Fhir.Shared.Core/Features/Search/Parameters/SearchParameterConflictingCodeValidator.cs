@@ -97,8 +97,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         {
             Uri duplicateOf = conflictingSearchParam.Url;
 
-            // check that all the base types are the same
-            if (!conflictingSearchParam.BaseResourceTypes.SequenceEqual(searchParam.Base.Select(b => b.ToString())))
+            // check that all the base types are the same, or that the conflicting parameter is a base type of the new one, or contains a superset of the base types
+            if (!conflictingSearchParam.BaseResourceTypes.SequenceEqual(searchParam.Base.Select(b => b.ToString())) &&
+                !conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.Resource) &&
+                !conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.DomainResource) &&
+                !conflictingSearchParam.BaseResourceTypes.ToHashSet().IsSupersetOf(searchParam.Base.Select(b => b.ToString())))
             {
                 // The search parameter's code value conflicts with an existing one
                 _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}, and the base types do not match.", searchParam.Code, baseType.ToString());
@@ -109,9 +112,45 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 duplicateOf = null;
             }
 
-            // check if the expression is the same
-            // TODO: check if the fhirPath expression is equivalent, rather than a string match
-            if (conflictingSearchParam.Expression != searchParam.Expression)
+            // check if the expression is equivalent
+            var expressionsMisMatch = false;
+
+            if (!conflictingSearchParam.Expression.Equals(searchParam.Expression, StringComparison.Ordinal))
+            {
+                expressionsMisMatch = true;
+            }
+
+            // check for complex expressions where | is used to separate multiple expressions
+            var conflictingExpressions = conflictingSearchParam.Expression.Split('|').Select(s => s.Trim());
+            var expressions = searchParam.Expression.Split('|').Select(s => s.Trim());
+            if (!conflictingExpressions.ToHashSet().IsSupersetOf(expressions))
+            {
+                expressionsMisMatch = true;
+            }
+            else
+            {
+                expressionsMisMatch = false;
+            }
+
+            // check if the conflicting expression is Resource or DomainResource base
+            if (conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.Resource) || conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.DomainResource))
+            {
+                var firstBaseType = searchParam.Base.First().ToString();
+                var modifiedResourceExpression = searchParam.Expression.Replace(firstBaseType, "Resource", System.StringComparison.Ordinal);
+                var modifiedDomainResourceExpression = searchParam.Expression.Replace(firstBaseType, "DomainResource", System.StringComparison.Ordinal);
+
+                if (!conflictingSearchParam.Expression.Equals(modifiedDomainResourceExpression, System.StringComparison.Ordinal) &&
+                    !conflictingSearchParam.Expression.Equals(modifiedResourceExpression, System.StringComparison.Ordinal))
+                {
+                    expressionsMisMatch = true;
+                }
+                else
+                {
+                    expressionsMisMatch = false;
+                }
+            }
+
+            if (expressionsMisMatch)
             {
                 // The search parameter's code value conflicts with an existing one
                 _logger.LogInformation("Search parameter definition has a conflicting code value with an existing one. code: {Code}, baseType: {BaseType}, and the expression does not match.", searchParam.Code, baseType.ToString());

@@ -113,6 +113,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [InlineData("ExplanationOfBenefit_Identifier_CDEX_dup", "http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-identifier")]
         [InlineData("SearchParameterComponentDuplicate", "http://hl7.org/fhir/SearchParameter/Measure-context-type-quantity")]
+        [InlineData("SearchParameterUsCoreConditionCode", "http://hl7.org/fhir/SearchParameter/clinical-code")]
+        [InlineData("SearchParameterUsCoreOrganizationName", "http://hl7.org/fhir/SearchParameter/Organization-name")]
+        [InlineData("SearchParameterUsCoreRelatedPersonId", "http://hl7.org/fhir/SearchParameter/Resource-id")]
         [Theory]
         public void CheckForConflictingCodeValue_WithMatchingValues_MarksAsDuplicate(string resourceFilePath, string dupUrl)
         {
@@ -152,6 +155,67 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Returns(x =>
                 {
                     x[2] = existingSearchParam_Measure;
+                    return true;
+                });
+
+            var existingBaseTypes_Code = new List<string>
+            {
+                "AllergyIntolerance",
+                "Condition",
+                "DeviceRequest",
+                "DiagnosticReport",
+                "FamilyMemberHistory",
+                "List",
+                "Medication",
+                "MedicationAdministration",
+                "MedicationDispense",
+                "MedicationRequest",
+                "MedicationStatement",
+                "Observation",
+                "Procedure",
+                "ServiceRequest",
+            };
+            var existingSearchParam_Code = new SearchParameterInfo(
+                "clinical-code",
+                "code",
+                ValueSets.SearchParamType.Token,
+                url: new Uri(dupUrl),
+                expression: "AllergyIntolerance.code | AllergyIntolerance.reaction.substance | Condition.code | (DeviceRequest.code as CodeableConcept) | DiagnosticReport.code | FamilyMemberHistory.condition.code | List.code | Medication.code | (MedicationAdministration.medication as CodeableConcept) | (MedicationDispense.medication as CodeableConcept) | (MedicationRequest.medication as CodeableConcept) | (MedicationStatement.medication as CodeableConcept) | Observation.code | Procedure.code | ServiceRequest.code",
+                baseResourceTypes: existingBaseTypes_Code.AsReadOnly());
+            _searchParameterDefinitionManager.TryGetSearchParameter("Condition", searchParam.Code, out var searchParameterInfo4)
+                .Returns(x =>
+                {
+                    x[2] = existingSearchParam_Code;
+                    return true;
+                });
+
+            var existingBaseTypes_Name = new List<string> { "Organization" };
+            var existingSearchParam_Name = new SearchParameterInfo(
+                "Organization-name",
+                "name",
+                ValueSets.SearchParamType.String,
+                url: new Uri(dupUrl),
+                expression: "Organization.name | Organization.alias",
+                baseResourceTypes: existingBaseTypes_Name.AsReadOnly());
+            _searchParameterDefinitionManager.TryGetSearchParameter("Organization", searchParam.Code, out var searchParameterInfo5)
+                .Returns(x =>
+                {
+                    x[2] = existingSearchParam_Name;
+                    return true;
+                });
+
+            var existingBaseTypes_Id = new List<string> { "Resource" };
+            var existingSearchParam_Id = new SearchParameterInfo(
+                "_id",
+                "_id",
+                ValueSets.SearchParamType.Token,
+                url: new Uri(dupUrl),
+                expression: "Resource.id",
+                baseResourceTypes: existingBaseTypes_Id.AsReadOnly());
+            _searchParameterDefinitionManager.TryGetSearchParameter("RelatedPerson", searchParam.Code, out var searchParameterInfo6)
+                .Returns(x =>
+                {
+                    x[2] = existingSearchParam_Id;
                     return true;
                 });
 
