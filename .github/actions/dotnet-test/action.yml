@@ -9,4 +9,4 @@ runs:
   steps:
     - name: Run Unit Tests
       shell: bash
-      run: dotnet test "Microsoft.Health.Fhir.sln" -maxcpucount:1 --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+      run: dotnet test "Microsoft.Health.Fhir.sln" --filter "FullyQualifiedName~UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal

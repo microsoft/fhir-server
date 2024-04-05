@@ -71,7 +71,7 @@ jobs:
       #   with:
       #     environmentName: ${{vars.CIRESOURCEGROUPROOT}}
   buildAndUnitTest:
-    runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+    runs-on: [self-hosted, 1ES.Pool=GithubRunPool, Windows]
     needs: setup
     steps:
       - name: Checkout
@@ -236,7 +236,7 @@ jobs:
       #     path: ${{env.outputPath}}/bin/${{env.buildConfiguration}}/net5.0/publish
 
   # runIntegrationTests:
-  #   runs-on: [self-hosted, 1ES.Pool=GithubRunPool]
+  #   runs-on: [self-hosted, 1ES.Pool=GithubRunPool, Windows]
   #   needs : buildAndUnitTest
   #   steps:
     # - name: Checkout
