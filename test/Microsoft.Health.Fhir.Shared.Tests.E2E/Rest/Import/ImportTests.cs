@@ -1001,8 +1001,7 @@ RAISERROR('TestError',18,127)
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
@@ -1052,8 +1051,7 @@ RAISERROR('TestError',18,127)
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
