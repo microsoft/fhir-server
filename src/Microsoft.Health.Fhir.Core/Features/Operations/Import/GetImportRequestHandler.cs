@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 var start = Stopwatch.StartNew();
                 var jobs = (await _queueClient.GetJobByGroupIdAsync(QueueType.Import, coordInfo.GroupId, true, cancellationToken)).Where(x => x.Id != coordInfo.Id).ToList();
-                await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
+                await Task.Delay(TimeSpan.FromSeconds(start.Elapsed.TotalSeconds > 6 ? 60 : start.Elapsed.TotalSeconds * 10), cancellationToken); // throttle to avoid misuse.
                 var inFlightJobsExist = jobs.Any(x => x.Status == JobStatus.Running || x.Status == JobStatus.Created);
                 var cancelledJobsExist = jobs.Any(x => x.Status == JobStatus.Cancelled || (x.Status == JobStatus.Running && x.CancelRequested));
                 var failedJobsExist = jobs.Any(x => x.Status == JobStatus.Failed);
