@@ -18,6 +18,7 @@ using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -77,13 +78,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 ExecuteSql(@"
 CREATE TRIGGER JobQueue_Trigger ON JobQueue INSTEAD OF INSERT
 AS
-RAISERROR('Test',18,127)
+RAISERROR('TestError',18,127)
                 ");
-                await ImportWaitAsync(checkLocation);
+                await ImportWaitAsync(checkLocation, false);
             }
-            catch (Exception e)
+            catch (OperationFailedException ofe)
             {
-                Assert.Contains("InternalServerError", e.Message);
+                Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
+                Assert.True(!ofe.Message.Contains("TestError"));
             }
             finally
             {
@@ -105,17 +107,18 @@ RAISERROR('Test',18,127)
                 ExecuteSql(@"
 CREATE TRIGGER Transactions_Trigger ON Transactions INSTEAD OF UPDATE
 AS
-RAISERROR('Test',18,127)
+RAISERROR('TestError',18,127)
                 ");
                 var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
                 var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
                 var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
                 var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-                await ImportWaitAsync(checkLocation);
+                await ImportWaitAsync(checkLocation, false);
             }
-            catch (Exception e)
+            catch (OperationFailedException ofe)
             {
-                Assert.Contains("InternalServerError", e.Message);
+                Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
+                Assert.True(!ofe.Message.Contains("TestError"));
             }
             finally
             {
@@ -306,7 +309,7 @@ RAISERROR('Test',18,127)
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -742,7 +745,7 @@ RAISERROR('Test',18,127)
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -844,7 +847,7 @@ RAISERROR('Test',18,127)
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -999,7 +1002,7 @@ RAISERROR('Test',18,127)
                 async () =>
                 {
                     HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
@@ -1050,7 +1053,7 @@ RAISERROR('Test',18,127)
                 async () =>
                 {
                     HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
@@ -1123,10 +1126,10 @@ RAISERROR('Test',18,127)
             return checkLocation;
         }
 
-        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation)
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, bool checkSuccessStatus = true)
         {
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation, checkSuccessStatus)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }
