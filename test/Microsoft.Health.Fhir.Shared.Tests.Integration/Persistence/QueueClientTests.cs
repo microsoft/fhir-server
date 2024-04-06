@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
 using Microsoft.Health.Extensions.Xunit;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -86,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             byte queueType = (byte)TestQueueType.GivenNewJobsWithSameQueueType_WhenEnqueueWithForceOneActiveJobGroup_ThenSecondJobShouldNotBeEnqueued;
 
             IEnumerable<JobInfo> jobInfos = await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, true, false, CancellationToken.None);
-            await Assert.ThrowsAsync<SqlException>(async () => await _queueClient.EnqueueAsync(queueType, new[] { "job2" }, null, true, false, CancellationToken.None));
+            await Assert.ThrowsAsync<JobConflictException>(async () => await _queueClient.EnqueueAsync(queueType, new[] { "job2" }, null, true, false, CancellationToken.None));
         }
 
         [Fact]
