@@ -52,78 +52,80 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _fixture = fixture;
         }
 
-        private void ExecuteSql(string sql)
+        [Fact]
+        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            try
+            {
+                var registration = await RegisterImport();
+                ExecuteSql(@"
+CREATE TRIGGER JobQueue_Trigger ON JobQueue FOR INSERT
+AS
+RAISERROR('TestError',18,127)
+                ");
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(HttpStatusCode.InternalServerError, message.StatusCode);
+                Assert.True(!message.ReasonPhrase.Contains("TestError")); // message provided to customer should not contain internal details
+                var result = (string)ExecuteSql($"SELECT Result FROM dbo.JobQueue WHERE QueueType = 2 AND Status = 3 AND JobId = {registration.JobId}");
+                Assert.Contains("TestError", result); // job result should contain all details
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            try
+            {
+                ExecuteSql(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+AS
+RAISERROR('TestError',18,127)
+                ");
+                var registration = await RegisterImport();
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(HttpStatusCode.InternalServerError, message.StatusCode);
+                Assert.True(!message.ReasonPhrase.Contains("TestError")); // message provided to customer should not contain internal details
+                var result = (string)ExecuteSql($"SELECT Result FROM dbo.JobQueue WHERE QueueType = 2 AND Status = 3 AND GroupId = {registration.JobId} AND GroupId <> JobId");
+                Assert.Contains("TestError", result); // job result should contain all details
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
+        }
+
+        private object ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.ConnectionString);
             conn.Open();
             using var cmd = new SqlCommand(sql, conn);
-            cmd.ExecuteNonQuery();
+            return cmd.ExecuteScalar();
         }
 
-        [Fact]
-        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
+        private async Task<(Uri CheckLocation, long JobId)> RegisterImport()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
-
-            try
-            {
-                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
-                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
-                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-                ExecuteSql(@"
-CREATE TRIGGER JobQueue_Trigger ON JobQueue INSTEAD OF INSERT
-AS
-RAISERROR('TestError',18,127)
-                ");
-                await ImportWaitAsync(checkLocation, false);
-            }
-            catch (OperationFailedException ofe)
-            {
-                Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-                Assert.True(!ofe.Message.Contains("TestError"));
-            }
-            finally
-            {
-                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
-            }
-        }
-
-        [Fact]
-        public async Task GivenIncrementalLoad_NotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
-        {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                return;
-            }
-
-            try
-            {
-                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
-                ExecuteSql(@"
-CREATE TRIGGER Transactions_Trigger ON Transactions INSTEAD OF UPDATE
-AS
-RAISERROR('TestError',18,127)
-                ");
-                var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
-                var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
-                var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-                var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-                await ImportWaitAsync(checkLocation, false);
-            }
-            catch (OperationFailedException ofe)
-            {
-                Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
-                Assert.True(!ofe.Message.Contains("TestError"));
-            }
-            finally
-            {
-                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
-            }
+            var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var id = long.Parse(checkLocation.LocalPath.Split('/').Last());
+            return (checkLocation, id);
         }
 
         [Fact]
