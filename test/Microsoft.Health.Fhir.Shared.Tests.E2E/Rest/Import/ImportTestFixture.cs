@@ -27,5 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         public ImportTestStorageAccount StorageAccount { get; private set; }
+
+        internal string ConnectionString => (TestFhirServer as InProcTestFhirServer)?.ConnectionString;
     }
 }

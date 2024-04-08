@@ -470,14 +470,17 @@ namespace Microsoft.Health.Fhir.Client
             return await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, bool checkSuccessStatus = true, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
 
-            await EnsureSuccessStatusCodeAsync(response);
+            if (checkSuccessStatus)
+            {
+                await EnsureSuccessStatusCodeAsync(response);
+            }
 
             return response;
         }
