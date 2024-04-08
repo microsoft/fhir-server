@@ -53,177 +53,142 @@
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.TokenSearchParam
-          WHERE IsHistory = 0
-              AND SearchParamId = @p0
+          WHERE SearchParamId = @p0
               AND Code = @p1
               AND ResourceTypeId = @p2
-
       ),
       cte1 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte0 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte0 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p3
               AND Text = @p4 AND Text = @p4 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte2 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte1 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte1 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p3
               AND Text = @p5 AND Text = @p5 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte3 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte2 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte2 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p3
               AND Text = @p6 AND Text = @p6 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte4 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte3 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte3 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p7
               AND Text = @p4 AND Text = @p4 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte5 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte4 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte4 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p7
               AND Text = @p5 AND Text = @p5 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte6 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte5 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte5 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p7
               AND Text = @p6 AND Text = @p6 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte7 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte6 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte6 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p8
               AND Text = @p4 AND Text = @p4 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte8 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte7 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte7 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p8
               AND Text = @p5 AND Text = @p5 COLLATE Latin1_General_100_CS_AS
               AND ResourceTypeId = @p2
-
       ),
       cte9 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.TokenSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte8 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte8 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p9
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p10)
               AND Code = @p11
-
               AND ResourceTypeId = @p2
-
       ),
       cte10 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.TokenStringCompositeSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte9 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte9 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p12
               AND SystemId1 IN (SELECT SystemId FROM dbo.System WHERE Value = @p13)
               AND Code1 = @p14
               AND Text2 LIKE @p15
-
               AND ResourceTypeId = @p2
-
       ),
       cte11 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.DateTimeSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte10 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte10 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p16
               AND StartDateTime >= @p17
               AND StartDateTime <= @p18
               AND EndDateTime <= @p18
-
               AND ResourceTypeId = @p2
-
       ),
       cte12 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.TokenSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte11 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte11 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p19
               AND SystemId = @p20
               AND Code = @p21
-
               AND ResourceTypeId = @p2
-
       ),
       cte13 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.StringSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte12 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
-              AND SearchParamId = @p22
-              AND Text = @p6 AND Text = @p6 COLLATE Latin1_General_100_CS_AS
-              AND ResourceTypeId = @p2
-
+          WHERE EXISTS(SELECT * FROM cte12 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+            AND SearchParamId = @p22
+            AND Text = @p6 AND Text = @p6 COLLATE Latin1_General_100_CS_AS
+            AND ResourceTypeId = @p2
       ),
       cte14 AS
       (
           SELECT ResourceTypeId AS T1, ResourceSurrogateId AS Sid1
           FROM dbo.TokenSearchParam
-          WHERE IsHistory = 0
-              AND EXISTS(SELECT * FROM cte13 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
+          WHERE EXISTS(SELECT * FROM cte13 WHERE ResourceTypeId = T1 AND ResourceSurrogateId = Sid1)
               AND SearchParamId = @p23
               AND SystemId = @p24
               AND Code = @p25
-
               AND ResourceTypeId = @p2
-
       ),
       cte15 AS
       (
@@ -234,7 +199,6 @@
               AND refSource.ReferenceResourceId = refTarget.ResourceId
           WHERE refSource.SearchParamId = @p26
               AND refTarget.IsHistory = 0
-              AND refSource.IsHistory = 0
               AND refSource.ResourceTypeId IN (@p27)
               AND refSource.ReferenceResourceTypeId IN (@p2)
               AND EXISTS(SELECT * FROM cte14 WHERE refTarget.ResourceTypeId = T1 AND refTarget.ResourceSurrogateId = Sid1)
@@ -242,147 +206,119 @@
       ),
       cte16 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.StringSearchParam
           INNER JOIN cte15
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p28
+          WHERE SearchParamId = @p28
               AND Text = @p29 AND Text = @p29 COLLATE Latin1_General_100_CS_AS
       ),
       cte17 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.StringSearchParam
           INNER JOIN cte16
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p28
+          WHERE SearchParamId = @p28
               AND Text = @p30 AND Text = @p30 COLLATE Latin1_General_100_CS_AS
       ),
       cte18 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.StringSearchParam
           INNER JOIN cte17
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p28
+          WHERE SearchParamId = @p28
               AND Text = @p31 AND Text = @p31 COLLATE Latin1_General_100_CS_AS
       ),
       cte19 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.StringSearchParam
           INNER JOIN cte18
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p28
+          WHERE SearchParamId = @p28
               AND Text = @p32 AND Text = @p32 COLLATE Latin1_General_100_CS_AS
       ),
       cte20 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte19
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p33
+          WHERE SearchParamId = @p33
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p34)
               AND Code = @p35
-
       ),
       cte21 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte20
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p33
+          WHERE SearchParamId = @p33
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p34)
               AND Code = @p36
-
       ),
       cte22 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte21
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p33
+          WHERE SearchParamId = @p33
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p34)
               AND Code = @p37
-
       ),
       cte23 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte22
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p33
+          WHERE SearchParamId = @p33
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p34)
               AND Code = @p38
-
       ),
       cte24 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte23
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p0
+          WHERE SearchParamId = @p0
               AND Code = @p39
       ),
       cte25 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte24
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p40
+          WHERE SearchParamId = @p40
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p41)
               AND Code = @p42
-
       ),
       cte26 AS
       (
-          SELECT T1, Sid1, ResourceTypeId AS T2,
-          ResourceSurrogateId AS Sid2
+          SELECT T1, Sid1, ResourceTypeId AS T2, ResourceSurrogateId AS Sid2
           FROM dbo.TokenSearchParam
           INNER JOIN cte25
           ON ResourceTypeId = T2
               AND ResourceSurrogateId = Sid2
-          WHERE IsHistory = 0
-              AND SearchParamId = @p43
+          WHERE SearchParamId = @p43
               AND SystemId IN (SELECT SystemId FROM dbo.System WHERE Value = @p44)
               AND Code = @p45
-
       ),
       cte27 AS
       (
@@ -390,11 +326,10 @@
           FROM cte26
           ORDER BY T1 ASC, Sid1 ASC
       )
+      /* HASH ZgZSXBM+MzloBRd89dLWBC3ztlqMo2OIDo5Jt9leEy8= */
       SELECT DISTINCT r.ResourceTypeId, r.ResourceId, r.Version, r.IsDeleted, r.ResourceSurrogateId, r.RequestMethod, CAST(IsMatch AS bit) AS IsMatch, CAST(IsPartial AS bit) AS IsPartial, r.IsRawResourceMetaSet, r.SearchParamHash, r.RawResource
       FROM dbo.Resource r
-
       INNER JOIN cte27
       ON r.ResourceTypeId = cte27.T1 AND
       r.ResourceSurrogateId = cte27.Sid1
       ORDER BY r.ResourceTypeId ASC, r.ResourceSurrogateId ASC
-      /* HASH ZgZSXBM+MzloBRd89dLWBC3ztlqMo2OIDo5Jt9leEy8= */

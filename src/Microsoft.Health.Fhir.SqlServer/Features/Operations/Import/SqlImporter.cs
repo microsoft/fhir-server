@@ -91,24 +91,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var results = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
-            var dups = validResources.Except(results.Loaded).Except(results.Conflicts);
-            AppendErrorsToBuffer(dups, results.Conflicts, errors);
+            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
+            errors.AddRange(newErrors);
             resources.Clear();
-            return (results.Loaded.Count, resources.Sum(_ => (long)_.Length));
-        }
-
-        private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
-        {
-            foreach (var resource in dups)
-            {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportDuplicate, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
-            }
-
-            foreach (var resource in conflicts)
-            {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
-            }
+            return (validResources.Count - newErrors.Count, resources.Sum(_ => (long)_.Length));
         }
 
         private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, CancellationToken cancellationToken)

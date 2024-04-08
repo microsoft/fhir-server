@@ -111,6 +111,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
+                    case IncompleteDeleteException:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
+                        break;
                     case BadRequestException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
