@@ -1136,7 +1136,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
-        public async Task GivenImportTriggeredWithMultipleSameFile_ThenBadRequestShouldBeReturned()
+        public async Task GivenImportRequestWithMultipleSameFile_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
@@ -1166,9 +1166,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
                 Mode = ImportMode.InitialLoad.ToString(),
             };
 
-            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
-                async () => await ImportWaitAsync(checkLocation));
+                async () => await _client.ImportAsync(request.ToParameters()));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
