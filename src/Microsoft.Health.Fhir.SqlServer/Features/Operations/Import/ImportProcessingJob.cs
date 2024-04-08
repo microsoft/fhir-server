@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
-            var currentResult = new ImportProcessingJobResult();
+            var result = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
-                currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Design of resource loader is too complex. There is no need to have any channel and separate load task.
                 // This design was driven from assumption that worker/processing job deals with entire large file.
@@ -99,12 +99,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 // Import to data store
                 var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
 
-                currentResult.SucceededResources = importProgress.SucceededResources;
-                currentResult.FailedResources = importProgress.FailedResources;
-                currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
-                currentResult.ProcessedBytes = importProgress.ProcessedBytes;
+                result.SucceededResources = importProgress.SucceededResources;
+                result.FailedResources = importProgress.FailedResources;
+                result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                result.ProcessedBytes = importProgress.ProcessedBytes;
 
-                _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
+                _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 
                 try
                 {
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
                 catch (IntegrationDataStoreException ex)
                 {
-                    _logger.LogJobInformation(ex, jobInfo, "Failed to access input files.");
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to access input files.");
                     var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
@@ -145,12 +145,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
 
-                jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
+                jobInfo.Data = result.SucceededResources + result.FailedResources;
 
                 // jobs are small, send on success only
-                await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, TranslateResult(currentResult), definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+                await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, result.SucceededResources, result.FailedResources, result.ProcessedBytes, definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
 
-                return JsonConvert.SerializeObject(currentResult);
+                return JsonConvert.SerializeObject(result);
             }
             catch (TaskCanceledException canceledEx)
             {
@@ -166,15 +166,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
+                _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
                 var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
-        }
-
-        private static ImportOrchestratorJobResult TranslateResult(ImportProcessingJobResult result)
-        {
-            return new ImportOrchestratorJobResult { SucceededResources = result.SucceededResources, FailedResources = result.FailedResources, TotalBytes = result.ProcessedBytes };
         }
 
         private static string GetErrorFileName(string resourceType, long groupId, long jobId)
