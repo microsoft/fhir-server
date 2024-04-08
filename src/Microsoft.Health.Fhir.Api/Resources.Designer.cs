@@ -268,6 +268,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import request cannot have duplicate files. Duplicates: {0}. .
+        /// </summary>
+        public static string ImportRequestDuplicateInputFiles {
+            get {
+                return ResourceManager.GetString("ImportRequestDuplicateInputFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {

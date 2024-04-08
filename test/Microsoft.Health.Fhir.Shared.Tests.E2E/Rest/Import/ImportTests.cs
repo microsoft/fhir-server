@@ -1168,7 +1168,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
-                async () => await ImportWaitAsync(checkLocation, _client));
+                async () => await ImportWaitAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
