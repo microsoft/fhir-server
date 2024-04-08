@@ -324,7 +324,7 @@
     <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
   </data>
   <data name="ImportRequestDuplicateInputFiles" xml:space="preserve">
-    <value>Import request cannot have duplicate files. Duplicates: {0}. </value>
+    <value>Import request cannot have duplicate files. Found duplicates: {0}. </value>
   </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>

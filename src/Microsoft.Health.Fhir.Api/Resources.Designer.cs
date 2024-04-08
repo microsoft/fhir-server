@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Import request cannot have duplicate files. Duplicates: {0}. .
+        ///   Looks up a localized string similar to Import request cannot have duplicate files. Found duplicates: {0}. .
         /// </summary>
         public static string ImportRequestDuplicateInputFiles {
             get {
