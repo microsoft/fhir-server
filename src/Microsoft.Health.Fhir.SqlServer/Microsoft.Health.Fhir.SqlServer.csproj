@@ -10,7 +10,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" />
     <PackageReference Include="Microsoft.Health.SqlServer" />
     <PackageReference Include="Microsoft.Health.SqlServer.Api" />
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" PrivateAssets="All" />
     <PackageReference Include="Microsoft.Health.Tools.Sql.Tasks" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" />
