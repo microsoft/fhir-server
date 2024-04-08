@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
             HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
