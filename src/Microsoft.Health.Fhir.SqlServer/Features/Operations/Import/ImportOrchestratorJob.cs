@@ -147,12 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (Exception ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Failed to import data.");
-                errorResult = new ImportJobErrorResult()
-                {
-                    ErrorMessage = ex.Message,
-                    ErrorDetails = ex.ToString(),
-                    HttpStatusCode = HttpStatusCode.InternalServerError,
-                };
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
                 await SendNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
             }
 

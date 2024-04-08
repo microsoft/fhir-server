@@ -146,7 +146,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             sqlCommand.Parameters.AddWithValue("@ForceOneActiveJobGroup", forceOneActiveJobGroup);
             sqlCommand.Parameters.AddWithValue("@IsCompleted", isCompleted);
 
-            return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+            try
+            {
+                return await sqlCommand.ExecuteReaderAsync(_sqlRetryService, JobInfoExtensions.LoadJobInfo, _logger, cancellationToken);
+            }
+            catch (SqlException sqlEx) when (forceOneActiveJobGroup && sqlEx.State == 127)
+            {
+                throw new JobConflictException(sqlEx.Message);
+            }
         }
 
         public async Task<IReadOnlyList<JobInfo>> GetJobByGroupIdAsync(byte queueType, long groupId, bool returnDefinition, CancellationToken cancellationToken)
