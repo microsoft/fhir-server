@@ -111,9 +111,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
 
+            // jobs 1 and 2 are created for the same input file, they are grouped together in the results
             var worker1 = new JobInfo()
             {
-                Id = 2,
+                Id = 1,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(workerResult),
                 Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }),
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             var worker2 = new JobInfo()
             {
-                Id = 3,
+                Id = 2,
                 Status = JobStatus.Completed,
                 Result = JsonConvert.SerializeObject(workerResult),
                 Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }),
@@ -129,15 +130,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             var worker3 = new JobInfo()
             {
+                Id = 3,
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz2" }),
+            };
+
+            var worker4 = new JobInfo()
+            {
                 Id = 4,
                 Status = JobStatus.Running,
             };
 
-            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, new List<JobInfo>() { worker1, worker2, worker3 });
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, new List<JobInfo>() { worker1, worker2, worker3, worker4 });
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Equal(2, result.JobResult.Output.Count);
-            Assert.Equal(2, result.JobResult.Error.Count);
+            Assert.Equal(3, result.JobResult.Error.Count);
         }
 
         [Fact]
