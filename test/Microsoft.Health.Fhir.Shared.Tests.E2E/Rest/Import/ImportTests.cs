@@ -82,7 +82,7 @@ RAISERROR('TestError',18,127)
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForWorkerJob_ImportShouldFail()
+        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForWorker_ImportShouldFail()
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -110,6 +110,39 @@ RAISERROR('TestError',18,127)
             }
         }
 
+        [Theory]
+        [InlineData(3)] // import should succeed
+        [InlineData(6)] // import shoul fail
+        public async Task GivenIncrementalLoad_WithExecutionTimeoutExceptionForWorker_ImportShouldReturnCorrectly(int requestedExceptions)
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            try
+            {
+                ExecuteSql("TRUNCATE TABLE EventLog");
+                ExecuteSql("TRUNCATE TABLE Transactions");
+                ExecuteSql(@$"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+AS
+IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransaction' AND Status = 'Error') < {requestedExceptions} 
+  RAISERROR('execution timeout expired',18,127)
+                    ");
+                var registration = await RegisterImport();
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(requestedExceptions == 6 ? HttpStatusCode.InternalServerError : HttpStatusCode.OK, message.StatusCode);
+                var retries = (int)ExecuteSql("SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransaction' AND Status = 'Error'");
+                Assert.Equal(requestedExceptions == 6 ? 5 : 3, retries);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
+        }
+
         private object ExecuteSql(string sql)
         {
             using var conn = new SqlConnection(_fixture.ConnectionString);
@@ -120,7 +153,7 @@ RAISERROR('TestError',18,127)
 
         private async Task<(Uri CheckLocation, long JobId)> RegisterImport()
         {
-            var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), "1", "2001");
+            var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), null, null); // do not specify (version/last updated) to run without transaction
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
