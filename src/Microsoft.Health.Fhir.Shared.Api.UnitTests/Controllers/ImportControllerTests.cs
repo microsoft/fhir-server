@@ -85,7 +85,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var requestWithDuplicateUrls = GetDuplicateFileImportRequest();
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(requestWithDuplicateUrls.ToParameters()));
+
+            var controllerException = await Assert.ThrowsAsync<RequestNotValidException>(
+                () => bulkImportController.Import(requestWithDuplicateUrls.ToParameters()));
+
+            Assert.Contains(requestWithDuplicateUrls.Input[0].Url.ToString(), controllerException.Message);
         }
 
         private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
