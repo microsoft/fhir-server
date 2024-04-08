@@ -163,13 +163,6 @@ namespace Microsoft.Health.JobManagement
 
                 jobInfo.Result = await runningJob;
             }
-            catch (RetriableJobException ex)
-            {
-                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-
-                // Not complete the job for retriable exception.
-                return;
-            }
             catch (JobExecutionException ex)
             {
                 _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
@@ -178,7 +171,7 @@ namespace Microsoft.Health.JobManagement
 
                 try
                 {
-                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {

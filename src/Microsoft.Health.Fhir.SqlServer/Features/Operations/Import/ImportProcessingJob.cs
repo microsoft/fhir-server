@@ -79,22 +79,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
-                try
-                {
-                    var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
+                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
 
-                    currentResult.SucceededResources = importProgress.SucceededResources;
-                    currentResult.FailedResources = importProgress.FailedResources;
-                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
-                    currentResult.ProcessedBytes = importProgress.ProcessedBytes;
+                currentResult.SucceededResources = importProgress.SucceededResources;
+                currentResult.FailedResources = importProgress.FailedResources;
+                currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                currentResult.ProcessedBytes = importProgress.ProcessedBytes;
 
-                    _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogJobError(ex, jobInfo, "Failed to import data.");
-                    throw;
-                }
+                _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
 
                 try
                 {
@@ -113,19 +105,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
-                    var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Due to unauthorized request, import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
-                    var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Input file deleted, renamed, or moved during job. Import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(ex.Message, error, ex);
+                }
+                catch (IntegrationDataStoreException ex)
+                {
+                    _logger.LogJobInformation(ex, jobInfo, "Failed to access input files.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogJobError(ex, jobInfo, "RetriableJobException. Generic exception. Failed to load data.");
-                    throw new RetriableJobException("Failed to load data", ex);
+                    _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
+                    throw new JobExecutionException(ex.Message, error, ex);
                 }
 
                 jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
@@ -134,24 +133,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (TaskCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
-                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
+                var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
-                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
+                var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
-            }
-            catch (RetriableJobException retriableEx)
-            {
-                _logger.LogJobInformation(retriableEx, jobInfo, "Error in import processing job.");
-                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
-                var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }

@@ -96,13 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else if (coordInfo.Status == JobStatus.Failed)
             {
-                ImportOrchestratorJobErrorResult errorResult = JsonConvert.DeserializeObject<ImportOrchestratorJobErrorResult>(coordInfo.Result);
-
-                string failureReason = errorResult.ErrorMessage;
-                HttpStatusCode failureStatusCode = errorResult.HttpStatusCode;
-
-                throw new OperationFailedException(
-                    string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), failureStatusCode);
+                var errorResult = JsonConvert.DeserializeObject<ImportJobErrorResult>(coordInfo.Result);
+                //// do not show error message for InternalServerError
+                var failureReason = errorResult.HttpStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError.ToString() : errorResult.ErrorMessage;
+                throw new OperationFailedException(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), errorResult.HttpStatusCode);
             }
             else if (coordInfo.Status == JobStatus.Cancelled)
             {

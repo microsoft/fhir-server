@@ -31,6 +31,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.JobManagement;
 using Newtonsoft.Json;
+using Polly;
 using JobStatus = Microsoft.Health.JobManagement.JobStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -48,6 +49,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly IAuditLogger _auditLogger;
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        private static readonly AsyncPolicy _timeoutRetries = Policy
+            .Handle<SqlException>(ex => ex.IsExecutionTimeout())
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ImportOrchestratorJob(
             IMediator mediator,
@@ -99,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             currentResult.Request = inputData.RequestUri.ToString();
 
-            ImportOrchestratorJobErrorResult errorResult = null;
+            ImportJobErrorResult errorResult = null;
 
             try
             {
@@ -114,88 +118,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             catch (TaskCanceledException taskCanceledEx)
             {
                 _logger.LogJobInformation(taskCanceledEx, jobInfo, "Import job canceled. {Message}", taskCanceledEx.Message);
-
-                errorResult = new ImportOrchestratorJobErrorResult()
+                errorResult = new ImportJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = taskCanceledEx.Message,
                 };
-
-                // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import job canceled. {Message}", canceledEx.Message);
-
-                errorResult = new ImportOrchestratorJobErrorResult()
+                errorResult = new ImportJobErrorResult()
                 {
                     HttpStatusCode = HttpStatusCode.BadRequest,
                     ErrorMessage = canceledEx.Message,
                 };
-
-                // Processing jobs has been cancelled by CancelImportRequestHandler
                 await WaitCancelledJobCompletedAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Cancelled, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
                 _logger.LogJobInformation(integrationDataStoreEx, jobInfo, "Failed to access input files.");
-
-                errorResult = new ImportOrchestratorJobErrorResult()
+                errorResult = new ImportJobErrorResult()
                 {
                     HttpStatusCode = integrationDataStoreEx.StatusCode,
                     ErrorMessage = integrationDataStoreEx.Message,
                 };
-
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
-            catch (ImportFileEtagNotMatchException eTagEx)
+            catch (JobExecutionException ex)
             {
-                _logger.LogJobInformation(eTagEx, jobInfo, "Import file etag not match.");
-
-                errorResult = new ImportOrchestratorJobErrorResult()
+                _logger.LogJobInformation(ex, jobInfo, "Failed to process input resources.");
+                errorResult = ex.Error != null ? (ImportJobErrorResult)ex.Error : new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
+                if (errorResult.HttpStatusCode == 0)
                 {
-                    HttpStatusCode = HttpStatusCode.BadRequest,
-                    ErrorMessage = eTagEx.Message,
-                };
+                    errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                }
 
-                await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-            }
-            catch (ImportProcessingException processingEx)
-            {
-                _logger.LogJobInformation(processingEx, jobInfo, "Failed to process input resources.");
-
-                errorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.BadRequest,
-                    ErrorMessage = processingEx.Message,
-                    ErrorDetails = processingEx.ToString(),
-                };
-
-                // Cancel other processing jobs
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
-            }
-            catch (RetriableJobException ex)
-            {
-                _logger.LogJobInformation(ex, jobInfo, "Failed with RetriableJobException.");
-
-                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Failed to import data.");
-
-                errorResult = new ImportOrchestratorJobErrorResult()
-                {
-                    HttpStatusCode = HttpStatusCode.InternalServerError,
-                    ErrorMessage = ex.Message,
-                    ErrorDetails = ex.ToString(),
-                };
-
-                // Cancel processing jobs for critical error in orchestrator job
+                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.InternalServerError };
                 await CancelProcessingJobsAsync(jobInfo);
                 await SendImportMetricsNotification(JobStatus.Failed, jobInfo, currentResult, inputData.ImportMode, fhirRequestContext);
             }
@@ -218,7 +185,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     if (!input.Etag.Equals(properties[IntegrationDataStoreClientConstants.BlobPropertyETag]))
                     {
-                        throw new ImportFileEtagNotMatchException(string.Format("Input file Etag not match. {0}", input.Url));
+                        var errorMessage = string.Format("Input file Etag not match. {0}", input.Url);
+                        var errorResult = new ImportJobErrorResult { ErrorMessage = errorMessage, HttpStatusCode = HttpStatusCode.BadRequest };
+                        throw new JobExecutionException(errorMessage, errorResult);
                     }
                 }
             });
@@ -320,13 +289,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 try
                 {
                     var start = Stopwatch.StartNew();
-                    jobInfos.AddRange(await _queueClient.GetJobsByIdsAsync(QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken));
+                    jobInfos.AddRange(await _timeoutRetries.ExecuteAsync(async () => await _queueClient.GetJobsByIdsAsync(QueueType.Import, jobIdsToCheck.ToArray(), false, cancellationToken)));
                     duration = start.Elapsed.TotalSeconds;
                 }
-                catch (Exception ex)
+                catch (SqlException ex)
                 {
                     _logger.LogJobError(ex, orchestratorInfo, "Failed to get running jobs.");
-                    throw new RetriableJobException(ex.Message, ex);
+                    throw new JobExecutionException(ex.Message, ex);
                 }
 
                 foreach (var jobInfo in jobInfos)
@@ -342,9 +311,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         }
                         else if (jobInfo.Status == JobStatus.Failed)
                         {
-                            var procesingJobResult = jobInfo.DeserializeResult<ImportProcessingJobErrorResult>();
-                            _logger.LogJobError(jobInfo, "Job is set to 'Failed'. Message: {Message}.", procesingJobResult.Message);
-                            throw new ImportProcessingException(procesingJobResult.Message);
+                            var procesingJobResult = jobInfo.DeserializeResult<ImportJobErrorResult>();
+                            _logger.LogJobError(jobInfo, "Job is set to 'Failed'. Message: {Message}.", procesingJobResult.ErrorMessage);
+                            throw new JobExecutionException(procesingJobResult.ErrorMessage, procesingJobResult);
                         }
                         else if (jobInfo.Status == JobStatus.Cancelled)
                         {
@@ -405,19 +374,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             var orchestratorInfo = new JobInfo() { GroupId = groupId, Id = groupId };
             try
             {
-                var jobIds = (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList();
+                var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
             }
             catch (SqlException ex) when (ex.Number == 2627)
             {
                 const string message = "Duplicate file detected in list of files to import.";
                 _logger.LogJobError(ex, orchestratorInfo, message);
-                throw new ImportProcessingException(message, ex);
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
+                throw new JobExecutionException(message, error, ex);
             }
             catch (Exception ex)
             {
-                _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue job.");
-                throw new RetriableJobException(ex.Message, ex);
+                _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
+                throw new JobExecutionException("Failed to enqueue jobs.", ex);
             }
         }
 
@@ -444,18 +414,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 try
                 {
                     _logger.LogJobInformation(jobInfo, nameof(WaitCancelledJobCompletedAsync));
-
-                    IEnumerable<JobInfo> jobInfos = await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None);
-
+                    var jobInfos = await _timeoutRetries.ExecuteAsync(async () => await _queueClient.GetJobByGroupIdAsync(QueueType.Import, jobInfo.GroupId, false, CancellationToken.None));
                     if (jobInfos.All(t => (t.Status != JobStatus.Created && t.Status != JobStatus.Running) || !t.CancelRequested || t.Id == jobInfo.Id))
                     {
                         break;
                     }
                 }
-                catch (Exception ex)
+                catch (SqlException ex)
                 {
                     _logger.LogJobWarning(ex, jobInfo, "Failed to get jobs by groupId {GroupId}.", jobInfo.GroupId);
-                    throw new RetriableJobException(ex.Message, ex);
+                    throw new JobExecutionException(ex.Message, ex);
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(5));
