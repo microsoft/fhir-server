@@ -180,7 +180,7 @@ namespace Microsoft.Health.JobManagement
 
                 return;
             }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is TaskCanceledException)
+            catch (OperationCanceledException ex)
             {
                 _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Status = JobStatus.Cancelled;

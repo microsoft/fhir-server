@@ -31,10 +31,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Critical error during data processing.
         /// </summary>
         public string ErrorDetails { get; set; }
-
-        /// <summary>
-        /// Current index for last checkpoint
-        /// </summary>
-        public long CurrentIndex { get; set; }
     }
 }
