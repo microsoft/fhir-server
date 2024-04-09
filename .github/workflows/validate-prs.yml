@@ -46,7 +46,7 @@ jobs:
 
             if(body.toLowerCase().includes('ab#') == false &&
                body.toLowerCase().includes('/_workitems') == false &&
-               !excludeAuthors.includes(author){
+               !excludeAuthors.includes(author)) {
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
