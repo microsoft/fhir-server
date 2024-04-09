@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 Status = JobStatus.Running,
             };
 
-            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, new List<JobInfo>() { worker1, worker2, worker3, worker4 });
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker1, worker2, worker3, worker4]);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Equal(2, result.JobResult.Output.Count);
