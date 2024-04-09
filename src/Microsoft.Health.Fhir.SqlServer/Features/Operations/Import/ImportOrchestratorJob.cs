@@ -111,12 +111,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await EnqueueProcessingJobsAsync(jobInfo, inputData, result, cancellationToken);
                 _logger.LogJobInformation(jobInfo, "Registration of processing jobs completed.");
             }
-            catch (TaskCanceledException ex)
-            {
-                _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);
-                errorResult = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = HttpStatusCode.BadRequest };
-                await SendNotification(JobStatus.Cancelled, jobInfo, 0, 0, result.TotalBytes, inputData.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
-            }
             catch (OperationCanceledException ex)
             {
                 _logger.LogJobInformation(ex, jobInfo, "Import job canceled. {Message}", ex.Message);

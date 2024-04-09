@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Azure;
 using EnsureThat;
 using MediatR;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Audit;
@@ -110,11 +109,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 {
                     await loadTask;
                 }
-                catch (TaskCanceledException tce)
-                {
-                    _logger.LogJobWarning(tce, jobInfo, nameof(TaskCanceledException));
-                    throw;
-                }
                 catch (OperationCanceledException oce)
                 {
                     _logger.LogJobWarning(oce, jobInfo, nameof(OperationCanceledException));
@@ -151,12 +145,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, result.SucceededResources, result.FailedResources, result.ProcessedBytes, definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
 
                 return JsonConvert.SerializeObject(result);
-            }
-            catch (TaskCanceledException canceledEx)
-            {
-                _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
-                var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
             catch (OperationCanceledException canceledEx)
             {
