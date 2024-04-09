@@ -18,6 +18,7 @@ env:
   LABELS: ${{ join( github.event.pull_request.labels.*.name, ' ' ) }}
   TITLE: ${{ github.event.pull_request.title }}
   NO_MILESTONE: ${{ github.event.pull_request.milestone == null }}
+  AUTHOR: ${{ github.event.pull_request.user.login}}
 
 jobs:
   js-title:
@@ -35,12 +36,17 @@ jobs:
             const title = "${{env.TITLE}}";
             const body = context.payload.pull_request.body;
             const labels = "${{env.LABELS}}";
+            const author = "${{env.AUTHOR}}";
+
+            const excludeAuthors = ["dependabot", "LTA-Thinking"];
             
             if(title.toLowerCase().includes('personal') || (title.length > 65)) {
               errors += '- Title of the PR to be succinct and less than 65 characters. \n';
             }
 
-            if(body.toLowerCase().includes('ab#') == false && body.toLowerCase().includes('/_workitems') == false && !labels.includes("Dependencies") && !labels.includes("External Author")) {
+            if(body.toLowerCase().includes('ab#') == false &&
+               body.toLowerCase().includes('/_workitems') == false &&
+               !excludeAuthors.includes(author){
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
