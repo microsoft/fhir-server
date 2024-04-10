@@ -377,13 +377,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 var jobIds = await _timeoutRetries.ExecuteAsync(async () => (await _queueClient.EnqueueAsync(QueueType.Import, cancellationToken, groupId: groupId, definitions: definitions.ToArray())).Select(x => x.Id).OrderBy(x => x).ToList());
                 return jobIds;
             }
-            catch (SqlException ex) when (ex.Number == 2627)
-            {
-                const string message = "Duplicate file detected in list of files to import.";
-                _logger.LogJobError(ex, orchestratorInfo, message);
-                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString(), HttpStatusCode = HttpStatusCode.BadRequest };
-                throw new JobExecutionException(message, error, ex);
-            }
             catch (Exception ex)
             {
                 _logger.LogJobError(ex, orchestratorInfo, "Failed to enqueue jobs.");
