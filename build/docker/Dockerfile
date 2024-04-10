@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.202-cbl-mariner2.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0.204-cbl-mariner2.0 AS build
 ARG FHIR_VERSION
 ARG ASSEMBLY_VER
 
