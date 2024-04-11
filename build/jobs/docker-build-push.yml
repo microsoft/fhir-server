@@ -20,7 +20,7 @@ jobs:
     inputs:
       azureSubscription: $(azureSubscriptionEndpoint)
       scriptType: 'ps'
-      scriptLocation: 'inline'
+      scriptLocation: 'inlineScript'
       inlineScript: |
         az acr login --name $(azureContainerRegistryName)
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
