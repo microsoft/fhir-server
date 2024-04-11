@@ -15,11 +15,13 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: Bash@3
+  - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
-      targetType: 'inline'
-      script: |
+      azureSubscription: $(azureSubscriptionEndpoint)
+      scriptType: 'ps'
+      scriptLocation: 'inline'
+      inlineScript: |
         az acr login --name $(azureContainerRegistryName)
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
         docker buildx build --tag $(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}} \
