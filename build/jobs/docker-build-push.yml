@@ -17,7 +17,7 @@ jobs:
   steps:
   - task: Docker@2
     inputs:
-      containerRegistry: $(azureContainerRegistry)
+      containerRegistry: $(azureContainerRegistryServiceConnection)
       command: 'login'
   - task: Bash@3
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
