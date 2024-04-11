@@ -22,10 +22,10 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        TAG_LOWER=$(azureContainerRegistry)/${{parameters.version}}_fhir-server:$(echo ${{parameters.Tag}} | tr '[:upper:]' '[:lower:]')
+        TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
-        docker buildx build --tag $TAG_LOWER \
+        docker buildx build --tag ${TAG,,} \
                       --file ./build/docker/Dockerfile \
                       --platform ${{parameters.buildPlatform}} \
                       --build-arg FHIR_VERSION=${{parameters.version}} \
