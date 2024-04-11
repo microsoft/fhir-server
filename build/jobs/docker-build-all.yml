@@ -10,24 +10,24 @@ parameters:
 jobs:
 - template: docker-build-push.yml
   parameters: 
-    version: "r4"
+    version: "R4"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
 
 - template: docker-build-push.yml
   parameters: 
-    version: "r4b"
+    version: "R4B"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
 
 - template: docker-build-push.yml
   parameters: 
-    version: "stu3"
+    version: "Stu3"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
 
 - template: docker-build-push.yml
   parameters: 
-    version: "r5"
+    version: "R5"
     tag: ${{parameters.tag}}
     buildPlatform: ${{parameters.buildPlatform}}
