@@ -19,7 +19,7 @@ jobs:
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
       azureSubscription: $(azureSubscriptionEndpoint)
-      scriptType: 'pscore'
+      scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
         az acr login --name $(azureContainerRegistryName)
