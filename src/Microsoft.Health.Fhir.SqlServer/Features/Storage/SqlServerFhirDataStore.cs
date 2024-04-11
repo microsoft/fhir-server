@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _bundleOrchestrator = EnsureArg.IsNotNull(bundleOrchestrator, nameof(bundleOrchestrator));
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
-            _sqlStoreClient = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, logger);
+            _sqlStoreClient = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, schemaInformation, logger);
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));

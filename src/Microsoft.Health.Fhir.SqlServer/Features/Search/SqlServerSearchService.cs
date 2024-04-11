@@ -807,7 +807,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            version = reader.Read(VLatest.Resource.Version, 2);
+
+            if (_schemaInformation.Current >= SchemaVersionConstants.ResourceVersionTypeChange)
+            {
+                version = (int)reader.GetInt64(2);
+            }
+            else
+            {
+                version = reader.GetInt32(2);
+            }
+
             isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
             resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
             requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);

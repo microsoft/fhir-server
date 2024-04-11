@@ -16,8 +16,12 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using SemVer;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -31,11 +35,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private const string _invisibleResource = " ";
+        private static SchemaInformation _schemaInformation;
 
-        public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
+        public SqlStoreClient(ISqlRetryService sqlRetryService, SchemaInformation schemaInformation, ILogger<T> logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = schemaInformation;
         }
 
         public async Task HardDeleteAsync(short resourceTypeId, string resourceId, bool keepCurrentVersion, bool isResourceChangeCaptureEnabled, CancellationToken cancellationToken)
@@ -130,7 +136,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
+            int version;
+
+            if (_schemaInformation.Current >= SchemaVersionConstants.ResourceVersionTypeChange)
+            {
+                version = (int)reader.GetInt64(3);
+            }
+            else
+            {
+                version = reader.GetInt32(3);
+            }
+
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var rawResourceBytes = reader.GetSqlBytes(6).Value;
@@ -186,7 +202,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
+
+            int version = 0;
+            if (_schemaInformation.Current >= SchemaVersionConstants.ResourceVersionTypeChange)
+            {
+                version = (int)reader.GetInt64(3);
+            }
+            else
+            {
+                version = reader.GetInt32(3);
+            }
+
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
 
             return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture), isDeleted);
