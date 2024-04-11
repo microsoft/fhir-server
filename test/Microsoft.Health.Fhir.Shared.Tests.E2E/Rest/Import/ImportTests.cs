@@ -845,12 +845,17 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count * 2;
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
-                Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
-                Assert.NotNull(notification.DataSize);
-                Assert.Equal(resourceCount, notification.SucceededCount);
-                Assert.Equal(0, notification.FailedCount);
+                Assert.Equal(2, notificationList.Count);
+                var succeeded = 0L;
+                foreach (var notification in notificationList.Select(_ => (ImportJobMetricsNotification)_))
+                {
+                    Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
+                    Assert.NotNull(notification.DataSize);
+                    succeeded += notification.SucceededCount.Value;
+                    Assert.Equal(0, notification.FailedCount);
+                }
+
+                Assert.Equal(resourceCount, succeeded);
             }
         }
 
