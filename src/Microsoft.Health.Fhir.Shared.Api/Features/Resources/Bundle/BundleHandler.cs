@@ -606,6 +606,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     else
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
+
                         httpContext.RequestAborted = cancellationToken;
                         SetupContexts(resourceContext, httpContext);
 
