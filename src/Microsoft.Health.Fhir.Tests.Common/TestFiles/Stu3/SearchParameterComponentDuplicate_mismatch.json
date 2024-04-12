@@ -40,11 +40,15 @@
     "xpathUsage": "normal",
     "component": [
         {
-            "definition": "http://hl7.org/fhir/SearchParameter/Measure-context-type",
+            "definition": {
+                "reference": "http://hl7.org/fhir/SearchParameter/Measure-context-type"
+            },
             "expression": "code"
         },
         {
-            "definition": "http://hl7.org/fhir/SearchParameter/Measure-context-quantity",
+            "definition": {
+                "reference": "http://hl7.org/fhir/SearchParameter/Measure-context-quantity"
+            },
             "expression": "identifier"
         }
     ]

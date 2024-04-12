@@ -27,6 +27,8 @@
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
+    <None Remove="TestFiles\Stu3\SearchParameterComponentDuplicate.json" />
+    <None Remove="TestFiles\Stu3\SearchParameterComponentDuplicate_mismatch.json" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterUsCoreConditionCode.json" />
@@ -280,6 +282,8 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\SearchParameterComponentDuplicate.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\SearchParameterComponentDuplicate_mismatch.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Sequence.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />

@@ -45,23 +45,5 @@
     ],
     "type": "string",
     "expression": "Organization.name|Organization.alias",
-    "xpathUsage": "normal",
-    "multipleOr": true,
-    "_multipleOr": {
-        "extension": [
-            {
-                "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
-                "valueCode": "MAY"
-            }
-        ]
-    },
-    "multipleAnd": true,
-    "_multipleAnd": {
-        "extension": [
-            {
-                "url": "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
-                "valueCode": "MAY"
-            }
-        ]
-    }
+    "xpathUsage": "normal"
 }

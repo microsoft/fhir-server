@@ -38,7 +38,6 @@
     "type": "composite",
     "expression": "Measure.useContext",
     "xpathUsage": "normal",
-    "multipleOr": false,
     "component": [
         {
             "definition": "http://hl7.org/fhir/SearchParameter/Measure-context-type",
