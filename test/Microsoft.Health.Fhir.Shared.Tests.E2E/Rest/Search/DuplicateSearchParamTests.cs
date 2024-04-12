@@ -159,6 +159,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         await Client.DeleteAsync(searchParam);
                     }
+                    catch (FhirClientException fhirEx) when (fhirEx.StatusCode == HttpStatusCode.BadRequest && fhirEx.Message.Contains("not enabled"))
+                    {
+                        _output.WriteLine($"Skipping because reindex is disabled.");
+                        return;
+                    }
                     catch (Exception exp)
                     {
                         _output.WriteLine($"Attempt {retryCount} of {MaxRetryCount}: CustomSearchParameter test experienced issue attempted to clean up SearchParameter {searchParam.Url}.  The exception is {exp}");

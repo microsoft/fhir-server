@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     validationFailures.Add(
                         new ValidationFailure(
                             nameof(searchParam.Code),
-                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
+                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType)));
                 }
                 else
                 {
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 validationFailures.Add(
                     new ValidationFailure(
                         nameof(searchParam.Code),
-                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType)));
                 duplicateOf = null;
             }
 
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 validationFailures.Add(
                     new ValidationFailure(
                         nameof(searchParam.Code),
-                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType)));
                 duplicateOf = null;
             }
 
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     validationFailures.Add(
                     new ValidationFailure(
                         nameof(searchParam.Code),
-                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType)));
                     duplicateOf = null;
                 }
             }
