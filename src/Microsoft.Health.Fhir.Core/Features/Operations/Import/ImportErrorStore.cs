@@ -5,12 +5,14 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.JobManagement;
 using Microsoft.IO;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -20,6 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private Uri _fileUri;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
         private ILogger<ImportErrorStore> _logger;
+        private static readonly AsyncPolicy _retries = Policy
+            .Handle<IntegrationDataStoreException>()
+            .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(1000, 5000)));
 
         public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri, ILogger<ImportErrorStore> logger)
         {
@@ -41,7 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         /// <param name="importErrors">New import errors</param>
         /// <param name="cancellationToken">Cancellaltion Token</param>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2016:Forward the 'CancellationToken' parameter to methods", Justification = ".NET 6/8 compat")]
         public async Task UploadErrorsAsync(string[] importErrors, CancellationToken cancellationToken)
         {
             if (importErrors == null || importErrors.Length == 0)
@@ -49,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 return;
             }
 
-            try
+            await _retries.ExecuteAsync(async () =>
             {
                 using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager, tag: nameof(ImportErrorStore));
                 using StreamWriter writer = new StreamWriter(stream);
@@ -64,13 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
                 await _integrationDataStoreClient.UploadBlockAsync(_fileUri, stream, blockId, cancellationToken);
-                await _integrationDataStoreClient.AppendCommitAsync(_fileUri, new string[] { blockId }, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to upload import error log.");
-                throw new RetriableJobException(ex.Message, ex);
-            }
+                await _integrationDataStoreClient.AppendCommitAsync(_fileUri, [blockId], cancellationToken);
+            });
         }
     }
 }

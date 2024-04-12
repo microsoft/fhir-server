@@ -380,6 +380,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, CancellationToken cancellationToken)
         {
+            if (resources.Count == 0) // do not go to the database
+            {
+                return new List<string>();
+            }
+
             (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
             var retries = 0;
             while (true)
@@ -611,7 +616,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results.Count == 0 ? null : results[0];
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }

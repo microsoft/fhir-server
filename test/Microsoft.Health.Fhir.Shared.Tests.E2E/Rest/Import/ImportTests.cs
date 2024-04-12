@@ -15,8 +15,10 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using IdentityServer4.Models;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -48,6 +50,115 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             _client = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForOrchestrator_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            try
+            {
+                var registration = await RegisterImport();
+                ExecuteSql(@"
+CREATE TRIGGER JobQueue_Trigger ON JobQueue FOR INSERT
+AS
+RAISERROR('TestError',18,127)
+                ");
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(HttpStatusCode.InternalServerError, message.StatusCode);
+                Assert.True(!message.ReasonPhrase.Contains("TestError")); // message provided to customer should not contain internal details
+                var result = (string)ExecuteSql($"SELECT Result FROM dbo.JobQueue WHERE QueueType = 2 AND Status = 3 AND JobId = {registration.JobId}");
+                Assert.Contains("TestError", result); // job result should contain all details
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('JobQueue_Trigger') IS NOT NULL DROP TRIGGER JobQueue_Trigger");
+            }
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithNotRetriableSqlExceptionForWorker_ImportShouldFail()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            try
+            {
+                ExecuteSql(@"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+AS
+RAISERROR('TestError',18,127)
+                ");
+                var registration = await RegisterImport();
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(HttpStatusCode.InternalServerError, message.StatusCode);
+                Assert.True(!message.ReasonPhrase.Contains("TestError")); // message provided to customer should not contain internal details
+                var result = (string)ExecuteSql($"SELECT Result FROM dbo.JobQueue WHERE QueueType = 2 AND Status = 3 AND GroupId = {registration.JobId} AND GroupId <> JobId");
+                Assert.Contains("TestError", result); // job result should contain all details
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
+        }
+
+        [Theory]
+        [InlineData(3)] // import should succeed
+        [InlineData(6)] // import shoul fail
+        public async Task GivenIncrementalLoad_WithExecutionTimeoutExceptionForWorker_ImportShouldReturnCorrectly(int requestedExceptions)
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                return;
+            }
+
+            ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            try
+            {
+                ExecuteSql("TRUNCATE TABLE EventLog");
+                ExecuteSql("TRUNCATE TABLE Transactions");
+                ExecuteSql(@$"
+CREATE TRIGGER Transactions_Trigger ON Transactions FOR UPDATE
+AS
+IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransaction' AND Status = 'Error') < {requestedExceptions} 
+  RAISERROR('execution timeout expired',18,127)
+                    ");
+                var registration = await RegisterImport();
+                var message = await ImportWaitAsync(registration.CheckLocation, false);
+                Assert.Equal(requestedExceptions == 6 ? HttpStatusCode.InternalServerError : HttpStatusCode.OK, message.StatusCode);
+                var retries = (int)ExecuteSql("SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransaction' AND Status = 'Error'");
+                Assert.Equal(requestedExceptions == 6 ? 5 : 3, retries);
+            }
+            finally
+            {
+                ExecuteSql("IF object_id('Transactions_Trigger') IS NOT NULL DROP TRIGGER Transactions_Trigger");
+            }
+        }
+
+        private object ExecuteSql(string sql)
+        {
+            using var conn = new SqlConnection(_fixture.ConnectionString);
+            conn.Open();
+            using var cmd = new SqlCommand(sql, conn);
+            return cmd.ExecuteScalar();
+        }
+
+        private async Task<(Uri CheckLocation, long JobId)> RegisterImport()
+        {
+            var ndJson = PrepareResource(Guid.NewGuid().ToString("N"), null, null); // do not specify (version/last updated) to run without transaction
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var id = long.Parse(checkLocation.LocalPath.Split('/').Last());
+            return (checkLocation, id);
         }
 
         [Fact]
@@ -233,7 +344,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -669,7 +780,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -734,12 +845,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count * 2;
                 var notificationList = _metricHandler.NotificationMapping[typeof(ImportJobMetricsNotification)];
-                Assert.Single(notificationList);
-                var notification = notificationList.First() as ImportJobMetricsNotification;
-                Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
-                Assert.NotNull(notification.DataSize);
-                Assert.Equal(resourceCount, notification.SucceededCount);
-                Assert.Equal(0, notification.FailedCount);
+                Assert.Equal(2, notificationList.Count);
+                var succeeded = 0L;
+                foreach (var notification in notificationList.Select(_ => (ImportJobMetricsNotification)_))
+                {
+                    Assert.Equal(JobStatus.Completed.ToString(), notification.Status);
+                    Assert.NotNull(notification.DataSize);
+                    succeeded += notification.SucceededCount.Value;
+                    Assert.Equal(0, notification.FailedCount);
+                }
+
+                Assert.Equal(resourceCount, succeeded);
             }
         }
 
@@ -771,7 +887,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
@@ -925,8 +1041,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
@@ -976,8 +1091,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    HttpResponseMessage response;
-                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
@@ -1031,7 +1145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
-            var response = await ImportWaitAsync(checkLocation, client);
+            var response = await ImportWaitAsync(checkLocation);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
@@ -1050,11 +1164,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             return checkLocation;
         }
 
-        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, TestFhirClient client = null)
+        private async Task<HttpResponseMessage> ImportWaitAsync(Uri checkLocation, bool checkSuccessStatus = true)
         {
-            client = client ?? _client;
             HttpResponseMessage response;
-            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == HttpStatusCode.Accepted)
+            while ((response = await _client.CheckImportAsync(checkLocation, checkSuccessStatus)).StatusCode == HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
             }

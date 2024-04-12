@@ -57,6 +57,8 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             _sqlRetryService = SqlRetryService.GetInstance(iSqlConnectionBuilder);
             _store = new SqlStoreClient<SqlServerFhirDataStore>(_sqlRetryService, NullLogger<SqlServerFhirDataStore>.Instance);
 
+            DumpResourceIds();
+
             if (_callType == "GetDate" || _callType == "LogEvent")
             {
                 Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")}");
@@ -84,8 +86,6 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
                 return;
             }
-
-            DumpResourceIds();
 
             var resourceIds = GetRandomIds();
             SwitchToResourceTable();
