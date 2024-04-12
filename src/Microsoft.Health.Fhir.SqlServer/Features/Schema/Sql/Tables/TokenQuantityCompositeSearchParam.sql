@@ -27,21 +27,14 @@ ON dbo.TokenQuantityCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_SingleValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_SingleValue2_NOT_NULL
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Code1_SingleValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_SingleValue2_NOT_NULL
 ON dbo.TokenQuantityCompositeSearchParam
 (
     SearchParamId,
     Code1,
     SingleValue2
 )
-INCLUDE
-(
-    QuantityCodeId2,
-    SystemId1,
-    SystemId2
-)
 WHERE SingleValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
@@ -52,14 +45,7 @@ ON dbo.TokenQuantityCompositeSearchParam
     LowValue2,
     HighValue2 -- TODO: Do we need this as key column?
 )
-INCLUDE
-(
-    QuantityCodeId2,
-    SystemId1,
-    SystemId2
-)
 WHERE LowValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_HighValue2_LowValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
@@ -70,13 +56,6 @@ ON dbo.TokenQuantityCompositeSearchParam
     HighValue2,
     LowValue2 -- TODO: Do we need this as key column?
 )
-INCLUDE
-(
-    QuantityCodeId2,
-    SystemId1,
-    SystemId2
-)
 WHERE LowValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

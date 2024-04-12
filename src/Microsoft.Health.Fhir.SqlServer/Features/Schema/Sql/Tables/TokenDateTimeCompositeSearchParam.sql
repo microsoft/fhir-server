@@ -25,7 +25,7 @@ ON dbo.TokenDateTimeCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     SearchParamId,
@@ -33,12 +33,6 @@ ON dbo.TokenDateTimeCompositeSearchParam
     StartDateTime2,
     EndDateTime2
 )
-INCLUDE
-(
-    SystemId1,
-    IsLongerThanADay2
-)
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_IsLongerThanADay2
@@ -49,12 +43,6 @@ ON dbo.TokenDateTimeCompositeSearchParam
     EndDateTime2,
     StartDateTime2
 )
-INCLUDE
-(
-    SystemId1,
-    IsLongerThanADay2
-)
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_StartDateTime2_EndDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
@@ -65,12 +53,7 @@ ON dbo.TokenDateTimeCompositeSearchParam
     StartDateTime2,
     EndDateTime2
 )
-INCLUDE
-(
-    SystemId1
-)
 WHERE IsLongerThanADay2 = 1
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_EndDateTime2_StartDateTime2_INCLUDE_SystemId1_WHERE_IsLongerThanADay2_1
@@ -81,11 +64,6 @@ ON dbo.TokenDateTimeCompositeSearchParam
     EndDateTime2,
     StartDateTime2
 )
-INCLUDE
-(
-    SystemId1
-)
 WHERE IsLongerThanADay2 = 1
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

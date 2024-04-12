@@ -21,19 +21,12 @@ ON dbo.StringSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Text_INCLUDE_TextOverflow_IsMin_IsMax
 ON dbo.StringSearchParam
 (
     SearchParamId,
     Text
 )
-INCLUDE
-(
-    TextOverflow, -- will not be needed when all servers are targeting at least this version. TODO: What?
-    IsMin,
-    IsMax
-)
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Text_INCLUDE_IsMin_IsMax_WHERE_TextOverflow_NOT_NULL
@@ -42,12 +35,6 @@ ON dbo.StringSearchParam
     SearchParamId,
     Text
 )
-INCLUDE
-(
-    IsMin,
-    IsMax
-)
 WHERE TextOverflow IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

@@ -21,7 +21,7 @@ ON dbo.ReferenceSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
+CREATE COLUMNSTORE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamId_BaseUri_ResourceSurrogateId_ResourceTypeId ON dbo.ReferenceSearchParam 
   ( 
     ReferenceResourceId
    ,ReferenceResourceTypeId
@@ -30,6 +30,5 @@ CREATE UNIQUE INDEX IXU_ReferenceResourceId_ReferenceResourceTypeId_SearchParamI
    ,ResourceSurrogateId
    ,ResourceTypeId
   )
-  WITH (DATA_COMPRESSION = PAGE)
   ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

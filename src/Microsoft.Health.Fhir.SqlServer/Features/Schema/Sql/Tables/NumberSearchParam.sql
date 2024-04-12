@@ -19,7 +19,7 @@ ON dbo.NumberSearchParam
 )
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_SingleValue_WHERE_SingleValue_NOT_NULL
+CREATE COLUMNSTORE INDEX IX_SearchParamId_SingleValue_WHERE_SingleValue_NOT_NULL
 ON dbo.NumberSearchParam
 (
     SearchParamId,

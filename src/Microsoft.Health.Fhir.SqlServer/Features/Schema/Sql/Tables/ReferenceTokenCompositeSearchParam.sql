@@ -26,19 +26,12 @@ ON dbo.ReferenceTokenCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_ReferenceResourceId1_Code2_INCLUDE_ReferenceResourceTypeId1_BaseUri1_SystemId2
+CREATE COLUMNSTORE INDEX IX_SearchParamId_ReferenceResourceId1_Code2_INCLUDE_ReferenceResourceTypeId1_BaseUri1_SystemId2
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     SearchParamId,
     ReferenceResourceId1,
     Code2
 )
-INCLUDE
-(
-    ReferenceResourceTypeId1,
-    BaseUri1,
-    SystemId2
-)
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

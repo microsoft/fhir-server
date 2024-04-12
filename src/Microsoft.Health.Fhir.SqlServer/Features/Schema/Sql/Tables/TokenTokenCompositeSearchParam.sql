@@ -26,17 +26,11 @@ ON dbo.TokenTokenCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_Code2_INCLUDE_SystemId1_SystemId2
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Code1_Code2_INCLUDE_SystemId1_SystemId2
 ON dbo.TokenTokenCompositeSearchParam
 (
     SearchParamId,
     Code1,
     Code2
 )
-INCLUDE
-(
-    SystemId1,
-    SystemId2
-)
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)

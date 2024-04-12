@@ -21,15 +21,12 @@ ON dbo.TokenText
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
+CREATE COLUMNSTORE INDEX IX_TokenText_SearchParamId_Text
 ON dbo.TokenText
 (
-    ResourceTypeId,
     SearchParamId,
     Text,
     ResourceSurrogateId
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)

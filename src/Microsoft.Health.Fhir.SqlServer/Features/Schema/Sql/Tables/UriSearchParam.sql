@@ -18,12 +18,11 @@ ON dbo.UriSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Uri
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Uri
 ON dbo.UriSearchParam
 (
     SearchParamId,
     Uri
 )
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

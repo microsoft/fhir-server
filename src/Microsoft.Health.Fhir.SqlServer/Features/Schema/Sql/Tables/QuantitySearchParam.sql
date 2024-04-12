@@ -21,16 +21,12 @@ ON dbo.QuantitySearchParam
 )
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
+CREATE COLUMNSTORE INDEX IX_SearchParamId_QuantityCodeId_SingleValue_INCLUDE_SystemId_WHERE_SingleValue_NOT_NULL
 ON dbo.QuantitySearchParam
 (
     SearchParamId,
     QuantityCodeId,
     SingleValue
-)
-INCLUDE
-(
-    SystemId
 )
 WHERE SingleValue IS NOT NULL
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
@@ -43,10 +39,6 @@ ON dbo.QuantitySearchParam
     LowValue,
     HighValue
 )
-INCLUDE
-(
-    SystemId
-)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_QuantityCodeId_HighValue_LowValue_INCLUDE_SystemId
@@ -56,10 +48,6 @@ ON dbo.QuantitySearchParam
     QuantityCodeId,
     HighValue,
     LowValue
-)
-INCLUDE
-(
-    SystemId
 )
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

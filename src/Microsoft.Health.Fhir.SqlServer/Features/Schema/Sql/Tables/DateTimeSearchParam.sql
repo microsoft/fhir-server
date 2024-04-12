@@ -21,18 +21,12 @@ ON dbo.DateTimeSearchParam
 )
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
+CREATE COLUMNSTORE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsLongerThanADay_IsMin_IsMax
 ON dbo.DateTimeSearchParam
 (
     SearchParamId,
     StartDateTime,
     EndDateTime -- TODO: Should it be in INCLUDE?
-)
-INCLUDE
-(
-    IsLongerThanADay,
-    IsMin,
-    IsMax
 )
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
@@ -43,12 +37,6 @@ ON dbo.DateTimeSearchParam
     EndDateTime,
     StartDateTime -- TODO: Should it be in INCLUDE?
 )
-INCLUDE
-(
-    IsLongerThanADay,
-    IsMin,
-    IsMax
-)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_StartDateTime_EndDateTime_INCLUDE_IsMin_IsMax_WHERE_IsLongerThanADay_1
@@ -57,11 +45,6 @@ ON dbo.DateTimeSearchParam
     SearchParamId,
     StartDateTime,
     EndDateTime -- TODO: Should it be in INCLUDE?
-)
-INCLUDE
-(
-    IsMin,
-    IsMax
 )
 WHERE IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
@@ -72,11 +55,6 @@ ON dbo.DateTimeSearchParam
     SearchParamId,
     EndDateTime,
     StartDateTime -- TODO: Should it be in INCLUDE?
-)
-INCLUDE
-(
-    IsMin,
-    IsMax
 )
 WHERE IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)

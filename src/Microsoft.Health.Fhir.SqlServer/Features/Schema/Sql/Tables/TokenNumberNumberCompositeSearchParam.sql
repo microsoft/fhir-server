@@ -29,7 +29,7 @@ ON dbo.TokenNumberNumberCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE INDEX IX_SearchParamId_Code1_SingleValue2_SingleValue3_INCLUDE_SystemId1_WHERE_HasRange_0
+CREATE COLUMNSTORE INDEX IX_SearchParamId_Code1_SingleValue2_SingleValue3_INCLUDE_SystemId1_WHERE_HasRange_0
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     SearchParamId,
@@ -37,12 +37,7 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     SingleValue2,
     SingleValue3 -- TODO: Do we need this as key column?
 )
-INCLUDE
-(
-    SystemId1
-)
 WHERE HasRange = 0
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
 CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3_INCLUDE_SystemId1_WHERE_HasRange_1
@@ -55,11 +50,6 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     LowValue3, -- TODO: Do we need this as key column?
     HighValue3 -- TODO: Do we need this as key column?
 )
-INCLUDE
-(
-    SystemId1
-)
 WHERE HasRange = 1
-WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
