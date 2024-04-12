@@ -123,14 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             // check for complex expressions where | is used to separate multiple expressions
             var conflictingExpressions = conflictingSearchParam.Expression.Split('|').Select(s => s.Trim());
             var expressions = searchParam.Expression.Split('|').Select(s => s.Trim());
-            if (!conflictingExpressions.ToHashSet().IsSupersetOf(expressions))
-            {
-                expressionsMisMatch = true;
-            }
-            else
-            {
-                expressionsMisMatch = false;
-            }
+            expressionsMisMatch = !conflictingExpressions.ToHashSet().IsSupersetOf(expressions);
 
             // check if the conflicting expression is Resource or DomainResource base
             if (conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.Resource) || conflictingSearchParam.BaseResourceTypes.Contains(KnownResourceTypes.DomainResource))
@@ -139,15 +132,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                 var modifiedResourceExpression = searchParam.Expression.Replace(firstBaseType, "Resource", System.StringComparison.Ordinal);
                 var modifiedDomainResourceExpression = searchParam.Expression.Replace(firstBaseType, "DomainResource", System.StringComparison.Ordinal);
 
-                if (!conflictingSearchParam.Expression.Equals(modifiedDomainResourceExpression, System.StringComparison.Ordinal) &&
-                    !conflictingSearchParam.Expression.Equals(modifiedResourceExpression, System.StringComparison.Ordinal))
-                {
-                    expressionsMisMatch = true;
-                }
-                else
-                {
-                    expressionsMisMatch = false;
-                }
+                expressionsMisMatch = !conflictingSearchParam.Expression.Equals(modifiedDomainResourceExpression, System.StringComparison.Ordinal) &&
+                    !conflictingSearchParam.Expression.Equals(modifiedResourceExpression, System.StringComparison.Ordinal);
             }
 
             if (expressionsMisMatch)

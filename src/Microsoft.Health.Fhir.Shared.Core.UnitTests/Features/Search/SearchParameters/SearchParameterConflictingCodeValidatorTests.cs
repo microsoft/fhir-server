@@ -39,8 +39,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     [Trait(Traits.Category, Categories.Search)]
     public class SearchParameterConflictingCodeValidatorTests
     {
-        private IModelInfoProvider _modelInfoProvider = new VersionSpecificModelInfoProvider();
-        private ILogger<SearchParameterConflictingCodeValidator> _logger = new NullLogger<SearchParameterConflictingCodeValidator>();
+        private readonly IModelInfoProvider _modelInfoProvider = new VersionSpecificModelInfoProvider();
+        private readonly ILogger<SearchParameterConflictingCodeValidator> _logger = new NullLogger<SearchParameterConflictingCodeValidator>();
         private ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
         private SearchParameterConflictingCodeValidator _validator;
