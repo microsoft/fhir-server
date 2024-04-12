@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 GetValidBulkImportRequestConfiguration(),
             };
 
-        public static TheoryData<ImportRequest> InValidBody =>
+        public static TheoryData<ImportRequest> InvalidBody =>
             new TheoryData<ImportRequest>
             {
                 GetBulkImportRequestConfigurationWithUnsupportedInputFormat(),
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [MemberData(nameof(InValidBody), MemberType = typeof(ImportControllerTests))]
+        [MemberData(nameof(InvalidBody), MemberType = typeof(ImportControllerTests))]
         public async Task GivenAnBulkImportRequest_WhenRequestConfigurationNotValid_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
@@ -78,6 +78,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Parameters parameters = null;
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
             await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(parameters));
+        }
+
+        [Fact]
+        public async Task GivenAnBulkImportRequest_WhenRequestWithDuplicateFiles_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var requestWithDuplicateUrls = GetDuplicateFileImportRequest();
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
+
+            var controllerException = await Assert.ThrowsAsync<RequestNotValidException>(
+                () => bulkImportController.Import(requestWithDuplicateUrls.ToParameters()));
+
+            Assert.Contains(requestWithDuplicateUrls.Input[0].Url.ToString(), controllerException.Message);
         }
 
         private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
@@ -116,6 +128,31 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 {
                     Type = "Observation",
                     Url = new Uri("https://client.example.org/obseration_file_19.ndjson"),
+                },
+            };
+
+            var importRequest = new ImportRequest();
+            importRequest.InputFormat = "application/fhir+ndjson";
+            importRequest.InputSource = new Uri("https://other-server.example.org");
+            importRequest.Input = input;
+            importRequest.StorageDetail = new ImportRequestStorageDetail();
+
+            return importRequest;
+        }
+
+        private static ImportRequest GetDuplicateFileImportRequest()
+        {
+            var input = new List<InputResource>
+            {
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
+                },
+                new InputResource
+                {
+                    Type = "Patient",
+                    Url = new Uri("https://client.example.org/patient_file_2.ndjson"),
                 },
             };
 
