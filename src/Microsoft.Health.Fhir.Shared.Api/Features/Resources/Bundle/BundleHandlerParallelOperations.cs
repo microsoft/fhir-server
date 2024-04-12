@@ -264,6 +264,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     HttpContext httpContext = request.HttpContext;
+                    httpContext.RequestAborted = cancellationToken;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))
                     {
