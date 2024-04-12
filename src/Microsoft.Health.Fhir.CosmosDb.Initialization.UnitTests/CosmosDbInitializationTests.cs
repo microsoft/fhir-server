@@ -5,7 +5,10 @@
 
 using System;
 using System.Linq;
+using Microsoft.Azure.Cosmos.Scripts;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
+using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredProcedures;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
@@ -13,16 +16,53 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.UnitTests
     public class CosmosDbInitializationTests
     {
         [Fact]
-        public void GivenList_ThenStoreProcedresshouldreturnValidList()
+        public void GivenAListOfExpectedStoredProcedures_ThenAllStoredProceduresInTheAssemblyShouldMatch()
         {
-            var storeProcs = new string[] { "AcquireExportJobsMetadata", "AcquireReindexJobsMetadata", "HardDeleteMetadata", "ReplaceSingleResourceMetadata", "UpdateUnsupportedSearchParametersMetadata" };
-            var fhirStoredProcsClasses = typeof(StoredProcedureMetadataBase).Assembly
+            string[] storeProcs = new string[]
+            {
+                "AcquireExportJobsMetadata",
+                "AcquireReindexJobsMetadata",
+                "HardDeleteMetadata",
+                "ReplaceSingleResourceMetadata",
+                "UpdateUnsupportedSearchParametersMetadata",
+            };
+
+            Type[] fhirStoredProcsClasses = typeof(DataPlaneStoredProcedureInstaller).Assembly
               .GetTypes()
               .Where(x => !x.IsAbstract && typeof(StoredProcedureMetadataBase).IsAssignableFrom(x))
               .ToArray();
-            foreach (var storeproc in fhirStoredProcsClasses)
+
+            Assert.NotEmpty(fhirStoredProcsClasses);
+
+            foreach (Type storeproc in fhirStoredProcsClasses)
             {
-               Assert.Contains(storeproc.Name, storeProcs);
+                Assert.Contains(storeproc.Name, storeProcs);
+            }
+        }
+
+        [Fact]
+        public void GivenAllStoredProceduresInTheAssembly_ThenAllStructureShouldBeAsExpected()
+        {
+            Type[] fhirStoredProcsClasses = typeof(DataPlaneStoredProcedureInstaller).Assembly
+              .GetTypes()
+              .Where(x => !x.IsAbstract && typeof(StoredProcedureMetadataBase).IsAssignableFrom(x))
+              .ToArray();
+
+            Assert.NotEmpty(fhirStoredProcsClasses);
+
+            foreach (Type storeproc in fhirStoredProcsClasses)
+            {
+                StoredProcedureMetadataBase storedProcedureMetadata = storeproc.GetConstructors().First().Invoke(null) as StoredProcedureMetadataBase;
+
+                Assert.NotNull(storedProcedureMetadata);
+                Assert.NotNull(storedProcedureMetadata.FullName);
+
+                StoredProcedureProperties metadataProperties = storedProcedureMetadata.ToStoredProcedureProperties();
+                Assert.NotNull(metadataProperties.Id);
+                Assert.False(string.IsNullOrEmpty(metadataProperties.Body));
+
+                string storedProcedureHash = metadataProperties.Body.ComputeHash();
+                Assert.Equal($"{storedProcedureMetadata.Name}_{storedProcedureHash}", storedProcedureMetadata.FullName);
             }
         }
     }

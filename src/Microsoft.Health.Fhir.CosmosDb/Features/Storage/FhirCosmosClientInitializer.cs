@@ -113,45 +113,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        // TODO: seperate control pane and data plane operations
-        /*
-        public async Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
-            EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
-
-            try
-            {
-                _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
-
-                if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
-                {
-                    _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
-
-                    await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
-                        async () =>
-                            await client.CreateDatabaseIfNotExistsAsync(
-                                cosmosDataStoreConfiguration.DatabaseId,
-                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null,
-                                cancellationToken: cancellationToken));
-                }
-
-                foreach (var collectionInitializer in collectionInitializers)
-                {
-                    await collectionInitializer.InitializeCollectionAsync(client, cancellationToken);
-                }
-
-                _logger.LogInformation("Cosmos DB Database {DatabaseId} and collections successfully initialized", cosmosDataStoreConfiguration.DatabaseId);
-            }
-            catch (Exception ex)
-            {
-                LogLevel logLevel = ex is RequestRateExceededException ? LogLevel.Warning : LogLevel.Critical;
-                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} and collections initialization failed", cosmosDataStoreConfiguration.DatabaseId);
-                throw;
-            }
-        } */
-
         private class FhirCosmosSerializer : CosmosSerializer
         {
             private const int BlobSizeThresholdWarningInBytes = 1000000; // 1MB threshold.
