@@ -210,6 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 versionIsLong = !versionIsLong;
                 goto retryVersion;
             }
+
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
 
             return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture), isDeleted);
