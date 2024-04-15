@@ -130,7 +130,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
+            int version;
+            bool versionIsLong = true;
+            retryVersion:
+            try
+            {
+                version = versionIsLong ? (int)reader.GetInt64(3) : reader.GetInt32(3);
+            }
+            catch (InvalidCastException)
+            {
+                versionIsLong = !versionIsLong;
+                goto retryVersion;
+            }
+
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
             var rawResourceBytes = reader.GetSqlBytes(6).Value;
@@ -186,7 +198,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            var version = reader.Read(VLatest.Resource.Version, 3);
+            bool versionIsLong = true;
+            int version;
+            retryVersion:
+            try
+            {
+                version = versionIsLong ? (int)reader.GetInt64(3) : reader.GetInt32(3);
+            }
+            catch (InvalidCastException)
+            {
+                versionIsLong = !versionIsLong;
+                goto retryVersion;
+            }
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
 
             return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture), isDeleted);

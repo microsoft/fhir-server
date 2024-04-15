@@ -360,7 +360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
-                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken))
                         {
                             if (clonedSearchOptions.CountOnly)
                             {
@@ -599,7 +599,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
-                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
+                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancel);
                     resources = new List<SearchResultEntry>();
                     while (await reader.ReadAsync(cancel))
                     {
@@ -807,7 +807,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            version = reader.Read(VLatest.Resource.Version, 2);
+            bool versionIsLong = true;
+            retryVersion:
+            try
+            {
+                version = versionIsLong ? (int)reader.GetInt64(2) : reader.GetInt32(2);
+            }
+            catch (InvalidCastException)
+            {
+                versionIsLong = !versionIsLong;
+                goto retryVersion;
+            }
+
             isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
             resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
             requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
