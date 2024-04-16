@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.JobManagement;
 
@@ -34,6 +35,16 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.TypesInSameAssemblyAs<ISubscriptionChannel>()
+                .AssignableTo<ISubscriptionChannel>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<StorageChannelFactory>()
+                .Singleton()
+                .AsSelf();
         }
     }
 }
