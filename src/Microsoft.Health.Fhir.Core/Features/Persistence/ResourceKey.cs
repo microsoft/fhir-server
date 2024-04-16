@@ -29,10 +29,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
         }
 
+        [JsonProperty("id")]
         public string Id { get; protected set; }
 
+        [JsonProperty("versionId")]
         public string VersionId { get; protected set; }
 
+        [JsonProperty("resourceType")]
         public string ResourceType { get; protected set; }
 
         public bool Equals(ResourceKey other)
