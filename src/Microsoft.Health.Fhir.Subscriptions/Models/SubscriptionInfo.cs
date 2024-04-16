@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
     {
         public SubscriptionInfo(string filterCriteria, ChannelInfo channel)
         {
-            FilterCriteria = EnsureArg.IsNotNullOrEmpty(filterCriteria, nameof(filterCriteria));
+            FilterCriteria = filterCriteria;
             Channel = EnsureArg.IsNotNull(channel, nameof(channel));
         }
 

@@ -56,13 +56,13 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
             {
                 try
                 {
-                    await _exportDestinationClient.ConnectAsync(cancellationToken, "fhirsync");
+                    await _exportDestinationClient.ConnectAsync(cancellationToken, definition.Channel.Properties["container"]);
 
                     foreach (var resourceKey in definition.ResourceReferences)
                     {
                         var resource = await _dataStore.GetAsync(resourceKey, cancellationToken);
 
-                        string fileName = $"{resource.ResourceTypeName}/{resource.ResourceId}/_history/{resource.Version}.json";
+                        string fileName = $"{resourceKey}.json";
 
                         _exportDestinationClient.WriteFilePart(
                             fileName,
