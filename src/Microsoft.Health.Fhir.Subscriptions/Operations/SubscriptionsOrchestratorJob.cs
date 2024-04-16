@@ -10,9 +10,12 @@ using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Subscriptions.Models;
+using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Operations
@@ -21,31 +24,56 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
     public class SubscriptionsOrchestratorJob : IJob
     {
         private readonly IQueueClient _queueClient;
-        private readonly Func<IScoped<ISearchService>> _searchService;
+        private readonly ITransactionDataStore _transactionDataStore;
+        private readonly ISubscriptionManager _subscriptionManager;
         private const string OperationCompleted = "Completed";
 
         public SubscriptionsOrchestratorJob(
             IQueueClient queueClient,
-            Func<IScoped<ISearchService>> searchService)
+            ITransactionDataStore transactionDataStore,
+            ISubscriptionManager subscriptionManager)
         {
             EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(transactionDataStore, nameof(transactionDataStore));
+            EnsureArg.IsNotNull(subscriptionManager, nameof(subscriptionManager));
 
             _queueClient = queueClient;
-            _searchService = searchService;
+            _transactionDataStore = transactionDataStore;
+            _subscriptionManager = subscriptionManager;
         }
 
-        public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
+        public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             SubscriptionJobDefinition definition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
+            var resources = await _transactionDataStore.GetResourcesByTransactionIdAsync(definition.TransactionId, cancellationToken);
 
-            // Get and evaluate the active subscriptions ...
+            var processingDefinition = new List<SubscriptionJobDefinition>();
 
-            // await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken, jobInfo.GroupId, definitions: processingDefinition);
+            foreach (var sub in await _subscriptionManager.GetActiveSubscriptionsAsync(cancellationToken))
+            {
+                var chunk = resources
+                    //// TODO: .Where(r => sub.FilterCriteria does something??);
+                    .Chunk(sub.Channel.MaxCount);
 
-            return Task.FromResult(OperationCompleted);
+                foreach (var batch in chunk)
+                {
+                    var cloneDefinition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
+                    cloneDefinition.TypeId = (int)JobType.SubscriptionsProcessing;
+                    cloneDefinition.ResourceReferences = batch.Select(r => new ResourceKey(r.ResourceTypeName, r.ResourceId, r.Version)).ToList();
+                    cloneDefinition.Channel = sub.Channel;
+
+                    processingDefinition.Add(cloneDefinition);
+                }
+            }
+
+            if (processingDefinition.Count > 0)
+            {
+                await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken, jobInfo.GroupId, definitions: processingDefinition.ToArray());
+            }
+
+            return OperationCompleted;
         }
     }
 }
