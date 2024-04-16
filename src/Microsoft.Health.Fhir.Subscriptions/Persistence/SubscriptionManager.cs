@@ -18,13 +18,31 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
         {
             IReadOnlyCollection<SubscriptionInfo> list = new List<SubscriptionInfo>
             {
+                // "reason": "Alert on Diabetes with Complications Diagnosis",
+                // "criteria": "Condition?code=http://hl7.org/fhir/sid/icd-10|E11.6",
                 new SubscriptionInfo(
-                    "Resource",
+                    null,
                     new ChannelInfo
                     {
                         ChannelType = SubscriptionChannelType.Storage,
                         ContentType = SubscriptionContentType.FullResource,
                         MaxCount = 100,
+                        Properties = new Dictionary<string, string>
+                        {
+                            { "container", "sync-all" },
+                        },
+                    }),
+                new SubscriptionInfo(
+                    "Patient",
+                    new ChannelInfo
+                    {
+                        ChannelType = SubscriptionChannelType.Storage,
+                        ContentType = SubscriptionContentType.FullResource,
+                        MaxCount = 100,
+                        Properties = new Dictionary<string, string>
+                        {
+                            { "container", "sync-patient" },
+                        },
                     }),
             };
 
