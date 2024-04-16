@@ -4,12 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 
@@ -22,14 +24,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
-        private readonly EventProcessorWatchdog _eventProcessorWatchdog;
+        private readonly SubscriptionProcessorWatchdog _eventProcessorWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
             InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
-            EventProcessorWatchdog eventProcessorWatchdog)
+            SubscriptionProcessorWatchdog eventProcessorWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
@@ -46,12 +48,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
 
-            await Task.WhenAll(
-                _defragWatchdog.StartAsync(stoppingToken),
-                _cleanupEventLogWatchdog.StartAsync(stoppingToken),
-                _transactionWatchdog.Value.StartAsync(stoppingToken),
-                _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken),
-                _eventProcessorWatchdog.StartAsync(stoppingToken));
+            using var continuationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
+            var tasks = new List<Task>
+            {
+                _defragWatchdog.StartAsync(continuationTokenSource.Token),
+                _cleanupEventLogWatchdog.StartAsync(continuationTokenSource.Token),
+                _transactionWatchdog.Value.StartAsync(continuationTokenSource.Token),
+                _invisibleHistoryCleanupWatchdog.StartAsync(continuationTokenSource.Token),
+                _eventProcessorWatchdog.StartAsync(continuationTokenSource.Token),
+            };
+
+            await Task.WhenAny(tasks);
+
+            if (!stoppingToken.IsCancellationRequested)
+            {
+                // If any of the watchdogs fail, cancel all the other watchdogs
+                await continuationTokenSource.CancelAsync();
+            }
+
+            await Task.WhenAll(tasks);
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)

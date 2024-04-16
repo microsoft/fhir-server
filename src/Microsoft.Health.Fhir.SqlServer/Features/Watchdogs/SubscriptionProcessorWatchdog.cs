@@ -19,19 +19,19 @@ using Microsoft.Health.JobManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
-    internal class EventProcessorWatchdog : Watchdog<EventProcessorWatchdog>
+    internal class SubscriptionProcessorWatchdog : Watchdog<SubscriptionProcessorWatchdog>
     {
         private readonly SqlStoreClient _store;
-        private readonly ILogger<EventProcessorWatchdog> _logger;
+        private readonly ILogger<SubscriptionProcessorWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
         private CancellationToken _cancellationToken;
 
-        public EventProcessorWatchdog(
+        public SubscriptionProcessorWatchdog(
             SqlStoreClient store,
             ISqlRetryService sqlRetryService,
             IQueueClient queueClient,
-            ILogger<EventProcessorWatchdog> logger)
+            ILogger<SubscriptionProcessorWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));

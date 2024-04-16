@@ -26,6 +26,7 @@
       "src\\Microsoft.Health.Fhir.Shared.Web\\Microsoft.Health.Fhir.Shared.Web.shproj",
       "src\\Microsoft.Health.Fhir.SqlServer.UnitTests\\Microsoft.Health.Fhir.SqlServer.UnitTests.csproj",
       "src\\Microsoft.Health.Fhir.SqlServer\\Microsoft.Health.Fhir.SqlServer.csproj",
+      "src\\Microsoft.Health.Fhir.Subscriptions\\Microsoft.Health.Fhir.Subscriptions.csproj",
       "src\\Microsoft.Health.Fhir.Tests.Common\\Microsoft.Health.Fhir.Tests.Common.csproj",
       "src\\Microsoft.Health.TaskManagement\\Microsoft.Health.TaskManagement.csproj",
       "src\\Microsoft.Health.TaskManagement.UnitTests\\Microsoft.Health.TaskManagement.UnitTests.csproj",
