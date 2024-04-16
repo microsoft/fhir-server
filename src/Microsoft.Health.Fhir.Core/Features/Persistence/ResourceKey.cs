@@ -29,11 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
         }
 
-        public string Id { get; }
+        public string Id { get; protected set; }
 
-        public string VersionId { get; }
+        public string VersionId { get; protected set; }
 
-        public string ResourceType { get; }
+        public string ResourceType { get; protected set; }
 
         public bool Equals(ResourceKey other)
         {
