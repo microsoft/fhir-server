@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private const string _invisibleResource = " ";
+        private static bool versionIsLong = true;
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -131,7 +132,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
             int version;
-            bool versionIsLong = true;
             retryVersion:
             try
             {
@@ -198,7 +198,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            bool versionIsLong = true;
             int version;
             retryVersion:
             try

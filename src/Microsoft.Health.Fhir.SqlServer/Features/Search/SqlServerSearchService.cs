@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
+        private static bool versionIsLong = true;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -360,6 +361,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
+                        // Removing sequential access as part of prep work for Resource version update. will be added back in iteration 3
                         using (var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken))
                         {
                             if (clonedSearchOptions.CountOnly)
@@ -599,6 +601,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
+                    // Removing sequential access as part of prep work for Resource version update. will be added back in iteration 3
                     using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancel);
                     resources = new List<SearchResultEntry>();
                     while (await reader.ReadAsync(cancel))
@@ -807,7 +810,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            bool versionIsLong = true;
             retryVersion:
             try
             {
