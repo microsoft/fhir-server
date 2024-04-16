@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _cancellationToken = cancellationToken;
             await InitLastProcessedTransactionId();
-            await StartAsync(true, periodSec ?? 3600, leasePeriodSec ?? 2 * 3600, cancellationToken);
+            await StartAsync(true, periodSec ?? 3, leasePeriodSec ?? 20, cancellationToken);
         }
 
         protected override async Task ExecuteAsync()
@@ -56,19 +56,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             var lastTranId = await GetLastTransactionId();
             var visibility = await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken);
 
-            _logger.LogDebug($"{Name}: last cleaned up transaction={lastTranId} visibility={visibility}.");
+            _logger.LogInformation($"{Name}: last transaction={lastTranId} visibility={visibility}.");
 
-            var transactionsToProcess = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken, DateTime.UtcNow.AddDays((-1) * 7));
+            var transactionsToProcess = await _store.GetTransactionsAsync(lastTranId, visibility, _cancellationToken);
             _logger.LogDebug($"{Name}: found transactions={transactionsToProcess.Count}.");
 
             if (transactionsToProcess.Count == 0)
             {
-                _logger.LogDebug($"{Name}: completed. transactions=0.");
+                await UpdateLastEventProcessedTransactionId(visibility);
+                _logger.LogInformation($"{Name}: completed. transactions=0.");
                 return;
             }
 
             var transactionsToQueue = new List<SubscriptionJobDefinition>();
-            var totalRows = 0;
+
             foreach (var tran in transactionsToProcess.Where(x => x.VisibleDate.HasValue).OrderBy(x => x.TransactionId))
             {
                 var jobDefinition = new SubscriptionJobDefinition(Core.Features.Operations.JobType.SubscriptionsOrchestrator)
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: _cancellationToken, definitions: transactionsToQueue.ToArray());
             await UpdateLastEventProcessedTransactionId(transactionsToProcess.Max(x => x.TransactionId));
 
-            _logger.LogDebug($"{Name}: completed. transactions={transactionsToProcess.Count} removed rows={totalRows}");
+            _logger.LogInformation($"{Name}: completed. transactions={transactionsToProcess.Count}");
         }
 
         private async Task<long> GetLastTransactionId()
