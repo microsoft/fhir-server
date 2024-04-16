@@ -14,11 +14,14 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
 {
     public class SubscriptionInfo
     {
-        public SubscriptionInfo(string filterCriteria)
+        public SubscriptionInfo(string filterCriteria, ChannelInfo channel)
         {
             FilterCriteria = EnsureArg.IsNotNullOrEmpty(filterCriteria, nameof(filterCriteria));
+            Channel = EnsureArg.IsNotNull(channel, nameof(channel));
         }
 
         public string FilterCriteria { get; set; }
+
+        public ChannelInfo Channel { get; set; }
     }
 }

@@ -51,8 +51,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         {
             _logger.LogInformation($"{Name}.StartAsync: starting...");
             await InitParamsAsync(periodSec, leasePeriodSec);
-            await StartAsync(_periodSec, cancellationToken);
-            await _watchdogLease.StartAsync(allowRebalance, _leasePeriodSec, cancellationToken);
+
+            await Task.WhenAll(
+                StartAsync(_periodSec, cancellationToken),
+                _watchdogLease.StartAsync(allowRebalance, _leasePeriodSec, cancellationToken));
+
             _logger.LogInformation($"{Name}.StartAsync: completed.");
         }
 
