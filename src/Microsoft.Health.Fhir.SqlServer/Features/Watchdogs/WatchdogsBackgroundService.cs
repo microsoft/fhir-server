@@ -22,17 +22,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly CleanupEventLogWatchdog _cleanupEventLogWatchdog;
         private readonly IScoped<TransactionWatchdog> _transactionWatchdog;
         private readonly InvisibleHistoryCleanupWatchdog _invisibleHistoryCleanupWatchdog;
+        private readonly EventProcessorWatchdog _eventProcessorWatchdog;
 
         public WatchdogsBackgroundService(
             DefragWatchdog defragWatchdog,
             CleanupEventLogWatchdog cleanupEventLogWatchdog,
             IScopeProvider<TransactionWatchdog> transactionWatchdog,
-            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog)
+            InvisibleHistoryCleanupWatchdog invisibleHistoryCleanupWatchdog,
+            EventProcessorWatchdog eventProcessorWatchdog)
         {
             _defragWatchdog = EnsureArg.IsNotNull(defragWatchdog, nameof(defragWatchdog));
             _cleanupEventLogWatchdog = EnsureArg.IsNotNull(cleanupEventLogWatchdog, nameof(cleanupEventLogWatchdog));
             _transactionWatchdog = EnsureArg.IsNotNull(transactionWatchdog, nameof(transactionWatchdog)).Invoke();
             _invisibleHistoryCleanupWatchdog = EnsureArg.IsNotNull(invisibleHistoryCleanupWatchdog, nameof(invisibleHistoryCleanupWatchdog));
+            _eventProcessorWatchdog = EnsureArg.IsNotNull(eventProcessorWatchdog, nameof(eventProcessorWatchdog));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,7 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 _defragWatchdog.StartAsync(stoppingToken),
                 _cleanupEventLogWatchdog.StartAsync(stoppingToken),
                 _transactionWatchdog.Value.StartAsync(stoppingToken),
-                _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken));
+                _invisibleHistoryCleanupWatchdog.StartAsync(stoppingToken),
+                _eventProcessorWatchdog.StartAsync(stoppingToken));
         }
 
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)

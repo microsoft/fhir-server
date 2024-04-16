@@ -159,7 +159,9 @@ namespace Microsoft.Extensions.DependencyInjection
                             .Singleton()
                             .AsSelf();
 
-            services.Add<SqlStoreClient<InvisibleHistoryCleanupWatchdog>>().Singleton().AsSelf();
+            services.Add<SqlStoreClient>()
+                .Singleton()
+                .AsSelf();
 
             services.Add<DefragWatchdog>().Singleton().AsSelf();
 
@@ -169,6 +171,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFactory<IScoped<TransactionWatchdog>>();
 
             services.Add<InvisibleHistoryCleanupWatchdog>().Singleton().AsSelf();
+
+            services.Add<EventProcessorWatchdog>().Singleton().AsSelf();
 
             services.RemoveServiceTypeExact<WatchdogsBackgroundService, INotificationHandler<StorageInitializedNotification>>() // Mediatr registers handlers as Transient by default, this extension ensures these aren't still there, only needed when service != Transient
                     .Add<WatchdogsBackgroundService>()
