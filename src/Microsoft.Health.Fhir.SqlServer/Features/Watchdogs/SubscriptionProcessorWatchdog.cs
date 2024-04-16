@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Subscriptions.Models;
@@ -25,12 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
         private readonly ILogger<SubscriptionProcessorWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private readonly IQueueClient _queueClient;
+        private readonly CoreFeatureConfiguration _config;
         private CancellationToken _cancellationToken;
 
         public SubscriptionProcessorWatchdog(
             SqlStoreClient store,
             ISqlRetryService sqlRetryService,
             IQueueClient queueClient,
+            IOptions<CoreFeatureConfiguration> coreConfiguration,
             ILogger<SubscriptionProcessorWatchdog> logger)
             : base(sqlRetryService, logger)
         {
@@ -39,6 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
+            _config = EnsureArg.IsNotNull(coreConfiguration?.Value, nameof(coreConfiguration));
         }
 
         internal string LastEventProcessedTransactionId => $"{Name}.{nameof(LastEventProcessedTransactionId)}";
@@ -68,20 +73,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
                 return;
             }
 
-            var transactionsToQueue = new List<SubscriptionJobDefinition>();
-
-            foreach (var tran in transactionsToProcess.Where(x => x.VisibleDate.HasValue).OrderBy(x => x.TransactionId))
+            if (_config.SupportsSubscriptions)
             {
-                var jobDefinition = new SubscriptionJobDefinition(Core.Features.Operations.JobType.SubscriptionsOrchestrator)
-                {
-                    TransactionId = tran.TransactionId,
-                    VisibleDate = tran.VisibleDate.Value,
-                };
+                var transactionsToQueue = new List<SubscriptionJobDefinition>();
 
-                transactionsToQueue.Add(jobDefinition);
+                foreach (var tran in transactionsToProcess.Where(x => x.VisibleDate.HasValue).OrderBy(x => x.TransactionId))
+                {
+                    var jobDefinition = new SubscriptionJobDefinition(JobType.SubscriptionsOrchestrator)
+                    {
+                        TransactionId = tran.TransactionId,
+                        VisibleDate = tran.VisibleDate.Value,
+                    };
+
+                    transactionsToQueue.Add(jobDefinition);
+                }
+
+                await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: _cancellationToken, definitions: transactionsToQueue.ToArray());
             }
 
-            await _queueClient.EnqueueAsync(QueueType.Subscriptions, cancellationToken: _cancellationToken, definitions: transactionsToQueue.ToArray());
             await UpdateLastEventProcessedTransactionId(transactionsToProcess.Max(x => x.TransactionId));
 
             _logger.LogInformation($"{Name}: completed. transactions={transactionsToProcess.Count}");
@@ -94,8 +103,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task InitLastProcessedTransactionId()
         {
-            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, 5105975696064002770"); // surrogate id for the past. does not matter.
+            using var cmd = new SqlCommand("INSERT INTO dbo.Parameters (Id, Bigint) SELECT @Id, @LastTranId");
             cmd.Parameters.AddWithValue("@Id", LastEventProcessedTransactionId);
+            cmd.Parameters.AddWithValue("@LastTranId", await _store.MergeResourcesGetTransactionVisibilityAsync(_cancellationToken));
             await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, CancellationToken.None);
         }
 
