@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
             var startTime = DateTime.UtcNow;
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            var storeClient = new SqlStoreClient<InvisibleHistoryCleanupWatchdog>(_fixture.SqlRetryService, NullLogger<InvisibleHistoryCleanupWatchdog>.Instance);
+            var storeClient = new SqlStoreClient(_fixture.SqlRetryService, NullLogger<SqlStoreClient>.Instance);
             var wd = new InvisibleHistoryCleanupWatchdog(storeClient, _fixture.SqlRetryService, XUnitLogger<InvisibleHistoryCleanupWatchdog>.Create(_testOutputHelper));
             await wd.StartAsync(cts.Token, 1, 2, 2.0 / 24 / 3600); // retention 2 seconds
             var startTime = DateTime.UtcNow;
