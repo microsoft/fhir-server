@@ -16,13 +16,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 {
     internal class InvisibleHistoryCleanupWatchdog : Watchdog<InvisibleHistoryCleanupWatchdog>
     {
-        private readonly SqlStoreClient<InvisibleHistoryCleanupWatchdog> _store;
+        private readonly SqlStoreClient _store;
         private readonly ILogger<InvisibleHistoryCleanupWatchdog> _logger;
         private readonly ISqlRetryService _sqlRetryService;
         private CancellationToken _cancellationToken;
         private double _retentionPeriodDays = 7;
 
-        public InvisibleHistoryCleanupWatchdog(SqlStoreClient<InvisibleHistoryCleanupWatchdog> store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
+        public InvisibleHistoryCleanupWatchdog(SqlStoreClient store, ISqlRetryService sqlRetryService, ILogger<InvisibleHistoryCleanupWatchdog> logger)
             : base(sqlRetryService, logger)
         {
             _sqlRetryService = EnsureArg.IsNotNull(sqlRetryService, nameof(sqlRetryService));
