@@ -205,6 +205,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Cosmo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.CosmosDb.Core", "src\Microsoft.Health.Fhir.CosmosDb.Core\Microsoft.Health.Fhir.CosmosDb.Core.csproj", "{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Subscriptions", "src\Microsoft.Health.Fhir.Subscriptions\Microsoft.Health.Fhir.Subscriptions.csproj", "{BD8F3137-89F5-4EE5-B269-24D73081E00A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -483,6 +485,10 @@ Global
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -578,6 +584,7 @@ Global
 		{10661BC9-01B0-4E35-9751-3B5CE97E25C0} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{B9AAA11D-8C8C-44C3-AADE-801376EF82F0} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
 		{1CD46DC5-6022-4BBE-9A1C-6B13C3CEFC75} = {DC5A2CB1-8995-4D39-97FE-3CE80E892C69}
+		{BD8F3137-89F5-4EE5-B269-24D73081E00A} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True
