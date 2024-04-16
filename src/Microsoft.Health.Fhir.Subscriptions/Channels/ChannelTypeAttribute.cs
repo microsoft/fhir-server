@@ -8,13 +8,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 
 namespace Microsoft.Health.Fhir.Subscriptions.Channels
 {
-    public interface ISubscriptionChannel
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class ChannelTypeAttribute : Attribute
     {
-        Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken);
+        public ChannelTypeAttribute(SubscriptionChannelType channelType)
+        {
+            ChannelType = channelType;
+        }
+
+        public SubscriptionChannelType ChannelType { get; }
     }
 }

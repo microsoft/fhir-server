@@ -81,5 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value indicating whether the server supports the $bulk-delete.
         /// </summary>
         public bool SupportsBulkDelete { get; set; }
+
+        /// <summary>
+        /// Gets or set a value indicating whether the server supports Subscription processing.
+        /// </summary>
+        public bool SupportsSubscriptions { get; set; }
     }
 }
