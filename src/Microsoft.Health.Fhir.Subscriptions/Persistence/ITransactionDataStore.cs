@@ -8,15 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Subscriptions.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
-namespace Microsoft.Health.Fhir.Subscriptions
+namespace Microsoft.Health.Fhir.Subscriptions.Persistence
 {
-    public class SubscriptionManager
+    public interface ITransactionDataStore
     {
-        public Task<IReadOnlyCollection<SubscriptionInfo>> GetActiveSubscriptionsAsync()
-        {
-            throw new NotImplementedException();
-        }
+        Task<IReadOnlyList<ResourceWrapper>> GetResourcesByTransactionIdAsync(long transactionId, CancellationToken cancellationToken);
     }
 }

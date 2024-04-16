@@ -18,6 +18,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
     {
         public Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
         {
+            // TODO: Write resource to channel
+
             return Task.FromResult("Done!");
         }
     }
