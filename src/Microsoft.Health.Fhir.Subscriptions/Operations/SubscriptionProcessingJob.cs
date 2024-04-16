@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
             {
                 try
                 {
-                    await _exportDestinationClient.ConnectAsync(cancellationToken, "SubscriptionContainer");
+                    await _exportDestinationClient.ConnectAsync(cancellationToken, "fhirsync");
 
                     foreach (var resourceKey in definition.ResourceReferences)
                     {
