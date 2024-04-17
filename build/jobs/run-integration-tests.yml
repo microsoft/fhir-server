@@ -5,7 +5,7 @@ parameters:
 jobs:
 - job: "integrationTests_${{ parameters.version }}"
   pool:
-    name: '$(SharedLinuxPool)'
+    name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - task: DownloadBuildArtifacts@0
