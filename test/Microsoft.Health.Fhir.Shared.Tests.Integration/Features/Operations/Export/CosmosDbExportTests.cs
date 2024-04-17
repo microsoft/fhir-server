@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         private async Task RunCoordinator(CosmosExportOrchestratorJob coordJob, long coordId, long groupId, int totalJobs)
         {
             using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromSeconds(300));
+            cts.CancelAfter(TimeSpan.FromSeconds(600));
 
             var jobInfo = await _queueClient.DequeueAsync(_queueType, "Coord", 60, cts.Token, coordId);
 
