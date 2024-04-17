@@ -44,6 +44,18 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
                             { "container", "sync-patient" },
                         },
                     }),
+                new SubscriptionInfo(
+                    null,
+                    new ChannelInfo
+                    {
+                        ChannelType = SubscriptionChannelType.DatalakeContract,
+                        ContentType = SubscriptionContentType.FullResource,
+                        MaxCount = 100,
+                        Properties = new Dictionary<string, string>
+                        {
+                            { "container", "lake" },
+                        },
+                    }),
             };
 
             return Task.FromResult(list);
