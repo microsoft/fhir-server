@@ -48,7 +48,7 @@ jobs:
           -d \
           --rm \
           --name cosmos \
-          -e "AZURE_COSMOS_EMULATOR_PARTITION_COUNT=1" \
+          -e "AZURE_COSMOS_EMULATOR_PARTITION_COUNT=20" \
           mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
 
   - task: Bash@3
