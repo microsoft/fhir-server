@@ -242,19 +242,6 @@ namespace Microsoft.Health.JobManagement
             }
         }
 
-        [Obsolete("Heartbeats should only update timestamp, results should only be written when job reaches terminal state.")]
-        public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(action, nameof(action));
-
-            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
         private static async Task PutJobHeartbeatAsync(IQueueClient queueClient, JobInfo jobInfo, CancellationTokenSource cancellationTokenSource)
         {
             try // this try/catch is redundant with try/catch in queueClient.PutJobHeartbeatAsync, but it is extra guarantee
