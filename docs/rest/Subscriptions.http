@@ -1,0 +1,72 @@
+# # .SUMMARY Sample requests to verify FHIR Conditional Delete
+# The assumption for the requests and resources below:
+# The FHIR version is R4
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### PUT Subscription for Rest-hook
+## More examples: https://build.fhir.org/ig/HL7/fhir-subscription-backport-ig/artifacts.html
+PUT https://{{hostname}}/Subscription/example-backport-storage
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Subscription",
+  "id": "example-backport-storage",
+  "meta" : {
+    "profile": ["http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-subscription"]
+  },
+  "status": "requested",
+  "end": "2031-01-01T12:00:00",
+  "reason": "Test subscription based on transactions",
+  "criteria" : "http://azurehealthcareapis.com/data-extentions/SubscriptionTopics/transactions",
+  "_criteria": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-filter-criteria",
+        "valueString": "Patient"
+      }
+    ]
+  },
+  "channel": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-heartbeat-period",
+        "valueInteger": 120
+      }
+    ],
+    "type" : "rest-hook",
+    "_type" : {
+      "extension" : [
+        {
+          "url" : "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-channel-type",
+          "valueCoding" : {
+            "system" : "http://azurehealthcareapis.com/data-extentions/subscription-channel-type",
+            "code" : "azure-storage",
+            "display" : "Azure Blob Storage"
+          }
+        }
+      ]
+    },
+    "endpoint": "https://127.0.0.1:10000/devstoreaccount1/sync-all",
+    "payload": "application/fhir+json",
+    "_payload": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/uv/subscriptions-backport/StructureDefinition/backport-payload-content",
+          "valueCode": "full-resource"
+        }
+      ]
+    }
+  }
+}
