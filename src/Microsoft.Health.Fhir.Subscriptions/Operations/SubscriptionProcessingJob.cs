@@ -3,17 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Build.Framework;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Models;
