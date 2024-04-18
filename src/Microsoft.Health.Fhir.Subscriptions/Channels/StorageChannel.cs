@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
 
         public async Task PublishAsync(IReadOnlyCollection<ResourceWrapper> resources, ChannelInfo channelInfo, DateTimeOffset transactionTime, CancellationToken cancellationToken)
         {
-            await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Properties["container"]);
+            await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Endpoint);
 
             foreach (var resource in resources)
             {

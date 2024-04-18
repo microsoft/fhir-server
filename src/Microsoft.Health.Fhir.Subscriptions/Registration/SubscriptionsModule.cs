@@ -8,9 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Subscriptions.Channels;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.JobManagement;
@@ -31,7 +34,9 @@ namespace Microsoft.Health.Fhir.Subscriptions.Registration
                 job.AsDelegate<Func<IJob>>();
             }
 
-            services.Add<SubscriptionManager>()
+            services
+                .RemoveServiceTypeExact<SubscriptionManager, INotificationHandler<StorageInitializedNotification>>()
+                .Add<SubscriptionManager>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
