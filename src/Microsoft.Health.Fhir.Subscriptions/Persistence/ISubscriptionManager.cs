@@ -13,5 +13,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Persistence
     public interface ISubscriptionManager
     {
         Task<IReadOnlyCollection<SubscriptionInfo>> GetActiveSubscriptionsAsync(CancellationToken cancellationToken);
+
+        Task SyncSubscriptionsAsync(CancellationToken cancellationToken);
     }
 }
