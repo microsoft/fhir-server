@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Subscriptions.Models
 
         public SubscriptionContentType ContentType { get; set; }
 
+        public string Endpoint { get; set; }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "Json Poco")]
         public IDictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
     }
