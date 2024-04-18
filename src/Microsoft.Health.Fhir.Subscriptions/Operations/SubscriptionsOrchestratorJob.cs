@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Subscriptions.Models;
 using Microsoft.Health.Fhir.Subscriptions.Persistence;
 using Microsoft.Health.JobManagement;
@@ -56,6 +57,12 @@ namespace Microsoft.Health.Fhir.Subscriptions.Operations
             SubscriptionJobDefinition definition = jobInfo.DeserializeDefinition<SubscriptionJobDefinition>();
             var resources = await _transactionDataStore.GetResourcesByTransactionIdAsync(definition.TransactionId, cancellationToken);
             var resourceKeys = resources.Select(r => new ResourceKey(r.ResourceTypeName, r.ResourceId, r.Version)).ToList().AsReadOnly();
+
+            // Sync subscriptions if a change is detected
+            if (resources.Any(x => string.Equals(x.ResourceTypeName, KnownResourceTypes.Subscription, StringComparison.Ordinal)))
+            {
+                await _subscriptionManager.SyncSubscriptionsAsync(cancellationToken);
+            }
 
             var processingDefinition = new List<SubscriptionJobDefinition>();
 

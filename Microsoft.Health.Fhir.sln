@@ -201,6 +201,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlScriptRunner", "tools\Sq
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Subscriptions", "src\Microsoft.Health.Fhir.Subscriptions\Microsoft.Health.Fhir.Subscriptions.csproj", "{BD8F3137-89F5-4EE5-B269-24D73081E00A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.Health.Fhir.Subscriptions.Tests", "src\Microsoft.Health.Fhir.Subscriptions.Tests\Microsoft.Health.Fhir.Subscriptions.Tests.csproj", "{AA73AB9D-52EF-4172-9911-3C9D661C8D48}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -471,6 +473,10 @@ Global
 		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BD8F3137-89F5-4EE5-B269-24D73081E00A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA73AB9D-52EF-4172-9911-3C9D661C8D48}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA73AB9D-52EF-4172-9911-3C9D661C8D48}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA73AB9D-52EF-4172-9911-3C9D661C8D48}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA73AB9D-52EF-4172-9911-3C9D661C8D48}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -564,6 +570,7 @@ Global
 		{5E0B69FE-40DE-42E8-9F67-4BB7410AF67C} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{76C29222-8D35-43A2-89C5-43114D113C10} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{BD8F3137-89F5-4EE5-B269-24D73081E00A} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
+		{AA73AB9D-52EF-4172-9911-3C9D661C8D48} = {38B3BA4A-3510-4615-BCC4-4C9B96A486C4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True

@@ -16,6 +16,7 @@
     <None Remove="TestFiles\Normative\Bundle-BatchWithConditionalUpdateByIdentifier.json" />
     <None Remove="TestFiles\Normative\MemberMatch.json" />
     <None Remove="TestFiles\Normative\sql_8623_script.sql" />
+    <None Remove="TestFiles\R4\Subscription-Backport.json" />
     <None Remove="TestFiles\Stu3\MemberMatch.json" />
     <None Remove="TestFiles\Normative\Bundle-BatchWithDuplicatedItems.json" />
   </ItemGroup>
@@ -91,6 +92,7 @@
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingExpression.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\Specimen.json" />
+    <EmbeddedResource Include="TestFiles\R4\Subscription-Backport.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-ChainingSortAndSearchValidation.json" />
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
