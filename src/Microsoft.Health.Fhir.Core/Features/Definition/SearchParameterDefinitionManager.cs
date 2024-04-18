@@ -19,6 +19,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Health;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -214,15 +215,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
-            CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+            try
+            {
+                _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
+                CalculateSearchParameterHash();
+                await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calculating search parameter hash");
+                await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            }
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
-            await EnsureInitializedAsync(cancellationToken);
+            try
+            {
+                _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
+                await EnsureInitializedAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing search parameters");
+                await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            }
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
