@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ILogger _logger;
 
+        private bool _initialized = false;
+
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
             IMediator mediator,
@@ -87,10 +89,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             await LoadSearchParamsFromDataStore(cancellationToken);
 
             await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+
+            _initialized = true;
+        }
+
+        public void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                throw new InitializationException("Failed to initialize search parameters");
+            }
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
@@ -101,6 +115,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string resourceType, string code)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> lookup) &&
                 lookup.TryGetValue(code, out SearchParameterInfo searchParameter))
             {
@@ -112,6 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
+            EnsureInitialized();
             searchParameter = null;
 
             return TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
@@ -120,6 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
+            EnsureInitialized();
             if (UrlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
                 return value;
@@ -130,11 +148,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value)
         {
+            EnsureInitialized();
             return UrlLookup.TryGetValue(definitionUri, out value);
         }
 
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
+            EnsureInitialized();
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
@@ -242,8 +262,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
+        private Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
         {
+            throw new NotImplementedException("LoadSearchParamsFromDataStore is not implemented");
+            /*
             // now read in any previously POST'd SearchParameter resources
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             string continuationToken = null;
@@ -297,6 +319,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
             while (continuationToken != null);
+            */
         }
     }
 }
