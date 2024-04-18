@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         private async Task<string> RunExport(string resourceType, CosmosExportOrchestratorJob coordJob, int totalJobs)
         {
-            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, maximumNumberOfResourcesPerQuery: 100);
+            var coordRecord = new ExportJobRecord(new Uri("http://localhost/ExportJob"), ExportJobType.All, ExportFormatTags.ResourceName, resourceType, null, Guid.NewGuid().ToString(), 1, maximumNumberOfResourcesPerQuery: 50);
             var result = await _operationDataStore.CreateExportJobAsync(coordRecord, CancellationToken.None);
             Assert.Equal(OperationStatus.Queued, result.JobRecord.Status);
             var coordId = long.Parse(result.JobRecord.Id);
