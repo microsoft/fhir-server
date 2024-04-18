@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Subscriptions.Channels
         {
             try
             {
-                await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Properties["container"]);
+                await _exportDestinationClient.ConnectAsync(cancellationToken, channelInfo.Endpoint);
 
                 IReadOnlyList<IGrouping<string, ResourceWrapper>> resourceGroupedByResourceType = resources.GroupBy(x => x.ResourceTypeName.ToLower(CultureInfo.InvariantCulture)).ToList();
 
