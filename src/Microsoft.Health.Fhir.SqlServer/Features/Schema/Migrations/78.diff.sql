@@ -1,6 +1,42 @@
-﻿--DROP PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange
+ALTER PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CancelRequested bit = 0 OUTPUT
+AS
+set nocount on
+DECLARE @SP varchar(100) = 'PutJobHeartbeat'
+       ,@Mode varchar(100)
+       ,@st datetime = getUTCdate()
+       ,@Rows int = 0
+       ,@PartitionId tinyint = @JobId % 16
+
+SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' D='+isnull(convert(varchar,@Data),'NULL')
+
+BEGIN TRY
+  UPDATE dbo.JobQueue
+    SET @CancelRequested = CancelRequested
+       ,HeartbeatDate = getUTCdate()
+    WHERE QueueType = @QueueType
+      AND PartitionId = @PartitionId
+      AND JobId = @JobId
+      AND Status = 1
+      AND Version = @Version
+  SET @Rows = @@rowcount
+  
+  IF @Rows = 0 AND NOT EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId AND Version = @Version AND Status IN (2,3,4))
+  BEGIN
+    IF EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId)
+      THROW 50412, 'Precondition failed', 1
+    ELSE
+      THROW 50404, 'Job record not found', 1
+  END
+
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@Rows
+END TRY
+BEGIN CATCH
+  IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error';
+  THROW
+END CATCH
 GO
-CREATE PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
+ALTER PROCEDURE dbo.GetResourcesByTypeAndSurrogateIdRange @ResourceTypeId smallint, @StartId bigint, @EndId bigint, @GlobalEndId bigint = NULL, @IncludeHistory bit = 0, @IncludeDeleted bit = 0
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetResourcesByTypeAndSurrogateIdRange'
@@ -64,20 +100,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---set nocount on
---DECLARE @Ranges TABLE (UnitId int PRIMARY KEY, MinId bigint, MaxId bigint, Cnt int)
---INSERT INTO @Ranges
---  EXECUTE dbo.GetResourceSurrogateIdRanges 96, 0, 9e18, 90000, 10
---SELECT count(*) FROM @Ranges
---DECLARE @UnitId int
---       ,@MinId bigint
---       ,@MaxId bigint
---DECLARE @Resources TABLE (RawResource varbinary(max))
---WHILE EXISTS (SELECT * FROM @Ranges)
---BEGIN
---  SELECT TOP 1 @UnitId = UnitId, @MinId = MinId, @MaxId = MaxId FROM @Ranges ORDER BY UnitId
---  INSERT INTO @Resources
---    EXECUTE dbo.GetResourcesByTypeAndSurrogateIdRange 96, @MinId, @MaxId, NULL, @MaxId -- last is to invoke snapshot logic 
---  DELETE FROM @Resources
---  DELETE FROM @Ranges WHERE UnitId = @UnitId
---END

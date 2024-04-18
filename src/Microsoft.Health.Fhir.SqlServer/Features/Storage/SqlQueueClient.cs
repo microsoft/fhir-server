@@ -204,20 +204,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@QueueType", jobInfo.QueueType);
                 cmd.Parameters.AddWithValue("@JobId", jobInfo.Id);
                 cmd.Parameters.AddWithValue("@Version", jobInfo.Version);
-                if (jobInfo.Data.HasValue)
-                {
-                    cmd.Parameters.AddWithValue("@Data", jobInfo.Data.Value);
-                }
-                else
-                {
-                    cmd.Parameters.AddWithValue("@Data", DBNull.Value);
-                }
-
-                if (jobInfo.Result != null)
-                {
-                    cmd.Parameters.AddWithValue("@CurrentResult", jobInfo.Result);
-                }
-
                 var cancelParam = new SqlParameter("@CancelRequested", SqlDbType.Bit) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(cancelParam);
                 await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
