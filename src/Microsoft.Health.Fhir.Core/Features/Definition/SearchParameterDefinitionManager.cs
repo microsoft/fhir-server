@@ -86,11 +86,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
-            await LoadSearchParamsFromDataStore(cancellationToken);
+            try
+            {
+                _initialized = true;
+                await LoadSearchParamsFromDataStore(cancellationToken);
 
-            await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
-
-            _initialized = true;
+                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+            }
+            catch
+            {
+                _initialized = false;
+            }
         }
 
         public void EnsureInitialized()
@@ -235,31 +241,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
-            try
+            var retry = 0;
+            while (retry < 3)
             {
-                _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
-                CalculateSearchParameterHash();
-                await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
+                    CalculateSearchParameterHash();
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error calculating search parameter hash. Retry {retry}");
+                    retry++;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error calculating search parameter hash");
-                await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
-            }
+
+            await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            try
+            var retry = 0;
+            while (retry < 3)
             {
-                _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
-                await EnsureInitializedAsync(cancellationToken);
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
+                    await EnsureInitializedAsync(cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error initializing search parameters. Retry {retry}");
+                    retry++;
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error initializing search parameters");
-                await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
-            }
+
+            await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
