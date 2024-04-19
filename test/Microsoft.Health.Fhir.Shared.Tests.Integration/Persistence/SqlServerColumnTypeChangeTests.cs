@@ -7,32 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Hl7.Fhir.Serialization;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlClient.Server;
-using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Compartment;
-using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.Merge;
-using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
