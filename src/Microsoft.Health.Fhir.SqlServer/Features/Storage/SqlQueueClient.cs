@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 cmd.Parameters.AddWithValue("@Version", jobInfo.Version);
                 var cancelParam = new SqlParameter("@CancelRequested", SqlDbType.Bit) { Direction = ParameterDirection.Output };
                 cmd.Parameters.Add(cancelParam);
-                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken);
+                await cmd.ExecuteNonQueryAsync(_sqlRetryService, _logger, cancellationToken, disableRetries: true); // this should be fire and forget
                 cancel = (bool)cancelParam.Value;
             }
             catch (Exception ex)
