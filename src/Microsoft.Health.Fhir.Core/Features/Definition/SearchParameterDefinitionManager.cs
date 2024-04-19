@@ -262,10 +262,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        private Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
+        private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException("LoadSearchParamsFromDataStore is not implemented");
-            /*
             // now read in any previously POST'd SearchParameter resources
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             string continuationToken = null;
@@ -319,7 +317,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
             while (continuationToken != null);
-            */
         }
     }
 }
