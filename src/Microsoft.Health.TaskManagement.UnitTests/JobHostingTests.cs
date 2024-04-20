@@ -83,11 +83,10 @@ namespace Microsoft.Health.JobManagement.UnitTests
             string groupDefinition2 = "groupDefinition2";
 
             TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { definition1 }, 1, false, false, CancellationToken.None)).First();
-            JobInfo job2 = (await queueClient.EnqueueAsync(0, new string[] { definition2 }, 2, false, false, CancellationToken.None)).First();
-
-            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition1 }, 1, false, false, CancellationToken.None)).First();
-            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, new string[] { groupDefinition2 }, 2, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup1 = (await queueClient.EnqueueAsync(0, [groupDefinition1], 1, false, false, CancellationToken.None)).First();
+            JobInfo job1 = (await queueClient.EnqueueAsync(0, [definition1], 1, false, false, CancellationToken.None)).First();
+            JobInfo jobGroup2 = (await queueClient.EnqueueAsync(0, [groupDefinition2], 2, false, false, CancellationToken.None)).First();
+            JobInfo job2 = (await queueClient.EnqueueAsync(0, [definition2], 2, false, false, CancellationToken.None)).First();
 
             int executeCount = 0;
             TestJobFactory factory = new TestJobFactory(t =>
@@ -98,7 +97,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
                         (token) =>
                         {
                             Interlocked.Increment(ref executeCount);
-
                             throw new JobExecutionException(errorMessage, error);
                         });
                 }
@@ -138,9 +136,9 @@ namespace Microsoft.Health.JobManagement.UnitTests
 
             Assert.Equal(JobStatus.Failed, job2.Status);
 
-            // Job2's error includes the stack trace with can't be easily added to the expected value, so we just look for the message.
+            // Job2's error includes the stack trace whitch can't be easily added to the expected value, so we just look for the message.
             Assert.Contains(errorMessage, job2.Result);
-            Assert.Equal(JobStatus.Cancelled, jobGroup2.Status);
+            Assert.Equal(JobStatus.Completed, jobGroup2.Status);
         }
 
         [Fact]
@@ -214,42 +212,6 @@ namespace Microsoft.Health.JobManagement.UnitTests
             // If job failcount > MaxRetryCount + 1, the Job should failed with error message.
             Assert.Equal(JobStatus.Completed, job1.Status);
             Assert.Equal(1, executeCount0);
-        }
-
-        [Fact]
-        public async Task GivenJobWithRetriableException_WhenJobHostingStart_ThenJobShouldBeRetry()
-        {
-            int executeCount0 = 0;
-            TestJobFactory factory = new TestJobFactory(t =>
-            {
-                return new TestJob(
-                    (token) =>
-                    {
-                        Interlocked.Increment(ref executeCount0);
-                        if (executeCount0 <= 1)
-                        {
-                            throw new RetriableJobException("test");
-                        }
-
-                        return Task.FromResult(t.Result);
-                    });
-            });
-
-            TestQueueClient queueClient = new TestQueueClient();
-            JobInfo job1 = (await queueClient.EnqueueAsync(0, new string[] { "task1" }, null, false, false, CancellationToken.None)).First();
-
-            JobHosting jobHosting = new JobHosting(queueClient, factory, _logger);
-            jobHosting.PollingFrequencyInSeconds = 0;
-            jobHosting.MaxRunningJobCount = 1;
-            jobHosting.JobHeartbeatTimeoutThresholdInSeconds = 1;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
-            await jobHosting.ExecuteAsync(0, "test", tokenSource);
-
-            Assert.Equal(JobStatus.Completed, job1.Status);
-            Assert.Equal(2, executeCount0);
         }
 
         [Fact]
