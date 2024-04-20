@@ -12,8 +12,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
             catch (ObjectDisposedException ode)
             {
-                throw new InstanceUnavailableException("Not able to create final result.", ode);
+                throw new ServiceUnavailableException("Not able to create final result. Retry the operation.", ode);
             }
 
             HttpResponse response = context.HttpContext.Response;

@@ -74,10 +74,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 switch (fhirException)
                 {
-                    case InstanceUnavailableException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
-                        break;
-
                     case UnauthorizedFhirActionException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +16,6 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.JobManagement;
@@ -529,7 +527,7 @@ public class CosmosQueueClient : IQueueClient
         }
         catch (ObjectDisposedException ode)
         {
-            throw new InstanceUnavailableException("Not able to run a new query.", ode);
+            throw new ServiceUnavailableException("Not able to run a new query. Retry the operation.", ode);
         }
 
         using (container)
