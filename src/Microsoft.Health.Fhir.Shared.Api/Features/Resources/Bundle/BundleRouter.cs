@@ -13,8 +13,11 @@ using AngleSharp.Io;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Matching;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
@@ -26,15 +29,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
        and find the best endpoint match based on the request httpContext to build the routeContext for bundle request to route to appropriate action.*/
     internal class BundleRouter : IRouter
     {
+        private readonly TemplateBinderFactory _parameterPolicies;
+        private readonly IEnumerable<MatcherPolicy> _matcherPolicies;
         private readonly EndpointDataSource _endpointDataSource;
+        private readonly EndpointSelector _endpointSelector;
         private readonly ILogger<BundleRouter> _logger;
 
-        public BundleRouter(EndpointDataSource endpointDataSource, ILogger<BundleRouter> logger)
+        public BundleRouter(
+            TemplateBinderFactory parameterPolicies,
+            IEnumerable<MatcherPolicy> matcherPolicies,
+            EndpointDataSource endpointDataSource,
+            EndpointSelector endpointSelector,
+            ILogger<BundleRouter> logger)
         {
             EnsureArg.IsNotNull(endpointDataSource, nameof(endpointDataSource));
             EnsureArg.IsNotNull(logger, nameof(logger));
-
+            _parameterPolicies = parameterPolicies;
+            _matcherPolicies = matcherPolicies;
             _endpointDataSource = endpointDataSource;
+            _endpointSelector = endpointSelector;
             _logger = logger;
         }
 
@@ -60,25 +73,64 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var path = context.HttpContext.Request.Path;
                 var method = context.HttpContext.Request.Method;
 
-                foreach (var endpoint in endpoints)
+                foreach (RouteEndpoint endpoint in endpoints)
                 {
                     var routeValues = new RouteValueDictionary();
-                    var templateMatcher = new TemplateMatcher(TemplateParser.Parse(endpoint.RoutePattern.RawText), new RouteValueDictionary());
+                    var routeDefaults = new RouteValueDictionary(endpoint.RoutePattern.Defaults);
+                    var templateMatcher = new TemplateMatcher(TemplateParser.Parse(endpoint.RoutePattern.RawText), routeDefaults);
+
                     if (!templateMatcher.TryMatch(path, routeValues))
                     {
                         continue;
                     }
 
-                    var httpMethodAttribute = endpoint.Metadata.GetMetadata<HttpMethodAttribute>();
-                    if (httpMethodAttribute != null && !httpMethodAttribute.HttpMethods.Any(x => x.Equals(method, StringComparison.OrdinalIgnoreCase)))
+                    // Older MVC constraint processing...
+                    RoutePattern pattern = RoutePatternFactory.Parse(endpoint.RoutePattern.RawText, routeDefaults, null);
+                    TemplateBinder templateBinder = _parameterPolicies.Create(pattern);
+
+                    if (!templateBinder.TryProcessConstraints(context.HttpContext, routeValues, out var parameterName, out var constraint))
                     {
                         continue;
                     }
 
+                    /*
+                    HttpMethodAttribute httpMethodAttribute = endpoint.Metadata.GetMetadata<HttpMethodAttribute>();
+                    if (httpMethodAttribute != null && !httpMethodAttribute.HttpMethods.Any(x => x.Equals(method, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+                    */
+
                     routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
                 }
 
-                (RouteEndpoint routeEndpointMatch, RouteValueDictionary routeValuesMatch) = FindRouteEndpoint(context.HttpContext, routeCandidates);
+                var candidateSet = new CandidateSet(
+                    routeCandidates.Select(x => x.Key).Cast<Endpoint>().ToArray(),
+                    routeCandidates.Select(x => x.Value).ToArray(),
+                    Enumerable.Repeat(1, routeCandidates.Count).ToArray());
+
+                RouteEndpoint[] potentialRoutes = routeCandidates.Select(x => x.Key).ToArray();
+
+                _matcherPolicies
+                    .OrderBy(x => x.Order)
+                    .OfType<IEndpointSelectorPolicy>()
+                    .Where(x => x.AppliesToEndpoints(potentialRoutes))
+                    .ToList()
+                    .ForEach(x => x.ApplyAsync(context.HttpContext, candidateSet).GetAwaiter().GetResult());
+
+                _endpointSelector.SelectAsync(
+                    context.HttpContext,
+                    candidateSet)
+                    .GetAwaiter()
+                    .GetResult();
+
+                context.Handler = context.HttpContext.GetEndpoint()?.RequestDelegate;
+                context.RouteData = new RouteData(context.HttpContext.GetRouteData());
+                context.HttpContext.Request.RouteValues = context.HttpContext.GetRouteData().Values;
+
+                /*
+                // (RouteEndpoint routeEndpointMatch, RouteValueDictionary routeValuesMatch) = FindRouteEndpoint(context.HttpContext, routeCandidates);
+
                 if (routeEndpointMatch != null && routeValuesMatch != null)
                 {
                     if (routeEndpointMatch.RoutePattern?.RequiredValues != null)
@@ -98,6 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     _logger.LogError("Matching route endpoint not found for the given request.");
                 }
+                */
             }
             catch
             {
@@ -105,7 +158,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private static (RouteEndpoint routeEndpoint, RouteValueDictionary routeValues) FindRouteEndpoint(
+        /*
+        private (RouteEndpoint routeEndpoint, RouteValueDictionary routeValues) FindRouteEndpoint(
             HttpContext context,
             IList<KeyValuePair<RouteEndpoint, RouteValueDictionary>> routeCandidates)
         {
@@ -146,5 +200,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             return (null, null);
         }
+        */
     }
 }
