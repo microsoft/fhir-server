@@ -177,3 +177,13 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 DELETE https://{{hostname}}/Subscription/example-backport-storage-all
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+DELETE https://{{hostname}}/Subscription/example-backport-storage-patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+DELETE https://{{hostname}}/Subscription/example-backport-lake
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
