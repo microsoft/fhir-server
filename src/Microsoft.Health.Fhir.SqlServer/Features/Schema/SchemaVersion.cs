@@ -88,5 +88,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V76 = 76,
         V77 = 77,
         V78 = 78,
+        V79 = 79,
     }
 }
