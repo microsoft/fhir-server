@@ -99,8 +99,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 routeCandidates.Select(x => x.Value).ToArray(),
                 Enumerable.Repeat(1, routeCandidates.Count).ToArray());
 
-            RouteEndpoint[] potentialRoutes = routeCandidates.Select(x => x.Key).ToArray();
-
             // Covered things like Consumes, HttpVerbs etc...
             foreach (IEndpointSelectorPolicy policy in _matcherPolicies
                          .OrderBy(x => x.Order)
