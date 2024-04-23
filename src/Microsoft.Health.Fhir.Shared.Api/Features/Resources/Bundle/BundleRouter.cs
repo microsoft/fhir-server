@@ -42,8 +42,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EndpointSelector endpointSelector,
             ILogger<BundleRouter> logger)
         {
+            EnsureArg.IsNotNull(parameterPolicies, nameof(parameterPolicies));
+            EnsureArg.IsNotNull(matcherPolicies, nameof(matcherPolicies));
             EnsureArg.IsNotNull(endpointDataSource, nameof(endpointDataSource));
+            EnsureArg.IsNotNull(endpointSelector, nameof(endpointSelector));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
             _parameterPolicies = parameterPolicies;
             _matcherPolicies = matcherPolicies;
             _endpointDataSource = endpointDataSource;
@@ -56,150 +60,62 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             throw new System.NotImplementedException();
         }
 
-        public Task RouteAsync(RouteContext context)
+        public async Task RouteAsync(RouteContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            SetRouteContext(context);
-            return Task.CompletedTask;
-        }
+            var routeCandidates = new List<KeyValuePair<RouteEndpoint, RouteValueDictionary>>();
+            IEnumerable<RouteEndpoint> endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
+            PathString path = context.HttpContext.Request.Path;
 
-        private void SetRouteContext(RouteContext context)
-        {
-            try
+            foreach (RouteEndpoint endpoint in endpoints)
             {
-                var routeCandidates = new List<KeyValuePair<RouteEndpoint, RouteValueDictionary>>();
-                var endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
-                var path = context.HttpContext.Request.Path;
-                var method = context.HttpContext.Request.Method;
+                var routeValues = new RouteValueDictionary();
+                var routeDefaults = new RouteValueDictionary(endpoint.RoutePattern.Defaults);
 
-                foreach (RouteEndpoint endpoint in endpoints)
+                RoutePattern pattern = endpoint.RoutePattern;
+                TemplateBinder templateBinder = _parameterPolicies.Create(pattern);
+
+                var templateMatcher = new TemplateMatcher(new RouteTemplate(pattern), routeDefaults);
+
+                if (!templateMatcher.TryMatch(path, routeValues))
                 {
-                    var routeValues = new RouteValueDictionary();
-                    var routeDefaults = new RouteValueDictionary(endpoint.RoutePattern.Defaults);
-                    var templateMatcher = new TemplateMatcher(TemplateParser.Parse(endpoint.RoutePattern.RawText), routeDefaults);
-
-                    if (!templateMatcher.TryMatch(path, routeValues))
-                    {
-                        continue;
-                    }
-
-                    // Older MVC constraint processing...
-                    RoutePattern pattern = RoutePatternFactory.Parse(endpoint.RoutePattern.RawText, routeDefaults, null);
-                    TemplateBinder templateBinder = _parameterPolicies.Create(pattern);
-
-                    if (!templateBinder.TryProcessConstraints(context.HttpContext, routeValues, out var parameterName, out var constraint))
-                    {
-                        continue;
-                    }
-
-                    /*
-                    HttpMethodAttribute httpMethodAttribute = endpoint.Metadata.GetMetadata<HttpMethodAttribute>();
-                    if (httpMethodAttribute != null && !httpMethodAttribute.HttpMethods.Any(x => x.Equals(method, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        continue;
-                    }
-                    */
-
-                    routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
+                    continue;
                 }
 
-                var candidateSet = new CandidateSet(
-                    routeCandidates.Select(x => x.Key).Cast<Endpoint>().ToArray(),
-                    routeCandidates.Select(x => x.Value).ToArray(),
-                    Enumerable.Repeat(1, routeCandidates.Count).ToArray());
+                if (!templateBinder.TryProcessConstraints(context.HttpContext, routeValues, out var parameterName, out IRouteConstraint constraint))
+                {
+                    _logger.LogDebug("Constraint '{ConstraintType}' not met for parameter '{ParameterName}'", constraint, parameterName);
+                    continue;
+                }
 
-                RouteEndpoint[] potentialRoutes = routeCandidates.Select(x => x.Key).ToArray();
+                routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
+            }
 
-                _matcherPolicies
-                    .OrderBy(x => x.Order)
-                    .OfType<IEndpointSelectorPolicy>()
-                    .Where(x => x.AppliesToEndpoints(potentialRoutes))
-                    .ToList()
-                    .ForEach(x => x.ApplyAsync(context.HttpContext, candidateSet).GetAwaiter().GetResult());
+            var candidateSet = new CandidateSet(
+                routeCandidates.Select(x => x.Key).Cast<Endpoint>().ToArray(),
+                routeCandidates.Select(x => x.Value).ToArray(),
+                Enumerable.Repeat(1, routeCandidates.Count).ToArray());
 
-                _endpointSelector.SelectAsync(
-                    context.HttpContext,
-                    candidateSet)
-                    .GetAwaiter()
-                    .GetResult();
+            RouteEndpoint[] potentialRoutes = routeCandidates.Select(x => x.Key).ToArray();
 
-                context.Handler = context.HttpContext.GetEndpoint()?.RequestDelegate;
+            foreach (IEndpointSelectorPolicy policy in _matcherPolicies
+                         .OrderBy(x => x.Order)
+                         .OfType<IEndpointSelectorPolicy>()
+                         .Where(x => x.AppliesToEndpoints(potentialRoutes)))
+            {
+                await policy.ApplyAsync(context.HttpContext, candidateSet);
+            }
+
+            await _endpointSelector.SelectAsync(context.HttpContext, candidateSet);
+
+            Endpoint selectedEndpoint = context.HttpContext.GetEndpoint();
+            if (selectedEndpoint != null)
+            {
+                context.Handler = selectedEndpoint.RequestDelegate;
                 context.RouteData = new RouteData(context.HttpContext.GetRouteData());
                 context.HttpContext.Request.RouteValues = context.HttpContext.GetRouteData().Values;
-
-                /*
-                // (RouteEndpoint routeEndpointMatch, RouteValueDictionary routeValuesMatch) = FindRouteEndpoint(context.HttpContext, routeCandidates);
-
-                if (routeEndpointMatch != null && routeValuesMatch != null)
-                {
-                    if (routeEndpointMatch.RoutePattern?.RequiredValues != null)
-                    {
-                        foreach (var requiredValue in routeEndpointMatch.RoutePattern.RequiredValues)
-                        {
-                            routeValuesMatch.Add(requiredValue.Key, requiredValue.Value);
-                        }
-                    }
-
-                    context.Handler = routeEndpointMatch.RequestDelegate;
-                    context.RouteData = new RouteData(routeValuesMatch);
-                    context.HttpContext.Request.RouteValues = routeValuesMatch;
-                }
-
-                if (context.Handler == null)
-                {
-                    _logger.LogError("Matching route endpoint not found for the given request.");
-                }
-                */
-            }
-            catch
-            {
-                throw;
             }
         }
-
-        /*
-        private (RouteEndpoint routeEndpoint, RouteValueDictionary routeValues) FindRouteEndpoint(
-            HttpContext context,
-            IList<KeyValuePair<RouteEndpoint, RouteValueDictionary>> routeCandidates)
-        {
-            if (routeCandidates.Count == 0)
-            {
-                return (null, null);
-            }
-
-            if (routeCandidates.Count == 1)
-            {
-                return (routeCandidates[0].Key, routeCandidates[0].Value);
-            }
-
-            // Note: When there are more than one route endpoint candidates, we need to find the best match
-            //       by looking at the request method, path, and headers. The logic of finding the best match
-            //       as of now is based on the implementation of FhirController actions and attributes.
-            // TODO: Find a more generic way of implementing the logic.
-
-            var method = context.Request.Method;
-            if (method.Equals(HttpMethods.Post, StringComparison.OrdinalIgnoreCase))
-            {
-                var conditional = context.Request.Headers.ContainsKey(KnownHeaders.IfNoneExist);
-                var pair = routeCandidates.SingleOrDefault(r => (r.Key.Metadata.GetMetadata<ConditionalConstraintAttribute>() != null) == conditional);
-                return (pair.Key, pair.Value);
-            }
-            else if (method.Equals(HttpMethods.Patch, StringComparison.OrdinalIgnoreCase))
-            {
-                var contentType = context.Request.Headers.ContentType;
-                foreach (var candidate in routeCandidates)
-                {
-                    var consumes = candidate.Key.Metadata.OfType<ConsumesAttribute>();
-                    if (consumes.Any(c => c.ContentTypes.Any(t => t.Equals(contentType, StringComparison.OrdinalIgnoreCase))))
-                    {
-                        return (candidate.Key, candidate.Value);
-                    }
-                }
-            }
-
-            return (null, null);
-        }
-        */
     }
 }
