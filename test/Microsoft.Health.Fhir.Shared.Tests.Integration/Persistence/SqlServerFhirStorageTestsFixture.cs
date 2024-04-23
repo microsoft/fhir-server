@@ -55,8 +55,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
-        private int _maximumSupportedSchemaVersion;
-        private string _databaseName;
+        private readonly string _initialConnectionString;
+        private readonly IOptions<CoreFeatureConfiguration> _options;
+        private readonly int _maximumSupportedSchemaVersion;
+        private readonly string _databaseName;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+
         private SqlServerFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private SqlServerFhirOperationDataStore _sqlServerFhirOperationDataStore;
@@ -68,11 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
-        private IMediator _mediator = Substitute.For<IMediator>();
-        private RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private SqlQueueClient _sqlQueueClient;
-        private string _initialConnectionString;
-        private IOptions<CoreFeatureConfiguration> _options;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
-            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
+            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName, Encrypt = true }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             SqlServerDataStoreConfiguration = Options.Create(new SqlServerDataStoreConfiguration
