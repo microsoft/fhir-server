@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             }
             catch (ObjectDisposedException ode)
             {
-                throw new ServiceUnavailableException("Not able to create final result. Retry the operation.", ode);
+                throw new ServiceUnavailableException(Resources.NotAbleToCreateTheFinalResultsOfAnOperation, ode);
             }
 
             HttpResponse response = context.HttpContext.Response;

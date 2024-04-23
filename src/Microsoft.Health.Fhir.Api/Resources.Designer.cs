@@ -538,6 +538,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not able to create final result. Retry the operation..
+        /// </summary>
+        public static string NotAbleToCreateTheFinalResultsOfAnOperation {
+            get {
+                return ResourceManager.GetString("NotAbleToCreateTheFinalResultsOfAnOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {

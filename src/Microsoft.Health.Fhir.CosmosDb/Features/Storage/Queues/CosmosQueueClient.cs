@@ -527,7 +527,7 @@ public class CosmosQueueClient : IQueueClient
         }
         catch (ObjectDisposedException ode)
         {
-            throw new ServiceUnavailableException("Not able to run a new query. Retry the operation.", ode);
+            throw new ServiceUnavailableException(Resources.NotAbleToExecuteQuery, ode);
         }
 
         using (container)
