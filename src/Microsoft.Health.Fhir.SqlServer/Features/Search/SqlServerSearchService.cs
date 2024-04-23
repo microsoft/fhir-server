@@ -1273,6 +1273,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId)))
                 {
+                    logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
                     return;
                 }
 

@@ -1,6 +1,7 @@
 ﻿--DROP PROCEDURE dbo.PutJobHeartbeat
+--TODO: Remove @Data from signature after deployment
 GO
-CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CurrentResult varchar(max) = NULL, @CancelRequested bit = 0 OUTPUT
+CREATE PROCEDURE dbo.PutJobHeartbeat @QueueType tinyint, @JobId bigint, @Version bigint, @Data bigint = NULL, @CancelRequested bit = 0 OUTPUT
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'PutJobHeartbeat'
@@ -12,28 +13,14 @@ DECLARE @SP varchar(100) = 'PutJobHeartbeat'
 SET @Mode = 'Q='+convert(varchar,@QueueType)+' J='+convert(varchar,@JobId)+' P='+convert(varchar,@PartitionId)+' V='+convert(varchar,@Version)+' D='+isnull(convert(varchar,@Data),'NULL')
 
 BEGIN TRY
-  IF @CurrentResult IS NULL
-    UPDATE dbo.JobQueue
-      SET @CancelRequested = CancelRequested
-         ,HeartbeatDate = getUTCdate()
-         ,Data = isnull(@Data,Data)
-      WHERE QueueType = @QueueType
-        AND PartitionId = @PartitionId
-        AND JobId = @JobId
-        AND Status = 1
-        AND Version = @Version
-  ELSE
-    UPDATE dbo.JobQueue
-      SET @CancelRequested = CancelRequested
-         ,HeartbeatDate = getUTCdate()
-         ,Data = isnull(@Data,Data)
-         ,Result = @CurrentResult
-      WHERE QueueType = @QueueType
-        AND PartitionId = @PartitionId
-        AND JobId = @JobId
-        AND Status = 1
-        AND Version = @Version
-  
+  UPDATE dbo.JobQueue
+    SET @CancelRequested = CancelRequested
+       ,HeartbeatDate = getUTCdate()
+    WHERE QueueType = @QueueType
+      AND PartitionId = @PartitionId
+      AND JobId = @JobId
+      AND Status = 1
+      AND Version = @Version
   SET @Rows = @@rowcount
   
   IF @Rows = 0 AND NOT EXISTS (SELECT * FROM dbo.JobQueue WHERE QueueType = @QueueType AND PartitionId = @PartitionId AND JobId = @JobId AND Version = @Version AND Status IN (2,3,4))

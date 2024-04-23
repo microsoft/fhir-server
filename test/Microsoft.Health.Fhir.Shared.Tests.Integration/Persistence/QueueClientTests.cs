@@ -136,67 +136,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        [Obsolete("Unit test for obsolete method")]
-        public async Task GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned()
-        {
-            byte queueType = (byte)TestQueueType.GivenJobWithExpiredHeartbeat_WhenDequeue_ThenJobWithResultShouldBeReturned;
-
-            await _queueClient.EnqueueAsync(queueType, new[] { "job1" }, null, false, false, CancellationToken.None);
-
-            JobInfo jobInfo1 = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
-            jobInfo1.QueueType = queueType;
-            jobInfo1.Result = "current-result";
-            await JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                _queueClient,
-                jobInfo1,
-                async cancelSource =>
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2));
-                    return jobInfo1.Result;
-                },
-                TimeSpan.FromSeconds(0.1),
-                new CancellationTokenSource());
-            await Task.Delay(TimeSpan.FromSeconds(1));
-            JobInfo jobInfo2 = await _queueClient.DequeueAsync(queueType, "test-worker", 0, CancellationToken.None);
-
-            Assert.Equal(jobInfo1.Result, jobInfo2?.Result);
-        }
-
-        [Fact]
-        [Obsolete("Unit test for obsolete method")]
-        public async Task GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned()
-        {
-            byte queueType = (byte)TestQueueType.GivenRunningJobCancelled_WhenHeartbeat_ThenCancelRequestedShouldBeReturned;
-
-            await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
-
-            var job = await _queueClient.DequeueAsync(queueType, "test-worker", 10, CancellationToken.None);
-            job.QueueType = queueType;
-            await _queueClient.CancelJobByGroupIdAsync(queueType, job.GroupId, CancellationToken.None);
-            try
-            {
-                await JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                    _queueClient,
-                    job,
-                    async cancelSource =>
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(10), cancelSource.Token);
-                        return job.Result;
-                    },
-                    TimeSpan.FromSeconds(0.1),
-                    new CancellationTokenSource());
-            }
-            catch (TaskCanceledException)
-            {
-                // do nothing
-            }
-
-            Assert.Equal(JobStatus.Running, job.Status);
-            job = await _queueClient.GetJobByIdAsync(queueType, job.Id, false, CancellationToken.None);
-            Assert.True(job.CancelRequested);
-        }
-
-        [Fact]
         public async Task GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturnedAgain()
         {
             byte queueType = (byte)TestQueueType.GivenJobNotHeartbeat_WhenDequeue_ThenJobShouldBeReturnedAgain;
@@ -380,64 +319,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     Task.WaitAll(execTask, dequeueTask);
 
                     Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
-                });
-        }
-
-        [Fact(Skip = "Doesn't run within time limits. Bug: 103102")]
-        [Obsolete("Unit test for obsolete method")]
-        public async Task GivenAJob_WhenExecutedWithHeavyHeartbeats_ThenHeavyHeartbeatsAreRecorded()
-        {
-            await this.RetryAsync(
-                async () =>
-                {
-                    var queueType = (byte)TestQueueType.ExecuteWithHeartbeatsHeavy;
-                    await _queueClient.EnqueueAsync(queueType, new[] { "job" }, null, false, false, CancellationToken.None);
-                    JobInfo job = await _queueClient.DequeueAsync(queueType, "test-worker", 1, CancellationToken.None);
-                    var cancel = new CancellationTokenSource();
-                    cancel.CancelAfter(TimeSpan.FromSeconds(30));
-                    var execTask = JobHosting.ExecuteJobWithHeavyHeartbeatsAsync(
-                        _queueClient,
-                        job,
-                        async cancelSource =>
-                        {
-                            await Task.Delay(TimeSpan.FromSeconds(5), cancelSource.Token);
-                            job.Result = "Something";
-                            await Task.Delay(TimeSpan.FromSeconds(5));
-                            await _queueClient.CompleteJobAsync(job, false, cancelSource.Token);
-                            return "Test";
-                        },
-                        TimeSpan.FromSeconds(1),
-                        cancel);
-
-                    var currentJob = job;
-                    var previousJob = job;
-                    var heartbeatChanges = 0;
-                    var heavyHeartbeatRecorded = false;
-                    var dequeueTask = Task.Run(
-                        async () =>
-                        {
-                            while (currentJob.Status == JobStatus.Running)
-                            {
-                                await Task.Delay(TimeSpan.FromSeconds(1));
-                                currentJob = await _queueClient.GetJobByIdAsync(queueType, job.Id, true, cancel.Token);
-
-                                if (currentJob.Status == JobStatus.Running && currentJob.Result != null)
-                                {
-                                    heavyHeartbeatRecorded = true;
-                                }
-
-                                if (currentJob.HeartbeatDateTime != previousJob.HeartbeatDateTime)
-                                {
-                                    heartbeatChanges++;
-                                    previousJob = currentJob;
-                                }
-                            }
-                        },
-                        cancel.Token);
-                    Task.WaitAll(execTask, dequeueTask);
-
-                    Assert.True(heartbeatChanges >= 1, $"Heartbeats recorded: ${heartbeatChanges}");
-                    Assert.True(heavyHeartbeatRecorded, $"Heavy heartbeat not recorded");
                 });
         }
     }
