@@ -802,7 +802,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <summary>
         /// Gets called from <see cref="CheckJobCompletionStatus"/> and only gets called when all queryList items are status of completed
         /// </summary>
-        /// <returns>Task<(int totalCount, List<string></returns>
+        /// <returns>Count and resource types.</returns>
         private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount()
         {
             int totalCount = 0;

@@ -248,9 +248,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         /// <param name="logMessage">Message to be logged on error.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="isReadOnly">"Flag indicating whether connection to read only replica can be used."</param>
+        /// <param name="disableRetries">"Flag indicating whether retries are disabled."</param>
         /// <returns>A task representing the asynchronous operation.</returns>
         /// <exception>When executing this method, if exception is thrown that is not retriable or if last retry fails, then same exception is thrown by this method.</exception>
-        public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false)
+        public async Task ExecuteSql<TLogger>(SqlCommand sqlCommand, Func<SqlCommand, CancellationToken, Task> action, ILogger<TLogger> logger, string logMessage, CancellationToken cancellationToken, bool isReadOnly = false, bool disableRetries = false)
         {
             EnsureArg.IsNotNull(sqlCommand, nameof(sqlCommand));
             EnsureArg.IsNotNull(action, nameof(action));
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await action(sqlCommand, cancellationToken);
                     if (retry > 0)
                     {
-                        await TryLogEvent($"Retry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
+                        await TryLogEvent($"SuccessOnRetry:{sqlCommand.CommandText}", "Warn", $"retries={retry} error={lastException}", start, cancellationToken);
                     }
 
                     return;
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception ex)
                 {
                     lastException = ex;
-                    if (!IsRetriable(ex))
+                    if (disableRetries || !IsRetriable(ex))
                     {
                         throw;
                     }

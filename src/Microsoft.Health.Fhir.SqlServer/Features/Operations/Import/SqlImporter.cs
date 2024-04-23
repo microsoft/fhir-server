@@ -55,30 +55,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 long succeededCount = 0;
                 long processedBytes = 0;
                 long currentIndex = -1;
-                var importErrorBuffer = new List<string>();
-                var resourceBuffer = new List<ImportResource>();
+                var errors = new List<string>();
+                var resourceBatch = new List<ImportResource>();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     currentIndex = resource.Index;
 
-                    resourceBuffer.Add(resource);
-                    if (resourceBuffer.Count < _importTaskConfiguration.TransactionSize)
+                    resourceBatch.Add(resource);
+                    if (resourceBatch.Count < _importTaskConfiguration.TransactionSize)
                     {
                         continue;
                     }
 
-                    var resultInt = await ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken);
+                    var resultInt = await ImportResourcesInBuffer(resourceBatch, errors, importMode, cancellationToken);
                     succeededCount += resultInt.LoadedCount;
                     processedBytes += resultInt.ProcessedBytes;
                 }
 
-                var result = await ImportResourcesInBuffer(resourceBuffer, importErrorBuffer, importMode, cancellationToken);
+                var result = await ImportResourcesInBuffer(resourceBatch, errors, importMode, cancellationToken);
                 succeededCount += result.LoadedCount;
                 processedBytes += result.ProcessedBytes;
 
-                return await UploadImportErrorsAsync(importErrorStore, succeededCount, importErrorBuffer.Count, importErrorBuffer.ToArray(), currentIndex, processedBytes, cancellationToken);
+                return await UploadImportErrorsAsync(importErrorStore, succeededCount, errors.Count, errors.ToArray(), currentIndex, processedBytes, cancellationToken);
             }
             finally
             {
@@ -91,24 +91,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             errors.AddRange(resources.Where(r => !string.IsNullOrEmpty(r.ImportError)).Select(r => r.ImportError));
             //// exclude resources with parsing error (ImportError != null)
             var validResources = resources.Where(r => string.IsNullOrEmpty(r.ImportError)).ToList();
-            var results = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
-            var dups = validResources.Except(results.Loaded).Except(results.Conflicts);
-            AppendErrorsToBuffer(dups, results.Conflicts, errors);
+            var newErrors = await _store.ImportResourcesAsync(validResources, importMode, cancellationToken);
+            errors.AddRange(newErrors);
+            var totalBytes = resources.Sum(_ => (long)_.Length);
             resources.Clear();
-            return (results.Loaded.Count, resources.Sum(_ => (long)_.Length));
-        }
-
-        private void AppendErrorsToBuffer(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts, List<string> importErrorBuffer)
-        {
-            foreach (var resource in dups)
-            {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportDuplicate, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
-            }
-
-            foreach (var resource in conflicts)
-            {
-                importErrorBuffer.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
-            }
+            return (validResources.Count - newErrors.Count, totalBytes);
         }
 
         private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeededCount, long failedCount, string[] importErrors, long lastIndex, long processedBytes, CancellationToken cancellationToken)

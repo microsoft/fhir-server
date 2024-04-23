@@ -14,13 +14,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
     public static class TestApplications
     {
-        public static TestApplication AdminUser { get; } = new TestApplication("globalAdminUser");
+        public static TestApplication AdminUser { get; } = new TestApplication("globalAdminUserApp");
 
-        public static TestApplication BulkImportUser { get; } = new TestApplication("globalImporterUser");
+        public static TestApplication BulkImportUser { get; } = new TestApplication("globalImporterUserApp");
 
-        public static TestApplication ConvertDataUser { get; } = new TestApplication("globalConverterUser");
+        public static TestApplication ConvertDataUser { get; } = new TestApplication("globalConverterUserApp");
 
-        public static TestApplication ExportUser { get; } = new TestApplication("globalExporterUser");
+        public static TestApplication ExportUser { get; } = new TestApplication("globalExporterUserApp");
 
         public static TestApplication GlobalAdminServicePrincipal { get; } = new TestApplication("globalAdminServicePrincipal");
 
@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public static TestApplication NativeClient { get; } = new TestApplication("nativeClient");
 
-        public static TestApplication ReadOnlyUser { get; } = new TestApplication("globalReaderUser");
+        public static TestApplication ReadOnlyUser { get; } = new TestApplication("globalReaderUserApp");
 
-        public static TestApplication ReadWriteUser { get; } = new TestApplication("globalWriterUser");
+        public static TestApplication ReadWriteUser { get; } = new TestApplication("globalWriterUserApp");
 
         public static TestApplication SmartUserClient { get; } = new TestApplication("smartUserClient");
 

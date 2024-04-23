@@ -124,6 +124,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     returnCode = HttpStatusCode.NotFound;
                     diagnosticInfo = Resources.NotFoundException;
                     break;
+                case (int)HttpStatusCode.MethodNotAllowed:
+                    issueType = OperationOutcome.IssueType.NotSupported;
+                    returnCode = HttpStatusCode.MethodNotAllowed;
+                    diagnosticInfo = Resources.OperationNotSupported;
+                    break;
                 default:
                     issueType = OperationOutcome.IssueType.Exception;
                     returnCode = HttpStatusCode.InternalServerError;
@@ -391,18 +396,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
+        /// <param name="allowPartialSuccess">Allows for partial success of delete operation. Only applicable for hard delete on Cosmos services</param>
         [HttpDelete]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
         [TypeFilter(typeof(CrudEndpointMetricEmitterAttribute))]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete, [FromQuery] bool allowPartialSuccess)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
                 new DeleteResourceRequest(
                     new ResourceKey(typeParameter, idParameter),
                     hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete,
-                    GetBundleResourceContext()),
+                    GetBundleResourceContext(),
+                    allowPartialSuccess),
                 HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -413,17 +420,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="allowPartialSuccess">Allows for partial success of delete operation. Only applicable on Cosmos services</param>
         [HttpDelete]
         [ValidateIdSegmentAttribute]
         [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
         [AuditEventType(AuditEventSubType.PurgeHistory)]
-        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
+        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter, [FromQuery] bool allowPartialSuccess)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(
                 new DeleteResourceRequest(
                     new ResourceKey(typeParameter, idParameter),
                     DeleteOperation.PurgeHistory,
-                    GetBundleResourceContext()),
+                    GetBundleResourceContext(),
+                    allowPartialSuccess),
                 HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -665,7 +674,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [TypeFilter(typeof(BundleEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> BatchAndTransactions([FromBody] Resource bundle)
         {
-            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
+            ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(bundleResponse);
         }

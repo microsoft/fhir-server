@@ -77,9 +77,11 @@ BEGIN TRY
           FROM (SELECT TOP (@DummyTop) * FROM @Resources) A
                JOIN dbo.Resource B WITH (ROWLOCK, HOLDLOCK) ON B.ResourceTypeId = A.ResourceTypeId AND B.ResourceSurrogateId = A.ResourceSurrogateId
           WHERE B.IsHistory = 0
+            AND B.ResourceId = A.ResourceId
+            AND B.Version = A.Version
           OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
     
-      IF @@rowcount > 0 SET @IsRetry = 1
+      IF @@rowcount = (SELECT count(*) FROM @Resources) SET @IsRetry = 1
 
       IF @IsRetry = 0 COMMIT TRANSACTION -- commit check transaction 
     END
