@@ -78,11 +78,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 var templateMatcher = new TemplateMatcher(new RouteTemplate(pattern), routeDefaults);
 
+                // Pattern match
                 if (!templateMatcher.TryMatch(path, routeValues))
                 {
                     continue;
                 }
 
+                // Eliminate routes that don't match constraints
                 if (!templateBinder.TryProcessConstraints(context.HttpContext, routeValues, out var parameterName, out IRouteConstraint constraint))
                 {
                     _logger.LogDebug("Constraint '{ConstraintType}' not met for parameter '{ParameterName}'", constraint, parameterName);
@@ -99,10 +101,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             RouteEndpoint[] potentialRoutes = routeCandidates.Select(x => x.Key).ToArray();
 
+            // Covered things like Consumes, HttpVerbs etc...
             foreach (IEndpointSelectorPolicy policy in _matcherPolicies
                          .OrderBy(x => x.Order)
-                         .OfType<IEndpointSelectorPolicy>()
-                         .Where(x => x.AppliesToEndpoints(potentialRoutes)))
+                         .OfType<IEndpointSelectorPolicy>())
             {
                 await policy.ApplyAsync(context.HttpContext, candidateSet);
             }
