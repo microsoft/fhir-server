@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.SqlServer.Management.Sdk.Sfc;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
