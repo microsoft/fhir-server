@@ -158,6 +158,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
                     throw;
                 }
+                catch (Exception ex) when (ex is TaskCanceledException || ex is OperationCanceledException)
+                {
+                    // If one of the exception raised is a TaskCanceledException or OperationCanceledException, then either client cancelled the request or httprequest timedout
+                    // If some resources have finished the execution successfully then entire bundle should still return Success code
+                    _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+                }
                 catch (Exception ex)
                 {
                     if (ex is FhirTransactionFailedException)
@@ -264,6 +270,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 else
                 {
                     HttpContext httpContext = request.HttpContext;
+
+                    // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
                     httpContext.RequestAborted = cancellationToken;
                     Func<string> originalResourceIdProvider = resourceIdProvider.Create;
                     if (!string.IsNullOrWhiteSpace(persistedId))

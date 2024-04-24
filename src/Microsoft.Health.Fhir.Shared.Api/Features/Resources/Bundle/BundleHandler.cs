@@ -607,6 +607,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
 
+                        // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
                         httpContext.RequestAborted = cancellationToken;
                         SetupContexts(resourceContext, httpContext);
 
