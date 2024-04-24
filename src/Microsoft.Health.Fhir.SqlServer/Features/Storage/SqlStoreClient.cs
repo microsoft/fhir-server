@@ -16,6 +16,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Task = System.Threading.Tasks.Task;
@@ -31,7 +32,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISqlRetryService _sqlRetryService;
         private readonly ILogger<T> _logger;
         private const string _invisibleResource = " ";
-        private static bool versionIsLong = true;
 
         public SqlStoreClient(ISqlRetryService sqlRetryService, ILogger<T> logger)
         {
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var resourceTypeId = reader.Read(table.ResourceTypeId, 0);
                     var resourceId = reader.Read(table.ResourceId, 1);
                     var resourceSurrogateId = reader.Read(table.ResourceSurrogateId, 2);
-                    var version = reader.Read(table.Version, 3);
+                    var version = ResourceVersion.GetVersion(reader, 3);
                     return new ResourceDateKey(resourceTypeId, resourceId, resourceSurrogateId, version.ToString(CultureInfo.InvariantCulture));
                 },
                 _logger,
@@ -131,17 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            int version;
-            retryVersion:
-            try
-            {
-                version = versionIsLong ? (int)reader.GetInt64(3) : reader.GetInt32(3);
-            }
-            catch (InvalidCastException)
-            {
-                versionIsLong = !versionIsLong;
-                goto retryVersion;
-            }
+            int version = ResourceVersion.GetVersion(reader, 3);
 
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
             var isHistory = reader.Read(VLatest.Resource.IsHistory, 5);
@@ -198,17 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             var resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
             var resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 2);
-            int version;
-            retryVersion:
-            try
-            {
-                version = versionIsLong ? (int)reader.GetInt64(3) : reader.GetInt32(3);
-            }
-            catch (InvalidCastException)
-            {
-                versionIsLong = !versionIsLong;
-                goto retryVersion;
-            }
+            int version = ResourceVersion.GetVersion(reader, 3);
 
             var isDeleted = reader.Read(VLatest.Resource.IsDeleted, 4);
 

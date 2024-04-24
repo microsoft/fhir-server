@@ -71,7 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ISqlQueryHashCalculator _queryHashCalculator;
         private static ResourceSearchParamStats _resourceSearchParamStats;
         private static object _locker = new object();
-        private static bool versionIsLong = true;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -810,17 +809,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             resourceTypeId = reader.Read(VLatest.Resource.ResourceTypeId, 0);
             resourceId = reader.Read(VLatest.Resource.ResourceId, 1);
-            retryVersion:
-            try
-            {
-                version = versionIsLong ? (int)reader.GetInt64(2) : reader.GetInt32(2);
-            }
-            catch (InvalidCastException)
-            {
-                versionIsLong = !versionIsLong;
-                goto retryVersion;
-            }
-
+            version = ResourceVersion.GetVersion(reader, 2);
             isDeleted = reader.Read(VLatest.Resource.IsDeleted, 3);
             resourceSurrogateId = reader.Read(VLatest.Resource.ResourceSurrogateId, 4);
             requestMethod = reader.Read(VLatest.Resource.RequestMethod, 5);
