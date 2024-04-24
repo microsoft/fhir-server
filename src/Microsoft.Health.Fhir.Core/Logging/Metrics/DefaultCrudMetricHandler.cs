@@ -3,24 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics.Metrics;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class CrudMetricHandler
+    public sealed class DefaultCrudMetricHandler : BaseMeterMetricHandler, ICrudMetricHandler
     {
-        private readonly IFhirMetricEmitter _metricEmitter;
+        private readonly Counter<long> _crudLatencyCounter;
 
-        public CrudMetricHandler(IFhirMetricEmitter metricEmitter)
+        public DefaultCrudMetricHandler(IMeterFactory meterFactory)
+            : base(meterFactory)
         {
-            EnsureArg.IsNotNull(metricEmitter, nameof(metricEmitter));
-
-            _metricEmitter = metricEmitter;
+            _crudLatencyCounter = MetricMeter.CreateCounter<long>("Crud.Latency");
         }
 
         public void EmitCrudLatency(CrudMetricNotification crudMetricNotification)
         {
-            _metricEmitter.EmitCrudLatency(crudMetricNotification);
+            EnsureArg.IsNotNull(crudMetricNotification, nameof(crudMetricNotification));
+
+            _crudLatencyCounter.Add(crudMetricNotification.ElapsedMilliseconds);
         }
     }
 }

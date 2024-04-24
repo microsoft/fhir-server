@@ -3,24 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics.Metrics;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public sealed class SearchMetricHandler
+    public sealed class DefaultSearchMetricHandler : BaseMeterMetricHandler, ISearchMetricHandler
     {
-        private readonly IFhirMetricEmitter _metricEmitter;
+        private readonly Counter<long> _searchLatencyCounter;
 
-        public SearchMetricHandler(IFhirMetricEmitter metricEmitter)
+        public DefaultSearchMetricHandler(IMeterFactory meterFactory)
+            : base(meterFactory)
         {
-            EnsureArg.IsNotNull(metricEmitter, nameof(metricEmitter));
-
-            _metricEmitter = metricEmitter;
+            _searchLatencyCounter = MetricMeter.CreateCounter<long>("Search.Latency");
         }
 
         public void EmitSearchLatency(SearchMetricNotification searchMetricNotification)
         {
-            _metricEmitter.EmitSearchLatency(searchMetricNotification);
+            EnsureArg.IsNotNull(searchMetricNotification, nameof(searchMetricNotification));
+
+            _searchLatencyCounter.Add(searchMetricNotification.ElapsedMilliseconds);
         }
     }
 }

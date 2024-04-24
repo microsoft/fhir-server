@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
     [AttributeUsage(AttributeTargets.Method)]
     public sealed class CrudEndpointMetricEmitterAttribute : BaseEndpointMetricEmitterAttribute
     {
-        private readonly CrudMetricHandler _metricHandler;
+        private readonly ICrudMetricHandler _metricHandler;
 
-        public CrudEndpointMetricEmitterAttribute(CrudMetricHandler metricHandler)
+        public CrudEndpointMetricEmitterAttribute(ICrudMetricHandler metricHandler)
         {
             EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 

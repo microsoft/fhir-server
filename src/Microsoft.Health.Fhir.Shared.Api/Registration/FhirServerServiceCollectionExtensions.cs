@@ -162,13 +162,10 @@ namespace Microsoft.Extensions.DependencyInjection
         /// </summary>
         private static void AddMetricEmitter(IServiceCollection services)
         {
-            // Try registering a metric emitter. If a custom metric emitter is not registered, the default metric emitter will be used.
-            services.TryAddSingleton<IFhirMetricEmitter, DefaultMetricEmitter>();
-
             // Register the metric handlers used by the service.
-            services.TryAddSingleton<BundleMetricHandler>();
-            services.TryAddSingleton<CrudMetricHandler>();
-            services.TryAddSingleton<SearchMetricHandler>();
+            services.TryAddSingleton<IBundleMetricHandler, DefaultBundleMetricHandler>();
+            services.TryAddSingleton<ICrudMetricHandler, DefaultCrudMetricHandler>();
+            services.TryAddSingleton<ISearchMetricHandler, DefaultSearchMetricHandler>();
         }
 
         private class FhirServerBuilder : IFhirServerBuilder

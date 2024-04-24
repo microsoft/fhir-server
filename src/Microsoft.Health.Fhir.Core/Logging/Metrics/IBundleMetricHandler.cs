@@ -5,12 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public interface IFhirMetricEmitter
+    public interface IBundleMetricHandler
     {
-        void EmitBundleLatency(ILatencyMetricNotification latencyMetricNotification);
-
-        void EmitSearchLatency(ILatencyMetricNotification latencyMetricNotification);
-
-        void EmitCrudLatency(ILatencyMetricNotification latencyMetricNotification);
+        void EmitBundleLatency(BundleMetricNotification bundleMetricNotification);
     }
 }

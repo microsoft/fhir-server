@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
     [AttributeUsage(AttributeTargets.Method)]
     public sealed class SearchEndpointMetricEmitterAttribute : BaseEndpointMetricEmitterAttribute
     {
-        private readonly SearchMetricHandler _metricHandler;
+        private readonly ISearchMetricHandler _metricHandler;
 
-        public SearchEndpointMetricEmitterAttribute(SearchMetricHandler metricHandler)
+        public SearchEndpointMetricEmitterAttribute(ISearchMetricHandler metricHandler)
         {
             EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 

@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
     [AttributeUsage(AttributeTargets.Method)]
     public sealed class BundleEndpointMetricEmitterAttribute : BaseEndpointMetricEmitterAttribute
     {
-        private readonly BundleMetricHandler _metricHandler;
+        private readonly IBundleMetricHandler _metricHandler;
 
-        public BundleEndpointMetricEmitterAttribute(BundleMetricHandler metricHandler)
+        public BundleEndpointMetricEmitterAttribute(IBundleMetricHandler metricHandler)
         {
             EnsureArg.IsNotNull(metricHandler, nameof(metricHandler));
 
