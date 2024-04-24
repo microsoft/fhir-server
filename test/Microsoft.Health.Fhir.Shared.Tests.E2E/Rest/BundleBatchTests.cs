@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 try
                 {
-                    CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    using CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
                     var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
 
@@ -112,14 +112,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         throw;
                     }
 
-                    if (oce.InnerException.InnerException is IOException ioe)
+                    if (oce.InnerException.InnerException is IOException ioe && ioe.InnerException is SocketException)
                     {
-                        if (ioe.InnerException is SocketException)
-                        {
-                            // Transient network errors.
-                            attempt++;
-                            continue;
-                        }
+                        // Transient network errors.
+                        attempt++;
+                        continue;
                     }
 
                     throw;
