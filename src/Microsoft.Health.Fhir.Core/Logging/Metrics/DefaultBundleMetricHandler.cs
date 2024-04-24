@@ -18,11 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
             _bundleLatencyCounter = MetricMeter.CreateCounter<long>("Bundle.Latency");
         }
 
-        public void EmitBundleLatency(BundleMetricNotification bundleMetricNotification)
+        public void EmitLatency(BundleMetricNotification notification)
         {
-            EnsureArg.IsNotNull(bundleMetricNotification, nameof(bundleMetricNotification));
+            EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _bundleLatencyCounter.Add(bundleMetricNotification.ElapsedMilliseconds);
+            _bundleLatencyCounter.Add(notification.ElapsedMilliseconds);
         }
     }
 }

@@ -5,8 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public interface ICrudMetricHandler
+    public interface ICrudMetricHandler : ILatencyMetricHandler<CrudMetricNotification>
     {
-        void EmitCrudLatency(CrudMetricNotification crudMetricNotification);
     }
 }

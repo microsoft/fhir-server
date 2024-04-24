@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
             _metricHandler = metricHandler;
         }
 
-        // Under the scope of bundle requests, this methid is not called and no metrics are emitted.
-        public override void OnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics)
+        // Under the scope of bundle requests, this methid is not called and no nested metrics are emitted.
+        public override void EmitMetricOnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics)
         {
-            _metricHandler.EmitCrudLatency(new CrudMetricNotification { ElapsedMilliseconds = statistics.ElapsedMilliseconds });
+            _metricHandler.EmitLatency(new CrudMetricNotification { ElapsedMilliseconds = statistics.ElapsedMilliseconds });
         }
     }
 }

@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
         {
             base.OnActionExecuted(context);
 
-            OnActionExecuted(context, new ActionExecutedStatistics() { ElapsedMilliseconds = _stopwatch.ElapsedMilliseconds });
+            EmitMetricOnActionExecuted(context, new ActionExecutedStatistics() { ElapsedMilliseconds = _stopwatch.ElapsedMilliseconds });
         }
 
-        public abstract void OnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics);
+        public abstract void EmitMetricOnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics);
     }
 }

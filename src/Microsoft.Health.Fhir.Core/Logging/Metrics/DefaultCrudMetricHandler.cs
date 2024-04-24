@@ -18,11 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
             _crudLatencyCounter = MetricMeter.CreateCounter<long>("Crud.Latency");
         }
 
-        public void EmitCrudLatency(CrudMetricNotification crudMetricNotification)
+        public void EmitLatency(CrudMetricNotification notification)
         {
-            EnsureArg.IsNotNull(crudMetricNotification, nameof(crudMetricNotification));
+            EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _crudLatencyCounter.Add(crudMetricNotification.ElapsedMilliseconds);
+            _crudLatencyCounter.Add(notification.ElapsedMilliseconds);
         }
     }
 }

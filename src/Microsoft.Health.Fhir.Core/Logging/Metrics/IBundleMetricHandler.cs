@@ -5,8 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Logging.Metrics
 {
-    public interface IBundleMetricHandler
+    public interface IBundleMetricHandler : ILatencyMetricHandler<BundleMetricNotification>
     {
-        void EmitBundleLatency(BundleMetricNotification bundleMetricNotification);
     }
 }

@@ -18,11 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Logging.Metrics
             _searchLatencyCounter = MetricMeter.CreateCounter<long>("Search.Latency");
         }
 
-        public void EmitSearchLatency(SearchMetricNotification searchMetricNotification)
+        public void EmitLatency(SearchMetricNotification notification)
         {
-            EnsureArg.IsNotNull(searchMetricNotification, nameof(searchMetricNotification));
+            EnsureArg.IsNotNull(notification, nameof(notification));
 
-            _searchLatencyCounter.Add(searchMetricNotification.ElapsedMilliseconds);
+            _searchLatencyCounter.Add(notification.ElapsedMilliseconds);
         }
     }
 }

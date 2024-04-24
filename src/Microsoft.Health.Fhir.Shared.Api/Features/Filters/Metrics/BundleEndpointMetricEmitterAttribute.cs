@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters.Metrics
             _metricHandler = metricHandler;
         }
 
-        public override void OnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics)
+        public override void EmitMetricOnActionExecuted(ActionExecutedContext context, ActionExecutedStatistics statistics)
         {
-            _metricHandler.EmitBundleLatency(new BundleMetricNotification { ElapsedMilliseconds = statistics.ElapsedMilliseconds });
+            _metricHandler.EmitLatency(new BundleMetricNotification { ElapsedMilliseconds = statistics.ElapsedMilliseconds });
         }
     }
 }
