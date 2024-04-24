@@ -60,58 +60,73 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(dateTime, nameof(dateTime));
 
-            if (_modifier != null)
+            if (_modifier == null)
+            {
+                _outputExpression = GenerateExpression();
+            }
+            else if (_modifier != null && _modifier.SearchModifierCode == SearchModifierCode.Not)
+            {
+                _outputExpression = Expression.Not(GenerateExpression());
+            }
+            else
             {
                 ThrowModifierNotSupported();
             }
 
-            // Based on spec here: http://hl7.org/fhir/search.html#prefix
-            switch (_comparator)
+            Expression GenerateExpression()
             {
-                case SearchComparator.Eq:
-                    _outputExpression = Expression.And(
-                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
-                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
-                    break;
-                case SearchComparator.Ne:
-                    _outputExpression = Expression.Or(
-                        Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
-                        Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
-                    break;
-                case SearchComparator.Lt:
-                    _outputExpression = Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start);
-                    break;
-                case SearchComparator.Gt:
-                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End);
-                    break;
-                case SearchComparator.Le:
-                    _outputExpression = Expression.LessThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.End);
-                    break;
-                case SearchComparator.Ge:
-                    _outputExpression = Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
-                    break;
-                case SearchComparator.Sa:
-                    _outputExpression = Expression.GreaterThan(FieldName.DateTimeStart, _componentIndex, dateTime.End);
-                    break;
-                case SearchComparator.Eb:
-                    _outputExpression = Expression.LessThan(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
-                    break;
-                case SearchComparator.Ap:
-                    var startTicks = dateTime.Start.UtcTicks;
-                    var endTicks = dateTime.End.UtcTicks;
+                Expression innerExpression = null;
 
-                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
+                // Based on spec here: http://hl7.org/fhir/search.html#prefix
+                switch (_comparator)
+                {
+                    case SearchComparator.Eq:
+                        innerExpression = Expression.And(
+                            Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
+                            Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
+                        break;
+                    case SearchComparator.Ne:
+                        innerExpression = Expression.Or(
+                            Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start),
+                            Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End));
+                        break;
+                    case SearchComparator.Lt:
+                        innerExpression = Expression.LessThan(FieldName.DateTimeStart, _componentIndex, dateTime.Start);
+                        break;
+                    case SearchComparator.Gt:
+                        innerExpression = Expression.GreaterThan(FieldName.DateTimeEnd, _componentIndex, dateTime.End);
+                        break;
+                    case SearchComparator.Le:
+                        innerExpression = Expression.LessThanOrEqual(FieldName.DateTimeStart, _componentIndex, dateTime.End);
+                        break;
+                    case SearchComparator.Ge:
+                        innerExpression = Expression.GreaterThanOrEqual(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
+                        break;
+                    case SearchComparator.Sa:
+                        innerExpression = Expression.GreaterThan(FieldName.DateTimeStart, _componentIndex, dateTime.End);
+                        break;
+                    case SearchComparator.Eb:
+                        innerExpression = Expression.LessThan(FieldName.DateTimeEnd, _componentIndex, dateTime.Start);
+                        break;
+                    case SearchComparator.Ap:
+                        var startTicks = dateTime.Start.UtcTicks;
+                        var endTicks = dateTime.End.UtcTicks;
 
-                    var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
-                    var approximateEnd = dateTime.End.AddTicks(differenceTicks);
+                        var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
 
-                    _outputExpression = Expression.And(
-                        Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateStart),
-                        Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, approximateEnd));
-                    break;
-                default:
-                    ThrowComparatorNotSupported();
-                    break;
+                        var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
+                        var approximateEnd = dateTime.End.AddTicks(differenceTicks);
+
+                        innerExpression = Expression.And(
+                            Expression.GreaterThanOrEqual(FieldName.DateTimeStart, _componentIndex, approximateStart),
+                            Expression.LessThanOrEqual(FieldName.DateTimeEnd, _componentIndex, approximateEnd));
+                        break;
+                    default:
+                        ThrowComparatorNotSupported();
+                        break;
+                }
+
+                return innerExpression;
             }
         }
 
