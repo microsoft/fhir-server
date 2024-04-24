@@ -230,8 +230,8 @@
     <value>The requested "_format" parameter is not supported.</value>
   </data>
   <data name="UnsupportedHeaderValue" xml:space="preserve">
-    <value>Value supplied for the "{0}" header is not supported.</value>
-    <comment>{0} is the header name.</comment>
+    <value>Value supplied, {0},  for the "{1}" header is not supported.</value>
+    <comment>{0] is the value, {1} is the header name.</comment>
   </data>
   <data name="OperationNotEnabled" xml:space="preserve">
     <value>The requested "{0}" operation is not enabled</value>
