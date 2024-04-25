@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (!context.HttpContext.Request.Headers.TryGetValue(KnownHeaders.Prefer, out var preferHeaderValue) ||
                 !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, KnownHeaders.Prefer));
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, preferHeaderValue[0], KnownHeaders.Prefer));
             }
         }
     }

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue[0], HeaderNames.ContentType));
                     }
                 }
                 else
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
                     {
-                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
+                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, headerValue[0], HeaderNames.ContentType));
                     }
                 }
             }
