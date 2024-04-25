@@ -360,8 +360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         LogSqlCommand(sqlCommand);
 
-                        // Removing sequential access as part of prep work for Resource version update. will be added back in iteration 3
-                        using (var reader = await sqlCommand.ExecuteReaderAsync(cancellationToken))
+                        using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
                             if (clonedSearchOptions.CountOnly)
                             {
@@ -600,8 +599,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 sqlCommand,
                 async (cmd, cancel) =>
                 {
-                    // Removing sequential access as part of prep work for Resource version update. will be added back in iteration 3
-                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(cancel);
+                    using SqlDataReader reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancel);
                     resources = new List<SearchResultEntry>();
                     while (await reader.ReadAsync(cancel))
                     {
