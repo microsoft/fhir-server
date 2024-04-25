@@ -17,6 +17,10 @@ inputs:
   majorMinorPatch:
     description: The major.minor.patch version to use.
     required: true
+  dotnet-version:
+    description: 'The version of the .NET SDK to use'
+    required: true
+    default: '8.0.202' # Default version if not specified
 runs:
   using: composite
   steps:

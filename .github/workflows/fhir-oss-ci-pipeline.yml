@@ -79,6 +79,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check DotNet Version
+        run: dotnet --version
+
       - name: Build
         uses: ./.github/actions/dotnet-build
         with:
