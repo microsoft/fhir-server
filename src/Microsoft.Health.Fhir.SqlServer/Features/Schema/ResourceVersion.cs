@@ -15,18 +15,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public static int GetVersion(SqlDataReader reader, int index)
         {
             int version = 0;
-            retryVersion:
-            try
+            bool retry = true;
+
+            while (retry)
             {
-                version = versionIsLong ? (int)reader.GetInt64(index) : reader.GetInt32(index);
-            }
-            catch (InvalidCastException)
-            {
-                versionIsLong = !versionIsLong;
-                goto retryVersion;
+                try
+                {
+                    version = versionIsLong ? (int)reader.GetInt64(index) : reader.GetInt32(index);
+                    retry = false;
+                }
+                catch (InvalidCastException)
+                {
+                    versionIsLong = !versionIsLong;
+                }
             }
 
             return version;
         }
-   }
+    }
 }
