@@ -420,4 +420,7 @@
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
   </data>
+  <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
+    <value>Not able to create final result. Retry the operation.</value>
+  </data>
 </root>
