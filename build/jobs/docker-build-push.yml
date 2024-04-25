@@ -22,7 +22,6 @@ jobs:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        export DOCKER_BUILDKIT=1
         TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
         az acr login --name $(azureContainerRegistryName)
         docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
