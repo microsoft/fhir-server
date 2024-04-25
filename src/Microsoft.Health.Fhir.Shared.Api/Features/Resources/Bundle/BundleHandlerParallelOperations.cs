@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             using (CancellationTokenSource requestCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
+                requestCancellationToken.Token.ThrowIfCancellationRequested();
                 IAuditEventTypeMapping auditEventTypeMapping = _auditEventTypeMapping;
                 RequestContextAccessor<IFhirRequestContext> requestContext = _fhirRequestContextAccessor;
                 FhirJsonParser fhirJsonParser = _fhirJsonParser;
@@ -142,8 +143,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions.
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions or OperationCanceledException
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
+                    // OperationCanceledException is when http request times out or client cancels the request
                     await Task.WhenAll(requestsPerResource);
                 }
                 catch (AggregateException age)
@@ -158,10 +160,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     _logger.LogError(age, "Multiple failures while processing bundle in parallel. Error: {ErrorMessage}", age.Message);
                     throw;
                 }
-                catch (Exception ex) when (ex is TaskCanceledException || ex is OperationCanceledException)
+                catch (Exception ex) when (ex is OperationCanceledException)
                 {
-                    // If one of the exception raised is a TaskCanceledException or OperationCanceledException, then either client cancelled the request or httprequest timedout
-                    // If some resources have finished the execution successfully then entire bundle should still return Success code
+                    // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timedout
                     _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
                 }
                 catch (Exception ex)
@@ -256,6 +257,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ILogger<BundleHandler> logger,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             EntryComponent entryComponent;
 
             if (request.Handler != null)

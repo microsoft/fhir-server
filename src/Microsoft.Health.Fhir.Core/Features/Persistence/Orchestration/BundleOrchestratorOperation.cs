@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
                 {
                     Status = BundleOrchestratorOperationStatus.Completed;
                 }
-                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed || Status == BundleOrchestratorOperationStatus.Canceled)
+                else if (suggestedStatus == BundleOrchestratorOperationStatus.Canceled || suggestedStatus == BundleOrchestratorOperationStatus.Failed)
                 {
                     Status = suggestedStatus;
                 }

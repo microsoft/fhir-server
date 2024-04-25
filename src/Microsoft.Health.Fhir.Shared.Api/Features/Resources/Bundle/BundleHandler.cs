@@ -300,6 +300,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     EntryComponent throttledEntryComponent = null;
                     foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
+                        // If cancellation is requested then do not proceed with the next set of requests in line
+                        cancellationToken.ThrowIfCancellationRequested();
                         throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
                             responseBundle: responseBundle,
                             httpVerb: verb,
@@ -314,6 +316,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     EntryComponent throttledEntryComponent = null;
                     foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
+                        // If cancellation is requested then do not proceed with the next set of requests in line
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (_requests[verb].Any())
                         {
                             IBundleOrchestratorOperation bundleOperation = _bundleOrchestrator.CreateNewOperation(
@@ -365,6 +369,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     throw new InvalidOperationException(string.Format(Api.Resources.BundleInvalidCombination, _bundleType, processingLogic));
                 }
             }
+            catch (Exception ex) when (ex is OperationCanceledException)
+            {
+                // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timedout
+                _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while processing a bundle: {ErrorMessage}.", ex.Message);
@@ -410,17 +419,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
             foreach (var entry in responseBundle.Entry)
             {
-                var status = entry.Response.Status;
-                if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
+                // The entry can be null if the request is timedoud or cancelled before finishing
+                if (entry != null)
                 {
-                    apiCallResults[status] = new List<BundleSubCallMetricData>();
-                }
+                    var status = entry?.Response?.Status;
+                    if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
+                    {
+                        apiCallResults[status] = new List<BundleSubCallMetricData>();
+                    }
 
-                apiCallResults[status].Add(new BundleSubCallMetricData()
-                {
-                    FhirOperation = "Bundle Sub Call",
-                    ResourceType = entry?.Resource?.TypeName,
-                });
+                    apiCallResults[status].Add(new BundleSubCallMetricData()
+                    {
+                        FhirOperation = "Bundle Sub Call",
+                        ResourceType = entry?.Resource?.TypeName,
+                    });
+                }
             }
 
             await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction), CancellationToken.None);
@@ -592,6 +605,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach (ResourceExecutionContext resourceContext in _requests[httpVerb])
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 EntryComponent entryComponent;
 
                 Stopwatch watch = Stopwatch.StartNew();
