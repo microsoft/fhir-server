@@ -5,8 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Policy;
 using System.Threading.Tasks;
 using System.Web;
 using AngleSharp.Io;
@@ -25,8 +27,10 @@ using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    /* BundleRouter creates the routingContext for bundles with enabled endpoint routing.It fetches all RouteEndpoints using EndpointDataSource(based on controller actions)
-       and find the best endpoint match based on the request httpContext to build the routeContext for bundle request to route to appropriate action.*/
+    /// <summary>
+    /// BundleRouter creates the routingContext for bundles with enabled endpoint routing.It fetches all RouteEndpoints using EndpointDataSource(based on controller actions)
+    /// and find the best endpoint match based on the request httpContext to build the routeContext for bundle request to route to appropriate action.
+    /// </summary>
     internal class BundleRouter : IRouter
     {
         private readonly TemplateBinderFactory _parameterPolicies;
@@ -64,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            var routeCandidates = new List<KeyValuePair<RouteEndpoint, RouteValueDictionary>>();
+            var routeCandidates = new Dictionary<RouteEndpoint, RouteValueDictionary>();
             IEnumerable<RouteEndpoint> endpoints = _endpointDataSource.Endpoints.OfType<RouteEndpoint>();
             PathString path = context.HttpContext.Request.Path;
 
@@ -91,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     continue;
                 }
 
-                routeCandidates.Add(new KeyValuePair<RouteEndpoint, RouteValueDictionary>(endpoint, routeValues));
+                routeCandidates.Add(endpoint, routeValues);
             }
 
             var candidateSet = new CandidateSet(
@@ -99,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 routeCandidates.Select(x => x.Value).ToArray(),
                 Enumerable.Repeat(1, routeCandidates.Count).ToArray());
 
-            // Covered things like Consumes, HttpVerbs etc...
+            // Policies apply filters / matches on attributes such as Consumes, HttpVerbs etc...
             foreach (IEndpointSelectorPolicy policy in _matcherPolicies
                          .OrderBy(x => x.Order)
                          .OfType<IEndpointSelectorPolicy>())
@@ -110,11 +114,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             await _endpointSelector.SelectAsync(context.HttpContext, candidateSet);
 
             Endpoint selectedEndpoint = context.HttpContext.GetEndpoint();
-            if (selectedEndpoint != null)
+
+            // A RouteEndpoint should map to an MVC controller.
+            // When this isn't a RouteEndpoint it can be a 404 or a middleware endpoint mapping.
+            if (selectedEndpoint is RouteEndpoint)
             {
+                RouteData data = context.HttpContext.GetRouteData();
                 context.Handler = selectedEndpoint.RequestDelegate;
-                context.RouteData = new RouteData(context.HttpContext.GetRouteData());
-                context.HttpContext.Request.RouteValues = context.HttpContext.GetRouteData().Values;
+                context.RouteData = new RouteData(data);
+                context.HttpContext.Request.RouteValues = context.RouteData.Values;
+            }
+            else
+            {
+                _logger.LogDebug("No RouteEndpoint found for '{Path}'", HttpUtility.UrlEncode(path));
             }
         }
     }
