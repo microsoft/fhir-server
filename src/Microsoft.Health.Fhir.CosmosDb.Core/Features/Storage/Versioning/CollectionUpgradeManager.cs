@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
     {
         private readonly ICollectionDataUpdater _collectionDataUpdater;
         private readonly IStoredProcedureInstaller _storedProcedureInstaller;
+        private readonly ICollectionSetup _collectionSetup;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
@@ -28,6 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
         public CollectionUpgradeManager(
             ICollectionDataUpdater collectionDataUpdater,
             IStoredProcedureInstaller storedProcedureInstaller,
+            ICollectionSetup collectionSetup,
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosDbDistributedLockFactory lockFactory,
@@ -35,11 +38,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
         {
             EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
             EnsureArg.IsNotNull(storedProcedureInstaller, nameof(storedProcedureInstaller));
+            EnsureArg.IsNotNull(collectionSetup, nameof(collectionSetup));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
-
+            _collectionSetup = collectionSetup;
             _collectionDataUpdater = collectionDataUpdater;
             _storedProcedureInstaller = storedProcedureInstaller;
             _configuration = configuration;
@@ -53,7 +57,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
         /// </summary>
         public int CollectionSettingsVersion { get; } = 3;
 
-        public async Task SetupContainerAsync(Container container)
+        // TODO: Add a cancellation token parameter, and replace CancellationToken.None with the cancellation token.
+        public async Task SetupContainerAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
@@ -64,8 +69,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
                     await distributedLock.AcquireLock(cancellationTokenSource.Token);
-                    await _storedProcedureInstaller.ExecuteAsync(container, CancellationToken.None);
-                    await _collectionDataUpdater.ExecuteAsync(container, CancellationToken.None);
+                    await _collectionSetup.UpdateFhirCollectionSettingsAsync(cancellationToken);
+                    await _storedProcedureInstaller.ExecuteAsync(container, cancellationToken);
+                    await _collectionDataUpdater.ExecuteAsync(container, cancellationToken);
                     await distributedLock.ReleaseLock();
                 }
             }

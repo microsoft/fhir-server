@@ -104,6 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 .ToArray()
                 .Select(type => (IStoredProcedureMetadata)Activator.CreateInstance(type));
 
+            var dataPlaneCollectionSetup = Substitute.For<ICollectionSetup>();
+
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
@@ -131,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
-            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, storedProcedureInstallter, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
+            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, storedProcedureInstallter, dataPlaneCollectionSetup, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
@@ -147,11 +149,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
             await CollectionInitializationSemaphore.WaitAsync();
-            var datacollectionSetup = new DataPlaneCollectionSetup(NullLogger<DataPlaneCollectionSetup>.Instance);
+            var datacollectionSetup = new DataPlaneCollectionSetup(_cosmosDataStoreConfiguration, optionsMonitor, documentClientInitializer, NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
-                await datacollectionSetup.CreateDatabaseAsync(_cosmosClient, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
-                await datacollectionSetup.CreateCollectionAsync(_cosmosClient, new List<ICollectionInitializer> { fhirCollectionInitializer }, _cosmosDataStoreConfiguration, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await datacollectionSetup.CreateDatabaseAsync(retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
+                await datacollectionSetup.CreateCollectionAsync(new List<ICollectionInitializer> { fhirCollectionInitializer }, retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
                 _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally

@@ -13,7 +13,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Polly;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     /// <summary>
     /// This class does not execute any real initialization.
@@ -21,17 +21,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
     /// </summary>
     public class DefaultCollectionSetup : ICollectionSetup
     {
-        public Task CreateCollectionAsync(CosmosClient client, IEnumerable<ICollectionInitializer> collectionInitializers, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
+        public Task CreateCollectionAsync(IEnumerable<ICollectionInitializer> collectionInitializers, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task CreateDatabaseAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
+        public Task CreateDatabaseAsync(AsyncPolicy retryPolicy, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task UpdateFhirCollectionSettingsAsync(Container container, CancellationToken cancellationToken)
+        public Task UpdateFhirCollectionSettingsAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

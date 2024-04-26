@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 }
             });
 
-            await _upgradeManager.SetupContainerAsync(containerClient);
+            await _upgradeManager.SetupContainerAsync(containerClient, cancellationToken);
 
             return existingContainer;
         }

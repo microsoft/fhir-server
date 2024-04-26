@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Polly;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     public interface ICollectionInitializer
     {

@@ -93,9 +93,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogInformation("Initializing Cosmos DB Database {DatabaseId} and collections", cosmosDataStoreConfiguration.DatabaseId);
 
-                await collectionSetup.CreateDatabaseAsync(_client, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
-                await collectionSetup.CreateCollectionAsync(_client, collectionInitializers, cosmosDataStoreConfiguration, retryPolicyFactory.RetryPolicy, CancellationToken.None);
-                await collectionSetup.UpdateFhirCollectionSettingsAsync(_container.Value, CancellationToken.None);
+                await collectionSetup.CreateDatabaseAsync(retryPolicyFactory.RetryPolicy, CancellationToken.None); // We need valid cancellation token
+                await collectionSetup.CreateCollectionAsync(collectionInitializers, retryPolicyFactory.RetryPolicy, CancellationToken.None);
+                await collectionSetup.UpdateFhirCollectionSettingsAsync(CancellationToken.None);
                 await collectionDataUpdater.ExecuteAsync(_container.Value, CancellationToken.None);
             }
             catch (Exception ex)

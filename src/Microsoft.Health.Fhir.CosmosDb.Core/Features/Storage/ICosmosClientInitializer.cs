@@ -8,9 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
 {
     /// <summary>
     /// Provides methods for creating a CosmosClient instance and initializing a collection.

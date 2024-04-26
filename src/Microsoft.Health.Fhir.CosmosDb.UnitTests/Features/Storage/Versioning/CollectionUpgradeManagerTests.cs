@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
+using DotLiquid.Util;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -16,6 +18,7 @@ using Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ClearExtensions;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -41,38 +44,56 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         };
 
         private readonly CollectionUpgradeManager _manager;
-        private readonly Container _client;
+        private readonly Container _container;
         private readonly ContainerResponse _containerResponse;
 
         public CollectionUpgradeManagerTests()
         {
-            var factory = Substitute.For<ICosmosDbDistributedLockFactory>();
-            var cosmosDbDistributedLock = Substitute.For<ICosmosDbDistributedLock>();
-            var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
-            var collectionDataupdater = Substitute.For<ICollectionDataUpdater>();
-            var storeProcedureInstaller = Substitute.For<IStoredProcedureInstaller>();
-            optionsMonitor.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+            _container = Substitute.For<Container>();
 
-            factory.Create(Arg.Any<Container>(), Arg.Any<string>()).Returns(cosmosDbDistributedLock);
+            var cosmosDbDistributedLock = Substitute.For<ICosmosDbDistributedLock>();
             cosmosDbDistributedLock.TryAcquireLock().Returns(true);
 
-            _client = Substitute.For<Container>();
+            var factory = Substitute.For<ICosmosDbDistributedLockFactory>();
+            factory.Create(Arg.Any<Container>(), Arg.Any<string>()).Returns(cosmosDbDistributedLock);
+
+            var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
+            optionsMonitor.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
+
+            var collectionDataUpdater = Substitute.For<ICollectionDataUpdater>();
+            collectionDataUpdater.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+
+            var storeProcedureInstaller = Substitute.For<IStoredProcedureInstaller>();
+            storeProcedureInstaller.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+
+            var collectionInitializer = Substitute.For<ICosmosClientInitializer>();
+            collectionInitializer.CreateFhirContainer(Arg.Any<CosmosClient>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(_container);
+
+            var dataPlaneCollectionSetup = new DataPlaneCollectionSetup(
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                collectionInitializer,
+                NullLogger<DataPlaneCollectionSetup>.Instance);
 
             var collectionVersionWrappers = Substitute.ForPartsOf<FeedIterator<CollectionVersion>>();
 
-            _client.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>(), Arg.Any<string>(), Arg.Any<QueryRequestOptions>())
+            _container.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>(), Arg.Any<string>(), Arg.Any<QueryRequestOptions>())
                 .Returns(collectionVersionWrappers);
 
             collectionVersionWrappers.ReadNextAsync(Arg.Any<CancellationToken>())
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
-            collectionDataupdater.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
-                .Returns(Task.CompletedTask);
-
-            storeProcedureInstaller.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
-               .Returns(Task.CompletedTask);
-
-            _manager = new CollectionUpgradeManager(collectionDataupdater, storeProcedureInstaller, _cosmosDataStoreConfiguration, optionsMonitor, factory, NullLogger<CollectionUpgradeManager>.Instance);
+            _manager = new CollectionUpgradeManager(
+                collectionDataUpdater,
+                storeProcedureInstaller,
+                dataPlaneCollectionSetup,
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                factory,
+                NullLogger<CollectionUpgradeManager>.Instance);
 
             _containerResponse = Substitute.ForPartsOf<ContainerResponse>();
 
@@ -84,7 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             };
 
             _containerResponse.Resource.Returns(containerProperties);
-            _client.ReadContainerAsync(Arg.Any<ContainerRequestOptions>(), Arg.Any<CancellationToken>())
+            _container.ReadContainerAsync(Arg.Any<ContainerRequestOptions>(), Arg.Any<CancellationToken>())
                 .Returns(_containerResponse);
         }
 
@@ -93,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         {
             await UpdateCollectionAsync();
 
-            await _client.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
+            await _container.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -101,7 +122,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         {
             await UpdateCollectionAsync();
 
-            await _client.Received(1)
+            await _container.Received(1)
                 .UpsertItemAsync(Arg.Is<CollectionVersion>(x => x.Version == _manager.CollectionSettingsVersion), Arg.Any<PartitionKey?>(), null, Arg.Any<CancellationToken>());
         }
 
@@ -115,7 +136,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
         private async Task UpdateCollectionAsync()
         {
-            await _manager.SetupContainerAsync(_client);
+            await _manager.SetupContainerAsync(_container, cancellationToken: GetCancellationToken());
+        }
+
+        private static CancellationToken GetCancellationToken()
+        {
+            CancellationTokenSource tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            return tokenSource.Token;
         }
     }
 }
