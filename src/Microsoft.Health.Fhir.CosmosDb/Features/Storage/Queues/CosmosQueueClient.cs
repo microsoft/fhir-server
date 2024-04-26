@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -521,29 +520,41 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
-        using IScoped<Container> container = _containerFactory.Invoke();
+        IScoped<Container> container = null;
 
-        ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
-            container.Value,
-            new CosmosQueryContext(
-                sqlQuerySpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
-
-        var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response;
-
-        while (itemCount == null || items.Count < itemCount.Value)
+        try
         {
-            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
-            items.AddRange(response);
-
-            if (string.IsNullOrEmpty(response.ContinuationToken))
-            {
-                break;
-            }
+            container = _containerFactory.Invoke();
+        }
+        catch (ObjectDisposedException ode)
+        {
+            throw new ServiceUnavailableException(Resources.NotAbleToExecuteQuery, ode);
         }
 
-        return items;
+        using (container)
+        {
+            ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
+                container.Value,
+                new CosmosQueryContext(
+                    sqlQuerySpec,
+                    new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
+
+            var items = new List<JobGroupWrapper>();
+            FeedResponse<JobGroupWrapper> response;
+
+            while (itemCount == null || items.Count < itemCount.Value)
+            {
+                response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+                items.AddRange(response);
+
+                if (string.IsNullOrEmpty(response.ContinuationToken))
+                {
+                    break;
+                }
+            }
+
+            return items;
+        }
     }
 
     private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)

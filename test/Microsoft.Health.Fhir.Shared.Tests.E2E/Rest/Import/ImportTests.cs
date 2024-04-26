@@ -1140,6 +1140,42 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenImportRequestWithMultipleSameFile_ThenBadRequestShouldBeReturned()
+        {
+            _metricHandler?.ResetCount();
+            string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
+            string resourceId1 = Guid.NewGuid().ToString("N");
+            string patientNdJsonResource1 = patientNdJsonResource.Replace("##PatientID##", resourceId1);
+
+            (Uri location1, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource1, _fixture.StorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location1,
+                        Type = "Patient",
+                    },
+                    new InputResource()
+                    {
+                        Url = location1,
+                        Type = "Patient",
+                    },
+                },
+                Mode = ImportMode.InitialLoad.ToString(),
+            };
+
+            FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
+                async () => await _client.ImportAsync(request.ToParameters()));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
         private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null, int? errorCount = null)
         {
             client = client ?? _client;

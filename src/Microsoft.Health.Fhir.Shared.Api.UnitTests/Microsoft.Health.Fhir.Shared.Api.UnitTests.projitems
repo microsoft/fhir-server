@@ -35,6 +35,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\ExceptionNotificationMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\Metrics\MetricEmitterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\QueryLatencyOverEfficiencyFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateBulkImportRequestFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
