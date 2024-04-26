@@ -193,6 +193,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
             {
+                _logger.LogInformation("Version {Version} is equal to the highest initialized version {HighestInitializedVersion}", version, _highestInitializedVersion);
                 return;
             }
 
@@ -214,6 +215,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _highestInitializedVersion = version;
 
+            _logger.LogInformation("Publishing the storage initialized notification.");
             await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
         }
 

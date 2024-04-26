@@ -67,11 +67,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
                 using var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 var jobQueues = new List<Task>();
 
+                _logger.LogInformation("Waiting for the storage initialized notification.");
                 while (!_storageReady)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token);
                 }
 
+                _logger.LogInformation("Start processing jobs in queues.");
                 foreach (var operation in _operationsConfiguration.HostingBackgroundServiceQueues)
                 {
                     jobQueues.Add(jobHostingValue.ExecuteAsync((byte)operation.Queue, Environment.MachineName, cancellationTokenSource));
@@ -92,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundJobService
         public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
             _storageReady = true;
+            _logger.LogInformation("The storage initialized notification received.");
             return Task.CompletedTask;
         }
     }
