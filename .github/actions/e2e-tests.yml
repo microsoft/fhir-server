@@ -1,0 +1,139 @@
+parameters:
+- name: version
+  type: string
+- name: appServiceName
+  type: string
+- name: appServiceType
+  type: string
+
+steps:
+  - template: e2e-tests-extract.yml
+    parameters:
+      version: ${{parameters.version}}
+
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        $allStorageAccounts = ""
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
+        }
+        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
+
+        $appServiceName = "${{ parameters.appServiceName }}"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrLoginServer = $acrSettings[0].Value
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+
+        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
+        $exportStoreUri = $exportStoreSettings[0].Value
+        Write-Host "$exportStoreUri"
+        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
+        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
+
+        $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
+        $integrationStoreUri = $integrationStoreSettings[0].Value
+        Write-Host "$integrationStoreUri"
+        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
+        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: DotNetCoreCLI@2
+    displayName: 'E2E ${{ parameters.version }} ${{parameters.appServiceType}}'
+    inputs:
+      command: test
+      arguments: '"$(Agent.TempDirectory)/E2ETests/**/*${{ parameters.version }}.Tests.E2E*.dll" --blame-hang-timeout 7m --filter "FullyQualifiedName~${{parameters.appServiceType}}&Category!=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
+    env:
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
+      'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
+      'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
+      'TestExportStoreUri': $(TestExportStoreUri)
+      'TestExportStoreKey': $(TestExportStoreKey)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalImporterUser_id': $(user_globalImporterUser_id)
+      'user_globalImporterUser_secret': $(user_globalImporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)

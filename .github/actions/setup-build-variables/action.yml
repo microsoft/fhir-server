@@ -1,0 +1,38 @@
+name: setup build variables
+description: Sets variables used during builds.
+
+runs:
+  using: composite
+  steps:
+    - name: Set Build Variables
+      id: defaultVariables
+      shell: bash
+      run: |
+        echo "buildConfiguration=Release" >> "$GITHUB_ENV"
+        echo "defaultBuildFramework=net8.0" >> "$GITHUB_ENV"
+        echo "azureSubscriptionEndpoint=docker-build" >> "$GITHUB_ENV"
+        echo "azureContainerRegistryName=healthplatformregistry" >> "$GITHUB_ENV"
+        echo "connectedServiceName=Microsoft Health Open Source Subscription" >> "$GITHUB_ENV"
+        echo "composeLocation=build/docker/docker-compose.yaml" >> "$GITHUB_ENV"
+
+    - name: Set Build Urls using Deployment Environment
+      shell: bash
+      run: |
+        echo "azureContainerRegistry='$azureContainerRegistryName'.azurecr.io" >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameSql='$deploymentEnvironmentName-sql' >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR4='$deploymentEnvironmentName-r4' >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR4Sql='$deploymentEnvironmentNameR4'-sql >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR4B='$deploymentEnvironmentName-r4b' >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR4BSql='$deploymentEnvironmentNameR4B'-sql >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR5='$deploymentEnvironmentName'-r5 >> "$GITHUB_ENV"
+        echo "deploymentEnvironmentNameR5Sql='$deploymentEnvironmentNameR5'-sql >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl=https://'$deploymentEnvironmentName'.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_Sql=https://'$deploymentEnvironmentName'-sql.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R4=https://'$deploymentEnvironmentName'-r4.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R4_Sql=https://'$deploymentEnvironmentName'-r4-sql.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R4B=https://'$deploymentEnvironmentName'-r4b.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R4B_Sql=https://'$deploymentEnvironmentName'-r4b-sql.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R5=https://'$deploymentEnvironmentName'-r5.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testEnvironmentUrl_R5_Sql=https://'$deploymentEnvironmentName'-r5-sql.azurewebsites.net >> "$GITHUB_ENV"
+        echo "testClientUrl=https://'$deploymentEnvironmentName'-client/ >> "$GITHUB_ENV"
+        echo "testApplicationResource=https://'$deploymentEnvironmentName'.'$tenantDomain' >> "$GITHUB_ENV"

@@ -1,0 +1,23 @@
+name: Docker Build
+description: 'Builds images for all supported FHIR versions'
+
+inputs:
+  fhirSchemaVersion:
+    description: 'The FHIR schema version to package'
+    required: true
+  assemblyVersion:
+    description: 'The assembly version to use'
+    required: true
+  composeLocation:
+    description: 'The location of the docker-compose file'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Docker Image
+      shell: bash
+      run: |
+        echo "Building and pushing Docker images for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+        cd build/docker
+        docker-compose build --build-arg FHIR_VERSION=${{inputs.fhirSchemaVersion}} --build-arg ASSEMBLY_VER=${{inputs.assemblyVersion}}

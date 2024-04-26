@@ -1,0 +1,39 @@
+name: update-semver
+description: 'Update the build number with the SemVer from GitVersion'
+inputs:
+  configFilePath:
+    description: 'Path to the GitVersion configuration file'
+    required: false
+    default: './GitVersion.yml'
+outputs:
+  assemblyVersion:
+    description: The assembly version for the build
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemVer }}
+  fileVersion:
+    description: The assembly file version for the build
+    value: ${{ steps.version.outputs.GitVersion_AssemblySemFileVer }}
+  informationalVersion:
+    description: The assembly informational version for the build
+    value: ${{ steps.version.outputs.GitVersion_InformationalVersion }}
+  semVer:
+    description: The NuGet package version for the build
+    value: ${{ steps.version.outputs.GitVersion_SemVer }}
+  majorMinorPatch:
+    description: The major.minor.patch version for the build
+    value: ${{ steps.version.outputs.GitVersion_MajorMinorPatch }}
+runs:
+  using: 'composite'
+  steps:
+    
+    - name: Install GitVersion'
+      uses: gittools/actions/gitversion/setup@v0.13.4
+      with:
+        versionSpec: '5.x'
+
+    - name: SetVariablesFromGitVersion
+      id: version
+      uses: gittools/actions/gitversion/execute@v0.13.4
+      with:
+        configFilePath: ${{inputs.configFilePath}}
+        targetPath: ${{github.workspace}}
+        useConfigFile: true
