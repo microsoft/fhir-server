@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                     catch (OperationCanceledException ex)
                     {
-                        // Batch with parallel operations (all + partially failed > help send out 200 as whole) - If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timedout
+                        // If the exception raised is a OperationCanceledException, then either client cancelled the request or httprequest timed out
                         _logger.LogInformation(ex, "Bundle request timedout. Error: {ErrorMessage}", ex.Message);
                     }
                     catch (FhirTransactionFailedException ex)
@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     // The following Task.WhenAll should wait for all requests to finish.
 
-                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions or OperationCanceledException
+                    // Parallel requests are not supposed to raise exceptions, unless they are FhirTransactionFailedExceptions
                     // FhirTransactionFailedExceptions are a special case to invalidate an entire bundle.
                     // OperationCanceledException is when http request times out or client cancels the request
                     await Task.WhenAll(requestsPerResource);

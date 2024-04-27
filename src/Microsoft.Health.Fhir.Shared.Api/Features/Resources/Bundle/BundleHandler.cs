@@ -46,7 +46,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -414,7 +413,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var apiCallResults = new Dictionary<string, List<BundleSubCallMetricData>>();
             foreach (var entry in responseBundle.Entry)
             {
-                var status = entry?.Response?.Status;
+                var status = entry.Response.Status;
                 if (!apiCallResults.TryGetValue(status, out List<BundleSubCallMetricData> val))
                 {
                     apiCallResults[status] = new List<BundleSubCallMetricData>();
