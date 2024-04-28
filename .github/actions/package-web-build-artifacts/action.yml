@@ -1,0 +1,27 @@
+name: Package Web Build Artifacts
+description: 'Packages the web build artifacts for deployment'
+inputs:
+  fhirSchemaVersion:
+    description: 'The FHIR schema version to package'
+    required: true
+  majorMinorPatch:
+    description: 'The version of the Nuget package'
+    required: true
+  outputPath:
+    description: 'The path to the output directory'
+    required: true
+  buildConfiguration:
+    description: 'The build configuration to use'
+    required: true
+  semVer:
+    description: 'The SemVer to use'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Publish Web Artifacts
+      shell: bash
+      run: |
+        echo "Publishing web artifacts for FHIR schema version ${{inputs.fhirSchemaVersion}}"
+        dotnet publish ${{github.workspace}}/src/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.csproj --output ${{inputs.outputPath}}/deploy/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web --configuration ${{inputs.buildConfiguration}} --version-suffix ${{inputs.semVer}} --no-build -f ${{env.defaultDotNetVersion}}
+        zip Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web.zip ${{inputs.outputPath}}/deploy/Microsoft.Health.Fhir.${{inputs.fhirSchemaVersion}}.Web

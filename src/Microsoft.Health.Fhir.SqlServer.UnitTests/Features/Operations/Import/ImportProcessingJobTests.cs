@@ -29,6 +29,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
 {
+    [Collection("Sequential")]
     [Trait(Traits.OwningTeam, OwningTeam.FhirImport)]
     [Trait(Traits.Category, Categories.Import)]
     public class ImportProcessingJobTests
