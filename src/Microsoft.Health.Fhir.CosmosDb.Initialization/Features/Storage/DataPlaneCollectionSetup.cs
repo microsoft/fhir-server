@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
     {
         private readonly ILogger<DataPlaneCollectionSetup> _logger;
         private readonly CosmosClient _client;
-        private Lazy<Container> _container;
+        private readonly Lazy<Container> _container;
         private const int CollectionSettingsVersion = 3;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
 

@@ -32,17 +32,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage
         /// <param name="cosmosCollectionConfiguration">The collection configuration for the query to use</param>
         Task OpenCosmosClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
 
-       /* /// <summary>
-        /// Ensures that the necessary database and collection exist with the proper indexing policy and stored procedures
-        /// </summary>
-        /// <param name="client">The <see cref="CosmosClient"/> instance to use for initialization.</param>
-        /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
-        /// <param name="collectionInitializers">The collection of collection initializers.</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>A task</returns>
-        Task InitializeDataStoreAsync(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers, CancellationToken cancellationToken = default);
-         */
-
         /// <summary>
         /// Creates a new Container instance for access the Cosmos API
         /// </summary>

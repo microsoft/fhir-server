@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredP
         private const string _searchParameterStatusPartitionKey = "__searchparameterstatus__";
 
         public UpdateUnsupportedSearchParameters()
-        : base(new UpdateUnsupportedSearchParametersMetadata())
+            : base(new UpdateUnsupportedSearchParametersMetadata())
         {
         }
 

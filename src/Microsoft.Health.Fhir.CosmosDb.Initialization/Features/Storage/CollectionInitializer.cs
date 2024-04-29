@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IUpgradeManager _upgradeManager;
-
         private readonly ICosmosClientTestProvider _clientTestProvider;
         private readonly ILogger<CollectionInitializer> _logger;
 
@@ -35,7 +34,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
         {
             EnsureArg.IsNotNull(cosmosCollectionConfiguration, nameof(cosmosCollectionConfiguration));
             EnsureArg.IsNotNull(cosmosCollectionConfiguration.CollectionId, nameof(CosmosCollectionConfiguration.CollectionId));
-
             EnsureArg.IsNotNull(clientTestProvider, nameof(clientTestProvider));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(upgradeManager, nameof(upgradeManager));
@@ -44,7 +42,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             _cosmosCollectionConfiguration = cosmosCollectionConfiguration;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _upgradeManager = upgradeManager;
-
             _clientTestProvider = clientTestProvider;
             _logger = logger;
         }
@@ -61,10 +58,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             _logger.LogInformation("Creating Cosmos Container if not exits: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             ContainerResponse containerResponse = await retryPolicy.ExecuteAsync(async () =>
-                    await database.CreateContainerIfNotExistsAsync(
-                    _cosmosCollectionConfiguration.CollectionId,
-                    $"/{KnownDocumentProperties.PartitionKey}",
-                    _cosmosCollectionConfiguration.InitialCollectionThroughput));
+                await database.CreateContainerIfNotExistsAsync(
+                _cosmosCollectionConfiguration.CollectionId,
+                $"/{KnownDocumentProperties.PartitionKey}",
+                _cosmosCollectionConfiguration.InitialCollectionThroughput));
 
             if (containerResponse.StatusCode == HttpStatusCode.Created || containerResponse.Resource.DefaultTimeToLive != -1)
             {

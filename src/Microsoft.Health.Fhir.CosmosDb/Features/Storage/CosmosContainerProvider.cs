@@ -52,6 +52,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
+            EnsureArg.IsNotNull(collectionSetup, nameof(collectionSetup));
+            EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
             _logger = logger;
             _mediator = mediator;
 

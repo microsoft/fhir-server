@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Registration
 {
     public static class DataPlaneCosmosDbRegistrationExtensions
     {
-        public static void AddDataPlaneDepencies(this IServiceCollection services)
+        public static void AddCosmosDbInitializationDependencies(this IServiceCollection services)
         {
             Type[] storedProcedureMetadataTypes = typeof(DataPlaneCosmosDbRegistrationExtensions).Assembly.GetTypes()
                 .Where(x => !x.IsAbstract && typeof(StoredProcedureMetadataBase).IsAssignableFrom(x))

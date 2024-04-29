@@ -141,8 +141,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
         private static CancellationToken GetCancellationToken()
         {
-            CancellationTokenSource tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            return tokenSource.Token;
+           using CancellationTokenSource tokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+           return tokenSource.Token;
         }
     }
 }

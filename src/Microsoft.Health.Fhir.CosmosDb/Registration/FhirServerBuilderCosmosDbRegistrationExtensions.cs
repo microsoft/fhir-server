@@ -54,7 +54,6 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
         /// <param name="configureAction">Configure action. Defaulted to null.</param>
         /// <returns>The builder.</returns>
-        /// TODO: FhirServerBuilderCosmosDbRegistrationExtensions commented retryExceptionPolicyFactory in constructor as we have modified CollectionInitializer code
         public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
@@ -179,13 +178,17 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionDataUpdater>();
 
+            services.Add<DataPlaneCollectionSetup>()
+                .Singleton()
+                .AsService<ICollectionSetup>();
+
             services.TypesInSameAssemblyAs<IStoredProcedure>()
                 .AssignableTo<IStoredProcedure>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IStoredProcedure>();
 
-            services.AddDataPlaneDepencies();
+            services.AddCosmosDbInitializationDependencies();
 
             services.Add<CosmosFhirOperationDataStore>()
                 .Scoped()
@@ -197,10 +200,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<FhirCosmosClientInitializer>()
                 .Singleton()
                 .AsService<ICosmosClientInitializer>();
-
-            services.Add<DataPlaneCollectionSetup>()
-                .Singleton()
-                .AsService<ICollectionSetup>();
 
             services.Add<CosmosResponseProcessor>()
                 .Singleton()
