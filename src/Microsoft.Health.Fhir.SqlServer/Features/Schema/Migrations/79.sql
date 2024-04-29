@@ -2527,19 +2527,6 @@ BEGIN CATCH
 END CATCH
 
 GO
-CREATE OR ALTER PROCEDURE dbo.GetNonCompletedJobCountOfSpecificQueueType
-@queueType TINYINT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT COUNT(*)
-    FROM   dbo.JobQueue
-    WHERE  QueueType = @queueType
-           AND (Status = 0
-                OR Status = 1);
-END
-
-GO
 CREATE PROCEDURE dbo.GetPartitionedTables
 @IncludeNotDisabled BIT, @IncludeNotSupported BIT
 WITH EXECUTE AS 'dbo'

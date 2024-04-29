@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SearchParameterInfo _resourceTypeSearchParameter;
+        private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
+        private SearchParameterInfo _resourceTypeSearchParameter;
         private SearchParameterExpression _allTypesExpression;
 
         public PartitionEliminationRewriter(
@@ -42,7 +43,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             _model = model;
             _schemaInformation = schemaInformation;
-            _resourceTypeSearchParameter = searchParameterDefinitionManagerResolver.Invoke().GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+            _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
+        }
+
+        private SearchParameterInfo ResourceTypeSearchParameter
+        {
+            get
+            {
+                if (_resourceTypeSearchParameter == null)
+                {
+                    _resourceTypeSearchParameter = _searchParameterDefinitionManagerResolver.Invoke().GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+                }
+
+                return _resourceTypeSearchParameter;
+            }
         }
 
         private SearchParameterExpression GetAllTypesExpression()
@@ -58,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 resourceTypes[i] = _model.GetResourceTypeName(typeId);
             }
 
-            _allTypesExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
+            _allTypesExpression = Expression.SearchParameter(ResourceTypeSearchParameter, Expression.In(FieldName.TokenCode, null, resourceTypes));
 
             return _allTypesExpression;
         }
@@ -83,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     primaryKeyValueIndex = i;
                 }
-                else if (ReferenceEquals(parameter, _resourceTypeSearchParameter))
+                else if (ReferenceEquals(parameter, ResourceTypeSearchParameter))
                 {
                     hasTypeRestriction = true;
                 }
@@ -96,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
                 {
-                    if (expression.SearchParamTableExpressions[i].ToString().Contains(_resourceTypeSearchParameter.Code, StringComparison.Ordinal))
+                    if (expression.SearchParamTableExpressions[i].ToString().Contains(ResourceTypeSearchParameter.Code, StringComparison.Ordinal))
                     {
                         needTypeRestriction = true;
                     }

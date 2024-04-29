@@ -31,3 +31,4 @@ stages:
   - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(build.BuildNumber)
+      buildPlatform: $(publicDockerImagePlatforms)

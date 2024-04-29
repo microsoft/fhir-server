@@ -6,6 +6,8 @@ parameters:
   type: string
 - name: tag
   type: string
+- name: buildPlatform
+  type: string
 
 jobs:
 - job: '${{parameters.version}}_Docker'
@@ -13,28 +15,19 @@ jobs:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
-  - task: DockerCompose@0
+  - task: AzureCLI@2
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
     inputs:
-      action: Build services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: |
-        FHIR_VERSION=${{parameters.version}}
-        ASSEMBLY_VER=$(assemblySemFileVer)
-      projectName: ${{parameters.version}}
-      additionalImageTags: ${{parameters.tag}}
-
-  - task: DockerCompose@0
-    displayName: 'Push FHIR ${{parameters.version}} Server Image'
-    inputs:
-      action: Push services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: |
-        FHIR_VERSION=${{parameters.version}}
-        ASSEMBLY_VER=$(assemblySemFileVer)
-      projectName: ${{parameters.version}}
-      additionalImageTags: ${{parameters.tag}}
+      azureSubscription: $(azureSubscriptionEndpoint)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        TAG="$(azureContainerRegistry)/${{parameters.version}}_fhir-server:${{parameters.tag}}"
+        az acr login --name $(azureContainerRegistryName)
+        docker buildx create --name fhir-multi-platform --platform ${{parameters.buildPlatform}} --use --bootstrap
+        docker buildx build --tag ${TAG,,} \
+                      --file ./build/docker/Dockerfile \
+                      --platform ${{parameters.buildPlatform}} \
+                      --build-arg FHIR_VERSION=${{parameters.version}} \
+                      --build-arg ASSEMBLY_VER=$(assemblySemFileVer) \
+                      --push .

@@ -117,6 +117,7 @@ stages:
   - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
+      buildPlatform: $(publicDockerImagePlatforms)
 
 # *********************** Stu3 ***********************
 - stage: redeployStu3
