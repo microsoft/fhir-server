@@ -37,6 +37,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
+        private static readonly string ExtensionFilter = ConfigurationManager.AppSettings["ExtensionFilter"];
         private static readonly bool AddMeta = bool.Parse(ConfigurationManager.AppSettings["AddMeta"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
         private static readonly bool MultiResourceTypes = bool.Parse(ConfigurationManager.AppSettings["MultiResourceTypes"]);
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: Starting...");
             var blobs = WritesEnabled
-                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
+                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith($".{ExtensionFilter}", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
                       : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase)).Take(SourceBlobs);
             if (WritesEnabled)
             {
