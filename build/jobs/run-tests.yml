@@ -44,13 +44,22 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" -v normal --blame'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
       'CosmosDb:Key': $(CosmosDb--Key)
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
+
+  - task: PublishBuildArtifacts@1
+    condition: failed()
+    continueOnError: True
+    displayName: 'Collect Integration Test Sequence'
+    inputs:
+      pathToPublish: '$(Agent.TempDirectory)/**/Sequence_*.xml'
+      artifactName: 'IntegrationTestFailures'
+      artifactType: 'container'
 
 - job: 'cosmosE2eTests'
   dependsOn: []

@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
-        private static readonly SemaphoreSlim _dropDbDSemaphore = new(1, 1);
+        private static readonly SemaphoreSlim _dbSemaphore = new(1, 1);
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -70,45 +70,52 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
-            var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
-
-            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            await _dbSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                // Create the database.
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                await connection.OpenAsync(cancellationToken);
+                var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
+                schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
 
-                await using SqlCommand command = connection.CreateCommand();
-                command.CommandTimeout = 600;
-                command.CommandText = @$"
+                await _dbSetupRetryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        // Create the database.
+                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+
+                        await using SqlCommand command = connection.CreateCommand();
+                        command.CommandTimeout = 600;
+                        command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
                         BEGIN
                           CREATE DATABASE {databaseName};
                         END";
-                await command.ExecuteNonQueryAsync(cancellationToken);
-                await connection.CloseAsync();
-            });
+                        await command.ExecuteNonQueryAsync(cancellationToken);
+                        await connection.CloseAsync();
+                    });
 
-            // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
+                // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
 
-            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+                await _dbSetupRetryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+                        await using SqlCommand sqlCommand = connection.CreateCommand();
+                        sqlCommand.CommandText = "SELECT 1";
+                        await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                        await connection.CloseAsync();
+                    });
+
+                await _dbSetupRetryPolicy.ExecuteAsync(async () => { await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken); });
+                await InitWatchdogsParameters(databaseName);
+                await EnableDatabaseLogging(databaseName);
+                await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+            }
+            finally
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
-                await connection.OpenAsync(cancellationToken);
-                await using SqlCommand sqlCommand = connection.CreateCommand();
-                sqlCommand.CommandText = "SELECT 1";
-                await sqlCommand.ExecuteScalarAsync(cancellationToken);
-                await connection.CloseAsync();
-            });
-
-            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
-            {
-                await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            });
-            await InitWatchdogsParameters(databaseName);
-            await EnableDatabaseLogging(databaseName);
-            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
+                _dbSemaphore.Release();
+            }
         }
 
         public async Task EnableDatabaseLogging(string databaseName)
@@ -208,7 +215,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 return;
             }
 
-            await _dropDbDSemaphore.WaitAsync(cancellationToken);
+            await _dbSemaphore.WaitAsync(cancellationToken);
             try
             {
                 SqlConnection.ClearAllPools();
@@ -231,7 +238,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
             }
             finally
             {
-                _dropDbDSemaphore.Release();
+                _dbSemaphore.Release();
             }
         }
 
