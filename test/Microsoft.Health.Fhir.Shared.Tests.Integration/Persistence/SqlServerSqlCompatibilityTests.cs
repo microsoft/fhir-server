@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// A basic smoke test verifying that the code is compatible with schema versions
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
         /// </summary>
-        [Fact(Skip = "Flaky test")]
+        [Fact]
         public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
         {
             // List<FhirStorageTestsFixture> fhirStorageTestsFixtures = new();

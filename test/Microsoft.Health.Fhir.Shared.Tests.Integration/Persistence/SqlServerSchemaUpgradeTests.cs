@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        [Fact(Skip = "Flaky test")]
+        [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";

@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _sqlConnectionWrapperFactory = fixture.SqlConnectionWrapperFactory;
         }
 
-        [Fact(Skip = "Flaky test")]
+        [Fact]
         public async Task GivenSetOfResources_MergeAndGet()
         {
             var patientId = Guid.NewGuid().ToString();

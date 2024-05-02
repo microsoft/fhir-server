@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,6 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
+        private static readonly SemaphoreSlim _dropDbDSemaphore = new(1, 1);
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -206,18 +208,31 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 return;
             }
 
-            SqlConnection.ClearAllPools();
-
-            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            await _dropDbDSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
-                await connection.OpenAsync(cancellationToken);
-                await using SqlCommand command = connection.CreateCommand();
-                command.CommandTimeout = 600;
-                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                await command.ExecuteNonQueryAsync(cancellationToken);
-                await connection.CloseAsync();
-            });
+                SqlConnection.ClearAllPools();
+
+                await _dbSetupRetryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
+                        await connection.OpenAsync(cancellationToken);
+                        await using SqlCommand command = connection.CreateCommand();
+                        command.CommandTimeout = 600;
+                        command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                        await command.ExecuteNonQueryAsync(cancellationToken);
+                        await connection.CloseAsync();
+                    });
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("Failed to delete database: " + ex.Message);
+            }
+            finally
+            {
+                _dropDbDSemaphore.Release();
+            }
         }
 
         public Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)

@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
         }
 
-        [Fact(Skip = "Flaky test")]
+        [Fact]
         public async Task GivenChangeCaptureEnabledAndNoVersionPolicy_AfterUpdating_InvisibleHistoryIsRemovedByWatchdog()
         {
             EnableInvisibleHistory();

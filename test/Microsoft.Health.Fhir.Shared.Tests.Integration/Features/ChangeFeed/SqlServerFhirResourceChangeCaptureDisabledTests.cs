@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         /// A basic smoke test verifying that resource changes should not be created
         ///  when the resource change capture config is disabled.
         /// </summary>
-        [Fact(Skip = "Flaky test")]
+        [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenResourceChangeCaptureIsDisabled_ThenResourceChangesShouldNotBeCreated()
         {
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
@@ -73,7 +73,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             }
             finally
             {
-                await fhirStorageTestsFixture.DisposeAsync();
+                if (fhirStorageTestsFixture != null)
+                {
+                    await fhirStorageTestsFixture.DisposeAsync();
+                }
             }
         }
     }

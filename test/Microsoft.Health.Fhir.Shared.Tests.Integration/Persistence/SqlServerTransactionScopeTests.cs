@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    [CollectionDefinition("SqlTransactionScopeTests", DisableParallelization = true)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     public class SqlServerTransactionScopeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
