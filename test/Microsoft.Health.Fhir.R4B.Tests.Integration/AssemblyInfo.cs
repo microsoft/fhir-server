@@ -9,3 +9,5 @@ using Xunit;
 
 [assembly: TestFramework(typeName: CustomXunitTestFramework.TypeName, assemblyName: CustomXunitTestFramework.AssemblyName)]
 [assembly: AssemblyFixture(typeof(SetModelInfoProviderAssemblyFixture))]
+
+[assembly: CollectionBehavior(CollectionBehavior.CollectionPerAssembly, DisableTestParallelization = true)]
