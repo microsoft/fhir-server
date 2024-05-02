@@ -112,6 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 if (!_resources.Any())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     SetStatusSafe(BundleOrchestratorOperationStatus.WaitingForResources);
                 }
 
@@ -197,6 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration
             {
                 if (!_resources.Any())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     SetStatusSafe(BundleOrchestratorOperationStatus.WaitingForResources);
                 }
 

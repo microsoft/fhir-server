@@ -300,12 +300,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     EntryComponent throttledEntryComponent = null;
                     foreach (HTTPVerb verb in _verbExecutionOrder)
                     {
-                        throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
-                            responseBundle: responseBundle,
-                            httpVerb: verb,
-                            throttledEntryComponent: throttledEntryComponent,
-                            statistics: statistics,
-                            cancellationToken: cancellationToken);
+                        if (_requests[verb].Any())
+                        {
+                            throttledEntryComponent = await ExecuteRequestsWithSingleHttpVerbInSequenceAsync(
+                                responseBundle: responseBundle,
+                                httpVerb: verb,
+                                throttledEntryComponent: throttledEntryComponent,
+                                statistics: statistics,
+                                cancellationToken: cancellationToken);
+                        }
                     }
                 }
                 else if (processingLogic == BundleProcessingLogic.Parallel && _bundleType == BundleType.Batch)
@@ -607,6 +610,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     {
                         HttpContext httpContext = resourceContext.Context.HttpContext;
 
+                        // Ensure to pass original callers cancellation token to honor client request cancellations and httprequest timeouts
+                        httpContext.RequestAborted = cancellationToken;
                         SetupContexts(resourceContext, httpContext);
 
                         Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
