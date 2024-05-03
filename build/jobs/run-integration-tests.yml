@@ -3,7 +3,7 @@ parameters:
   type: string
 
 jobs:
-- job: "integrationTests_${{ parameters.version }}"
+- job: "integrationTests_${{ parameters.version }}_SQL"
   pool:
     name: '$(DefaultLinuxPool)'
     vmImage: '$(LinuxVmImage)'
@@ -38,6 +38,56 @@ jobs:
         docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=T3stP@ssw0rd" -p 1433:1433 -d --rm --name sql-server mcr.microsoft.com/mssql/server:2019-latest
 
   - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        for i in {1..20}; do docker exec sql-server sh -c "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "T3stP@ssw0rd" -Q 'SELECT * FROM INFORMATION_SCHEMA.TABLES'" && exit 0 || sleep 5; done; exit 1
+    displayName: 'Wait for SQL Server'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Integration Tests'
+    inputs:
+      command: test
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~CosmosDb -v normal'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: '${{ parameters.version }} Integration'
+    env:
+      'SqlServer:ConnectionString': 'Server=(local);Persist Security Info=False;User ID=sa;Password=T3stP@ssw0rd;MultipleActiveResultSets=False;Connection Timeout=30;TrustServerCertificate=true'
+
+  - task: Bash@3
+    displayName: 'Stop Sql Server'
+    condition: succeededOrFailed()
+    continueOnError: True
+    inputs:
+      targetType: 'inline'
+      script: |
+        docker stop sql-server
+
+
+
+- job: "integrationTests_${{ parameters.version }}_Cosmos"
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+  
+  - task: ExtractFiles@1
+    displayName: 'Extract Integration Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - task: Bash@3
     displayName: 'Start Azure Cosmos DB Emulator'
     inputs:
       targetType: 'inline'
@@ -48,15 +98,8 @@ jobs:
           -d \
           --rm \
           --name cosmos \
-          -e "AZURE_COSMOS_EMULATOR_PARTITION_COUNT=100" \
+          -e "AZURE_COSMOS_EMULATOR_PARTITION_COUNT=2" \
           mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
-
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        for i in {1..20}; do docker exec sql-server sh -c "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "T3stP@ssw0rd" -Q 'SELECT * FROM INFORMATION_SCHEMA.TABLES'" && exit 0 || sleep 5; done; exit 1
-    displayName: 'Wait for SQL Server'
 
   - task: Bash@3
     inputs:
@@ -77,23 +120,14 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --blame-hang-timeout 15m'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
-    env:
-      'SqlServer:ConnectionString': 'Server=(local);Persist Security Info=False;User ID=sa;Password=T3stP@ssw0rd;MultipleActiveResultSets=False;Connection Timeout=30;TrustServerCertificate=true'
-
-  - task: Bash@3
-    displayName: 'Stop Sql Server'
-    continueOnError: true
-    inputs:
-      targetType: 'inline'
-      script: |
-        docker stop sql-server
 
   - task: Bash@3
     displayName: 'Stop Cosmos'
-    continueOnError: true
+    condition: succeededOrFailed()
+    continueOnError: True
     inputs:
       targetType: 'inline'
       script: |
