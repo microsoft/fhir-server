@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -159,6 +161,25 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             var id = long.Parse(checkLocation.LocalPath.Split('/').Last());
             return (checkLocation, id);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_80KSurrogateIds_BadRequestIsReturned()
+        {
+            var ndJson = new StringBuilder();
+            for (int i = 0;  i < 80001; i++)
+            {
+                var id = Guid.NewGuid().ToString("N");
+                var str = CreateTestPatient(id, DateTimeOffset.Parse("2020-01-01Z00:00"));
+                ndJson.Append(str);
+            }
+
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson.ToString(), _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            var checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
+            var message = await ImportWaitAsync(checkLocation, false);
+            Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
+            Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
         }
 
         [Fact]
