@@ -170,7 +170,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             for (int i = 0;  i < 80001; i++)
             {
                 var id = Guid.NewGuid().ToString("N");
-                var str = CreateTestPatient(id, DateTimeOffset.Parse("2020-01-01Z00:00"));
+                var str = CreateTestPatient(id, DateTimeOffset.Parse("1900-01-01Z00:00")); // make sure this date is not used by other tests.
                 ndJson.Append(str);
             }
 
