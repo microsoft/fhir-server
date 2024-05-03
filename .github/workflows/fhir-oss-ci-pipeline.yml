@@ -89,8 +89,12 @@ jobs:
           fileVersion: ${{needs.setup.outputs.fileVersion}}
           informationalVersion: ${{needs.setup.outputs.informationalVersion}}
           majorMinorPatch: ${{needs.setup.outputs.majorMinorPatch}}
-      - name: Test
-        uses: ./.github/actions/dotnet-test
+      - name: TestCore
+        uses: ./.github/actions/dotnet-test-core
+        with:
+          buildConfiguration: ${{env.buildConfiguration}}
+      - name: TestWeb
+        uses: ./.github/actions/dotnet-test-web
         with:
           buildConfiguration: ${{env.buildConfiguration}}
 
