@@ -6,7 +6,8 @@ parameters:
 - name: appServiceName
   type: string
 jobs:
-- job: "integrationTests"
+
+- job: "CosmosIntegrationTests"
   pool:
     name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
@@ -34,6 +35,39 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}'
 
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Cosmos Integration Tests'
+    inputs:
+      command: test
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~SqlServer -v normal'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: '${{ parameters.version }} Integration'
+    env:
+      'CosmosDb:Host': $(CosmosDb--Host)
+      'CosmosDb:Key': $(CosmosDb--Key)
+
+- job: "SqlIntegrationTests"
+  pool:
+    name: '$(SharedLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+  
+  - task: ExtractFiles@1
+    displayName: 'Extract Integration Test Binaries'
+    inputs:
+      archiveFilePatterns: '$(System.ArtifactsDirectory)/IntegrationTests/Microsoft.Health.Fhir.${{ parameters.version }}.Tests.Integration.zip'
+      destinationFolder: '$(Agent.TempDirectory)/IntegrationTests/'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
     inputs:
@@ -41,25 +75,14 @@ jobs:
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
   - task: DotNetCoreCLI@2
-    displayName: 'Run Integration Tests'
+    displayName: 'Run Sql Integration Tests'
     inputs:
       command: test
-      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" -v normal --blame'
+      arguments: '"$(Agent.TempDirectory)/IntegrationTests/**/*${{ parameters.version }}.Tests.Integration*.dll" --filter DisplayName!~Cosmos -v normal'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
-      'CosmosDb:Host': $(CosmosDb--Host)
-      'CosmosDb:Key': $(CosmosDb--Key)
       'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
-
-  - task: PublishBuildArtifacts@1
-    condition: failed()
-    continueOnError: True
-    displayName: 'Collect Integration Test Sequence'
-    inputs:
-      pathToPublish: '$(Agent.TempDirectory)/**/Sequence_*.xml'
-      artifactName: 'IntegrationTestFailures'
-      artifactType: 'container'
 
 - job: 'cosmosE2eTests'
   dependsOn: []
