@@ -444,10 +444,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
-                    // dedup by last updated - keep all versions when version and lastUpdated exist on record.
+                    // dedup by last updated - take first version for single last updated, prefer large version.
                     var inputsDedupped = resources
-                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: !_.KeepVersion || !_.KeepLastUpdated))
-                        .Select(_ => _.First())
+                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true))
+                        .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
                         .ToList();
 
                     await HandleIncrementalVersionedImport(inputsDedupped, useReplicasForReads);
@@ -459,8 +459,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 async Task HandleIncrementalVersionedImport(List<ImportResource> inputs, bool useReplicasForReads)
                 {
-                    // Dedup by version via ToResourceKey - only keep first occurance of a version in this batch.
-                    var inputsWithVersion = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.First()).ToList();
+                    // Dedup by version via ToResourceKey - prefer latest dates.
+                    var inputsWithVersion = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First()).ToList();
 
                     // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
                     var currentInDb = (await GetAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
