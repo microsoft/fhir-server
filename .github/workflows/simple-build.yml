@@ -20,3 +20,8 @@ jobs:
     - name: Build
       shell: bash
       run: dotnet build "./Microsoft.Health.Fhir.sln" --no-restore
+      # run: dotnet build "./Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror 
+      
+    - name: Test
+      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~UnitTests" --verbosity normal
+      #       run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~Core.UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
