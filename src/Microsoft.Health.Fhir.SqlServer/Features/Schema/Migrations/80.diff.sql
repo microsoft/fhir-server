@@ -1,6 +1,6 @@
 ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
--- This stored procedure allows to identifiy version gap is available
+-- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
 set nocount on
 DECLARE @st datetime = getUTCdate()
        ,@SP varchar(100) = 'GetResourceVersions'

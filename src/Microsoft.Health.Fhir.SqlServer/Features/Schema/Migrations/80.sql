@@ -2968,19 +2968,26 @@ BEGIN TRY
                              FROM   dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                              WHERE  B.ResourceTypeId = A.ResourceTypeId
                                     AND B.ResourceId = A.ResourceId
-                                    AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE 0 END AS Version
+                                    AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE isnull(M.Version, 0) - 1 END AS Version
     FROM   (SELECT TOP (@DummyTop) *
             FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
                                                         FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                         WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                  AND B.ResourceId = A.ResourceId
+                                                                 AND B.Version > 0
                                                                  AND B.ResourceSurrogateId < A.ResourceSurrogateId
                                                         ORDER BY B.ResourceSurrogateId DESC) AS L OUTER APPLY (SELECT   TOP 1 *
                                                                                                                FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                                                                                WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                                                                         AND B.ResourceId = A.ResourceId
+                                                                                                                        AND B.Version > 0
                                                                                                                         AND B.ResourceSurrogateId > A.ResourceSurrogateId
-                                                                                                               ORDER BY B.ResourceSurrogateId) AS U
+                                                                                                               ORDER BY B.ResourceSurrogateId) AS U OUTER APPLY (SELECT   TOP 1 *
+                                                                                                                                                                 FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
+                                                                                                                                                                 WHERE    B.ResourceTypeId = A.ResourceTypeId
+                                                                                                                                                                          AND B.ResourceId = A.ResourceId
+                                                                                                                                                                          AND B.Version < 0
+                                                                                                                                                                 ORDER BY B.Version) AS M
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
