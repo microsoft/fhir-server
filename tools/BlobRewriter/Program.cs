@@ -39,6 +39,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
         private static readonly string ExtensionFilter = ConfigurationManager.AppSettings["ExtensionFilter"];
         private static readonly bool AddMeta = bool.Parse(ConfigurationManager.AppSettings["AddMeta"]);
+        private static readonly bool AddVersion = bool.Parse(ConfigurationManager.AppSettings["AddVersion"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
         private static readonly bool MultiResourceTypes = bool.Parse(ConfigurationManager.AppSettings["MultiResourceTypes"]);
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
@@ -244,6 +245,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static long CopyBlob(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
         {
             var lines = 0L;
+            var baseDate = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex);
+            var milliseconds = 0;
             using var stream = targetContainer.GetBlockBlobClient(blobName).OpenWrite(true);
             using var writer = new StreamWriter(stream);
             foreach (var line in GetLinesInBlob(sourceContainer, blobName))
@@ -253,9 +256,14 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 {
                     if (AddMeta)
                     {
-                        var date = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex).AddMilliseconds(lines);
+                        if (lines % 10000 == 0)
+                        {
+                            milliseconds++;
+                        }
+
+                        var date = baseDate.AddMilliseconds(lines);
                         var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
-                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{\"versionId\":\"" + seconds + "\",\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
+                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
                         writer.WriteLine(lineWithMeta);
                     }
                     else
