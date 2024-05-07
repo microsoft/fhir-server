@@ -58,9 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Watchdogs
 
         private async Task RunInternalAsync()
         {
-            _cancellationToken.ThrowIfCancellationRequested();
-
-            if (_isRunning)
+            if (_isRunning || _cancellationToken.IsCancellationRequested)
             {
                 return;
             }
