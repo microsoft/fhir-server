@@ -301,7 +301,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var ndJson3 = PrepareResource(id, "3", "2003");
             var location2 = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson3, _fixture.StorageAccount)).location;
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
+            await ImportCheckAsync(request2, null, 0);
 
             result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.Equal("3", result.Resource.Meta.VersionId);

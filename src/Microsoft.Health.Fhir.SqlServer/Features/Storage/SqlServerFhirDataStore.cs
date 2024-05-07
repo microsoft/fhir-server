@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
             var singleTransaction = enlistInTransaction;
-            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
+            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id, last updated DESC, version DESC.
             {
                 var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId; // this assumes that first resource version is the latest one
                 prevResourceId = resourceExt.Wrapper.ResourceId;
@@ -444,10 +444,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
-                    // dedup by last updated - take first version for single last updated, prefer large version.
+                    // dedup by last updated - keep all versions when version and lastUpdated exist on record.
                     var inputsDedupped = resources
-                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true))
-                        .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
+                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: !_.KeepVersion || !_.KeepLastUpdated))
+                        .Select(_ => _.First())
                         .ToList();
 
                     await HandleIncrementalVersionedImport(inputsDedupped, useReplicasForReads);
@@ -488,7 +488,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
-                    await MergeResourcesWithLastUpdatedAsync(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified), useReplicasForReads);
+                    await MergeResourcesWithLastUpdatedAsync(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), useReplicasForReads);
                     loaded.AddRange(toBeLoaded);
                 }
 
