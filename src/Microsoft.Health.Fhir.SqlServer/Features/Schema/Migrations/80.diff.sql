@@ -1,6 +1,4 @@
-﻿--DROP PROCEDURE dbo.GetResourceVersions
-GO
-CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
 -- This stored procedure allows to identifiy version gap is available
 set nocount on
@@ -22,13 +20,14 @@ BEGIN TRY
                                       AND B.ResourceId = A.ResourceId 
                                       AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999
                                  ) 
-                       THEN 0
-                     WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 
-                     ELSE 0 
+                       THEN 0 -- input lastUpdated matches stored 
+                     WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 -- gap is available
+                     ELSE isnull(M.Version, 0) - 1 -- late arrival
                    END
     FROM (SELECT TOP (@DummyTop) * FROM @ResourceDateKeys) A
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
-         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId < A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId DESC) L -- lower
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version > 0 AND B.ResourceSurrogateId > A.ResourceSurrogateId ORDER BY B.ResourceSurrogateId) U -- upper
+         OUTER APPLY (SELECT TOP 1 * FROM dbo.Resource B WITH (INDEX = IX_Resource_ResourceTypeId_ResourceId_Version) WHERE B.ResourceTypeId = A.ResourceTypeId AND B.ResourceId = A.ResourceId AND B.Version < 0 ORDER BY B.Version) M -- minus
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1))
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st,@Rows=@@rowcount
@@ -39,8 +38,3 @@ BEGIN CATCH
   THROW
 END CATCH
 GO
---DECLARE @ResourceDateKeys dbo.ResourceDateKeyList
---SELECT ResourceTypeId, ResourceId, ResourceSurrogateId, Version, IsHistory FROM Resource WHERE ResourceTypeId = 100 AND ResourceId = '00036927-6ef5-38cc-947d-b7900257b33e'
---DELETE FROM Resource WHERE ResourceTypeId = 100 AND ResourceSurrogateId = 5105560146179009828
---INSERT INTO @ResourceDateKeys SELECT TOP 1 ResourceTypeId, ResourceId, 5105560060153802438 FROM Resource WHERE ResourceTypeId = 100
---EXECUTE dbo.GetResourceVersions @ResourceDateKeys
