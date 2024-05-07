@@ -42,13 +42,7 @@ namespace Microsoft.Health.JobManagement
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
-        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
-        {
-            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
-        }
-
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
+        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
 
@@ -236,19 +230,6 @@ namespace Microsoft.Health.JobManagement
             var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
             // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
-            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        [Obsolete("Heartbeats should only update timestamp, results should only be written when job reaches terminal state.")]
-        public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(action, nameof(action));
-
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);

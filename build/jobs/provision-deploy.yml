@@ -62,6 +62,7 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
+        $additionalProperties["CosmosDb__InitialDatabaseThroughput"] = 1500
         $additionalProperties["FhirServer__Operations__Import__PollingFrequencyInSeconds"] = 1
         $additionalProperties["FhirServer__Operations__Export__PollingFrequencyInSeconds"] = 1
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
