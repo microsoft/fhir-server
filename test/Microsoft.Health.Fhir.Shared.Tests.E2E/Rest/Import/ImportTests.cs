@@ -191,7 +191,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var ndJson3 = PrepareResource(id, "2", "2003");
             (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
             var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request2, null, 1);
+            await ImportCheckAsync(request2, null, 0);
 
             // check current
             var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
@@ -201,6 +201,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             // check history
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
             Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "-1");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
         }
 
         [Fact]
@@ -305,6 +307,38 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
             Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_SameLastUpdated_DifferentVersions_DifferentImports_ResourceExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+
+            var ndJson2 = PrepareResource(id, "2", "2002");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null);
+
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+
+            // same date but different versions
+            var ndJson1 = PrepareResource(id, "1", "2003");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson1, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 0);
+            var ndJson3 = PrepareResource(id, "3", "2003");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson3, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad);
+            await ImportCheckAsync(request, null, 1);
+
+            result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("1", result.Resource.Meta.VersionId);
             Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
 
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");

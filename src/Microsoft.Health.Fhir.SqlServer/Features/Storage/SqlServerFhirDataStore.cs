@@ -450,9 +450,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
                         .ToList();
 
-                    await HandleIncrementalVersionedImport(inputsDedupped, useReplicasForReads);
+                    // dedup on lastUpdated against database
+                    var matchedOnLastUpdated = new HashSet<ResourceDateKey>((await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)).ToList(), cancellationToken)).Where(_ => _.VersionId == "0"));
+                    var fullyDedupped = new List<ImportResource>();
+                    foreach (var resource in inputsDedupped)
+                    {
+                        if (!matchedOnLastUpdated.Contains(resource.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)))
+                        {
+                            fullyDedupped.Add(resource);
+                        }
+                    }
 
-                    await HandleIncrementalUnversionedImport(inputsDedupped, useReplicasForReads);
+                    await HandleIncrementalVersionedImport(fullyDedupped, useReplicasForReads);
+
+                    await HandleIncrementalUnversionedImport(fullyDedupped, useReplicasForReads);
                 }
 
                 return (loaded, conflicts);
