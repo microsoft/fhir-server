@@ -706,7 +706,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 Response = new ResponseComponent
                 {
-                    Status = httpContext.Response.StatusCode.ToString(),
+                    // While we still decide on billing changes, let's return 500 for requests that timed-out
+                    Status = httpContext.Response.StatusCode == 408 ? "500" : httpContext.Response.StatusCode.ToString(),
                     Location = responseHeaders.Location?.OriginalString,
                     Etag = responseHeaders.ETag?.ToString(),
                     LastModified = responseHeaders.LastModified,
