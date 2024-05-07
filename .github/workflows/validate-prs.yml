@@ -38,7 +38,7 @@ jobs:
             const labels = "${{env.LABELS}}";
             const author = "${{env.AUTHOR}}";
 
-            const excludeAuthors = ["dependabot", "LTA-Thinking"];
+            const excludeAuthors = ["dependabot"];
             
             if(title.toLowerCase().includes('personal') || (title.length > 65)) {
               errors += '- Title of the PR to be succinct and less than 65 characters. \n';
@@ -46,7 +46,8 @@ jobs:
 
             if(body.toLowerCase().includes('ab#') == false &&
                body.toLowerCase().includes('/_workitems') == false &&
-               !excludeAuthors.includes(author)) {
+               excludeAuthors.includes(author) == false &&
+               labels.includes("External Author") == false) {
               errors += '- FHIR Team: A DevOps workitem is required. Use AB#123 syntax or link to DevOps item. \n';
             }
 
