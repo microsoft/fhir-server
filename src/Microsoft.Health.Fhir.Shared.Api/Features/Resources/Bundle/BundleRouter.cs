@@ -33,26 +33,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     internal class BundleRouter : IRouter
     {
-        private readonly TemplateBinderFactory _parameterPolicies;
+        private readonly TemplateBinderFactory _templateBinderFactory;
         private readonly IEnumerable<MatcherPolicy> _matcherPolicies;
         private readonly EndpointDataSource _endpointDataSource;
         private readonly EndpointSelector _endpointSelector;
         private readonly ILogger<BundleRouter> _logger;
 
         public BundleRouter(
-            TemplateBinderFactory parameterPolicies,
+            TemplateBinderFactory templateBinderFactory,
             IEnumerable<MatcherPolicy> matcherPolicies,
             EndpointDataSource endpointDataSource,
             EndpointSelector endpointSelector,
             ILogger<BundleRouter> logger)
         {
-            EnsureArg.IsNotNull(parameterPolicies, nameof(parameterPolicies));
+            EnsureArg.IsNotNull(templateBinderFactory, nameof(templateBinderFactory));
             EnsureArg.IsNotNull(matcherPolicies, nameof(matcherPolicies));
             EnsureArg.IsNotNull(endpointDataSource, nameof(endpointDataSource));
             EnsureArg.IsNotNull(endpointSelector, nameof(endpointSelector));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _parameterPolicies = parameterPolicies;
+            _templateBinderFactory = templateBinderFactory;
             _matcherPolicies = matcherPolicies;
             _endpointDataSource = endpointDataSource;
             _endpointSelector = endpointSelector;
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 var routeDefaults = new RouteValueDictionary(endpoint.RoutePattern.Defaults);
 
                 RoutePattern pattern = endpoint.RoutePattern;
-                TemplateBinder templateBinder = _parameterPolicies.Create(pattern);
+                TemplateBinder templateBinder = _templateBinderFactory.Create(pattern);
 
                 var templateMatcher = new TemplateMatcher(new RouteTemplate(pattern), routeDefaults);
 
