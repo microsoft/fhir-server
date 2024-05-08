@@ -183,14 +183,47 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting_NoGap()
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder2NotExplicit_ResourceNotExisting_NoGap()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, null, "2002");
+            var ndJson3 = PrepareResource(id, null, "2003");
+            var ndJson4 = PrepareResource(id, "2", "2004");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3 + ndJson4, _fixture.StorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request2, null, 0);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2004"), result.Resource.Meta.LastUpdated);
+
+            // check history by vread
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "-1");
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "-2");
+            Assert.Equal(GetLastUpdated("2002"), result.Resource.Meta.LastUpdated);
+
+            // check history by history search
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("-1", history.Resource.Entry[1].Resource.VersionId);
+            Assert.Equal("-2", history.Resource.Entry[2].Resource.VersionId);
+            Assert.Equal("1", history.Resource.Entry[3].Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting_NoGap_AllowNegative()
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "1", "2001");
             var ndJson2 = PrepareResource(id, null, "2002");
             var ndJson3 = PrepareResource(id, "2", "2003");
             (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
-            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad, false, true);
             await ImportCheckAsync(request2, null, 0);
 
             // check current
@@ -206,7 +239,28 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrderSomeNotExplicit_ResourceNotExisting()
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting_NoGap_DoNotAllowNegative()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "1", "2001");
+            var ndJson2 = PrepareResource(id, null, "2002");
+            var ndJson3 = PrepareResource(id, "2", "2003");
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(ndJson + ndJson2 + ndJson3, _fixture.StorageAccount);
+            var request2 = CreateImportRequest(location2, ImportMode.IncrementalLoad, false, false);
+            await ImportCheckAsync(request2, null, 1);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
+
+            // check history
+            result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "1");
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "1", "2001");
@@ -331,14 +385,14 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var ndJson1 = PrepareResource(id, "1", "2003");
             location = (await ImportTestHelper.UploadFileAsync(ndJson1, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 0);
+            await ImportCheckAsync(request, null, 1);
             var ndJson3 = PrepareResource(id, "3", "2003");
             location = (await ImportTestHelper.UploadFileAsync(ndJson3, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad);
-            await ImportCheckAsync(request, null, 1);
+            await ImportCheckAsync(request, null, 0);
 
             result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
-            Assert.Equal("1", result.Resource.Meta.VersionId);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
             Assert.Equal(GetLastUpdated("2003"), result.Resource.Meta.LastUpdated);
 
             result = await _client.VReadAsync<Patient>(ResourceType.Patient, id, "2");
@@ -652,7 +706,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             return DateTimeOffset.Parse(lastUpdatedYear + "-01-01T00:00:00.000+00:00");
         }
 
-        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true)
+        private static ImportRequest CreateImportRequest(Uri location, ImportMode importMode, bool setResourceType = true, bool allowNegativeVersions = false)
         {
             var inputResource = new InputResource() { Url = location };
             if (setResourceType)
@@ -667,6 +721,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
                 StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
                 Input = new List<InputResource>() { inputResource },
                 Mode = importMode.ToString(),
+                AllowNegativeVersions = allowNegativeVersions,
             };
         }
 
