@@ -75,10 +75,6 @@
     <Compile Remove="**\*.generated.*.cs" />
     <Compile Include="**\*.generated.$(TargetFramework).cs" />
   </ItemGroup>
-  <ItemGroup>
-    <None Remove="features\schema\migrations\80.diff.sql" />
-    <None Remove="features\schema\migrations\80.sql" />
-  </ItemGroup>
   
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
