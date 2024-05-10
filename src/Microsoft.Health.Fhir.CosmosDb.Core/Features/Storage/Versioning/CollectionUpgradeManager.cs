@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
     {
         private readonly ICollectionDataUpdater _collectionDataUpdater;
         private readonly IStoredProcedureInstaller _storedProcedureInstaller;
-        private readonly ICollectionSetup _collectionSetup;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
@@ -43,7 +42,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            _collectionSetup = collectionSetup;
             _collectionDataUpdater = collectionDataUpdater;
             _storedProcedureInstaller = storedProcedureInstaller;
             _configuration = configuration;
@@ -69,7 +67,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
                     await distributedLock.AcquireLock(cancellationTokenSource.Token);
-                    await _collectionSetup.UpdateFhirCollectionSettingsAsync(cancellationToken);
                     await _storedProcedureInstaller.ExecuteAsync(container, cancellationToken);
                     await _collectionDataUpdater.ExecuteAsync(container, cancellationToken);
                     await distributedLock.ReleaseLock();
