@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             catch
             {
                 _initialized = false;
+                throw;
             }
         }
 
