@@ -53,10 +53,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public void WhenProvidedAFhirController_CheckIfTheBundleEndpointHasTheLatencyMetricFilter()
         {
-            const string methodName = "BatchAndTransactions";
             Type expectedCustomAttribute = typeof(BundleEndpointMetricEmitterAttribute);
 
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, methodName, _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "BatchAndTransactions", _targetFhirControllerClass);
         }
 
         [Fact]
@@ -64,11 +63,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             Type expectedCustomAttribute = typeof(SearchEndpointMetricEmitterAttribute);
 
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "History", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Search", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchByResourceType", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SearchCompartmentByResourceType", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "SystemHistory", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "TypeHistory", _targetFhirControllerClass);
         }
 
         [Fact]
@@ -77,10 +77,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             Type expectedCustomAttribute = typeof(CrudEndpointMetricEmitterAttribute);
 
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Create", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Update", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Read", _targetFhirControllerClass);
-            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "VRead", _targetFhirControllerClass);
             TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Delete", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Read", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "Update", _targetFhirControllerClass);
+            TestIfTargetMethodContainsCustomAttribute(expectedCustomAttribute, "VRead", _targetFhirControllerClass);
         }
 
         private static void TestIfTargetMethodContainsCustomAttribute(Type expectedCustomAttributeType, string methodName, Type targetClassType)
