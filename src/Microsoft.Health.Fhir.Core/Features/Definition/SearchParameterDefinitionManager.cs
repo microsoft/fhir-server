@@ -100,18 +100,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-#pragma warning disable CA1822 // Mark members as static. Disabled while investigating why bad search parameters could be in databases
         public void EnsureInitialized()
-#pragma warning restore CA1822 // Mark members as static
         {
-            return;
-
-            /*
             if (!_initialized)
             {
-                throw new InitializationException("Failed to initialize search parameters");
+                _logger.LogWarning("Search parameters are not initialized.");
+
+                // throw new InitializationException("Failed to initialize search parameters");
             }
-            */
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
