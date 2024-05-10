@@ -100,12 +100,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+#pragma warning disable CA1822 // Mark members as static. Disabled while investigating why bad search parameters could be in databases
         public void EnsureInitialized()
+#pragma warning restore CA1822 // Mark members as static
         {
+            return;
+
+            /*
             if (!_initialized)
             {
                 throw new InitializationException("Failed to initialize search parameters");
             }
+            */
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
@@ -259,7 +265,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -280,7 +287,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
