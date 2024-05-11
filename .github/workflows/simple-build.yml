@@ -5,7 +5,7 @@ on:
   pull_request
 
 jobs:
-  buildAndUnitTests:
+  build:
 
     runs-on: windows-latest
 
@@ -22,27 +22,6 @@ jobs:
       run: dotnet build "./Microsoft.Health.Fhir.sln" --no-restore
       # run: dotnet build "./Microsoft.Health.Fhir.sln" --configuration ${{inputs.buildConfiguration}} "-p:ContinuousIntegrationBuild=true;AssemblyVersion=${{inputs.assemblyVersion}};FileVersion=${{inputs.fileVersion}};InformationalVersion=${{inputs.informationalVersion}};Version=${{inputs.majorMinorPatch}}" -warnaserror 
       
-    - name: Test Azure.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~Azure.UnitTests" --verbosity normal
+    - name: Test
+      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~UnitTests" --verbosity normal
       #       run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~Core.UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
-
-    - name: Test Core.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~Core.UnitTests" --verbosity normal
-
-    - name: Test CosmosDb.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~CosmosDb.UnitTests" --verbosity normal
-
-    - name: Test Api.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~Api.UnitTests" --verbosity normal
-
-    - name: Test Web.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~Web.UnitTests" --verbosity normal
-
-    - name: Test SchemaManager.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~SchemaManager.UnitTests" --verbosity normal
-
-    - name: Test SqlServer.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~SqlServer.UnitTests" --verbosity normal
-
-    - name: Test TaskManagement.UnitTests
-      run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~TaskManagement.UnitTests" --verbosity normal
