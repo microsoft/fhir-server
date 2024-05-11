@@ -5,7 +5,7 @@ on:
   pull_request
 
 jobs:
-  build:
+  buildTestAndPackage:
 
     runs-on: windows-latest
 
@@ -15,8 +15,10 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+
     - name: Restore dependencies
       run: dotnet restore
+
     - name: Build
       shell: bash
       run: dotnet build "./Microsoft.Health.Fhir.sln" --no-restore
@@ -25,3 +27,10 @@ jobs:
     - name: Test
       run: dotnet test "Microsoft.Health.Fhir.sln" --no-build --filter "FullyQualifiedName~UnitTests" --verbosity normal
       #       run: dotnet test "Microsoft.Health.Fhir.sln" -p:ContinuousIntegrationBuild=true; --filter "FullyQualifiedName~Core.UnitTests" --configuration ${{inputs.buildConfiguration}} --no-build --verbosity normal
+
+    - name: Create Nuget packages
+      run: |
+        echo "Creating Nuget packages"
+        dotnet pack -c Release --no-build --output
+      # dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
+
