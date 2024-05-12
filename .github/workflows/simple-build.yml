@@ -31,6 +31,6 @@ jobs:
     - name: Create Nuget packages
       run: |
         echo "Creating Nuget packages"
-        dotnet pack -c Release --no-build --output
+        dotnet pack -c Release --no-build --output ./nupkgs
       # dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
 
