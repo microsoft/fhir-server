@@ -4,6 +4,16 @@
 on: 
   pull_request
 
+env:
+    buildConfiguration: Release
+    azureSubscriptionEndpoint: docker-build
+    azureContainerRegistryName: healthplatformregistry
+    connectedServiceName: Microsoft Health Open Source Subscription
+    composeLocation: build/docker/docker-compose.yaml
+    imageTag: ${{github.run_number}}
+    outputPath: ${{github.workspace}}/artifacts
+    defaultDotNetVersion: net8.0
+
 jobs:
   buildTestAndPackage:
 
@@ -31,6 +41,6 @@ jobs:
     - name: Create Nuget packages
       run: |
         echo "Creating Nuget packages"
-        dotnet pack -c Release --no-build --output ./nupkgs
+        dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build -c Release
       # dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
 
