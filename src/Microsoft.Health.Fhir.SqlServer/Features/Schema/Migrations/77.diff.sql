@@ -1,3 +1,7 @@
+IF object_id('dbo.ReindexResource') IS NOT NULL DROP PROCEDURE dbo.ReindexResource -- Ths still exists on old accounts and prevents TVP drop
+GO
+IF object_id('dbo.BulkReindexResources') IS NOT NULL DROP PROCEDURE dbo.BulkReindexResources -- Ths still exists on old accounts and prevents TVP drop
+GO
 DECLARE @Names TABLE (Name varchar(100) PRIMARY KEY)
 INSERT INTO @Names SELECT name FROM sys.objects WHERE type = 'p' AND name LIKE '%[0-9]' AND name NOT LIKE '%ResourceChanges%'
 DECLARE @Name varchar(100)
