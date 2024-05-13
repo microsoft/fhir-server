@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     resourceIdProvider.Create = originalResourceIdProvider;
 
-                    entryComponent = CreateEntryComponent(fhirJsonParser, httpContext);
+                    entryComponent = CreateEntryComponent(httpContext);
 
                     foreach (string headerName in HeadersToAccumulate)
                     {

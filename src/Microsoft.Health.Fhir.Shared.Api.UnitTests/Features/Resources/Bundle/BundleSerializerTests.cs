@@ -156,25 +156,33 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                 wrapper.Version = "1";
 
                 var requestComponent = new RequestComponent { Method = HTTPVerb.POST, Url = "patient/" };
-                var responseComponent = new ResponseComponent { Etag = "W/\"1\"", LastModified = DateTimeOffset.UtcNow, Status = "201 Created" };
+                var responseComponent = new RawBundleResponseComponent
+                {
+                    Etag = "W/\"1\"",
+                    LastModified = DateTimeOffset.UtcNow,
+                    Status = "201 Created",
+                    OutcomeElement =
+                        resource.InstanceType == KnownResourceTypes.OperationOutcome ?
+                        new RawResourceElement(wrapper) :
+                        null,
+                };
 
                 rawBundle.Entry.Add(
-                    new RawBundleEntryComponent(wrapper)
+                    new RawBundleEntryComponent
                     {
                         Request = requestComponent,
                         Response = responseComponent,
+                        ResourceElement = resource.InstanceType != KnownResourceTypes.OperationOutcome ?
+                            new RawResourceElement(wrapper) :
+                            null,
                     });
 
                 var newBundleEntry = new EntryComponent { Request = requestComponent, Response = responseComponent };
+
                 bundle.Entry.Add(newBundleEntry);
-                if (resource.InstanceType != KnownResourceTypes.OperationOutcome)
-                {
-                    newBundleEntry.Resource = poco;
-                }
-                else
-                {
-                    newBundleEntry.Response.Outcome = poco;
-                }
+
+                newBundleEntry.Resource = resource.InstanceType != KnownResourceTypes.OperationOutcome ? poco : null;
+                newBundleEntry.Response.Outcome = resource.InstanceType == KnownResourceTypes.OperationOutcome ? poco : null;
             }
 
             return (rawBundle, bundle);

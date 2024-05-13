@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Task = System.Threading.Tasks.Task;
@@ -86,17 +87,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 // Need to set Resource property for resources in entries
                 foreach (var entry in bundle.Entry)
                 {
-                    if (entry is RawBundleEntryComponent { ResourceElement: not null } rawResource)
+                    if (entry is RawBundleEntryComponent { ResourceElement: not null } rawBundleEntryComponent)
                     {
-                        var poco = rawResource.ResourceElement.ToPoco<Resource>(_deserializer);
+                        Resource poco = rawBundleEntryComponent.ResourceElement.ToPoco<Resource>(_deserializer);
+                        rawBundleEntryComponent.Resource = poco;
 
-                        if (poco.TypeName == KnownResourceTypes.OperationOutcome)
+                        if (rawBundleEntryComponent.Response is RawBundleResponseComponent { OutcomeElement: not null } outcomeElement)
                         {
-                            rawResource.Response.Outcome = poco;
-                        }
-                        else
-                        {
-                            rawResource.Resource = poco;
+                            rawBundleEntryComponent.Response.Outcome = outcomeElement.OutcomeElement.ToPoco<OperationOutcome>(_deserializer);
                         }
 
                         if (hasElements)

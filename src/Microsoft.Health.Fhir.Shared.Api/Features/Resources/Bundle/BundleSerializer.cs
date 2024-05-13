@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -56,9 +55,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         itemWriter: (_, component) =>
                         {
                             var rawComponent = component as RawBundleEntryComponent;
+                            var rawOutcomeComponent = component?.Response as RawBundleResponseComponent;
+
                             b.WriteOptionalString("fullUrl", component.FullUrl)
                                 .ConditionIf(/* Support raw strings */
-                                    rawComponent?.ResourceElement != null && !string.Equals(rawComponent.ResourceElement.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
+                                    rawComponent?.ResourceElement != null,
                                     _ => b.WriteRawProperty("resource", rawComponent?.ResourceElement.SerializeToBytes()))
                                 .ElseIf(/* Support POCOs */
                                     rawComponent == null && component.Resource != null,
@@ -81,11 +82,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                         _ => b.WriteString("status", component.Response.Status)
                                             .WriteOptionalString("etag", component.Response.Etag)
                                             .WriteOptionalString("lastModified", component.Response.LastModified?.ToInstantString())
-                                            .Condition(
-                                                string.Equals(rawComponent?.ResourceElement?.InstanceType, KnownResourceTypes.OperationOutcome, StringComparison.Ordinal),
-                                                _ => b.WriteRawProperty("outcome", rawComponent?.ResourceElement.SerializeToBytes()))
-                                            .Condition(
-                                                rawComponent?.ResourceElement == null && component.Response.Outcome != null,
+                                            .ConditionIf(
+                                                rawOutcomeComponent?.OutcomeElement != null,
+                                                _ => b.WriteRawProperty("outcome", rawOutcomeComponent?.OutcomeElement.SerializeToBytes()))
+                                            .ElseIf(
+                                                rawOutcomeComponent?.OutcomeElement == null && component.Response.Outcome != null,
                                                 _ => b.WriteRawProperty("outcome", component.Response.Outcome.ToJsonBytes()))));
                         }))
                 .WriteEndObject();

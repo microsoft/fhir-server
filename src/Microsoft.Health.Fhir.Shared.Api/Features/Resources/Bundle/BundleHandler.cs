@@ -50,6 +50,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
@@ -645,7 +646,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         _resourceIdProvider.Create = originalResourceIdProvider;
 
-                        entryComponent = CreateEntryComponent(_fhirJsonParser, httpContext);
+                        entryComponent = CreateEntryComponent(httpContext);
 
                         foreach (string headerName in HeadersToAccumulate)
                         {
@@ -704,7 +705,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return throttledEntryComponent;
         }
 
-        private static RawBundleEntryComponent CreateEntryComponent(FhirJsonParser fhirJsonParser, HttpContext httpContext)
+        private static EntryComponent CreateEntryComponent(HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
             using var reader = new StreamReader(httpContext.Response.Body);
@@ -714,10 +715,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (!string.IsNullOrWhiteSpace(bodyContent))
             {
-                var rawResource = new RawResource(bodyContent, FhirResourceFormat.Json, true);
                 ResourceTypeDetector.TryPeek(bodyContent, out var resourceType);
+                var rawResource = new RawResource(bodyContent, FhirResourceFormat.Json, true);
+                var rawResourceElement = new RawResourceElement(rawResource, resourceType);
 
-                var entryComponent = new RawBundleEntryComponent(new RawResourceElement(rawResource, resourceType))
+                // If a request returns an OperationOutcome, we need to return it as a response outcome.
+                if (string.Equals(KnownResourceTypes.OperationOutcome, resourceType, StringComparison.Ordinal))
+                {
+                    return new EntryComponent
+                    {
+                        Response = new RawBundleResponseComponent(rawResourceElement)
+                        {
+                            Status = httpContext.Response.StatusCode.ToString(),
+                            Location = responseHeaders.Location?.OriginalString,
+                            Etag = responseHeaders.ETag?.ToString(),
+                            LastModified = responseHeaders.LastModified,
+                        },
+                    };
+                }
+
+                var entryComponent = new RawBundleEntryComponent(rawResourceElement)
                 {
                     Response = new ResponseComponent
                     {

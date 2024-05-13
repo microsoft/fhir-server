@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Newtonsoft.Json;
@@ -92,13 +93,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         if (rawBundleEntryComponent is RawBundleEntryComponent { ResourceElement: not null } entry)
                         {
                             Resource poco = entry.ResourceElement.ToPoco<Resource>(_deserializer);
-                            if (poco.TypeName == KnownResourceTypes.OperationOutcome)
+                            rawBundleEntryComponent.Resource = poco;
+
+                            if (rawBundleEntryComponent.Response is RawBundleResponseComponent { OutcomeElement: not null } outcomeElement)
                             {
-                                rawBundleEntryComponent.Response.Outcome = poco;
-                            }
-                            else
-                            {
-                                rawBundleEntryComponent.Resource = poco;
+                                rawBundleEntryComponent.Response.Outcome = outcomeElement.OutcomeElement.ToPoco<OperationOutcome>(_deserializer);
                             }
 
                             if (hasElements)
