@@ -156,14 +156,14 @@ function Add-AadTestAuthEnvironment {
 
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
-            $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
+            $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsSecureString -Force
 
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
 
-            $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
+            $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsSecureString -Force
         }
 
         if ($publicClient) {
@@ -179,7 +179,7 @@ function Add-AadTestAuthEnvironment {
             appId       = $aadClientApplication.AppId
         }
 
-        $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
+        $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsSecureString -Force
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null
 

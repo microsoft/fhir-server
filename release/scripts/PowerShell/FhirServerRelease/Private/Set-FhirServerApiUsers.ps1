@@ -63,7 +63,7 @@ function Set-FhirServerApiUsers {
 
         Add-Type -AssemblyName System.Web
         $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
-        $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
+        $passwordSecureString = ConvertTo-SecureString $password -AsSecureString -Force
 
         if ($aadUser) {
             Set-AzureADUserPassword -ObjectId $aadUser.ObjectId -Password $passwordSecureString -EnforceChangePasswordPolicy $false -ForceChangePasswordNextLogin $false
@@ -77,7 +77,7 @@ function Set-FhirServerApiUsers {
             $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
         }
 
-        $upnSecureString = ConvertTo-SecureString -string $userUpn -AsPlainText -Force
+        $upnSecureString = ConvertTo-SecureString -string $userUpn -AsSecureString -Force
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--id" -SecretValue $upnSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--secret" -SecretValue $passwordSecureString | Out-Null
 
