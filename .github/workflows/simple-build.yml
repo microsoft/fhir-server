@@ -44,3 +44,8 @@ jobs:
         dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build -c Release
       # dotnet pack ${{github.workspace}}\Microsoft.Health.Fhir.sln --output ${{env.outputPath}}/nupkgs --no-build --configuration=${{env.buildConfiguration}} -p:PackageVersion=${{needs.setup.outputs.majorMinorPatch}}
 
+    - name: Upload Nuget Packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget
+        path: ${{env.outputPath}}/nupkgs
