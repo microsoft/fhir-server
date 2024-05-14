@@ -31,7 +31,6 @@
       <MutableClassVersion Condition="'%(Filename)' == '$(LatestSchemaVersion)'">Latest</MutableClassVersion>
     </EmbeddedResource>
   </ItemGroup>
-  
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\*.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\*.sql" Exclude="Features\Schema\Migrations\*.diff.sql;Features\Schema\Migrations\$(LatestSchemaVersion).sql">
