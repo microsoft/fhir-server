@@ -183,6 +183,55 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedBeforeImplicit()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson1 = CreateTestPatient(id);
+            var ndJson2 = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-1));
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("1", history.Resource.Entry[0].Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedAfterImplicit()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson1 = CreateTestPatient(id);
+            var ndJson2 = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(1));
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("1", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("-1", history.Resource.Entry[1].Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleInputVersionsWithDelete()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var date = DateTimeOffset.Parse("2000-01-01Z00:00");
+            var ndJson1 = CreateTestPatient(id, date);
+            var ndJson2 = CreateTestPatient(id, date.AddHours(1), deleted: true);
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson1 + ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            ////Assert.True(history.Resource.Entry[0].IsDeleted()); TODO: Uncomment when bug is fixed.
+            Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
+            Assert.False(history.Resource.Entry[1].IsDeleted());
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder2NotExplicit_ResourceNotExisting_NoGap()
         {
             var id = Guid.NewGuid().ToString("N");

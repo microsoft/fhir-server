@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // We expect only the first resource to be imported. Validating the non-deleted resources are returned.
             List<Resource> expectedNonHistorical = testResources
                 .GroupBy(x => x.Id)
-                .Select(x => x.First())
+                .Select(x => x.OrderByDescending(_ => _.Meta.LastUpdated).First())
                 .Where(x => !x.Meta.Extension.Any(e => e.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 .ToList();
 

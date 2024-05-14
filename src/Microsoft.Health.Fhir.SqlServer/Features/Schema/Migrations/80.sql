@@ -2968,8 +2968,9 @@ BEGIN TRY
                              FROM   dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                              WHERE  B.ResourceTypeId = A.ResourceTypeId
                                     AND B.ResourceId = A.ResourceId
-                                    AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE isnull(M.Version, 0) - 1 END AS Version
-    FROM   (SELECT TOP (@DummyTop) *
+                                    AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex ELSE isnull(M.Version, 0) - ResourceIndex END AS Version
+    FROM   (SELECT TOP (@DummyTop) *,
+                                   CONVERT (INT, row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) AS ResourceIndex
             FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
                                                         FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                         WHERE    B.ResourceTypeId = A.ResourceTypeId

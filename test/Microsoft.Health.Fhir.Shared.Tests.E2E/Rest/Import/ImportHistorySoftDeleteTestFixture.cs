@@ -147,13 +147,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 new(),
                 new()
                 {
+                    //// Both versions imported. Final state: isDeleted = true.
                     CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
                     CreateTestPatient(id: sharedIds[0], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
+                    //// Both versions imported. Final state: isDeleted = true
                     CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow, deleted: true),
                     CreateTestPatient(id: sharedIds[1], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1)),
-
+                    //// Both versions imported. Final state: isDeleted = false
                     CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
                     CreateTestPatient(id: sharedIds[2], lastUpdated: DateTimeOffset.UtcNow),
+                    //// Both versions imported. Final state: isDeleted = false
                     CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow),
                     CreateTestPatient(id: sharedIds[3], lastUpdated: DateTimeOffset.UtcNow.AddSeconds(-1), deleted: true),
 

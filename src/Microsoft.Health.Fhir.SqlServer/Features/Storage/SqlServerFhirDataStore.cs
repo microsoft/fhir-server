@@ -180,7 +180,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
                 var resource = resourceExt.Wrapper;
-                var identifier = resourceExt.GetIdentifier();
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
                 var existingVersion = 0;
@@ -193,12 +192,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
-                            results.Add(identifier, new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceConflictException(weakETag)));
                             continue;
                         }
 
                         _logger.LogInformation("PreconditionFailed: ResourceVersionConflict");
-                        results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId))));
                         continue;
                     }
                 }
@@ -209,7 +208,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (resource.IsDeleted && !keepAllDeleted)
                     {
                         // Don't bother marking the resource as deleted since it already does not exist and there are not any other resources in the batch that are not deleted
-                        results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
 
@@ -218,18 +217,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         // You can't update a resource with a specified version if the resource does not exist
                         if (weakETag != null)
                         {
-                            results.Add(identifier, new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId))));
                             continue;
                         }
                     }
 
                     if (!resourceExt.AllowCreate)
                     {
-                        results.Add(identifier, new DataStoreOperationOutcome(new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed)));
                         continue;
                     }
 
-                    resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
                     if (resource.Version == InitialVersion)
                     {
                         hasVersionToCompare = true;
@@ -247,18 +245,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                         {
                             _logger.LogInformation("PreconditionFailed: IfMatchHeaderRequiredForResource");
-                            results.Add(identifier, new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                             continue;
                         }
 
-                        results.Add(identifier, new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                         continue;
                     }
 
                     if (resource.IsDeleted && existingResource.IsDeleted && !keepAllDeleted)
                     {
                         // Already deleted - don't create a new version
-                        results.Add(identifier, new DataStoreOperationOutcome(outcome: null));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(outcome: null));
                         continue;
                     }
 
@@ -269,7 +267,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (ExistingRawResourceIsEqualToInput(resource, existingResource, resourceExt.KeepVersion))
                         {
                             // Send the existing resource in the response
-                            results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
+                            results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
                             continue;
                         }
                     }
@@ -315,7 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
-                results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
+                results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
             // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
@@ -444,13 +442,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
-                    // dedup by last updated - take first version for single last updated, prefer large version.
+                    // Dedup by last updated - take first version for single last updated, prefer large version.
+                    // for records without explicit last updated dedup on resource id only.
+                    // Note: Surrogate id on ResourceWrapper remains 0 at this point.
                     var inputsDedupped = resources
-                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true))
+                        .GroupBy(_ => new ResourceDateKey(
+                                             _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
+                                             _.ResourceWrapper.ResourceId,
+                                             _.KeepLastUpdated ? ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(_.ResourceWrapper.LastModified.DateTime) : 0,
+                                             null))
                         .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
                         .ToList();
 
-                    // dedup on lastUpdated against database
+                    // Dedup on lastUpdated against database
                     var matchedOnLastUpdated = new HashSet<ResourceDateKey>((await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), cancellationToken)).Where(_ => _.VersionId == "0"));
                     var fullyDedupped = new List<ImportResource>();
                     foreach (var resource in inputsDedupped)
@@ -467,7 +471,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     await HandleIncrementalVersionedImport(fullyDedupped, useReplicasForReads);
 
-                    await HandleIncrementalUnversionedImport(fullyDedupped, useReplicasForReads);
+                    await HandleIncrementalUnversionedImport(fullyDedupped.Where(_ => _.KeepLastUpdated).ToList(), useReplicasForReads);
+
+                    await HandleIncrementalUnversionedImport(fullyDedupped.Where(_ => !_.KeepLastUpdated).ToList(), useReplicasForReads);
                 }
 
                 return (loaded, conflicts);
@@ -525,30 +531,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     var inputsNoVersion = inputs.Where(_ => !_.KeepVersion).ToList();
 
-                    // Ensure that the imported resources can "fit" in the db. We want to keep versionId sequential alinged to lastUpdated if possible.
-                    // First part is setup.
-                    var currentDates = (await GetAsync(inputsNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
+                    // Check curent version in the database.
+                    var currentInDb = (await GetAsync(inputsNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
+
+                    // If last updated on input resource is below current, then need to check the "fit".
                     var inputsNoVersionForCheck = new List<ImportResource>();
                     foreach (var resource in inputsNoVersion)
                     {
-                        if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var dateKey)
-                            && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
+                        if (currentInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var current) && resource.ResourceWrapper.LastModified < current.LastModified)
                         {
                             inputsNoVersionForCheck.Add(resource);
                         }
                     }
 
-                    // Second part is testing if the imported resources can "fit" in the db.
+                    // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
+                    // Note: surrogate id is populated from last updated by ToResourceDateKey(), therefore we can trust this value as part of dictionary key.
                     var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceDateKey(_.ResourceTypeId, _.Id, _.ResourceSurrogateId, null), _ => _);
-                    var prevResourceId = string.Empty;
-                    var negativeVersioinIncremet = 0; // if there are >1 late arrivals negative versions returned from the database are incremented
                     foreach (var resource in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
-                        if (prevResourceId != resource.ResourceWrapper.ResourceId)
-                        {
-                            negativeVersioinIncremet = 0;
-                        }
-
                         var resourceKey = resource.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
                         versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
                         if (versionSlotKey.VersionId == "0") // conflict on last updated
@@ -567,8 +567,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             {
                                 if (allowNegativeVersions)
                                 {
-                                    resource.ResourceWrapper.Version = (intVersion - negativeVersioinIncremet).ToString();
-                                    negativeVersioinIncremet++;
+                                    resource.ResourceWrapper.Version = intVersion.ToString();
                                 }
                                 else
                                 {
@@ -576,15 +575,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 }
                             }
                         }
+                    }
 
-                        prevResourceId = resource.ResourceWrapper.ResourceId;
+                    var inputNoConflict = inputsNoVersion.Except(conflicts);
+
+                    // Make sure that version is incremented taking into account current state in the database.
+                    var prevResourceId = string.Empty;
+                    var version = 0;
+                    foreach (var input in inputNoConflict.Where(_ => _.KeepLastUpdated && !_.KeepVersion).OrderBy(_ => _.ResourceWrapper.ResourceId).ThenBy(_ => _.ResourceWrapper.LastModified))
+                    {
+                        if (prevResourceId != input.ResourceWrapper.ResourceId)
+                        {
+                            if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current))
+                            {
+                                version = int.Parse(current.Version);
+                            }
+                            else
+                            {
+                                version = 0;
+                            }
+                        }
+
+                        input.ResourceWrapper.Version = (++version).ToString();
+                        input.KeepVersion = true;
+                        prevResourceId = input.ResourceWrapper.ResourceId;
                     }
 
                     // Finally merge the resources to the db.
-                    var inputNoVersionNoConflict = inputsNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
-                    await MergeResourcesWithLastUpdatedAsync(inputNoVersionNoConflict.Where(_ => _.KeepVersion), useReplicasForReads);
-                    await MergeResourcesWithLastUpdatedAsync(inputNoVersionNoConflict.Where(_ => !_.KeepVersion), useReplicasForReads);
-                    loaded.AddRange(inputNoVersionNoConflict);
+                    await MergeResourcesWithLastUpdatedAsync(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), useReplicasForReads);
+                    loaded.AddRange(inputNoConflict);
                 }
             }
 
