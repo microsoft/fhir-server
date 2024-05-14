@@ -91,6 +91,10 @@ function Add-AadTestAuthEnvironment {
         Write-Host "Current context is service principal: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
     }
+    elseif ($azContext.Account.Type -eq "ClientAssertion") {
+        Write-Host "Current context is ClientAssertion: $($azContext.Account.Id)"
+        $currentObjectId = (Get-AzADServicePrincipal -ServicePrincipalName $azContext.Account.Id).Id
+    }
     else {
         Write-Host "Current context is account of type '$($azContext.Account.Type)' with id of '$($azContext.Account.Id)"
         throw "Running as an unsupported account type. Please use either a 'User' or 'Service Principal' to run this command"
