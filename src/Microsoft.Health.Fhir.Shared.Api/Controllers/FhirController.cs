@@ -571,6 +571,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route("", Name = RouteNames.SearchAllResources)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
+        [TypeFilter(typeof(SearchEndpointMetricEmitterAttribute))]
         public async Task<IActionResult> Search()
         {
             return await SearchByResourceType(typeParameter: null);

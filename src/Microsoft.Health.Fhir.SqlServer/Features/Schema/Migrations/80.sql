@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (79, 'started');
+VALUES (80, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -2965,30 +2965,21 @@ BEGIN TRY
            A.ResourceId,
            A.ResourceSurrogateId,
            CASE WHEN EXISTS (SELECT *
-                             FROM   dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
+                             FROM   dbo.Resource AS B
                              WHERE  B.ResourceTypeId = A.ResourceTypeId
-                                    AND B.ResourceId = A.ResourceId
-                                    AND B.ResourceSurrogateId BETWEEN A.ResourceSurrogateId AND A.ResourceSurrogateId + 79999) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > ResourceIndex THEN isnull(U.Version, 1) - ResourceIndex ELSE isnull(M.Version, 0) - ResourceIndex END AS Version
-    FROM   (SELECT TOP (@DummyTop) *,
-                                   CONVERT (INT, row_number() OVER (PARTITION BY ResourceTypeId, ResourceId ORDER BY ResourceSurrogateId DESC)) AS ResourceIndex
+                                    AND B.ResourceSurrogateId = A.ResourceSurrogateId) THEN 0 WHEN isnull(U.Version, 1) - isnull(L.Version, 0) > 1 THEN isnull(U.Version, 1) - 1 ELSE 0 END AS Version
+    FROM   (SELECT TOP (@DummyTop) *
             FROM   @ResourceDateKeys) AS A OUTER APPLY (SELECT   TOP 1 *
                                                         FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                         WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                  AND B.ResourceId = A.ResourceId
-                                                                 AND B.Version > 0
                                                                  AND B.ResourceSurrogateId < A.ResourceSurrogateId
                                                         ORDER BY B.ResourceSurrogateId DESC) AS L OUTER APPLY (SELECT   TOP 1 *
                                                                                                                FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
                                                                                                                WHERE    B.ResourceTypeId = A.ResourceTypeId
                                                                                                                         AND B.ResourceId = A.ResourceId
-                                                                                                                        AND B.Version > 0
                                                                                                                         AND B.ResourceSurrogateId > A.ResourceSurrogateId
-                                                                                                               ORDER BY B.ResourceSurrogateId) AS U OUTER APPLY (SELECT   TOP 1 *
-                                                                                                                                                                 FROM     dbo.Resource AS B WITH (INDEX (IX_Resource_ResourceTypeId_ResourceId_Version))
-                                                                                                                                                                 WHERE    B.ResourceTypeId = A.ResourceTypeId
-                                                                                                                                                                          AND B.ResourceId = A.ResourceId
-                                                                                                                                                                          AND B.Version < 0
-                                                                                                                                                                 ORDER BY B.Version) AS M
+                                                                                                               ORDER BY B.ResourceSurrogateId) AS U
     OPTION (MAXDOP 1, OPTIMIZE FOR (@DummyTop = 1));
     EXECUTE dbo.LogEvent @Process = @SP, @Mode = @Mode, @Status = 'End', @Start = @st, @Rows = @@rowcount;
 END TRY
