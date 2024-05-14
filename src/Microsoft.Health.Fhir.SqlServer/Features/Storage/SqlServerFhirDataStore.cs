@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
                     var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
                     loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
-                    await MergeResourcesWithLastUpdatedAsync(loaded, useReplicasForReads);
+                    await Merge(loaded, useReplicasForReads);
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
@@ -470,16 +470,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    await HandleIncrementalVersionedImport(fullyDedupped, useReplicasForReads);
+                    // make sure that data with explicit and default last updated are merged separately
+                    await MergeVersioned(fullyDedupped, useReplicasForReads);
 
-                    await HandleIncrementalUnversionedImport(fullyDedupped.Where(_ => _.KeepLastUpdated).ToList(), useReplicasForReads);
+                    await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated).ToList(), useReplicasForReads);
 
-                    await HandleIncrementalUnversionedImport(fullyDedupped.Where(_ => !_.KeepLastUpdated).ToList(), useReplicasForReads);
+                    await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated).ToList(), useReplicasForReads);
                 }
 
                 return (loaded, conflicts);
 
-                async Task HandleIncrementalVersionedImport(List<ImportResource> inputs, bool useReplicasForReads)
+                async Task MergeVersioned(List<ImportResource> inputs, bool useReplicasForReads)
                 {
                     // Dedup by version via ToResourceKey - prefer latest dates.
                     var inputsWithVersion = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First()).ToList();
@@ -524,11 +525,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
-                    await MergeResourcesWithLastUpdatedAsync(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified), useReplicasForReads);
+                    await Merge(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified), useReplicasForReads);
                     loaded.AddRange(toBeLoaded);
                 }
 
-                async Task HandleIncrementalUnversionedImport(List<ImportResource> inputs, bool useReplicasForReads)
+                async Task MergeUnversioned(List<ImportResource> inputs, bool useReplicasForReads)
                 {
                     var inputsNoVersion = inputs.Where(_ => !_.KeepVersion).ToList();
 
@@ -587,14 +588,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (prevResourceId != input.ResourceWrapper.ResourceId)
                         {
-                            if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current))
-                            {
-                                version = int.Parse(current.Version);
-                            }
-                            else
-                            {
-                                version = 0;
-                            }
+                            version = currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) ? int.Parse(current.Version) : 0;
                         }
 
                         input.ResourceWrapper.Version = (++version).ToString();
@@ -603,17 +597,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     // Finally merge the resources to the db.
-                    await MergeResourcesWithLastUpdatedAsync(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), useReplicasForReads);
+                    await Merge(inputNoConflict.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => int.Parse(_.ResourceWrapper.Version)), useReplicasForReads);
                     loaded.AddRange(inputNoConflict);
                 }
             }
 
-            async Task MergeResourcesWithLastUpdatedAsync(IEnumerable<ImportResource> resources, bool useReplicasForReads)
+            async Task Merge(IEnumerable<ImportResource> resources, bool useReplicasForReads)
             {
-                var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+                var input = resources.Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
                 await MergeInternalAsync(input, true, true, false, useReplicasForReads, cancellationToken);
-                input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
-                await MergeInternalAsync(input, false, true, false, useReplicasForReads, cancellationToken);
             }
         }
 
