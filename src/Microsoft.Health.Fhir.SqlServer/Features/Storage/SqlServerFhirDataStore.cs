@@ -228,6 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         continue;
                     }
 
+                    resource.Version = resourceExt.KeepVersion ? resource.Version : InitialVersion;
                     if (resource.Version == InitialVersion)
                     {
                         hasVersionToCompare = true;
