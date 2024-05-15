@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
-                        results.Add(identifier, new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
+                        results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                         continue;
                     }
 
