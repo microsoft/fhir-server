@@ -96,7 +96,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 }
 
                 _logger.LogError($"Convert data failed. An exception of type {convertException.GetType()} occurred with error code - {convertException.FhirConverterErrorCode}. {convertException.StackTrace}");
-
                 throw new ConvertDataFailedException(string.Format(Core.Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)
