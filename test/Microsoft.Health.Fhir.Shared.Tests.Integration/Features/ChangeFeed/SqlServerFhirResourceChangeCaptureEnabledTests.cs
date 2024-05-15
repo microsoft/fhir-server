@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
@@ -17,6 +22,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Watchdogs;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -91,6 +97,35 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
             Assert.NotNull(resourceChangeData);
             Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
+        }
+
+        [Fact]
+        public async Task GivenADatabaseSupportsResourceChangeCapture_WhenImportingNegativeVersions_ThenResourceChangesShouldBeReturned()
+        {
+            ExecuteSql("TRUNCATE TABLE dbo.Resource");
+
+            var store = (SqlServerFhirDataStore)_fixture.DataStore;
+
+            var id = Guid.NewGuid().ToString("N");
+            var date = DateTimeOffset.UtcNow;
+            var wrapper = CreateTestPatient(id, date.AddHours(-1)); // version 1
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+            wrapper = CreateTestPatient(id, date); // version 2
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+            wrapper = CreateTestPatient(id, date.AddHours(-2)); // version -1
+            await store.ImportResourcesAsync([new ImportResource(0, 0, 0, true, false, false, wrapper)], ImportMode.IncrementalLoad, true, CancellationToken.None);
+
+            Assert.Equal(3, await GetCount());
+
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
+            var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
+
+            Assert.NotNull(resourceChanges);
+            Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == "1" && x.ResourceId == id));
+            Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == "2" && x.ResourceId == id));
+
+            // negative versions are filtered out according to the existing logic because they are historical
+            Assert.Empty(resourceChanges.Where(x => x.ResourceVersion.ToString() == "-1" && x.ResourceId == id));
         }
 
         [Fact]
@@ -375,6 +410,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             cmd.CommandTimeout = 120;
             cmd.CommandText = "SELECT count(*) FROM dbo.Resource";
             return (int)await cmd.ExecuteScalarAsync(CancellationToken.None);
+        }
+
+        private ResourceWrapper CreateTestPatient(string id = null, DateTimeOffset? lastUpdated = null)
+        {
+            var patient = new Hl7.Fhir.Model.Patient()
+            {
+                Id = id ?? Guid.NewGuid().ToString("N"),
+                Meta = new(),
+            };
+
+            if (lastUpdated is not null)
+            {
+                patient.Meta = new Hl7.Fhir.Model.Meta { LastUpdated = lastUpdated };
+            }
+
+            var resource = patient.ToTypedElement().ToResourceElement();
+            var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
+            var wrapper = new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest("Import"), true, new List<SearchIndexEntry>(), null, null, "ABC");
+
+            return wrapper;
         }
     }
 }
