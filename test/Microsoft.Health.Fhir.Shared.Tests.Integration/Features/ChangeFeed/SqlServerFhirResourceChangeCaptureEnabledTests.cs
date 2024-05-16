@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
             Assert.NotNull(resourceChanges);
             Assert.Single(resourceChanges.Where(x => x.ResourceId == deserialized.Id));
-            Assert.Equal(ResourceChangeTypeCreated, resourceChanges.First().ResourceChangeTypeId);
+            Assert.Equal(ResourceChangeTypeCreated, resourceChanges.First(x => x.ResourceId == deserialized.Id).ResourceChangeTypeId);
         }
 
         /// <summary>
