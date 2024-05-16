@@ -49,3 +49,13 @@ jobs:
       with:
         name: nuget
         path: ${{env.outputPath}}/nupkgs
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Build Docker image
+      run: |
+        docker build -t myregistry.azurecr.io/myimage:${{ github.sha }} .
+        docker push myregistry.azurecr.io/myimage:${{ github.sha }}
