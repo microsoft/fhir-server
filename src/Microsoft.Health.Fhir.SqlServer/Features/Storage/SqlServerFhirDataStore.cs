@@ -481,7 +481,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 return (loaded, conflicts);
 
-                List<ImportResource> RemoveOutOfOrderVersionConflicts(IEnumerable<ImportResource> inputs)
+                List<ImportResource> RemoveVersionOutOfSyncWithLastUpdatedConflicts(IEnumerable<ImportResource> inputs)
                 {
                     // Remove conflicts where versions and last updated are out of order
                     var prevResourceId = string.Empty;
@@ -516,7 +516,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // Dedup by version via ToResourceKey - prefer latest dates.
                     var inputsWithVersionTemp = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First());
 
-                    var inputsWithVersion = RemoveOutOfOrderVersionConflicts(inputsWithVersionTemp);
+                    var inputsWithVersion = RemoveVersionOutOfSyncWithLastUpdatedConflicts(inputsWithVersionTemp);
 
                     // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
                     var versionsInDb = (await GetAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);

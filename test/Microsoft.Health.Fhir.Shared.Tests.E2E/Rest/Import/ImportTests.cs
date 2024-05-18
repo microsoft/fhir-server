@@ -265,7 +265,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_InputVersionsOutOfOrder_SeparateImports()
+        public async Task GivenIncrementalLoad_InputVersionsOutOfSyncWithLastUpdated_SeparateImports()
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "3", "2001");
@@ -285,7 +285,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
-        public async Task GivenIncrementalLoad_InputVersionsOutOfOrder_ResourceNotExisting()
+        public async Task GivenIncrementalLoad_InputVersionsOutOfSyncWithLastUpdated_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");
             var ndJson = PrepareResource(id, "3", "2001");
