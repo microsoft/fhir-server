@@ -265,6 +265,42 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_InputVersionsOutOfOrder_SeparateImports()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "3", "2001");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            ndJson = PrepareResource(id, "2", "2004");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 1);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("3", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2001"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_InputVersionsOutOfOrder_ResourceNotExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = PrepareResource(id, "3", "2001");
+            var ndJson2 = PrepareResource(id, "2", "2004");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson + ndJson2, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 1);
+
+            // check current
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("2", result.Resource.Meta.VersionId);
+            Assert.Equal(GetLastUpdated("2004"), result.Resource.Meta.LastUpdated);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleInputVersionsOutOfOrder1NotExplicit_ResourceNotExisting_NoGap_AllowNegative()
         {
             var id = Guid.NewGuid().ToString("N");

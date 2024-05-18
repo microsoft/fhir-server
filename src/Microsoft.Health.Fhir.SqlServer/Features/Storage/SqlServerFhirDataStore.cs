@@ -481,10 +481,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 return (loaded, conflicts);
 
+                List<ImportResource> RemoveOutOfOrderVersionConflicts(IEnumerable<ImportResource> inputs)
+                {
+                    // Remove conflicts where versions and last updated are out of order
+                    var prevResourceId = string.Empty;
+                    var prevVersion = int.MaxValue;
+                    var inputsWithVersion = new List<ImportResource>();
+                    foreach (var input in inputs.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
+                    {
+                        if (prevResourceId != input.ResourceWrapper.ResourceId)
+                        {
+                            prevVersion = int.MaxValue;
+                        }
+
+                        var inputVersion = int.Parse(input.ResourceWrapper.Version);
+                        if (inputVersion >= prevVersion)
+                        {
+                            conflicts.Add(input);
+                        }
+                        else
+                        {
+                            inputsWithVersion.Add(input);
+                        }
+
+                        prevResourceId = input.ResourceWrapper.ResourceId;
+                        prevVersion = inputVersion;
+                    }
+
+                    return inputsWithVersion;
+                }
+
                 async Task MergeVersioned(List<ImportResource> inputs, bool useReplicasForReads)
                 {
                     // Dedup by version via ToResourceKey - prefer latest dates.
-                    var inputsWithVersion = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First()).ToList();
+                    var inputsWithVersionTemp = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First());
+
+                    var inputsWithVersion = RemoveOutOfOrderVersionConflicts(inputsWithVersionTemp);
 
                     // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
                     var versionsInDb = (await GetAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
