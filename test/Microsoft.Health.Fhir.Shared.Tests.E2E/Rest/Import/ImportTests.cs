@@ -273,7 +273,12 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             await ImportCheckAsync(request, null, 0);
 
-            ndJson = PrepareResource(id, "2", "2004");
+            ndJson = PrepareResource(id, "2", "2002"); // 2<3 but 2002>2001
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 1);
+
+            ndJson = PrepareResource(id, "4", "2000"); // 4>3 but 2000<2001
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             await ImportCheckAsync(request, null, 1);

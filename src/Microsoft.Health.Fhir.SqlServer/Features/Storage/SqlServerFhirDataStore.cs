@@ -961,7 +961,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
                     return value != null && (double)value == 1;
                 }
-                catch (SqlException)
+                catch (Exception)
                 {
                     return null;
                 }
@@ -1016,7 +1016,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
                     return value == null || (double)value == 1;
                 }
-                catch (SqlException)
+                catch (Exception)
                 {
                     return null;
                 }
