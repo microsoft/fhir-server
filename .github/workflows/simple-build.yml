@@ -12,7 +12,6 @@ env:
     composeLocation: build/docker/docker-compose.yaml
     imageTag: ${{github.run_number}}
     outputPath: ${{github.workspace}}/artifacts
-    defaultDotNetVersion: net8.0.204
 
 jobs:
   buildTestAndPackage:
@@ -24,7 +23,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 8.0.204
 
     - name: Restore dependencies
       run: dotnet restore
