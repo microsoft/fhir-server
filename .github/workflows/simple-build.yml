@@ -12,7 +12,7 @@ env:
     composeLocation: build/docker/docker-compose.yaml
     imageTag: ${{github.run_number}}
     outputPath: ${{github.workspace}}/artifacts
-    defaultDotNetVersion: net8.0.205
+    defaultDotNetVersion: net8.0.204
 
 jobs:
   buildTestAndPackage:
