@@ -337,15 +337,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             var request = GetFhirRequestWithDefaultTemplates();
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertEngine.Process(request, CancellationToken.None));
-            Assert.True(exception.InnerException is PostprocessException);
+            var fhirConverterException = exception.InnerException as FhirConverterException;
+            Assert.True(fhirConverterException is PostprocessException);
 
             logger
                 .Received()
-                .Log(LogLevel.Information, Arg.Any<string>());
+                .Log(LogLevel.Error, Arg.Is<string>(s => s.Equals($"Convert data failed. An exception of type {fhirConverterException.GetType()} occurred with error code - {fhirConverterException.FhirConverterErrorCode}. {fhirConverterException.StackTrace}")), Arg.Is<FhirConverterException>(e => e == null));
 
             logger
                 .DidNotReceive()
-                .Log(LogLevel.Information, Arg.Any<string>(), Arg.Is<PostprocessException>(e => e != null));
+                .Log(Arg.Any<LogLevel>(), Arg.Any<string>(), Arg.Is<FhirConverterException>(e => e != null));
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
