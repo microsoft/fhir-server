@@ -105,7 +105,8 @@ Content-Type:application/fhir+json
 | Parameter Name      | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
-| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| allowNegativeVersions | Allows FHIR server assigning negative versions for out of order processed records with explicit lastUpdated value and no version specified. | 0..1 | To enable this feature pass true. By default it is false. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -127,6 +128,10 @@ Content-Type:application/fhir+json
         {
             "name": "mode",
             "valueString": "IncrementalLoad"
+        },
+        {
+            "name": "allowNegativeVersions",
+            "valueBoolean": true
         },
         {
             "name": "input",
