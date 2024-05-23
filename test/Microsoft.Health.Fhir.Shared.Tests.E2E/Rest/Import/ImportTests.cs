@@ -183,6 +183,80 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_MultipleImportsWithSameLastUpdatedAndExplicitVersion()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var baseDate = DateTimeOffset.UtcNow.AddYears(-1);
+            var ndJson = CreateTestPatient(id, baseDate, "2");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+
+            // load prior version
+            ndJson = CreateTestPatient(id, baseDate.AddYears(-1), "1");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
+
+            // re-load prior version
+            ndJson = CreateTestPatient(id, baseDate.AddYears(-1), "1");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_MultipleImportsWithSameLastUpdatedAndImplicitVersion()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var baseDate = DateTimeOffset.UtcNow.AddYears(-1);
+            var ndJson = CreateTestPatient(id, baseDate, "2");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+
+            // load prior version
+            ndJson = CreateTestPatient(id, baseDate.AddYears(-1));
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
+
+            // re-load prior version
+            ndJson = CreateTestPatient(id, baseDate.AddYears(-1));
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 1);
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("2", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("1", history.Resource.Entry[1].Resource.VersionId);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedBeforeImplicit()
         {
             var id = Guid.NewGuid().ToString("N");

@@ -524,23 +524,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     // If resources are identical consider already loaded. We should compare both last updated and raw resource
                     // if dates or raw resource do not match consider as conflict
                     var loadCandidates = new List<ImportResource>();
-                    foreach (var resource in inputsWithVersion)
+                    foreach (var input in inputsWithVersion)
                     {
-                        if (versionsInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(), out var versionInDb))
+                        if (versionsInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(), out var versionInDb))
                         {
-                            var identical = versionInDb.LastModified == resource.ResourceWrapper.LastModified && versionInDb.RawResource.Data == resource.ResourceWrapper.RawResource.Data;
-                            if (identical)
+                            // make sure that input last updated is truncated to the same precision as database one
+                            var lastUpdatedEqual = versionInDb.LastModified.DateTime == ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(input.ResourceWrapper.LastModified.DateTime));
+                            var dataEqual = versionInDb.RawResource.Data == input.ResourceWrapper.RawResource.Data;
+                            if (lastUpdatedEqual && dataEqual)
                             {
-                                loaded.Add(resource);
+                                loaded.Add(input);
                             }
                             else
                             {
-                                conflicts.Add(resource); // version match but diff dates or raw resources
+                                conflicts.Add(input); // version match but diff dates or raw resources
                             }
                         }
                         else
                         {
-                            loadCandidates.Add(resource);
+                            loadCandidates.Add(input);
                         }
                     }
 
@@ -578,42 +580,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // If last updated on input resource is below current, then need to check the "fit".
                     var inputsNoVersionForCheck = new List<ImportResource>();
-                    foreach (var resource in inputsNoVersion)
+                    foreach (var input in inputsNoVersion)
                     {
-                        if (currentInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var current) && resource.ResourceWrapper.LastModified < current.LastModified)
+                        if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) && input.ResourceWrapper.LastModified < current.LastModified)
                         {
-                            inputsNoVersionForCheck.Add(resource);
+                            inputsNoVersionForCheck.Add(input);
                         }
                     }
 
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateKey(), therefore we can trust this value as part of dictionary key.
                     var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceDateKey(_.ResourceTypeId, _.Id, _.ResourceSurrogateId, null), _ => _);
-                    foreach (var resource in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
+                    foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
-                        var resourceKey = resource.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
+                        var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
                         versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
                         if (versionSlotKey.VersionId == "0") // conflict on last updated
                         {
-                            conflicts.Add(resource);
+                            conflicts.Add(input);
                         }
                         else
                         {
-                            resource.KeepVersion = true;
+                            input.KeepVersion = true;
                             int intVersion;
                             if ((intVersion = int.Parse(versionSlotKey.VersionId)) > 0)
                             {
-                                resource.ResourceWrapper.Version = versionSlotKey.VersionId;
+                                input.ResourceWrapper.Version = versionSlotKey.VersionId;
                             }
                             else
                             {
                                 if (allowNegativeVersions)
                                 {
-                                    resource.ResourceWrapper.Version = intVersion.ToString();
+                                    input.ResourceWrapper.Version = intVersion.ToString();
                                 }
                                 else
                                 {
-                                    conflicts.Add(resource); // no version slot available and negative versions are not allowed
+                                    conflicts.Add(input); // no version slot available and negative versions are not allowed
                                 }
                             }
                         }
