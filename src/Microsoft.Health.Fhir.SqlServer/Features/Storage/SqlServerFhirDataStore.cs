@@ -526,10 +526,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     var loadCandidates = new List<ImportResource>();
                     foreach (var resource in inputsWithVersion)
                     {
-                        if (versionsInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(), out var versionInDb)
-                            && !(versionInDb.LastModified == resource.ResourceWrapper.LastModified && versionInDb.RawResource.Data == resource.ResourceWrapper.RawResource.Data))
+                        if (versionsInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(), out var versionInDb))
                         {
-                            conflicts.Add(resource); // version match but diff dates or raw resources
+                            var identical = versionInDb.LastModified == resource.ResourceWrapper.LastModified && versionInDb.RawResource.Data == resource.ResourceWrapper.RawResource.Data;
+                            if (identical)
+                            {
+                                loaded.Add(resource);
+                            }
+                            else
+                            {
+                                conflicts.Add(resource); // version match but diff dates or raw resources
+                            }
                         }
                         else
                         {
