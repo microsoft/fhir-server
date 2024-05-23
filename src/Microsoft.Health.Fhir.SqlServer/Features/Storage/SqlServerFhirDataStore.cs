@@ -529,7 +529,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         if (versionsInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(), out var versionInDb))
                         {
                             // make sure that input last updated is truncated to the same precision as database one
-                            var lastUpdatedEqual = versionInDb.LastModified.DateTime == ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(input.ResourceWrapper.LastModified.DateTime));
+                            // this logic relies on correct truncation in import resource parser
+                            var lastUpdatedEqual = versionInDb.LastModified.DateTime == input.ResourceWrapper.LastModified.DateTime;
                             var dataEqual = versionInDb.RawResource.Data == input.ResourceWrapper.RawResource.Data;
                             if (lastUpdatedEqual && dataEqual)
                             {
