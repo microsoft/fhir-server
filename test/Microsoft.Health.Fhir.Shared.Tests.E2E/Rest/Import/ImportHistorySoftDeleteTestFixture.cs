@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
@@ -192,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             if (lastUpdated is not null)
             {
-                rtn.Meta = new Meta { LastUpdated = lastUpdated };
+                rtn.Meta = new Meta { LastUpdated = lastUpdated.Value.DateTime.TruncateToMillisecond() };
             }
 
             if (versionId is not null)
