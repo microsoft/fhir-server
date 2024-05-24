@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             resource.Meta.LastUpdated = (lastUpdatedIsNull ? Clock.UtcNow.DateTime : resource.Meta.LastUpdated.Value.DateTime).TruncateToMillisecond();
 
             var keepVersion = true;
-            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var version))
+            if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
             {
                 resource.Meta.VersionId = "1";
                 keepVersion = false;
