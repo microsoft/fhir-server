@@ -172,7 +172,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var singleTransaction = enlistInTransaction;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId; // this assumes that first resource version is the latest one
+                // negative versions are historical by definition
+                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId || int.Parse(resourceExt.Wrapper.Version) < 0; // this assumes that first resource version is the latest one
                 prevResourceId = resourceExt.Wrapper.ResourceId;
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
@@ -495,7 +496,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var inputVersion = int.Parse(input.ResourceWrapper.Version);
-                        if (inputVersion >= prevVersion)
+                        if (inputVersion >= prevVersion && inputVersion > 0) // negatives cannot conflict
                         {
                             conflicts.Add(input);
                         }
