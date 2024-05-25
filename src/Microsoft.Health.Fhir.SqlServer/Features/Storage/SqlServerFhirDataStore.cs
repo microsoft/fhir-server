@@ -172,15 +172,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var singleTransaction = enlistInTransaction;
             foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                // negative versions are historical by definition
-                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId || int.Parse(resourceExt.Wrapper.Version) < 0; // this assumes that first resource version is the latest one
-                prevResourceId = resourceExt.Wrapper.ResourceId;
+                var resource = resourceExt.Wrapper;
+                var setAsHistory = prevResourceId == resource.ResourceId; // this assumes that first resource version is the latest one
+                //// negative versions are historical by definition
+                if (resourceExt.KeepVersion && int.Parse(resource.Version) < 0)
+                {
+                    setAsHistory = true;
+                }
+
+                prevResourceId = resource.ResourceId;
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
                     ? null
                     : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
-                var resource = resourceExt.Wrapper;
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
                 var existingVersion = 0;
@@ -496,7 +501,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
 
                         var inputVersion = int.Parse(input.ResourceWrapper.Version);
-                        if (inputVersion >= prevVersion && inputVersion > 0) // negatives cannot conflict
+                        if (inputVersion < 0) // negatives shoud not participate in this logic
+                        {
+                            inputsWithVersion.Add(input);
+                            continue;
+                        }
+
+                        if (inputVersion >= prevVersion)
                         {
                             conflicts.Add(input);
                         }
@@ -568,8 +579,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
-                    await Merge(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified), true, useReplicasForReads);
+                    // Import resource versions that don't exist in the db.
+                    // Sorting is used in merge to set isHistory - don't change it without updating that method!
+                    // negative versions should be last
+                    await Merge(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenBy(_ => int.Parse(_.ResourceWrapper.Version) < 0).ThenByDescending(_ => _.ResourceWrapper.LastModified), true, useReplicasForReads);
                     loaded.AddRange(toBeLoaded);
                 }
 
