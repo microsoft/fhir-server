@@ -40,7 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             var lastUpdatedIsNull = importMode == ImportMode.InitialLoad || resource.Meta.LastUpdated == null;
-            resource.Meta.LastUpdated = (lastUpdatedIsNull ? Clock.UtcNow.DateTime : resource.Meta.LastUpdated.Value.DateTime).TruncateToMillisecond();
+            var lastUpdated = lastUpdatedIsNull ? Clock.UtcNow : resource.Meta.LastUpdated.Value;
+            resource.Meta.LastUpdated = new DateTimeOffset(lastUpdated.DateTime.TruncateToMillisecond(), lastUpdated.Offset);
 
             var keepVersion = true;
             if (lastUpdatedIsNull || string.IsNullOrEmpty(resource.Meta.VersionId) || !int.TryParse(resource.Meta.VersionId, out var _))
