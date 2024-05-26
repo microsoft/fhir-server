@@ -559,31 +559,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    // get current resource versions
-                    var currentInDb = (await GetAsync(loadCandidates.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
-
-                    // check whether last updated and version are aligned
-                    var toBeLoaded = new List<ImportResource>();
-                    foreach (var resource in loadCandidates)
+                    // check whether input last updated and version are in sync with the database. skip for negatives.
+                    var loadCandidatesWithIntVersion = loadCandidates.Select(_ => new { Resource = _, IntVersion = int.Parse(_.ResourceWrapper.Version) }).ToList();
+                    var toBeLoaded = loadCandidatesWithIntVersion.Where(_ => _.IntVersion < 0).ToList();
+                    var currentInDb = (await GetAsync(loadCandidatesWithIntVersion.Where(_ => _.IntVersion > 0).Select(_ => _.Resource.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => new { Resource = _, IntVersion = int.Parse(_.Version) });
+                    foreach (var input in loadCandidatesWithIntVersion.Where(_ => _.IntVersion > 0))
                     {
-                        var inputVersion = int.Parse(resource.ResourceWrapper.Version);
-                        if (currentInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(true), out var inDb)
-                            && ((inDb.LastModified > resource.ResourceWrapper.LastModified && int.Parse(inDb.Version) < inputVersion)
-                                || (inDb.LastModified < resource.ResourceWrapper.LastModified && int.Parse(inDb.Version) > inputVersion)))
+                        if (currentInDb.TryGetValue(input.Resource.ResourceWrapper.ToResourceKey(true), out var inDb)
+                            && ((inDb.Resource.LastModified > input.Resource.ResourceWrapper.LastModified && inDb.IntVersion < input.IntVersion)
+                                || (inDb.Resource.LastModified < input.Resource.ResourceWrapper.LastModified && inDb.IntVersion > input.IntVersion)))
                         {
-                                conflicts.Add(resource); // version and last updated are not aligned
+                                conflicts.Add(input.Resource); // version and last updated are not aligned
                         }
                         else
                         {
-                            toBeLoaded.Add(resource);
+                            toBeLoaded.Add(input);
                         }
                     }
 
                     // Import resource versions that don't exist in the db.
                     // Sorting is used in merge to set isHistory - don't change it without updating that method!
                     // negative versions should be last
-                    await Merge(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenBy(_ => int.Parse(_.ResourceWrapper.Version) < 0).ThenByDescending(_ => _.ResourceWrapper.LastModified), true, useReplicasForReads);
-                    loaded.AddRange(toBeLoaded);
+                    await Merge(toBeLoaded.OrderBy(_ => _.Resource.ResourceWrapper.ResourceId).ThenBy(_ => _.IntVersion < 0).ThenByDescending(_ => _.Resource.ResourceWrapper.LastModified).Select(_ => _.Resource), true, useReplicasForReads);
+                    loaded.AddRange(toBeLoaded.Select(_ => _.Resource));
                 }
 
                 async Task MergeUnversioned(List<ImportResource> inputs, bool keepLastUpdated, bool useReplicasForReads)

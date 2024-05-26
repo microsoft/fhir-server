@@ -257,6 +257,65 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow, "4");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("4", history.Resource.Entry[0].Resource.VersionId);
+
+            ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-1), "-100");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0);
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("4", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("-100", history.Resource.Entry[1].Resource.VersionId);
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceNotExisting()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-2), "-200");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0); // loaded
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("-200", history.Resource.Entry[0].Resource.VersionId);
+
+            ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-4), "-100"); // out of order
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0); // loaded
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(2, history.Resource.Entry.Count);
+            Assert.Equal("-200", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("-100", history.Resource.Entry[1].Resource.VersionId);
+
+            ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-1), "-5");
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
+            await ImportCheckAsync(request, null, 0); // loaded
+
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Equal(3, history.Resource.Entry.Count);
+            Assert.Equal("-5", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("-200", history.Resource.Entry[1].Resource.VersionId);
+            Assert.Equal("-100", history.Resource.Entry[2].Resource.VersionId);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_MultipleInputsWithImplicitVersionsExplicitLastUpdatedBeforeImplicit()
         {
             var id = Guid.NewGuid().ToString("N");
