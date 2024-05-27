@@ -260,24 +260,26 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceExisting()
         {
             var id = Guid.NewGuid().ToString("N");
-            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow, "4");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-1), "4");
             var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             await ImportCheckAsync(request, null, 0);
 
-            var history = await _client.SearchAsync($"Patient/{id}/_history");
-            Assert.Single(history.Resource.Entry);
-            Assert.Equal("4", history.Resource.Entry[0].Resource.VersionId);
+            var result = await _client.ReadAsync<Patient>(ResourceType.Patient, id);
+            Assert.Equal("4", result.Resource.Meta.VersionId);
 
-            ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow.AddDays(-1), "-100");
+            ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow, "-100"); // latest but negative
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
             await ImportCheckAsync(request, null, 0);
 
-            history = await _client.SearchAsync($"Patient/{id}/_history");
+            result = await _client.ReadAsync<Patient>(ResourceType.Patient, id); // negative is loaded as history
+            Assert.Equal("4", result.Resource.Meta.VersionId);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
             Assert.Equal(2, history.Resource.Entry.Count);
-            Assert.Equal("4", history.Resource.Entry[0].Resource.VersionId);
-            Assert.Equal("-100", history.Resource.Entry[1].Resource.VersionId);
+            Assert.Equal("-100", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal("4", history.Resource.Entry[1].Resource.VersionId);
         }
 
         [Fact]
