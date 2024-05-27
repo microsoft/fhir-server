@@ -18,6 +18,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Core;
 using Microsoft.Health.Fhir.CosmosDb.Core.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage;
+using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning;
 using Polly;
 using Polly.Retry;
@@ -26,18 +27,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
 {
     public class DataPlaneCollectionSetup : ICollectionSetup
     {
+        private const int CollectionSettingsVersion = 3;
+
         private readonly ILogger<DataPlaneCollectionSetup> _logger;
         private readonly CosmosClient _client;
         private readonly Lazy<Container> _container;
-        private const int CollectionSettingsVersion = 3;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
+        private readonly IStoredProcedureInstaller _storedProcedureInstaller;
 
-        // TODO: move loggerto be the last parameter.
-        public DataPlaneCollectionSetup(CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration, ICosmosClientInitializer cosmosClientInitializer, ILogger<DataPlaneCollectionSetup> logger)
+        public DataPlaneCollectionSetup(
+            CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+            IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
+            ICosmosClientInitializer cosmosClientInitializer,
+            IStoredProcedureInstaller storedProcedureInstaller,
+            ILogger<DataPlaneCollectionSetup> logger)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
+            EnsureArg.IsNotNull(storedProcedureInstaller, nameof(storedProcedureInstaller));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
@@ -47,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
                 collectionId));
-
+            _storedProcedureInstaller = storedProcedureInstaller;
             _logger = logger;
         }
 
@@ -98,6 +106,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 }
 
                 _logger.LogInformation("Collections successfully initialized");
+
+                _logger.LogInformation("Installing Stored Procedures");
+
+                await _storedProcedureInstaller.ExecuteAsync(_container.Value, cancellationToken);
+
+                _logger.LogInformation("Stored Procedures are installed");
             }
             catch (Exception ex)
             {

@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 .ToArray()
                 .Select(type => (IStoredProcedureMetadata)Activator.CreateInstance(type));
 
-            var dataPlaneCollectionSetup = Substitute.For<ICollectionSetup>();
+            IStoredProcedureInstaller storedProcedureInstallter = new DataPlaneStoredProcedureInstaller(fhirStoredProcs);
 
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
 
@@ -122,8 +122,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IMediator mediator = Substitute.For<IMediator>();
 
-            IStoredProcedureInstaller storedProcedureInstallter = new DataPlaneStoredProcedureInstaller(fhirStoredProcs);
-
             ICollectionDataUpdater dataCollectionUpdater = new CosmosDbSearchParameterStatusInitializer(
                 () => _filebasedSearchParameterStatusDataStore,
                 new CosmosQueryFactory(
@@ -133,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
-            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, storedProcedureInstallter, dataPlaneCollectionSetup, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
+            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
@@ -149,7 +147,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.
             await CollectionInitializationSemaphore.WaitAsync();
-            var datacollectionSetup = new DataPlaneCollectionSetup(_cosmosDataStoreConfiguration, optionsMonitor, documentClientInitializer, NullLogger<DataPlaneCollectionSetup>.Instance);
+            var datacollectionSetup = new DataPlaneCollectionSetup(
+                _cosmosDataStoreConfiguration,
+                optionsMonitor,
+                documentClientInitializer,
+                storedProcedureInstallter,
+                NullLogger<DataPlaneCollectionSetup>.Instance);
             try
             {
                 await datacollectionSetup.CreateDatabaseAsync(retryExceptionPolicyFactory.RetryPolicy, CancellationToken.None);
