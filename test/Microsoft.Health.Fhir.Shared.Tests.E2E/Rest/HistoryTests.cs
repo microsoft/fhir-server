@@ -636,13 +636,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (since.HasValue)
             {
                 sb.AppendLine($"since={since.Value.ToString("o")}");
-                sb.AppendLine($"sinceSurr={SqlServer.Features.Storage.ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(since.Value.DateTime)}");
+                sb.AppendLine($"sinceSurr={since.Value.ToId()}");
             }
 
             if (before.HasValue)
             {
                 sb.AppendLine($"before={before.Value.ToString("o")}");
-                sb.AppendLine($"beforeSurr={SqlServer.Features.Storage.ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(before.Value.DateTime)}");
+                sb.AppendLine($"beforeSurr={before.Value.ToId()}");
             }
 
             throw new XunitException(sb.ToString());

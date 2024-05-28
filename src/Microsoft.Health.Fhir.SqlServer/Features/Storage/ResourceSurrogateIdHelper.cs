@@ -14,16 +14,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal static class ResourceSurrogateIdHelper
     {
-        public static DateTime MaxDateTime => IdHelper.MaxDateTime;
+        public static DateTimeOffset MaxDateTime => IdHelper.MaxDateTime;
 
-        public static long LastUpdatedToResourceSurrogateId(DateTime dateTime)
+        public static long ToSurrogateId(this DateTimeOffset dateTimeOffset)
         {
-            return dateTime.DateToId();
+            return dateTimeOffset.ToId();
         }
 
-        public static DateTime ResourceSurrogateIdToLastUpdated(long resourceSurrogateId)
+        public static DateTimeOffset ToLastUpdated(this long resourceSurrogateId)
         {
-            return resourceSurrogateId.IdToDate();
+            return resourceSurrogateId.ToDate();
         }
     }
 }
