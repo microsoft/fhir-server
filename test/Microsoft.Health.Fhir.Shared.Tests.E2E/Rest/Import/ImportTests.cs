@@ -283,6 +283,16 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
         }
 
         [Fact]
+        public async Task GivenIncrementalLoad_WithNegativeVersions_NegativeNotAllowed()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var ndJson = CreateTestPatient(id, DateTimeOffset.UtcNow, "-200");
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            await ImportCheckAsync(request, null, 1);
+        }
+
+        [Fact]
         public async Task GivenIncrementalLoad_WithNegativeVersions_MultipleImports_ResourceNotExisting()
         {
             var id = Guid.NewGuid().ToString("N");

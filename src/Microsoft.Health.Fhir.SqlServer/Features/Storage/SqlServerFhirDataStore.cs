@@ -503,7 +503,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var inputVersion = int.Parse(input.ResourceWrapper.Version);
                         if (inputVersion < 0) // negatives shoud not participate in this logic
                         {
-                            inputsWithVersion.Add(input);
+                            if (allowNegativeVersions)
+                            {
+                                inputsWithVersion.Add(input);
+                            }
+                            else
+                            {
+                                conflicts.Add(input);
+                            }
+
                             continue;
                         }
 
