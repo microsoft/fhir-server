@@ -68,7 +68,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
 
             if (_callType == "SingleId" || _callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
             {
-                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelHttpPuts();
                 return;
             }

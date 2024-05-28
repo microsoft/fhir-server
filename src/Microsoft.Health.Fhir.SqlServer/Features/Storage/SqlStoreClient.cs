@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 getResourceTypeName(resourceTypeId),
                 new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                 readRequestMethod ? new ResourceRequest(requestMethod) : null,
-                new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                resourceSurrogateId.ToLastUpdated(),
                 isDeleted,
                 searchIndices: null,
                 compartmentIndices: null,

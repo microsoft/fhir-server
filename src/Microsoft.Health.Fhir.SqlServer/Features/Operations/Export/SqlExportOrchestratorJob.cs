@@ -71,9 +71,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Export
 
                 var since = record.Since == null ? new PartialDateTime(DateTime.MinValue).ToDateTimeOffset() : record.Since.ToDateTimeOffset();
 
-                var globalStartId = since.DateTime.DateToId();
+                var globalStartId = since.ToId();
                 var till = record.Till.ToDateTimeOffset();
-                var globalEndId = till.DateTime.DateToId() - 1; // -1 is so _till value can be used as _since in the next time based export
+                var globalEndId = till.ToId() - 1; // -1 is so _till value can be used as _since in the next time based export
 
                 var enqueued = groupJobs.Where(x => x.Id != jobInfo.Id) // exclude coord
                                         .Select(x => JsonConvert.DeserializeObject<ExportJobRecord>(x.Definition))
