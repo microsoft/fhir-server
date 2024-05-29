@@ -198,9 +198,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
             }
 
+            var duplicateInputUrls = input.GroupBy(item => item.Url).Where(group => group.Count() > 1).Select(group => group.Key);
+
+            if (duplicateInputUrls.Any())
+            {
+                var duplicateUrlString = string.Join(", ", duplicateInputUrls);
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestDuplicateInputFiles, duplicateUrlString));
+            }
+
             foreach (var item in input)
             {
-                if (!Enum.IsDefined(typeof(ResourceType), item.Type))
+                if (!string.IsNullOrEmpty(item.Type) && !Enum.IsDefined(typeof(ResourceType), item.Type))
                 {
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, item.Type));
                 }

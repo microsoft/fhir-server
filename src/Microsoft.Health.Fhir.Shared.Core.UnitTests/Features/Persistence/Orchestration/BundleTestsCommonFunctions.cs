@@ -42,10 +42,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Persistence.Orche
         {
             var dataStore = Substitute.For<IFhirDataStore>();
 
-            /// In this parg of the code I'm replacing the default behavior of <see cref="Substitute"/> for the method 'MergeAsync'.
-            /// I've added a validation to Bundle Orchestrator Operation to avoid null instances of DataStoreOperationOutcome.
-            /// To make the tests operating as expected, I've overrided the default behavior of <see cref="Substitute"/> and set the mock
-            /// version of 'MergeAsync' to return some basic values for tests.
+            // In this parg of the code I'm replacing the default behavior of <see cref="Substitute"/> for the method 'MergeAsync'.
+            // I've added a validation to Bundle Orchestrator Operation to avoid null instances of DataStoreOperationOutcome.
+            // To make the tests operating as expected, I've overrided the default behavior of <see cref="Substitute"/> and set the mock
+            // version of 'MergeAsync' to return some basic values for tests.
             dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
             dataStore.MergeAsync(Arg.Any<IReadOnlyList<ResourceWrapperOperation>>(), Arg.Any<MergeOptions>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(MockMergeAsync);
 

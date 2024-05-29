@@ -268,6 +268,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import request cannot have duplicate files. Found duplicates: {0}. .
+        /// </summary>
+        public static string ImportRequestDuplicateInputFiles {
+            get {
+                return ResourceManager.GetString("ImportRequestDuplicateInputFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {
@@ -529,6 +538,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Not able to create final result. Retry the operation..
+        /// </summary>
+        public static string NotAbleToCreateTheFinalResultsOfAnOperation {
+            get {
+                return ResourceManager.GetString("NotAbleToCreateTheFinalResultsOfAnOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {
@@ -561,6 +579,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string OperationNotImplemented {
             get {
                 return ResourceManager.GetString("OperationNotImplemented", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested operation is not supported..
+        /// </summary>
+        public static string OperationNotSupported {
+            get {
+                return ResourceManager.GetString("OperationNotSupported", resourceCulture);
             }
         }
         

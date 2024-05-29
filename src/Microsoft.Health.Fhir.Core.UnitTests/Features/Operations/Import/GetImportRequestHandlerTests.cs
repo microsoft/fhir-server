@@ -43,151 +43,127 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
+        public async Task WhenGettingCompletedJob_ThenResponseCodeShouldBeOk()
         {
-            var coordResult = new ImportOrchestratorJobResult()
-            {
-                Request = "Request",
-            };
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(workerResult), Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }) };
 
-            var orchestratorJob = new JobInfo()
-            {
-                Id = 0,
-                GroupId = 0,
-                Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(coordResult),
-                Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()),
-            };
-
-            var processingJobResult = new ImportProcessingJobResult()
-            {
-                SucceededResources = 1,
-                FailedResources = 1,
-                ErrorLogLocation = "http://ResourceErrorLogLocation",
-            };
-
-            var processingJob = new JobInfo()
-            {
-                Id = 1,
-                GroupId = 0,
-                Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(processingJobResult),
-                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
-            };
-
-            GetImportResponse result = await SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>() { processingJob });
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.Single(result.JobResult.Output);
             Assert.Single(result.JobResult.Error);
         }
 
-        [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnCompletedImportJobWithFailure_ThenHttpResponseCodeShouldBeExpected()
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        [InlineData((HttpStatusCode)0)]
+        public async Task WhenGettingFailedJob_ThenExecptionIsTrownWithCorrectResponseCode(HttpStatusCode statusCode)
         {
-            var orchestratorJobResult = new ImportOrchestratorJobErrorResult()
-            {
-                HttpStatusCode = HttpStatusCode.BadRequest,
-                ErrorMessage = "error",
-            };
+            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var workerResult = new ImportJobErrorResult() { ErrorMessage = "Error", HttpStatusCode = statusCode };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult) };
 
-            var orchestratorJob = new JobInfo()
-            {
-                Status = JobStatus.Failed,
-                Result = JsonConvert.SerializeObject(orchestratorJobResult),
-            };
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
 
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>()));
-
-            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
-            Assert.NotNull(ofe.Message);
+            Assert.Equal(statusCode == 0 ? HttpStatusCode.InternalServerError : statusCode, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, ofe.ResponseStatusCode == HttpStatusCode.InternalServerError ? HttpStatusCode.InternalServerError : "Error"), ofe.Message);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
+        public async Task WhenGettingFailedJob_WithGenericException_ThenExecptionIsTrownWithCorrectResponseCode()
         {
-            var orchestratorJob = new JobInfo()
-            {
-                Status = JobStatus.Cancelled,
-            };
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>()));
+            var coord = new JobInfo() { Status = JobStatus.Completed };
+            object workerResult = new { message = "Error", stackTrace = "Trace" };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Failed, Result = JsonConvert.SerializeObject(workerResult) };
 
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
+
+            Assert.Equal(HttpStatusCode.InternalServerError, ofe.ResponseStatusCode);
+            Assert.Equal(string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, HttpStatusCode.InternalServerError), ofe.Message);
+        }
+
+        [Fact]
+        public async Task WhenGettingImpprtWithCancelledOrchestratorJob_ThenExceptionIsThrownWithBadResponseCode()
+        {
+            var coord = new JobInfo() { Status = JobStatus.Cancelled };
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, []));
             Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportJobWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted()
+        public async Task WhenGettingImportWithCancelledWorkerJob_ThenExceptionIsThrownWithBadResponseCode()
         {
-            var orchestratorJobResult = new ImportOrchestratorJobResult()
-            {
-                Request = "Request",
-            };
+            var coord = new JobInfo() { Status = JobStatus.Completed };
+            var worker = new JobInfo() { Id = 1, Status = JobStatus.Cancelled };
+            var ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker]));
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
+        }
 
-            var orchestratorJob = new JobInfo()
+        [Fact]
+        public async Task WhenGettingInFlightJob_ThenResponseCodeShouldBeAccepted()
+        {
+            var coordResult = new ImportOrchestratorJobResult() { Request = "Request" };
+            var coord = new JobInfo() { Status = JobStatus.Completed, Result = JsonConvert.SerializeObject(coordResult), Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()) };
+
+            var workerResult = new ImportProcessingJobResult() { SucceededResources = 1, FailedResources = 1, ErrorLogLocation = "http://xyz" };
+
+            // jobs 1 and 2 are created for the same input file, they are grouped together in the results
+            var worker1 = new JobInfo()
             {
                 Id = 1,
-                GroupId = 1,
-                Status = JobStatus.Running,
-                Result = JsonConvert.SerializeObject(orchestratorJobResult),
-                Definition = JsonConvert.SerializeObject(new ImportOrchestratorJobDefinition()),
+                Status = JobStatus.Completed,
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }),
             };
 
-            var processingJobResult = new ImportProcessingJobResult()
-            {
-                SucceededResources = 1,
-                FailedResources = 1,
-                ErrorLogLocation = "http://ResourceErrorLogLocation",
-            };
-
-            var processingJob1 = new JobInfo()
+            var worker2 = new JobInfo()
             {
                 Id = 2,
-                GroupId = 1,
                 Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(processingJobResult),
-                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz" }),
             };
 
-            var processingJob2 = new JobInfo()
+            var worker3 = new JobInfo()
             {
                 Id = 3,
-                GroupId = 1,
                 Status = JobStatus.Completed,
-                Result = JsonConvert.SerializeObject(processingJobResult),
-                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
+                Result = JsonConvert.SerializeObject(workerResult),
+                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://xyz2" }),
             };
 
-            var processingJob3 = new JobInfo()
+            var worker4 = new JobInfo()
             {
                 Id = 4,
-                GroupId = 1,
                 Status = JobStatus.Running,
-                Result = JsonConvert.SerializeObject(processingJobResult),
-                Definition = JsonConvert.SerializeObject(new ImportProcessingJobDefinition() { ResourceLocation = "http://ResourceLocation" }),
             };
 
-            GetImportResponse result = await SetupAndExecuteGetBulkImportJobByIdAsync(orchestratorJob, new List<JobInfo>() { processingJob1, processingJob2, processingJob3 });
+            var result = await SetupAndExecuteGetBulkImportJobByIdAsync(coord, [worker1, worker2, worker3, worker4]);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Equal(2, result.JobResult.Output.Count);
-            Assert.Equal(2, result.JobResult.Error.Count);
+            Assert.Equal(3, result.JobResult.Error.Count);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingWithNotExistJob_ThenNotFoundShouldBeReturned()
+        public async Task WhenGettingANotExistingJob_ThenNotFoundShouldBeReturned()
         {
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(1, CancellationToken.None));
         }
 
-        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo orchestratorJobInfo, List<JobInfo> processingJobInfos)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportJobByIdAsync(JobInfo coord, List<JobInfo> workers)
         {
-            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(orchestratorJobInfo);
+            _queueClient.GetJobByIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(coord);
 
-            var allJobs = new List<JobInfo>(processingJobInfos);
-            allJobs.Add(orchestratorJobInfo);
+            var allJobs = new List<JobInfo>(workers);
+            allJobs.Add(coord);
             _queueClient.GetJobByGroupIdAsync(Arg.Any<byte>(), Arg.Any<long>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(allJobs);
 
-            return await _mediator.GetImportStatusAsync(orchestratorJobInfo.Id, CancellationToken.None);
+            return await _mediator.GetImportStatusAsync(coord.Id, CancellationToken.None);
         }
     }
 }

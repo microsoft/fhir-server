@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Runtime;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,10 +29,10 @@ public class CosmosQueueClient : IQueueClient
     private readonly ICosmosQueryFactory _queryFactory;
     private readonly ICosmosDbDistributedLockFactory _distributedLockFactory;
     private static readonly AsyncPolicy _retryPolicy = Policy
-        .Handle<RetriableJobException>()
+        .Handle<CosmosException>(ex => ex.StatusCode == HttpStatusCode.PreconditionFailed)
         .Or<CosmosException>(ex => ex.StatusCode == HttpStatusCode.TooManyRequests)
         .Or<RequestRateExceededException>()
-        .WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
+        .WaitAndRetryAsync(5, _ => TimeSpan.FromMilliseconds(RandomNumberGenerator.GetInt32(100, 1000)));
 
     public CosmosQueueClient(
         Func<IScoped<Container>> containerFactory,
@@ -160,7 +159,7 @@ public class CosmosQueueClient : IQueueClient
         }
 
         using IScoped<Container> container = _containerFactory.Invoke();
-        ItemResponse<JobGroupWrapper> result = await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken);
+        ItemResponse<JobGroupWrapper> result = await _retryPolicy.ExecuteAsync(async () => await container.Value.CreateItemAsync(jobInfo, new PartitionKey(jobInfo.PartitionKey), cancellationToken: cancellationToken));
 
         return result.Resource.ToJobInfo().ToList();
     }
@@ -360,27 +359,48 @@ public class CosmosQueueClient : IQueueClient
     /// <inheritdoc />
     public async Task CancelJobByGroupIdAsync(byte queueType, long groupId, CancellationToken cancellationToken)
     {
+        IReadOnlyList<JobGroupWrapper> jobs = default;
+        var cancelTasks = new List<Task>();
+
         await _retryPolicy.ExecuteAsync(async () =>
         {
-            IReadOnlyList<JobGroupWrapper> jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
-
-            foreach (JobGroupWrapper job in jobs)
-            {
-                foreach (JobDefinitionWrapper item in job.Definitions)
-                {
-                    if (item.Status == (byte)JobStatus.Running)
-                    {
-                        item.CancelRequested = true;
-                    }
-                    else if (item.Status == (byte)JobStatus.Created)
-                    {
-                        item.Status = (byte)JobStatus.Cancelled;
-                    }
-                }
-
-                await SaveJobGroupAsync(job, cancellationToken);
-            }
+            jobs = await GetGroupInternalAsync(queueType, groupId, cancellationToken);
         });
+
+        foreach (JobGroupWrapper job in jobs)
+        {
+            bool saveRequired = false;
+
+            foreach (JobDefinitionWrapper item in job.Definitions)
+            {
+                if (item.Status == (byte)JobStatus.Running)
+                {
+                    item.CancelRequested = true;
+                    saveRequired = true;
+                }
+                else if (item.Status == (byte)JobStatus.Created)
+                {
+                    item.Status = (byte)JobStatus.Cancelled;
+                    item.CancelRequested = true;
+                    saveRequired = true;
+                }
+            }
+
+            if (saveRequired)
+            {
+                cancelTasks.Add(Task.Run(
+                    async () =>
+                    {
+                        await _retryPolicy.ExecuteAsync(async () =>
+                        {
+                            await SaveJobGroupAsync(job, cancellationToken, ignoreEtag: true);
+                        });
+                    },
+                    cancellationToken));
+            }
+        }
+
+        await Task.WhenAll(cancelTasks);
     }
 
     /// <inheritdoc />
@@ -399,7 +419,7 @@ public class CosmosQueueClient : IQueueClient
                 {
                     CancelJobDefinition(item);
 
-                    await SaveJobGroupAsync(job.JobGroup, cancellationToken);
+                    await SaveJobGroupAsync(job.JobGroup, cancellationToken, ignoreEtag: true);
                 }
             }
         });
@@ -516,50 +536,55 @@ public class CosmosQueueClient : IQueueClient
 
     private async Task<IReadOnlyList<JobGroupWrapper>> ExecuteQueryAsync(QueryDefinition sqlQuerySpec, int? itemCount, byte queueType, CancellationToken cancellationToken)
     {
-        using IScoped<Container> container = _containerFactory.Invoke();
+        IScoped<Container> container = null;
 
-        ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
-            container.Value,
-            new CosmosQueryContext(
-                sqlQuerySpec,
-                new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
-
-        var items = new List<JobGroupWrapper>();
-        FeedResponse<JobGroupWrapper> response;
-
-        while (itemCount == null || items.Count < itemCount.Value)
+        try
         {
-            response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
-            items.AddRange(response);
-
-            if (string.IsNullOrEmpty(response.ContinuationToken))
-            {
-                break;
-            }
+            container = _containerFactory.Invoke();
+        }
+        catch (ObjectDisposedException ode)
+        {
+            throw new ServiceUnavailableException(Resources.NotAbleToExecuteQuery, ode);
         }
 
-        return items;
+        using (container)
+        {
+            ICosmosQuery<JobGroupWrapper> query = _queryFactory.Create<JobGroupWrapper>(
+                container.Value,
+                new CosmosQueryContext(
+                    sqlQuerySpec,
+                    new QueryRequestOptions { PartitionKey = new PartitionKey(JobGroupWrapper.GetJobInfoPartitionKey(queueType)), MaxItemCount = itemCount }));
+
+            var items = new List<JobGroupWrapper>();
+            FeedResponse<JobGroupWrapper> response;
+
+            while (itemCount == null || items.Count < itemCount.Value)
+            {
+                response = await _retryPolicy.ExecuteAsync(async () => await query.ExecuteNextAsync(cancellationToken));
+                items.AddRange(response);
+
+                if (string.IsNullOrEmpty(response.ContinuationToken))
+                {
+                    break;
+                }
+            }
+
+            return items;
+        }
     }
 
-    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken)
+    private async Task SaveJobGroupAsync(JobGroupWrapper definition, CancellationToken cancellationToken, bool ignoreEtag = false)
     {
         using IScoped<Container> container = _containerFactory.Invoke();
 
         try
         {
-            await container.Value.UpsertItemAsync(
-                definition,
-                new PartitionKey(definition.PartitionKey),
-                new ItemRequestOptions { IfMatchEtag = definition.ETag },
-                cancellationToken: cancellationToken);
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
-        {
-            throw new RetriableJobException("Job precondition failed.", ex);
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)
-        {
-            throw new RetriableJobException("Service too busy.", ex);
+            await _retryPolicy.ExecuteAsync(async () =>
+                await container.Value.UpsertItemAsync(
+                    definition,
+                    new PartitionKey(definition.PartitionKey),
+                    ignoreEtag ? new() : new() { IfMatchEtag = definition.ETag },
+                    cancellationToken: cancellationToken));
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.RequestEntityTooLarge)
         {

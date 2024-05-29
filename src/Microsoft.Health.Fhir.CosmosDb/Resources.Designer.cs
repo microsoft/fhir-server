@@ -124,6 +124,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Provided feed range is invalid and could not be parsed..
+        /// </summary>
+        internal static string InvalidFeedRange {
+            get {
+                return ResourceManager.GetString("InvalidFeedRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Internal server error: the input bytes are not in base64 format..
         /// </summary>
         internal static string InvalidInputBytes {
@@ -192,6 +201,15 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         internal static string KeyVaultWrapUnwrapFailure {
             get {
                 return ResourceManager.GetString("KeyVaultWrapUnwrapFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Not able to execute a query. Retry the operation..
+        /// </summary>
+        internal static string NotAbleToExecuteQuery {
+            get {
+                return ResourceManager.GetString("NotAbleToExecuteQuery", resourceCulture);
             }
         }
         

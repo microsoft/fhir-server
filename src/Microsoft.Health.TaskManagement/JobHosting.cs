@@ -11,12 +11,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.JobManagement
 {
     public class JobHosting
     {
+        private static readonly ActivitySource JobHostingActivitySource = new ActivitySource(nameof(JobHosting));
         private readonly IQueueClient _queueClient;
         private readonly IJobFactory _jobFactory;
         private readonly ILogger<JobHosting> _logger;
@@ -40,13 +42,7 @@ namespace Microsoft.Health.JobManagement
 
         public double JobHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultJobHeartbeatIntervalInSeconds;
 
-        [Obsolete("Temporary method to prevent build breaks within Health PaaS. Will be removed after code is updated in Health PaaS")]
-        public async Task StartAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
-        {
-            await ExecuteAsync(queueType, workerName, cancellationTokenSource, useHeavyHeartbeats);
-        }
-
-        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource, bool useHeavyHeartbeats = false)
+        public async Task ExecuteAsync(byte queueType, string workerName, CancellationTokenSource cancellationTokenSource)
         {
             var workers = new List<Task>();
 
@@ -67,6 +63,8 @@ namespace Microsoft.Health.JobManagement
                         {
                             try
                             {
+                                _logger.LogInformation("Dequeuing next job.");
+
                                 if (checkTimeoutJobStopwatch.Elapsed.TotalSeconds > 600)
                                 {
                                     checkTimeoutJobStopwatch.Restart();
@@ -83,10 +81,28 @@ namespace Microsoft.Health.JobManagement
 
                         if (nextJob != null)
                         {
-                            await ExecuteJobAsync(nextJob, useHeavyHeartbeats);
+                            using (Activity activity = JobHostingActivitySource.StartActivity(
+                                JobHostingActivitySource.Name,
+                                ActivityKind.Server))
+                            {
+                                if (activity == null)
+                                {
+                                    _logger.LogWarning("Failed to start an activity.");
+                                }
+
+                                activity?.SetTag("CreateDate", nextJob.CreateDate);
+                                activity?.SetTag("HeartbeatDateTime", nextJob.HeartbeatDateTime);
+                                activity?.SetTag("Id", nextJob.Id);
+                                activity?.SetTag("QueueType", nextJob.QueueType);
+                                activity?.SetTag("Version", nextJob.Version);
+
+                                _logger.LogJobInformation(nextJob, "Job dequeued.");
+                                await ExecuteJobAsync(nextJob);
+                            }
                         }
                         else
                         {
+                            _logger.LogInformation("Empty queue. Delaying until next iteration.");
                             await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationTokenSource.Token);
                         }
                     }
@@ -95,30 +111,30 @@ namespace Microsoft.Health.JobManagement
 
             try
             {
-                await Task.WhenAny(workers.ToArray()); // if any worker crashes exit
+                await Task.WhenAny(workers.ToArray()); // If any worker crashes exit.
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Job failed to execute");
+                _logger.LogError(ex, "Job failed to execute. Queue type: {QueueType}", queueType);
             }
         }
 
-        private async Task ExecuteJobAsync(JobInfo jobInfo, bool useHeavyHeartbeats)
+        private async Task ExecuteJobAsync(JobInfo jobInfo)
         {
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
             using var jobCancellationToken = new CancellationTokenSource();
 
-            IJob job = _jobFactory.Create(jobInfo);
+            using IScoped<IJob> job = _jobFactory.Create(jobInfo);
 
-            if (job == null)
+            if (job?.Value == null)
             {
-                _logger.LogWarning("Not supported job type");
+                _logger.LogJobWarning(jobInfo, "Job {JobId}. Not supported job type.", jobInfo.Id);
                 return;
             }
 
             try
             {
-                _logger.LogInformation("Job {JobId} of type {JobType} starting.", jobInfo.Id, jobInfo.QueueType);
+                _logger.LogJobInformation(jobInfo, "Job {JobId} of type {JobType} starting.", jobInfo.Id, jobInfo.QueueType);
 
                 if (jobInfo.CancelRequested)
                 {
@@ -130,59 +146,38 @@ namespace Microsoft.Health.JobManagement
 #endif
                 }
 
-                var progress = new Progress<string>((result) => { jobInfo.Result = result; });
-
-#pragma warning disable CS0618 // Type or member is obsolete. Needed for Import jobs, we should move away from this method.
-                var runningJob = useHeavyHeartbeats
-                               ? ExecuteJobWithHeavyHeartbeatsAsync(
-                                    _queueClient,
-                                    jobInfo,
-                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
-                                    TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
-                                    jobCancellationToken)
-                               : ExecuteJobWithHeartbeatsAsync(
+                Task<string> runningJob = ExecuteJobWithHeartbeatsAsync(
                                     _queueClient,
                                     jobInfo.QueueType,
                                     jobInfo.Id,
                                     jobInfo.Version,
-                                    cancellationSource => job.ExecuteAsync(jobInfo, progress, cancellationSource.Token),
+                                    cancellationSource => job.Value.ExecuteAsync(jobInfo, cancellationSource.Token),
                                     TimeSpan.FromSeconds(JobHeartbeatIntervalInSeconds),
                                     jobCancellationToken);
-#pragma warning restore CS0618 // Type or member is obsolete
 
                 jobInfo.Result = await runningJob;
             }
-            catch (RetriableJobException ex)
-            {
-                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with retriable exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-
-                // Not complete the job for retriable exception.
-                return;
-            }
             catch (JobExecutionException ex)
             {
-                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 jobInfo.Result = JsonConvert.SerializeObject(ex.Error);
                 jobInfo.Status = JobStatus.Failed;
 
                 try
                 {
-                    await _queueClient.CompleteJobAsync(jobInfo, ex.RequestCancellationOnFailure, CancellationToken.None);
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
                 }
 
                 return;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException ex)
             {
-                _logger.LogError(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
-
-                object error = new { message = ex.Message, stackTrace = ex.StackTrace };
-                jobInfo.Result = JsonConvert.SerializeObject(error);
-                jobInfo.Status = JobStatus.Failed;
+                _logger.LogWarning(ex, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} canceled.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                jobInfo.Status = JobStatus.Cancelled;
 
                 try
                 {
@@ -195,16 +190,35 @@ namespace Microsoft.Health.JobManagement
 
                 return;
             }
+            catch (Exception ex)
+            {
+                _logger.LogJobError(ex, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed with generic exception.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+
+                object error = new { message = ex.Message, stackTrace = ex.StackTrace };
+                jobInfo.Result = JsonConvert.SerializeObject(error);
+                jobInfo.Status = JobStatus.Failed;
+
+                try
+                {
+                    await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
+                }
+                catch (Exception completeEx)
+                {
+                    _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                }
+
+                return;
+            }
 
             try
             {
                 jobInfo.Status = JobStatus.Completed;
                 await _queueClient.CompleteJobAsync(jobInfo, true, CancellationToken.None);
-                _logger.LogInformation("Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobInformation(jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} completed.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
             catch (Exception completeEx)
             {
-                _logger.LogError(completeEx, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
+                _logger.LogJobError(completeEx, jobInfo, "Job with id: {JobId} and group id: {GroupId} of type: {JobType} failed to complete.", jobInfo.Id, jobInfo.GroupId, jobInfo.QueueType);
             }
         }
 
@@ -215,19 +229,7 @@ namespace Microsoft.Health.JobManagement
 
             var jobInfo = new JobInfo { QueueType = queueType, Id = jobId, Version = version }; // not other data points
 
-            await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
-            {
-                return await action(cancellationTokenSource);
-            }
-        }
-
-        [Obsolete("Heartbeats should only update timestamp, results should only be written when job reaches terminal state.")]
-        public static async Task<string> ExecuteJobWithHeavyHeartbeatsAsync(IQueueClient queueClient, JobInfo jobInfo, Func<CancellationTokenSource, Task<string>> action, TimeSpan heartbeatPeriod, CancellationTokenSource cancellationTokenSource)
-        {
-            EnsureArg.IsNotNull(queueClient, nameof(queueClient));
-            EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
-            EnsureArg.IsNotNull(action, nameof(action));
-
+            // WARNING: Avoid using 'async' lambda when delegate type returns 'void'
             await using (new Timer(async _ => await PutJobHeartbeatAsync(queueClient, jobInfo, cancellationTokenSource), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * heartbeatPeriod.TotalSeconds), heartbeatPeriod))
             {
                 return await action(cancellationTokenSource);

@@ -182,6 +182,9 @@
     <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
+  <data name="OperationNotSupported" xml:space="preserve">
+    <value>The requested operation is not supported.</value>
+  </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder="FHIR"}</comment>
@@ -320,6 +323,9 @@
   <data name="ImportRequestNotValid" xml:space="preserve">
     <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
   </data>
+  <data name="ImportRequestDuplicateInputFiles" xml:space="preserve">
+    <value>Import request cannot have duplicate files. Found duplicates: {0}. </value>
+  </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>
     <comment>{0}: template collection reference</comment>
@@ -413,5 +419,8 @@
   </data>
   <data name="InvalidExportAssociatedDataParameter" xml:space="preserve">
     <value>The export parameter "includeAssociatedData" contains an invalid value. Supported values are: {0}. </value>
+  </data>
+  <data name="NotAbleToCreateTheFinalResultsOfAnOperation" xml:space="preserve">
+    <value>Not able to create final result. Retry the operation.</value>
   </data>
 </root>

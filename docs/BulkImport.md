@@ -110,8 +110,8 @@ Content-Type:application/fhir+json
 
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
-| type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) that match the input file. |
-|URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
+| type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**
@@ -126,18 +126,23 @@ Content-Type:application/fhir+json
         },
         {
             "name": "mode",
-            "valueString": "InitialLoad"
+            "valueString": "IncrementalLoad"
         },
         {
             "name": "input",
             "part": [
                 {
-                    "name": "type",
-                    "valueString": "Patient"
-                },
+                    "name": "url",
+                    "valueUri": "https://example.blob.core.windows.net/resources/abc.ndjson"
+                }
+            ]
+        },
+        {
+            "name": "input",
+            "part": [
                 {
                     "name": "url",
-                    "valueUri": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+                    "valueUri": "https://example.blob.core.windows.net/resources/xyz.ndjson"
                 },
                 {
                     "name": "etag",
@@ -189,9 +194,14 @@ Below are some of the important fields in the response body:
     "request": "https://importperf.azurewebsites.net/$Import",
     "output": [
         {
-            "type": "Patient",
+            "type": "null",
             "count": 10000,
-            "inputUrl": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+            "inputUrl": "https://example.blob.core.windows.net/resources/abc.ndjson"
+        },
+        {
+            "type": "null",
+            "count": 100,
+            "inputUrl": "https://example.blob.core.windows.net/resources/xyz.ndjson"
         },
         {
             "type": "CarePlan",
@@ -304,11 +314,12 @@ Below are some errors you may encounter:
 ## Best practices and tips for increasing throughput
 
 1. Deploy the FHIR server, SQL Server database, and the storage account in the same region to avoid data movement across regions.
-1. The optimal NDJSON file size for import is 50MB-500MB. Combine smaller files of the same resource type together, and then split big files into smaller files.
+1. The optimal NDJSON file size for import is >=50MB (or >=20K resources, no upper limit). Consider combining smaller files together.
+1. For optimal performance total size of files in single import should be large (>=100GB or >=100M resources, no upper limit). 
+1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports. There is no limit on number of files in single import (tested with 50K files). 
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.
-    2. Ensure the number of tasks each machine is allowed to run is equal to or greater than number of v-cores on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
+    2. Ensure the number of tasks each machine is allowed to run is 2 per each v-core on the machine. You can check number of tasks running with TaskHosting__MaxRunningTaskCount setting.
     3. Save changes to the configuration and restart the app.
 1. Besides scaling out, you can also scale up each machine. For more information, see [Scale up an app](https://docs.microsoft.com/en-us/azure/app-service/manage-scale-up) to achieve this. In general, the P3V2 machine is enough for most of the scenarios.
-1. Create the configuration ```FhirServer__Operations__Import__DisableUniqueOptionalIndexesForImport```, and set it to `True` when your input size is larger than 10GB.

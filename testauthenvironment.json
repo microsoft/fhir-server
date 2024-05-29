@@ -1,43 +1,43 @@
 {
     "users": [
+    ],
+    "clientApplications": [
         {
-            "id": "globalReaderUser",
+            "id": "globalReaderUserApp",
             "roles": [
                 "globalReader"
             ]
         },
         {
-            "id": "globalWriterUser",
+            "id": "globalWriterUserApp",
             "roles": [
                 "globalWriter"
             ]
         },
         {
-            "id": "globalExporterUser",
+            "id": "globalExporterUserApp",
             "roles": [
                 "globalExporter"
             ]
         },
         {
-            "id": "globalConverterUser",
+            "id": "globalConverterUserApp",
             "roles": [
                 "globalConverter"
             ]
         },
         {
-            "id": "globalImporterUser",
+            "id": "globalImporterUserApp",
             "roles": [
                 "globalImporter"
             ]
         },
         {
-            "id": "globalAdminUser",
+            "id": "globalAdminUserApp",
             "roles": [
                 "globalAdmin"
             ]
-        }
-    ],
-    "clientApplications": [
+        },
         {
             "id": "globalAdminServicePrincipal",
             "roles": [

@@ -746,4 +746,8 @@
     <value>Found job id '{0}', but it is a child job and not the primary reindex job. </value>
     <comment>{0} is the job id</comment>
   </data>
+  <data name="PartialDeleteSuccess" xml:space="preserve">
+    <value>Deleted {0} versions of the target resource.</value>
+    <comment>{0} is replaced with the number of deleted versions of the resource.</comment>
+  </data>
 </root>

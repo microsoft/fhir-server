@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -13,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Azure.Core;
 using Azure.Identity;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Importer;
 
@@ -73,6 +75,29 @@ public class BearerTokenHandler : DelegatingHandler
         return await base.SendAsync(request, cancellationToken);
     }
 
+    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        // Only add header for requests that don't already have one.
+        if (request is null || request.Headers is null || request.Headers.Authorization is not null)
+        {
+            return base.Send(request, cancellationToken);
+        }
+
+        if (request.RequestUri.Scheme != Uri.UriSchemeHttps && request.RequestUri.Host != "localhost")
+        {
+            throw new InvalidOperationException("Bearer token authentication is not permitted for non TLS protected (https) endpoints.");
+        }
+
+        if (_accessTokenCaches.TryGetValue(request.RequestUri.GetLeftPart(UriPartial.Authority), out AccessTokenCache tc))
+        {
+            AccessToken cachedToken = tc.GetTokenAsync(cancellationToken).ConfigureAwait(false).GetAwaiter().GetResult();
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", cachedToken.Token);
+        }
+
+        // Send the request.
+        return base.Send(request, cancellationToken);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -110,8 +135,10 @@ public class BearerTokenHandler : DelegatingHandler
                 {
                     try
                     {
+                        Console.WriteLine($"Getting new token for scope {_scope}...");
                         _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext([_scope]), cancellationToken).ConfigureAwait(false);
                         _accessTokenExpiration = _accessToken.Value.ExpiresOn;
+                        PrintClaimsFromJwt(_accessToken.Value.Token);
                     }
                     catch (AuthenticationFailedException)
                     {
@@ -119,6 +146,7 @@ public class BearerTokenHandler : DelegatingHandler
                         await Task.Delay(_tokenRefreshRetryDelay, cancellationToken).ConfigureAwait(false);
                         _accessToken = await _tokenCredential.GetTokenAsync(new TokenRequestContext([_scope]), cancellationToken).ConfigureAwait(false);
                         _accessTokenExpiration = _accessToken.Value.ExpiresOn;
+                        PrintClaimsFromJwt(_accessToken.Value.Token);
                     }
                 }
 
@@ -149,6 +177,23 @@ public class BearerTokenHandler : DelegatingHandler
             }
 
             _disposed = true;
+        }
+
+        private static void PrintClaimsFromJwt(string jwtToken)
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadToken(jwtToken) as JwtSecurityToken;
+
+            if (jsonToken is not null)
+            {
+                // List of claims to check and print
+                string[] printClaimTypes = ["name", "oid", "tid", "aud", "iss", "scp"];
+
+                jsonToken.Claims
+                    .Where(claim => printClaimTypes.Contains(claim.Type))
+                    .ToList()
+                    .ForEach(claim => Console.WriteLine($"{claim.Type}: {claim.Value}"));
+            }
         }
     }
 }

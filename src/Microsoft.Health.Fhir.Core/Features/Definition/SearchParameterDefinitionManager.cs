@@ -19,6 +19,8 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Health;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -35,14 +37,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IMediator _mediator;
-        private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
+        private readonly IScopeProvider<ISearchService> _searchServiceFactory;
         private readonly ILogger _logger;
+
+        private bool _initialized = false;
 
         public SearchParameterDefinitionManager(
             IModelInfoProvider modelInfoProvider,
             IMediator mediator,
-            Func<IScoped<ISearchService>> searchServiceFactory,
+            IScopeProvider<ISearchService> searchServiceFactory,
             ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -82,13 +86,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
-            await LoadSearchParamsFromDataStore(cancellationToken);
+            try
+            {
+                _initialized = true;
+                await LoadSearchParamsFromDataStore(cancellationToken);
 
-            await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+                await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+            }
+            catch
+            {
+                _initialized = false;
+                throw;
+            }
+        }
+
+        public void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                _logger.LogWarning("Search parameters are not initialized.");
+
+                // throw new InitializationException("Failed to initialize search parameters");
+            }
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
@@ -99,6 +124,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string resourceType, string code)
         {
+            EnsureInitialized();
+
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> lookup) &&
                 lookup.TryGetValue(code, out SearchParameterInfo searchParameter))
             {
@@ -110,6 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
+            EnsureInitialized();
             searchParameter = null;
 
             return TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
@@ -118,6 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
+            EnsureInitialized();
             if (UrlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
                 return value;
@@ -128,11 +157,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value)
         {
+            EnsureInitialized();
             return UrlLookup.TryGetValue(definitionUri, out value);
         }
 
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
+            EnsureInitialized();
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
             if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
@@ -213,15 +244,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
-            CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+            var retry = 0;
+            while (retry < 3)
+            {
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Search parameters updated");
+                    CalculateSearchParameterHash();
+                    await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error calculating search parameter hash. Retry {retry}");
+                    retry++;
+                }
+            }
+
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
-            await EnsureInitializedAsync(cancellationToken);
+            var retry = 0;
+            while (retry < 3)
+            {
+                try
+                {
+                    _logger.LogInformation("SearchParameterDefinitionManager: Storage initialized");
+                    await EnsureInitializedAsync(cancellationToken);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error initializing search parameters. Retry {retry}");
+                    retry++;
+                }
+            }
+
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)

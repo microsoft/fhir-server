@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Persistence.Orchestration;
 using Microsoft.Health.Fhir.Core.Models;
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IImportErrorSerializer _importErrorSerializer;
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
         private static RawResourceDeduping _rawResourceDeduping;
         private static object _flagLocker = new object();
@@ -72,7 +74,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation,
             IModelInfoProvider modelInfoProvider,
-            RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            IImportErrorSerializer importErrorSerializer)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -86,6 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             _requestContextAccessor = EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            _importErrorSerializer = EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
 
@@ -140,15 +144,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     _logger.LogError(e, $"Error from SQL database on {nameof(MergeAsync)} retries={{Retries}}", retries);
-                    await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={sqlEx}", null, cancellationToken);
+                    await _sqlRetryService.TryLogEvent(nameof(MergeAsync), "Error", $"retries={retries}, error={trueEx}", null, cancellationToken);
 
                     throw trueEx;
                 }
             }
         }
 
-        // Split in a separate method to allow special logic in $import.
-        internal async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, CancellationToken cancellationToken)
+        private async Task<IDictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>> MergeInternalAsync(IReadOnlyList<ResourceWrapperOperation> resources, bool keepLastUpdated, bool keepAllDeleted, bool enlistInTransaction, bool useReplicasForReads, CancellationToken cancellationToken)
         {
             var results = new Dictionary<DataStoreOperationIdentifier, DataStoreOperationOutcome>();
             if (resources == null || resources.Count == 0)
@@ -164,12 +167,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             (var transactionId, var minSequenceId) = await StoreClient.MergeResourcesBeginTransactionAsync(resources.Count, cancellationToken);
 
             var index = 0;
-            var mergeWrappers = new List<MergeResourceWrapper>();
+            var mergeWrappersWithVersions = new List<(MergeResourceWrapper Wrapper, bool KeepVersion, int ResourceVersion, int? ExistingVersion)>();
             var prevResourceId = string.Empty;
             var singleTransaction = enlistInTransaction;
-            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated desc.
+            foreach (var resourceExt in resources) // if list contains more that one version per resource it must be sorted by id and last updated DESC.
             {
-                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId;
+                var setAsHistory = prevResourceId == resourceExt.Wrapper.ResourceId; // this assumes that first resource version is the latest one
                 prevResourceId = resourceExt.Wrapper.ResourceId;
                 var weakETag = resourceExt.WeakETag;
                 int? eTag = weakETag == null
@@ -178,9 +181,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 var resource = resourceExt.Wrapper;
                 var identifier = resourceExt.GetIdentifier();
-                var resourceKey = resource.ToResourceKey(); // keep input version in the results to allow processing multiple versions per resource
                 existingResources.TryGetValue(resource.ToResourceKey(true), out var existingResource);
                 var hasVersionToCompare = false;
+                var existingVersion = 0;
 
                 // Check for any validation errors
                 if (existingResource != null && eTag.HasValue && !string.Equals(eTag.ToString(), existingResource.Version, StringComparison.Ordinal))
@@ -248,6 +251,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             continue;
                         }
 
+                        _logger.LogInformation("BadRequest: IfMatchHeaderRequiredForResource");
                         results.Add(identifier, new DataStoreOperationOutcome(new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName))));
                         continue;
                     }
@@ -271,7 +275,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                     }
 
-                    var existingVersion = int.Parse(existingResource.Version);
+                    existingVersion = int.Parse(existingResource.Version);
                     var versionPlusOne = (existingVersion + 1).ToString(CultureInfo.InvariantCulture);
                     if (!resourceExt.KeepVersion) // version is set on input
                     {
@@ -310,12 +314,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     singleTransaction = true;
                 }
 
-                mergeWrappers.Add(new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare));
+                mergeWrappersWithVersions.Add((new MergeResourceWrapper(resource, resourceExt.KeepHistory, hasVersionToCompare), resourceExt.KeepVersion, int.Parse(resource.Version), existingVersion));
                 index++;
                 results.Add(identifier, new DataStoreOperationOutcome(new UpsertOutcome(resource, resource.Version == InitialVersion ? SaveOutcomeType.Created : SaveOutcomeType.Updated)));
             }
 
-            if (mergeWrappers.Count > 0) // Do not call DB with empty input
+            // Resources with input versions (keepVersion=true) might not have hasVersionToCompare set. Fix it here.
+            // Resources with keepVersion=true must be in separate call, and not mixed with keepVersion=false ones.
+            // Sort them in groups by resource id and order by version.
+            // In each group find the smallest version higher then existing
+            prevResourceId = string.Empty;
+            var notSetInResoureGroup = false;
+            foreach (var mergeWrapper in mergeWrappersWithVersions.Where(x => x.KeepVersion && x.ExistingVersion != 0).OrderBy(x => x.Wrapper.ResourceWrapper.ResourceId).ThenBy(x => x.ResourceVersion))
+            {
+                if (prevResourceId != mergeWrapper.Wrapper.ResourceWrapper.ResourceId) // this should reset flag on each resource id group including first.
+                {
+                    notSetInResoureGroup = true;
+                }
+
+                prevResourceId = mergeWrapper.Wrapper.ResourceWrapper.ResourceId;
+
+                if (notSetInResoureGroup && mergeWrapper.ResourceVersion > mergeWrapper.ExistingVersion)
+                {
+                    mergeWrapper.Wrapper.HasVersionToCompare = true;
+                    notSetInResoureGroup = false;
+                }
+            }
+
+            if (mergeWrappersWithVersions.Count > 0) // Do not call DB with empty input
             {
                 await using (new Timer(async _ => await _sqlStoreClient.MergeResourcesPutTransactionHeartbeatAsync(transactionId, MergeResourcesTransactionHeartbeatPeriod, cancellationToken), null, TimeSpan.FromSeconds(RandomNumberGenerator.GetInt32(100) / 100.0 * MergeResourcesTransactionHeartbeatPeriod.TotalSeconds), MergeResourcesTransactionHeartbeatPeriod))
                 {
@@ -325,7 +351,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         try
                         {
-                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappers, enlistInTransaction, timeoutRetries, cancellationToken);
+                            await MergeResourcesWrapperAsync(transactionId, singleTransaction, mergeWrappersWithVersions.Select(_ => _.Wrapper).ToList(), enlistInTransaction, timeoutRetries, cancellationToken);
                             break;
                         }
                         catch (Exception e)
@@ -351,6 +377,173 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return results;
+        }
+
+        internal async Task<IReadOnlyList<string>> ImportResourcesAsync(IReadOnlyList<ImportResource> resources, ImportMode importMode, CancellationToken cancellationToken)
+        {
+            if (resources.Count == 0) // do not go to the database
+            {
+                return new List<string>();
+            }
+
+            (List<ImportResource> Loaded, List<ImportResource> Conflicts) results;
+            var retries = 0;
+            while (true)
+            {
+                try
+                {
+                    results = await ImportResourcesInternalAsync(retries == 0);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    var sqlEx = (e is SqlException ? e : e.InnerException) as SqlException;
+                    if (sqlEx != null && sqlEx.Number == SqlErrorCodes.Conflict && retries++ < 30)
+                    {
+                        _logger.LogWarning(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
+                        await Task.Delay(1000, cancellationToken);
+                        continue;
+                    }
+
+                    _logger.LogError(e, $"Error on {nameof(ImportResourcesInternalAsync)} retries={{Retries}}", retries);
+                    await StoreClient.TryLogEvent(nameof(ImportResourcesInternalAsync), "Error", $"retries={retries} error={e}", null, cancellationToken);
+
+                    throw;
+                }
+            }
+
+            var dups = resources.Except(results.Loaded).Except(results.Conflicts);
+
+            return GetErrors(dups, results.Conflicts);
+
+            List<string> GetErrors(IEnumerable<ImportResource> dups, IEnumerable<ImportResource> conflicts)
+            {
+                var errors = new List<string>();
+                foreach (var resource in dups)
+                {
+                    errors.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportDuplicate, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                }
+
+                foreach (var resource in conflicts)
+                {
+                    errors.Add(_importErrorSerializer.Serialize(resource.Index, string.Format(Resources.FailedToImportConflictingVersion, resource.ResourceWrapper.ResourceId, resource.Index), resource.Offset));
+                }
+
+                return errors;
+            }
+
+            async Task<(List<ImportResource> Loaded, List<ImportResource> Conflicts)> ImportResourcesInternalAsync(bool useReplicasForReads)
+            {
+                var loaded = new List<ImportResource>();
+                var conflicts = new List<ImportResource>();
+                if (importMode == ImportMode.InitialLoad)
+                {
+                    var inputsDedupped = resources.GroupBy(_ => _.ResourceWrapper.ToResourceKey(true)).Select(_ => _.OrderBy(_ => _.ResourceWrapper.LastModified).First()).ToList();
+                    var current = new HashSet<ResourceKey>((await GetAsync(inputsDedupped.Select(_ => _.ResourceWrapper.ToResourceKey(true)).ToList(), cancellationToken)).Select(_ => _.ToResourceKey(true)));
+                    loaded.AddRange(inputsDedupped.Where(i => !current.TryGetValue(i.ResourceWrapper.ToResourceKey(true), out _)));
+                    await MergeResourcesWithLastUpdatedAsync(loaded, useReplicasForReads);
+                }
+                else if (importMode == ImportMode.IncrementalLoad)
+                {
+                    // dedup by last updated - take first version for single last updated, prefer large version.
+                    var inputsDedupped = resources
+                        .GroupBy(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true))
+                        .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
+                        .ToList();
+
+                    await HandleIncrementalVersionedImport(inputsDedupped, useReplicasForReads);
+
+                    await HandleIncrementalUnversionedImport(inputsDedupped, useReplicasForReads);
+                }
+
+                return (loaded, conflicts);
+
+                async Task HandleIncrementalVersionedImport(List<ImportResource> inputs, bool useReplicasForReads)
+                {
+                    // Dedup by version via ToResourceKey - prefer latest dates.
+                    var inputsWithVersion = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First()).ToList();
+
+                    // Search the db for versions that match the import resources with version so we can filter duplicates from the import.
+                    var currentInDb = (await GetAsync(inputsWithVersion.Select(_ => _.ResourceWrapper.ToResourceKey()).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(), _ => _);
+
+                    // If resources are identical consider already loaded. We should compare both last updated and raw resource
+                    // if dates or raw resource do not match consider as conflict
+                    var toBeLoaded = new List<ImportResource>();
+                    foreach (var resource in inputsWithVersion)
+                    {
+                        if (currentInDb.TryGetValue(resource.ResourceWrapper.ToResourceKey(), out var inDb))
+                        {
+                            if (inDb.LastModified == resource.ResourceWrapper.LastModified && inDb.RawResource.Data == resource.ResourceWrapper.RawResource.Data)
+                            {
+                                loaded.Add(resource); // exact match
+                            }
+                            else
+                            {
+                                conflicts.Add(resource); // version match but diff dates or raw resources
+                            }
+                        }
+                        else
+                        {
+                            toBeLoaded.Add(resource);
+                        }
+                    }
+
+                    // Import resource versions that don't exist in the db. Sorting is used in merge to set isHistory - don't change it without updating that method!
+                    await MergeResourcesWithLastUpdatedAsync(toBeLoaded.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified), useReplicasForReads);
+                    loaded.AddRange(toBeLoaded);
+                }
+
+                async Task HandleIncrementalUnversionedImport(List<ImportResource> inputs, bool useReplicasForReads)
+                {
+                    // Dedup by resource id - only keep first occurance of an unversioned resource. This method is run in many parallel workers - we cannot guarantee processing order across parallel file streams. Taking the first resource avoids conflicts.
+                    var inputsNoVersion = inputs.Where(_ => !_.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).Select(_ => _.First()).ToList();
+
+                    // Ensure that the imported resources can "fit" between existing versions in the db. We want to keep versionId sequential along with lastUpdated.
+                    // First part is setup.
+                    var currentDates = (await GetAsync(inputsNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(ignoreVersion: true)).ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(ignoreVersion: true), _ => _.ToResourceDateKey(_model.GetResourceTypeId));
+                    var inputsNoVersionForCheck = new List<ImportResource>();
+                    foreach (var resource in inputsNoVersion)
+                    {
+                        if (currentDates.TryGetValue(resource.ResourceWrapper.ToResourceKey(ignoreVersion: true), out var dateKey)
+                            && ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.ResourceWrapper.LastModified.DateTime) < dateKey.ResourceSurrogateId)
+                        {
+                            inputsNoVersionForCheck.Add(resource);
+                        }
+                    }
+
+                    // Second part is testing if the imported resources can "fit" between existing versions in the db.
+                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceKey(_model.GetResourceTypeName(_.ResourceTypeId), _.Id, null), _ => _);
+                    foreach (var resource in inputsNoVersionForCheck)
+                    {
+                        var resourceKey = resource.ResourceWrapper.ToResourceKey(ignoreVersion: true);
+                        versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
+
+                        if (versionSlotKey.VersionId == "0") // no version slot available
+                        {
+                            conflicts.Add(resource);
+                        }
+                        else
+                        {
+                            resource.KeepVersion = true;
+                            resource.ResourceWrapper.Version = versionSlotKey.VersionId;
+                        }
+                    }
+
+                    // Finally merge the resources to the db.
+                    var inputNoVersionNoConflict = inputsNoVersion.Except(conflicts).ToList(); // some resources might get version assigned
+                    await MergeResourcesWithLastUpdatedAsync(inputNoVersionNoConflict.Where(_ => _.KeepVersion), useReplicasForReads);
+                    await MergeResourcesWithLastUpdatedAsync(inputNoVersionNoConflict.Where(_ => !_.KeepVersion), useReplicasForReads);
+                    loaded.AddRange(inputNoVersionNoConflict);
+                }
+            }
+
+            async Task MergeResourcesWithLastUpdatedAsync(IEnumerable<ImportResource> resources, bool useReplicasForReads)
+            {
+                var input = resources.Where(_ => _.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+                await MergeInternalAsync(input, true, true, false, useReplicasForReads, cancellationToken);
+                input = resources.Where(_ => !_.KeepLastUpdated).Select(_ => new ResourceWrapperOperation(_.ResourceWrapper, true, true, null, requireETagOnUpdate: false, keepVersion: _.KeepVersion, bundleResourceContext: null)).ToList();
+                await MergeInternalAsync(input, false, true, false, useReplicasForReads, cancellationToken);
+            }
         }
 
         internal async Task MergeResourcesWrapperAsync(long transactionId, bool singleTransaction, IReadOnlyList<MergeResourceWrapper> mergeWrappers, bool enlistInTransaction, int timeoutRetries, CancellationToken cancellationToken)
@@ -424,7 +617,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return results.Count == 0 ? null : results[0];
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, bool allowPartialSuccess, CancellationToken cancellationToken)
         {
             await _sqlStoreClient.HardDeleteAsync(_model.GetResourceTypeId(key.ResourceType), key.Id, keepCurrentVersion, _coreFeatures.SupportsResourceChangeCapture, cancellationToken);
         }

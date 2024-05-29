@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.DependencyInjection;
+using NSubstitute;
 
 namespace Microsoft.Health.JobManagement.UnitTests
 {
@@ -16,9 +18,11 @@ namespace Microsoft.Health.JobManagement.UnitTests
             _factoryFunc = factoryFunc;
         }
 
-        public IJob Create(JobInfo jobInfo)
+        public IScoped<IJob> Create(JobInfo jobInfo)
         {
-            return _factoryFunc(jobInfo);
+            IScoped<IJob> scope = Substitute.For<IScoped<IJob>>();
+            scope.Value.Returns(_factoryFunc(jobInfo));
+            return scope;
         }
     }
 }

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private class TestSearchService : SearchService
         {
             public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
-                : base(searchOptionsFactory, fhirDataStore)
+                : base(searchOptionsFactory, fhirDataStore, NullLogger.Instance)
             {
                 SearchImplementation = options => null;
             }

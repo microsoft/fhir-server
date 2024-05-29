@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Rest;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ISqlQueryHashCalculator queryHashCalculator,
             ILogger<SqlServerSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore)
+            : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
@@ -145,8 +146,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // a "special" ct so that we the subsequent request will be handled correctly.
                         var ct = new ContinuationToken(new object[]
                             {
-                                    SqlSearchConstants.SortSentinelValueForCt,
-                                    0,
+                                SqlSearchConstants.SortSentinelValueForCt,
+                                0,
                             });
 
                         searchResult = new SearchResult(searchResult.Results, ct.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
@@ -265,6 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
                 else
                 {
+                    _logger.LogWarning("Bad Request (InvalidContinuationToken)");
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
             }
@@ -373,6 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                             OperationOutcomeConstants.IssueType.NotSupported,
                                             string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
 
+                                    _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
                                     throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
                                 }
 
@@ -427,12 +430,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     continue;
                                 }
 
-                                using var rawResourceStream = new MemoryStream(rawResourceBytes);
-                                var rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                string rawResource = string.Empty;
+
+                                if (!clonedSearchOptions.OnlyIds)
+                                {
+                                    using var rawResourceStream = new MemoryStream(rawResourceBytes);
+                                    rawResource = _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                                }
 
                                 _logger.LogInformation("{NameOfResourceSurrogateId}: {ResourceSurrogateId}; {NameOfResourceTypeId}: {ResourceTypeId}; Decompressed length: {RawResourceLength}", nameof(resourceSurrogateId), resourceSurrogateId, nameof(resourceTypeId), resourceTypeId, rawResource.Length);
 
-                                if (string.IsNullOrEmpty(rawResource))
+                                if (string.IsNullOrEmpty(rawResource) && !clonedSearchOptions.OnlyIds)
                                 {
                                     rawResource = MissingResourceFactory.CreateJson(resourceId, _model.GetResourceTypeName(resourceTypeId), "warning", "incomplete");
                                     _requestContextAccessor.SetMissingResourceCode(System.Net.HttpStatusCode.PartialContent);
@@ -472,7 +480,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                         resourceId,
                                         version.ToString(CultureInfo.InvariantCulture),
                                         _model.GetResourceTypeName(resourceTypeId),
-                                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                                        clonedSearchOptions.OnlyIds ? null : new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                                         new ResourceRequest(requestMethod),
                                         new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                         isDeleted,
@@ -501,6 +509,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             if (isResultPartial)
                             {
+                                _logger.LogWarning("Bundle Partial Result (TruncatedIncludeMessage)");
                                 _requestContextAccessor.RequestContext.BundleIssues.Add(
                                     new OperationOutcomeIssue(
                                         OperationOutcomeConstants.IssueSeverity.Warning,
@@ -532,7 +541,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
                 },
-                cancellationToken);
+                cancellationToken,
+                true); // this enables reads from replicas
             return searchResult;
         }
 
@@ -914,6 +924,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 results = new SearchResult(0, new List<Tuple<string, string>>());
             }
 
+            _logger.LogInformation("For Reindex, Resource Type={ResourceType} Count={Count} MaxResourceSurrogateId={MaxResourceSurrogateId}", resourceType, results.TotalCount, results.MaxResourceSurrogateId);
             return results;
         }
 
@@ -1252,6 +1263,7 @@ SELECT isnull(min(ResourceSurrogateId), 0), isnull(max(ResourceSurrogateId), 0),
             {
                 if (_stats.ContainsKey((tableName, columnName, resourceTypeId, searchParamId)))
                 {
+                    logger.LogInformation("ResourceSearchParamStats.FoundInCache Table={Table} Column={Column} Type={ResourceType} Param={SearchParam}", tableName, columnName, resourceTypeId, searchParamId);
                     return;
                 }
 

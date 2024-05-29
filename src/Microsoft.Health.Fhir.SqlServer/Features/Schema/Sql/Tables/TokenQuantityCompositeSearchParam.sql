@@ -10,11 +10,8 @@
     SingleValue2 decimal(36,18) NULL,
     LowValue2 decimal(36,18) NULL,
     HighValue2 decimal(36,18) NULL,
-    IsHistory bit NOT NULL,
     CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
-
-ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT DF_TokenQuantityCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam ADD CONSTRAINT CHK_TokenQuantityCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
 
@@ -28,16 +25,14 @@ ON dbo.TokenQuantityCompositeSearchParam
     SearchParamId
 )
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
+CREATE INDEX IX_SearchParamId_Code1_SingleValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_SingleValue2_NOT_NULL
 ON dbo.TokenQuantityCompositeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     Code1,
-    SingleValue2,
-    ResourceSurrogateId
+    SingleValue2
 )
 INCLUDE
 (
@@ -45,19 +40,17 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
+WHERE SingleValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
+CREATE INDEX IX_SearchParamId_Code1_LowValue2_HighValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
 ON dbo.TokenQuantityCompositeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     Code1,
     LowValue2,
-    HighValue2,
-    ResourceSurrogateId
+    HighValue2 -- TODO: Do we need this as key column?
 )
 INCLUDE
 (
@@ -65,19 +58,17 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+WHERE LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
+CREATE INDEX IX_SearchParamId_Code1_HighValue2_LowValue2_INCLUDE_QuantityCodeId2_SystemId1_SystemId2_WHERE_LowValue2_NOT_NULL
 ON dbo.TokenQuantityCompositeSearchParam
 (
-    ResourceTypeId,
     SearchParamId,
     Code1,
     HighValue2,
-    LowValue2,
-    ResourceSurrogateId
+    LowValue2 -- TODO: Do we need this as key column?
 )
 INCLUDE
 (
@@ -85,7 +76,7 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+WHERE LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 

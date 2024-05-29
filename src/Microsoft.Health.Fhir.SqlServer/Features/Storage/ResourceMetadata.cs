@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         /// <summary>
         /// Gets the search index entries by their type key. The type should be one returned by
-        /// <see cref="SearchParameterToSearchValueTypeMap.GetSearchValueType(Hl7.Fhir.Model.SearchParameter)"/>:
+        /// <see cref="SearchParameterToSearchValueTypeMap.GetSearchValueType(Core.Models.SearchParameterInfo)"/>:
         /// either implementing ISearchValue or for composites a Tuple with the component types as type arguments,
         /// for example: <see cref="Tuple{UriSearchValue}"/>
         /// </summary>
