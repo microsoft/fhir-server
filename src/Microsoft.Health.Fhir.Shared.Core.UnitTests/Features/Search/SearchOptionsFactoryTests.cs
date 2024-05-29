@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string ContinuationTokenParamName = "ct";
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
+        private readonly IModelInfoProvider _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
@@ -60,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
             _sortingValidator = Substitute.For<ISortingValidator>();
+
+            ModelInfoProvider.SetProvider(_modelInfoProvider);
 
             RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
             _factory = new SearchOptionsFactory(
@@ -534,6 +537,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
             Assert.Equal(resourceVersionTypes, options.ResourceVersionTypes);
             Assert.Empty(options.UnsupportedSearchParams);
+        }
+
+        [Fact]
+        public void GivenSearchParamFromCustomFhirResource_WhenCustomTypeIsUnknown_ThenResourceNotSupportedExceptionShouldBeThrown()
+        {
+            const string resourceType = "Formulary";
+            const string paramName1 = KnownQueryParameterNames.Text;
+            const string value1 = "123";
+
+            _modelInfoProvider.IsKnownResource(resourceType).Returns(false);
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(paramName1, value1),
+            };
+
+            Assert.Throws<ResourceNotSupportedException>(() =>
+            {
+                SearchOptions options = CreateSearchOptions(
+                    resourceType: resourceType,
+                    queryParameters: queryParameters);
+            });
+        }
+
+        [Fact]
+        public void GivenSearchParamFromCustomFhirResource_WhenCustomTypeIsKnown_ThenCorrectExpressionShouldBeGenerated()
+        {
+            const string resourceType = "Formulary";
+            const string paramName1 = KnownQueryParameterNames.Text;
+            const string value1 = "123";
+
+            _modelInfoProvider.IsKnownResource(resourceType).Returns(true);
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(paramName1, value1),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: resourceType,
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            ValidateResourceTypeSearchParameterExpression(options.Expression, resourceType);
         }
 
         private SearchOptions CreateSearchOptions(
