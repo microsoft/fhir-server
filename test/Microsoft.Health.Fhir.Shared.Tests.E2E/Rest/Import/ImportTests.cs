@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -180,6 +181,33 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             var message = await ImportWaitAsync(checkLocation, false);
             Assert.Equal(HttpStatusCode.BadRequest, message.StatusCode);
             Assert.Contains(ImportProcessingJob.SurrogateIdsErrorMessage, await message.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
+        public async Task GivenIncrementalLoad_TruncatedLastUpdatedPreservedWithOffset()
+        {
+            var id = Guid.NewGuid().ToString("N");
+            var lastUpdated = new DateTimeOffset(DateTime.Parse(DateTime.Now.AddYears(-1).ToString()).AddSeconds(0.0001), TimeSpan.FromHours(10));
+            var ndJson = CreateTestPatient(id, lastUpdated);
+            var location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            var request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            await ImportCheckAsync(request, null, 0);
+
+            var history = await _client.SearchAsync($"Patient/{id}/_history");
+            Assert.Single(history.Resource.Entry);
+            Assert.Equal("1", history.Resource.Entry[0].Resource.VersionId);
+            Assert.Equal(lastUpdated.TruncateToMillisecond(), history.Resource.Entry[0].Resource.Meta.LastUpdated);
+
+            var lastUpdatedUtc = new DateTimeOffset(lastUpdated.DateTime.AddHours(-10), TimeSpan.Zero);
+            Assert.Equal(lastUpdated.UtcDateTime, lastUpdatedUtc.UtcDateTime); // the same date in UTC sense
+            ndJson = CreateTestPatient(id, lastUpdatedUtc);
+            location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
+            request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
+            await ImportCheckAsync(request, null, 0); // reported loaded
+
+            // but was not inserted TODO: uncomment Single once version 82 is released
+            history = await _client.SearchAsync($"Patient/{id}/_history");
+            ////Assert.Single(history.Resource.Entry);
         }
 
         [Fact]

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -24,6 +25,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public static DateTimeOffset ToLastUpdated(this long resourceSurrogateId)
         {
             return resourceSurrogateId.ToDate();
+        }
+
+        public static DateTimeOffset TruncateToMillisecond(this DateTimeOffset dateTimeOffset)
+        {
+            return new DateTimeOffset(dateTimeOffset.DateTime.TruncateToMillisecond(), dateTimeOffset.Offset);
         }
     }
 }
