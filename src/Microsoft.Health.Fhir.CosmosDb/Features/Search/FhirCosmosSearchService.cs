@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             catch (OperationCanceledException)
             {
                 _logger.LogWarning("Request Too Costly (ConditionalRequestTooCostly)");
-                throw new RequestTooCostlyException(Core.Resources.ConditionalRequestTooCostly);
+                throw new RequestTooCostlyException(Microsoft.Health.Fhir.Core.Resources.ConditionalRequestTooCostly);
             }
 
             if (!chainedResults.Any())
@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
 
                 _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
-                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                throw new InvalidSearchOperationException(string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
             }
 
             return (int)count;
