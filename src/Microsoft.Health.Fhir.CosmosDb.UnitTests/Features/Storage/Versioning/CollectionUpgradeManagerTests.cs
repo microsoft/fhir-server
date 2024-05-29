@@ -89,6 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             _manager = new CollectionUpgradeManager(
                 collectionDataUpdater,
+                storeProcedureInstaller,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 factory,

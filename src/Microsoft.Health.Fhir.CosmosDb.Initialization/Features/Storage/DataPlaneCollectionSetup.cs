@@ -34,7 +34,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IStoredProcedureInstaller _storedProcedureInstaller;
 
-        public DataPlaneCollectionSetup(CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration, ICosmosClientInitializer cosmosClientInitializer, ILogger<DataPlaneCollectionSetup> logger)
+        public DataPlaneCollectionSetup(
+           CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
+           IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
+           ICosmosClientInitializer cosmosClientInitializer,
+           IStoredProcedureInstaller storedProcedureInstaller,
+           ILogger<DataPlaneCollectionSetup> logger)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
@@ -49,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
                 collectionId));
+            _storedProcedureInstaller = storedProcedureInstaller;
             _logger = logger;
         }
 
