@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    if (++retry >= _maxRetries || !IsRetriable(ex))
+                    if (++retry >= _maxRetries || !IsRetriable(ex) || !ex.IsExecutionTimeout())
                     {
                         throw;
                     }
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (Exception ex)
                 {
                     lastException = ex;
-                    if (disableRetries || !IsRetriable(ex))
+                    if (disableRetries || !IsRetriable(ex) || !ex.IsExecutionTimeout())
                     {
                         throw;
                     }
