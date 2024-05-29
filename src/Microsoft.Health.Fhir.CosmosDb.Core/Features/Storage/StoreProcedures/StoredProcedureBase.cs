@@ -15,14 +15,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures
 {
     public abstract class StoredProcedureBase : IStoredProcedure
     {
-        private readonly IStoredProcedureMetadata _storedProcedureMetadata;
+        private readonly IStoredProcedureMetadata storedProcedureMetadata;
 
         protected StoredProcedureBase(IStoredProcedureMetadata storedProcedure)
         {
-            _storedProcedureMetadata = storedProcedure;
+            EnsureArg.IsNotNull(storedProcedureMetadata, nameof(storedProcedureMetadata));
+
+            storedProcedureMetadata = storedProcedure;
         }
 
-        public string FullName => _storedProcedureMetadata.FullName;
+        public string FullName => storedProcedureMetadata.FullName;
 
         public async Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProcAsync<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters)
         {

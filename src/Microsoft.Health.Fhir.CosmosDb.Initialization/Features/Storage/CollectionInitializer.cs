@@ -54,14 +54,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage
             _logger.LogInformation("Finding Container: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
             var existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
-
             _logger.LogInformation("Creating Cosmos Container if not exits: {CollectionId}", _cosmosCollectionConfiguration.CollectionId);
 
-            ContainerResponse containerResponse = await retryPolicy.ExecuteAsync(async () =>
-                await database.CreateContainerIfNotExistsAsync(
-                _cosmosCollectionConfiguration.CollectionId,
-                $"/{KnownDocumentProperties.PartitionKey}",
-                _cosmosCollectionConfiguration.InitialCollectionThroughput));
+            ContainerResponse containerResponse = await retryPolicy
+                                                        .ExecuteAsync(async () =>
+                                                        await database.CreateContainerIfNotExistsAsync(
+                                                        _cosmosCollectionConfiguration.CollectionId,
+                                                        $"/{KnownDocumentProperties.PartitionKey}",
+                                                        _cosmosCollectionConfiguration.InitialCollectionThroughput));
 
             if (containerResponse.StatusCode == HttpStatusCode.Created || containerResponse.Resource.DefaultTimeToLive != -1)
             {

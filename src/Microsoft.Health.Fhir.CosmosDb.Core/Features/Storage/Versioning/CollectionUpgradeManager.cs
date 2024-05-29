@@ -27,12 +27,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
 
         public CollectionUpgradeManager(
             ICollectionDataUpdater collectionDataUpdater,
+            IStoredProcedureInstaller storedProcedureInstaller,
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosDbDistributedLockFactory lockFactory,
             ILogger<CollectionUpgradeManager> logger)
         {
             EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
+            EnsureArg.IsNotNull(storedProcedureInstaller, nameof(storedProcedureInstaller));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));

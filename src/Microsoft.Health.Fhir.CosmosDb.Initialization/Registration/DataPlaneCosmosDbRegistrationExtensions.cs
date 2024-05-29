@@ -6,7 +6,6 @@ using System;
 using System.Linq;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
-
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.StoredProcedures;
 
