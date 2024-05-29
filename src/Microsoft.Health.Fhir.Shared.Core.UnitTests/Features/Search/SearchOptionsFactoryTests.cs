@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string ContinuationTokenParamName = "ct";
 
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
-        private readonly IModelInfoProvider _modelInfoProvider = Substitute.For<IModelInfoProvider>();
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
@@ -61,8 +60,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
             _sortingValidator = Substitute.For<ISortingValidator>();
-
-            ModelInfoProvider.SetProvider(_modelInfoProvider);
 
             RequestContextAccessor<IFhirRequestContext> contextAccessor = _defaultFhirRequestContext.SetupAccessor();
             _factory = new SearchOptionsFactory(
@@ -546,19 +543,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string paramName1 = KnownQueryParameterNames.Text;
             const string value1 = "123";
 
-            _modelInfoProvider.IsKnownResource(resourceType).Returns(false);
-
-            var queryParameters = new[]
+            var oldModelInfoProvider = ModelInfoProvider.Instance;
+            try
             {
-                Tuple.Create(paramName1, value1),
-            };
+                IModelInfoProvider modelInfoProvider = Substitute.For<IModelInfoProvider>();
+                modelInfoProvider.IsKnownResource(resourceType).Returns(false);
+                ModelInfoProvider.SetProvider(modelInfoProvider);
 
-            Assert.Throws<ResourceNotSupportedException>(() =>
+                var queryParameters = new[]
+                {
+                    Tuple.Create(paramName1, value1),
+                };
+
+                Assert.Throws<ResourceNotSupportedException>(() =>
+                {
+                    SearchOptions options = CreateSearchOptions(
+                        resourceType: resourceType,
+                        queryParameters: queryParameters);
+                });
+            }
+            finally
             {
-                SearchOptions options = CreateSearchOptions(
-                    resourceType: resourceType,
-                    queryParameters: queryParameters);
-            });
+                ModelInfoProvider.SetProvider(oldModelInfoProvider);
+            }
         }
 
         [Fact]
@@ -568,19 +575,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string paramName1 = KnownQueryParameterNames.Text;
             const string value1 = "123";
 
-            _modelInfoProvider.IsKnownResource(resourceType).Returns(true);
-
-            var queryParameters = new[]
+            var oldModelInfoProvider = ModelInfoProvider.Instance;
+            try
             {
-                Tuple.Create(paramName1, value1),
-            };
+                IModelInfoProvider modelInfoProvider = Substitute.For<IModelInfoProvider>();
+                modelInfoProvider.IsKnownResource(resourceType).Returns(true);
+                ModelInfoProvider.SetProvider(modelInfoProvider);
 
-            SearchOptions options = CreateSearchOptions(
-                resourceType: resourceType,
-                queryParameters: queryParameters);
+                var queryParameters = new[]
+                {
+                    Tuple.Create(paramName1, value1),
+                };
 
-            Assert.NotNull(options);
-            ValidateResourceTypeSearchParameterExpression(options.Expression, resourceType);
+                SearchOptions options = CreateSearchOptions(
+                    resourceType: resourceType,
+                    queryParameters: queryParameters);
+
+                Assert.NotNull(options);
+                ValidateResourceTypeSearchParameterExpression(options.Expression, resourceType);
+            }
+            finally
+            {
+                ModelInfoProvider.SetProvider(oldModelInfoProvider);
+            }
         }
 
         private SearchOptions CreateSearchOptions(
