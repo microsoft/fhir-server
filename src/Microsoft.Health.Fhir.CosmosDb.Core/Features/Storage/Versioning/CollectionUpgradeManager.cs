@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
     public class CollectionUpgradeManager : IUpgradeManager
     {
         private readonly ICollectionDataUpdater _collectionDataUpdater;
-        private readonly IStoredProcedureInstaller _storedProcedureInstaller;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly ICosmosDbDistributedLockFactory _lockFactory;
@@ -28,22 +27,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
 
         public CollectionUpgradeManager(
             ICollectionDataUpdater collectionDataUpdater,
-            IStoredProcedureInstaller storedProcedureInstaller,
-            ICollectionSetup collectionSetup,
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosDbDistributedLockFactory lockFactory,
             ILogger<CollectionUpgradeManager> logger)
         {
             EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
-            EnsureArg.IsNotNull(storedProcedureInstaller, nameof(storedProcedureInstaller));
-            EnsureArg.IsNotNull(collectionSetup, nameof(collectionSetup));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             _collectionDataUpdater = collectionDataUpdater;
-            _storedProcedureInstaller = storedProcedureInstaller;
             _configuration = configuration;
             _collectionConfiguration = GetCosmosCollectionConfiguration(namedCosmosCollectionConfigurationAccessor, Constants.CollectionConfigurationName);
             _lockFactory = lockFactory;
@@ -67,7 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
                     await distributedLock.AcquireLock(cancellationTokenSource.Token);
-                    await _storedProcedureInstaller.ExecuteAsync(container, cancellationToken);
                     await _collectionDataUpdater.ExecuteAsync(container, cancellationToken);
                     await distributedLock.ReleaseLock();
                 }

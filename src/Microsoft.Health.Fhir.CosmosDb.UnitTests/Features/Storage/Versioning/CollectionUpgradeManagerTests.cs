@@ -76,6 +76,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 collectionInitializer,
+                storeProcedureInstaller,
                 NullLogger<DataPlaneCollectionSetup>.Instance);
 
             var collectionVersionWrappers = Substitute.ForPartsOf<FeedIterator<CollectionVersion>>();
@@ -88,8 +89,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             _manager = new CollectionUpgradeManager(
                 collectionDataUpdater,
-                storeProcedureInstaller,
-                dataPlaneCollectionSetup,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 factory,

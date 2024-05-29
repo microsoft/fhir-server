@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+        private readonly ConcurrentDictionary<string, CosmosClient> _cosmosClients;
+        private readonly object _lockObject;
 
         public FhirCosmosClientInitializer(
             ICosmosClientTestProvider testProvider,
@@ -45,6 +48,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _requestHandlerFactory = requestHandlerFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _cosmosClients = new ConcurrentDictionary<string, CosmosClient>();
+            _lockObject = new object();
         }
 
         /// <inheritdoc />
@@ -52,6 +57,58 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            // Thread-safe logic to ensure that a single instance of CosmosClient is created per host.
+            if (_cosmosClients.TryGetValue(configuration.Host, out CosmosClient client1))
+            {
+                return client1;
+            }
+            else
+            {
+                lock (_lockObject)
+                {
+                    if (_cosmosClients.TryGetValue(configuration.Host, out CosmosClient client2))
+                    {
+                        return client2;
+                    }
+                    else
+                    {
+                        var client = CreateCosmosClientInternal(configuration);
+                        _cosmosClients.TryAdd(configuration.Host, client);
+                        return client;
+                    }
+                }
+            }
+        }
+
+        public Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId)
+        {
+            return client.GetContainer(databaseId, collectionId);
+        }
+
+        /// <inheritdoc />
+        public async Task OpenCosmosClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
+        {
+            EnsureArg.IsNotNull(client, nameof(client));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+            _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+            try
+            {
+                await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
+                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
+
+                _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+            }
+            catch (Exception e)
+            {
+                LogLevel logLevel = e is RequestRateExceededException ? LogLevel.Warning : LogLevel.Critical;
+                _logger.Log(logLevel, e, "Failed to connect to CosmosClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+                throw;
+            }
+        }
+
+        private CosmosClient CreateCosmosClientInternal(CosmosDataStoreConfiguration configuration)
+        {
             var host = configuration.Host;
             var key = configuration.Key;
 
@@ -84,33 +141,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return builder.Build();
-        }
-
-        public Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId)
-        {
-            return client.GetContainer(databaseId, collectionId);
-        }
-
-        /// <inheritdoc />
-        public async Task OpenCosmosClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
-        {
-            EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-
-            _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
-            try
-            {
-                await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
-                    await _testProvider.PerformTestAsync(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
-
-                _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
-            }
-            catch (Exception e)
-            {
-                LogLevel logLevel = e is RequestRateExceededException ? LogLevel.Warning : LogLevel.Critical;
-                _logger.Log(logLevel, e, "Failed to connect to CosmosClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
-                throw;
-            }
         }
 
         private class FhirCosmosSerializer : CosmosSerializer
