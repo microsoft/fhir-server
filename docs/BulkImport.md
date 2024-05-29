@@ -105,13 +105,14 @@ Content-Type:application/fhir+json
 | Parameter Name      | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | String representing the name of the data source format. Currently only FHIR NDJSON files are supported. | 1..1 | ```application/fhir+ndjson``` |
-| mode      | Import mode. Currently only initial load mode is supported. | 1..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| mode      | Import mode. | 0..1 | For initial import use ```InitialLoad``` mode value. For incremental import mode use ```IncrementalLoad``` mode value. If no mode value is provided, IncrementalLoad mode value is considered by default. |
+| allowNegativeVersions | Allows FHIR server assigning negative versions for resource records with explicit lastUpdated value and no version specified when input does not fit in contiguous space of positive versions existing in the store. | 0..1 | To enable this feature pass true. By default it is false. |
 | input   | Details of the input files. | 1..* | A JSON array with 3 parts described in the table below. |
 
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
-| type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) that match the input file. |
-|URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
+| type   |  Resource type of input file   | 0..1 |  Not required. In case when all resources in a file are of the same type, a value for [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) can be provided. |
+| URL   |  Azure storage url of input file   | 1..1 | URL value of the input file that can't be modified. |
 | etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**
@@ -126,18 +127,27 @@ Content-Type:application/fhir+json
         },
         {
             "name": "mode",
-            "valueString": "InitialLoad"
+            "valueString": "IncrementalLoad"
+        },
+        {
+            "name": "allowNegativeVersions",
+            "valueBoolean": true
         },
         {
             "name": "input",
             "part": [
                 {
-                    "name": "type",
-                    "valueString": "Patient"
-                },
+                    "name": "url",
+                    "valueUri": "https://example.blob.core.windows.net/resources/abc.ndjson"
+                }
+            ]
+        },
+        {
+            "name": "input",
+            "part": [
                 {
                     "name": "url",
-                    "valueUri": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+                    "valueUri": "https://example.blob.core.windows.net/resources/xyz.ndjson"
                 },
                 {
                     "name": "etag",
@@ -189,9 +199,14 @@ Below are some of the important fields in the response body:
     "request": "https://importperf.azurewebsites.net/$Import",
     "output": [
         {
-            "type": "Patient",
+            "type": "null",
             "count": 10000,
-            "inputUrl": "https://example.blob.core.windows.net/resources/Patient.ndjson"
+            "inputUrl": "https://example.blob.core.windows.net/resources/abc.ndjson"
+        },
+        {
+            "type": "null",
+            "count": 100,
+            "inputUrl": "https://example.blob.core.windows.net/resources/xyz.ndjson"
         },
         {
             "type": "CarePlan",
@@ -304,7 +319,8 @@ Below are some errors you may encounter:
 ## Best practices and tips for increasing throughput
 
 1. Deploy the FHIR server, SQL Server database, and the storage account in the same region to avoid data movement across regions.
-1. The optimal NDJSON file size for import is more than 50MB (no upper limit). Combine smaller files of the same resource type together.
+1. The optimal NDJSON file size for import is >=50MB (or >=20K resources, no upper limit). Consider combining smaller files together.
+1. For optimal performance total size of files in single import should be large (>=100GB or >=100M resources, no upper limit). 
 1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports. There is no limit on number of files in single import (tested with 50K files). 
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:

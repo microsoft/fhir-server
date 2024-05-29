@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CompartmentSearchRewriter compartmentSearchRewriter,
             SmartCompartmentSearchRewriter smartCompartmentSearchRewriter,
             ILogger<FhirCosmosSearchService> logger)
-            : base(searchOptionsFactory, fhirDataStore)
+            : base(searchOptionsFactory, fhirDataStore, logger)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 if (includeExpressions.Any(e => e.Iterate) || revIncludeExpressions.Any(e => e.Iterate))
                 {
                     // We haven't implemented this yet.
+                    _logger.LogWarning("Bad Request (IncludeIterateNotSupported)");
                     throw new BadRequestException(Resources.IncludeIterateNotSupported);
                 }
             }
@@ -294,12 +295,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     chainedOptions,
                     queryTimeout.Token))
                 {
+                    _logger.LogWarning("Invalid Search Operation (ChainedExpressionSubqueryLimit)");
                     throw new InvalidSearchOperationException(string.Format(CultureInfo.InvariantCulture, Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
                 }
             }
             catch (OperationCanceledException)
             {
-                throw new RequestTooCostlyException(Microsoft.Health.Fhir.Core.Resources.ConditionalRequestTooCostly);
+                _logger.LogWarning("Request Too Costly (ConditionalRequestTooCostly)");
+                throw new RequestTooCostlyException(Core.Resources.ConditionalRequestTooCostly);
             }
 
             if (!chainedResults.Any())
@@ -496,6 +499,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         }
                         catch (ArgumentException)
                         {
+                            _logger.LogWarning("Bad Request (InvalidFeedRange)");
                             throw new BadRequestException(Resources.InvalidFeedRange);
                         }
                     }
@@ -516,7 +520,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
 
-                        _logger.LogInformation(
+                        _logger.LogWarning(
                             "Failed to fill items, found {ItemCount}, needed {DesiredItemCount}. Physical partition count {PhysicalPartitionCount}",
                             results.Count,
                             desiredItemCount,
@@ -553,7 +557,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         OperationOutcomeConstants.IssueType.NotSupported,
                         string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue)));
 
-                throw new InvalidSearchOperationException(string.Format(Microsoft.Health.Fhir.Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
+                _logger.LogWarning("Invalid Search Operation (SearchCountResultsExceedLimit)");
+                throw new InvalidSearchOperationException(string.Format(Core.Resources.SearchCountResultsExceedLimit, count, int.MaxValue));
             }
 
             return (int)count;
