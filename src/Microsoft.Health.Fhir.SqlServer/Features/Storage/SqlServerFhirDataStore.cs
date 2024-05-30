@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (!resource.IsDeleted)
                     {
                         // check if the new resource data is same as existing resource data
-                        if (ExistingRawResourceIsEqualToInput(resource, existingResource, resourceExt.KeepVersion))
+                        if (ExistingRawResourceIsEqualToInput(resource.RawResource, existingResource.RawResource, resourceExt.KeepVersion))
                         {
                             // Send the existing resource in the response
                             results.Add(resourceExt.GetIdentifier(), new DataStoreOperationOutcome(new UpsertOutcome(existingResource, SaveOutcomeType.Updated)));
@@ -463,26 +463,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         .ToList();
 
                     // Dedup on lastUpdated against database
-                    var matchedOnLastUpdated = new HashSet<ResourceDateKey>((await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), cancellationToken)).Where(_ => _.VersionId == "0"));
+                    var matchedOnLastUpdated =
+                        (await StoreClient.GetResourceVersionsAsync(inputsDedupped.Where(_ => _.KeepLastUpdated).Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken))
+                            .Where(_ => _.Key.VersionId == "0")
+                            .ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
                     var fullyDedupped = new List<ImportResource>();
-                    foreach (var resource in inputsDedupped)
+                    foreach (var input in inputsDedupped)
                     {
-                        if (matchedOnLastUpdated.Contains(resource.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true)))
+                        if (matchedOnLastUpdated.TryGetValue(input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, ignoreVersion: true), out var existing))
                         {
-                            conflicts.Add(resource);
+                            if (((input.KeepVersion && input.ResourceWrapper.Version == existing.Matched.Version) || !input.KeepVersion)
+                                && existing.Matched.RawResource != null // TODO: Remove this line after version 82 deployment
+                                && ExistingRawResourceIsEqualToInput(input.ResourceWrapper.RawResource, existing.Matched.RawResource, false))
+                            {
+                                loaded.Add(input);
+                            }
+                            else
+                            {
+                                conflicts.Add(input);
+                            }
                         }
                         else
                         {
-                            fullyDedupped.Add(resource);
+                            fullyDedupped.Add(input);
                         }
                     }
 
                     // make sure that data with explicit and default last updated are merged separately
-                    await MergeVersioned(fullyDedupped, useReplicasForReads);
+                    await MergeVersioned(fullyDedupped.Where(_ => _.KeepVersion).ToList(), useReplicasForReads); // if keep version is true, keep last updated is true too.
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated).ToList(), true, useReplicasForReads);
+                    await MergeUnversioned(fullyDedupped.Where(_ => _.KeepLastUpdated && !_.KeepVersion).ToList(), true, useReplicasForReads);
 
-                    await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated).ToList(), false, useReplicasForReads);
+                    await MergeUnversioned(fullyDedupped.Where(_ => !_.KeepLastUpdated && !_.KeepVersion).ToList(), false, useReplicasForReads);
                 }
 
                 return (loaded, conflicts);
@@ -534,7 +546,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 async Task MergeVersioned(List<ImportResource> inputs, bool useReplicasForReads)
                 {
                     // Dedup by version via ToResourceKey - prefer latest dates.
-                    var inputsWithVersionTemp = inputs.Where(_ => _.KeepVersion).GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First());
+                    var inputsWithVersionTemp = inputs.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First());
 
                     var inputsWithVersion = RemoveVersionOutOfSyncWithLastUpdatedConflicts(inputsWithVersionTemp);
 
@@ -548,18 +560,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         if (versionsInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(), out var versionInDb))
                         {
-                            // make sure that input last updated is truncated to the same precision as database one
-                            // this logic relies on correct truncation in import resource parser
-                            var lastUpdatedEqual = versionInDb.LastModified.DateTime == input.ResourceWrapper.LastModified.DateTime;
-                            var dataEqual = versionInDb.RawResource.Data == input.ResourceWrapper.RawResource.Data;
-                            if (lastUpdatedEqual && dataEqual)
-                            {
-                                loaded.Add(input);
-                            }
-                            else
-                            {
-                                conflicts.Add(input); // version match but diff dates or raw resources
-                            }
+                            conflicts.Add(input); // Ckecks on lastUpdated were already run above.
                         }
                         else
                         {
@@ -594,14 +595,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 async Task MergeUnversioned(List<ImportResource> inputs, bool keepLastUpdated, bool useReplicasForReads)
                 {
-                    var inputsNoVersion = inputs.Where(_ => !_.KeepVersion).ToList();
-
                     // Check curent version in the database.
-                    var currentInDb = (await GetAsync(inputsNoVersion.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
+                    var currentInDb = (await GetAsync(inputs.Select(_ => _.ResourceWrapper.ToResourceKey(true)).Distinct().ToList(), cancellationToken)).ToDictionary(_ => _.ToResourceKey(true), _ => _);
 
                     // If last updated on input resource is below current, then need to check the "fit".
                     var inputsNoVersionForCheck = new List<ImportResource>();
-                    foreach (var input in inputsNoVersion)
+                    foreach (var input in inputs)
                     {
                         if (currentInDb.TryGetValue(input.ResourceWrapper.ToResourceKey(true), out var current) && input.ResourceWrapper.LastModified < current.LastModified)
                         {
@@ -611,38 +610,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     // Ensure that the imported resources can "fit" in the db. We want to keep versionId alinged to lastUpdated and sequential if possible.
                     // Note: surrogate id is populated from last updated by ToResourceDateKey(), therefore we can trust this value as part of dictionary key.
-                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), cancellationToken)).ToDictionary(_ => new ResourceDateKey(_.ResourceTypeId, _.Id, _.ResourceSurrogateId, null), _ => _);
+                    var versionSlots = (await StoreClient.GetResourceVersionsAsync(inputsNoVersionForCheck.Select(_ => _.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true)).ToList(), _compressedRawResourceConverter.ReadCompressedRawResource, cancellationToken)).ToDictionary(_ => new ResourceDateKey(_.Key.ResourceTypeId, _.Key.Id, _.Key.ResourceSurrogateId, null), _ => _);
                     foreach (var input in inputsNoVersionForCheck.OrderBy(_ => _.ResourceWrapper.ResourceId).ThenByDescending(_ => _.ResourceWrapper.LastModified))
                     {
                         var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
                         versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
-                        if (versionSlotKey.VersionId == "0") // conflict on last updated
+                        input.KeepVersion = true;
+                        int intVersion;
+                        if ((intVersion = int.Parse(versionSlotKey.Key.VersionId)) > 0)
                         {
-                            conflicts.Add(input);
+                            input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
                         }
                         else
                         {
-                            input.KeepVersion = true;
-                            int intVersion;
-                            if ((intVersion = int.Parse(versionSlotKey.VersionId)) > 0)
+                            if (allowNegativeVersions)
                             {
-                                input.ResourceWrapper.Version = versionSlotKey.VersionId;
+                                input.ResourceWrapper.Version = intVersion.ToString();
                             }
                             else
                             {
-                                if (allowNegativeVersions)
-                                {
-                                    input.ResourceWrapper.Version = intVersion.ToString();
-                                }
-                                else
-                                {
-                                    conflicts.Add(input); // no version slot available and negative versions are not allowed
-                                }
+                                conflicts.Add(input); // no version slot available and negative versions are not allowed
                             }
                         }
                     }
 
-                    var inputNoConflict = inputsNoVersion.Except(conflicts);
+                    var inputNoConflict = inputs.Except(conflicts);
 
                     // Make sure that version is incremented taking into account current state in the database.
                     var prevResourceId = string.Empty;
@@ -841,7 +833,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private bool ExistingRawResourceIsEqualToInput(ResourceWrapper input, ResourceWrapper existing, bool keepVersion)
+        private bool ExistingRawResourceIsEqualToInput(RawResource input, RawResource existing, bool keepVersion)
         {
             if (!_rawResourceDeduping.IsEnabled())
             {
@@ -850,31 +842,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (keepVersion)
             {
-                return input.RawResource.Data == existing.RawResource.Data;
+                return input.Data == existing.Data;
             }
 
-            var inputDate = GetJsonValue(input.RawResource.Data, "lastUpdated", false);
-            var inputVersion = GetJsonValue(input.RawResource.Data, "versionId", true);
-            var existingDate = GetJsonValue(existing.RawResource.Data, "lastUpdated", true);
-            var existingVersion = GetJsonValue(existing.RawResource.Data, "versionId", true);
+            var inputDate = GetJsonValue(input.Data, "lastUpdated", false);
+            var inputVersion = GetJsonValue(input.Data, "versionId", true);
+            var existingDate = GetJsonValue(existing.Data, "lastUpdated", true);
+            var existingVersion = GetJsonValue(existing.Data, "versionId", true);
             if (inputVersion == existingVersion)
             {
                 if (inputDate == existingDate)
                 {
-                    return input.RawResource.Data == existing.RawResource.Data;
+                    return input.Data == existing.Data;
                 }
 
-                return input.RawResource.Data == existing.RawResource.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
+                return input.Data == existing.Data.Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
             else
             {
                 if (inputDate == existingDate)
                 {
-                    return input.RawResource.Data == existing.RawResource.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
+                    return input.Data == existing.Data.Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal);
                 }
 
-                return input.RawResource.Data
-                            == existing.RawResource.Data
+                return input.Data
+                            == existing.Data
                                 .Replace($"\"versionId\":\"{existingVersion}\"", $"\"versionId\":\"{inputVersion}\"", StringComparison.Ordinal)
                                 .Replace($"\"lastUpdated\":\"{existingDate}\"", $"\"lastUpdated\":\"{inputDate}\"", StringComparison.Ordinal);
             }
