@@ -205,9 +205,9 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             request = CreateImportRequest(location, ImportMode.IncrementalLoad, false);
             await ImportCheckAsync(request, null, 0); // reported loaded
 
-            // but was not inserted TODO: uncomment Single once version 82 is released
+            // but was not inserted
             history = await _client.SearchAsync($"Patient/{id}/_history");
-            ////Assert.Single(history.Resource.Entry);
+            Assert.Single(history.Resource.Entry);
         }
 
         [Fact]
@@ -276,7 +276,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             ndJson = CreateTestPatient(id, baseDate.AddYears(-1));
             location = (await ImportTestHelper.UploadFileAsync(ndJson, _fixture.StorageAccount)).location;
             request = CreateImportRequest(location, ImportMode.IncrementalLoad, false, true);
-            await ImportCheckAsync(request, null, 1);
+            await ImportCheckAsync(request, null, 0);
 
             history = await _client.SearchAsync($"Patient/{id}/_history");
             Assert.Equal(2, history.Resource.Entry.Count);
