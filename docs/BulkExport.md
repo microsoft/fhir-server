@@ -44,7 +44,7 @@ Below are set of additional query parameters users can specify in addition to on
 1. \_format in FHIR Server:  \_format allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/'), and known tags. The tags will be replaced with data when the job is run. The three supported tags are: 
 * **resourcename**: Replaced with the resource type being exported.
 * **timestamp**: Replaced with a timestamp of the job's queried time.
-* **id**: eplaced with the GUID of the export job.
+* **id**: Replaced with the GUID of the export job.
   
 1. \_max_count:  \_max_count allows to reduce the number of resources exported by a single job. Users can use the _maxCount=xxxx query parameter or set MaximumNumberOfResourcesPerQuery in the export configuration section. The default is 10,000. Export operation needs memory to serialize the data when it is writing to the lake. To reduce out of memory exceptions due to additional memory, user can choose to reduce the _max_count value by decrements of 1000. It would be beneficial for user to increase the compute memory on FHIR server as well.
 
