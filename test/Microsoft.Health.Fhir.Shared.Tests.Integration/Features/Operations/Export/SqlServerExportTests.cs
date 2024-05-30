@@ -152,7 +152,7 @@ retryOnTestException:
         {
             ExecuteSql("TRUNCATE TABLE dbo.JobQueue");
             ExecuteSql("TRUNCATE TABLE dbo.Resource");
-            var surrId = DateTime.UtcNow.DateToId();
+            var surrId = DateTimeOffset.UtcNow.ToId();
             ExecuteSql(@$"
 INSERT INTO Resource 
         (ResourceTypeId,ResourceId,Version,IsHistory,ResourceSurrogateId,IsDeleted,RequestMethod,RawResource,IsRawResourceMetaSet,SearchParamHash)

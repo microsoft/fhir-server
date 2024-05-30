@@ -302,12 +302,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (!keepLastUpdated || _ignoreInputLastUpdated.IsEnabled())
                 {
                     surrId = transactionId + index;
-                    resource.LastModified = new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(surrId), TimeSpan.Zero);
+                    resource.LastModified = surrId.ToLastUpdated();
                     ReplaceVersionIdAndLastUpdatedInMeta(resource);
                 }
                 else
                 {
-                    var surrIdBase = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.DateTime);
+                    var surrIdBase = resource.LastModified.ToSurrogateId();
                     surrId = surrIdBase + minSequenceId + index;
                     ReplaceVersionIdInMeta(resource);
                     singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         .GroupBy(_ => new ResourceDateKey(
                                              _model.GetResourceTypeId(_.ResourceWrapper.ResourceTypeName),
                                              _.ResourceWrapper.ResourceId,
-                                             _.KeepLastUpdated ? ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(_.ResourceWrapper.LastModified.DateTime) : 0,
+                                             _.KeepLastUpdated ? _.ResourceWrapper.LastModified.ToSurrogateId() : 0,
                                              null))
                         .Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.Version).First())
                         .ToList();
