@@ -114,10 +114,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.UpdateAsync(AddNarative(thirdTestResource, thirdTestResource.Text.Div) as Observation);
 
             // Calculate the min/max from db values.
-            List<string> expectedResourceIds = [firstTestResource.Id, secondTestResource.Id, thirdTestResource.Id, fourthTestResource.Id];
-            var allTestResources = (await _client.SearchAsync($"_history")).Resource.Entry.Where(r => expectedResourceIds.Contains(r.Resource.Id));
-            var sinceTime = allTestResources.Min(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
-            var beforeTime = allTestResources.Max(r => r.Resource.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
+            List<DomainResource> expectedResources = [firstTestResource, secondTestResource, thirdTestResource, fourthTestResource];
+            List<string> expectedResourceIds = expectedResources.Select(r => r.Id).ToList();
+            List<Resource> serverResources = [];
+
+            foreach (var testResource in expectedResources)
+            {
+                serverResources.AddRange((await _client.SearchAsync($"{testResource.TypeName}/{testResource.Id}/_history")).Resource.Entry.Select(r => r.Resource));
+            }
+
+            var sinceTime = serverResources.Min(r => r.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
+            var beforeTime = serverResources.Max(r => r.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
 
             // Run test queries
             var allSummaryCountResult = await _client.SearchAsync($"_history?_since={sinceTime}&_before={beforeTime}&_summary=count");
