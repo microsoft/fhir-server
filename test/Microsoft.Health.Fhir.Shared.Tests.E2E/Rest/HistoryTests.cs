@@ -118,10 +118,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             List<string> expectedResourceIds = expectedResources.Select(r => r.Id).ToList();
             List<Resource> serverResources = [];
 
-            foreach (var testResource in expectedResources)
+            await Task.WhenAll(expectedResources.Select(async testResource =>
             {
                 serverResources.AddRange((await _client.SearchAsync($"{testResource.TypeName}/{testResource.Id}/_history")).Resource.Entry.Select(r => r.Resource));
-            }
+            }));
 
             var sinceTime = serverResources.Min(r => r.Meta.LastUpdated.Value).UtcDateTime.ToString("o");
             var beforeTime = serverResources.Max(r => r.Meta.LastUpdated.Value).UtcDateTime.AddMilliseconds(1).ToString("o");
