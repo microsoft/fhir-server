@@ -799,13 +799,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
-            HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-            }
-
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
             Assert.Single(result.Error);
@@ -1236,13 +1231,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
-            HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-            }
-
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.Single(result.Error);
             Assert.NotEmpty(result.Error.First().Url);
@@ -1343,13 +1333,8 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
-            HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation)).StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-            }
-
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            var response = await ImportWaitAsync(checkLocation);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             ImportJobResult result = JsonConvert.DeserializeObject<ImportJobResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
             Assert.Single(result.Error);
@@ -1466,7 +1451,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             while (respone.StatusCode != HttpStatusCode.Conflict)
             {
                 respone = await _client.CancelImport(checkLocation);
-                await Task.Delay(TimeSpan.FromSeconds(3));
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
 
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(async () => await _client.CheckImportAsync(checkLocation));
@@ -1498,10 +1483,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(5));
-                    }
+                    await ImportWaitAsync(checkLocation);
                 });
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
@@ -1548,10 +1530,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             FhirClientException fhirException = await Assert.ThrowsAsync<FhirClientException>(
                 async () =>
                 {
-                    while ((await _client.CheckImportAsync(checkLocation)).StatusCode == HttpStatusCode.Accepted)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(5));
-                    }
+                    await ImportWaitAsync(checkLocation);
                 });
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
@@ -1662,7 +1641,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResourcesCommitTransacti
             HttpResponseMessage response;
             while ((response = await _client.CheckImportAsync(checkLocation, checkSuccessStatus)).StatusCode == HttpStatusCode.Accepted)
             {
-                await Task.Delay(TimeSpan.FromSeconds(2));
+                await Task.Delay(TimeSpan.FromSeconds(0.2));
             }
 
             return response;
