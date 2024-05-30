@@ -6,7 +6,7 @@ This feature allows data from the FHIR server to be exported. More details can b
 
 There are two ways by which one can set the destination storage account to export data to. One way would be to use the connection string for the storage account and update the `FhirServer:Operations:Export:StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and export data.
 
-The other option would be to use the `FhirServer:Operations:Export:StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+The other option would be to use the `FhirServer:Operations:Export:StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice. 
 
 Currently, we only support Azure Blob storage as the destination.
 
