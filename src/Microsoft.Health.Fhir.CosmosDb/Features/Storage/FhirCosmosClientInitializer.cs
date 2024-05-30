@@ -57,8 +57,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
+            string key = string.IsNullOrEmpty(configuration.Host) ? "local" : configuration.Host;
+
             // Thread-safe logic to ensure that a single instance of CosmosClient is created per host.
-            if (_cosmosClients.TryGetValue(configuration.Host, out CosmosClient client1))
+            if (_cosmosClients.TryGetValue(key, out CosmosClient client1))
             {
                 return client1;
             }
@@ -66,14 +68,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 lock (_lockObject)
                 {
-                    if (_cosmosClients.TryGetValue(configuration.Host, out CosmosClient client2))
+                    if (_cosmosClients.TryGetValue(key, out CosmosClient client2))
                     {
                         return client2;
                     }
                     else
                     {
                         var client = CreateCosmosClientInternal(configuration);
-                        _cosmosClients.TryAdd(configuration.Host, client);
+                        _cosmosClients.TryAdd(key, client);
                         return client;
                     }
                 }

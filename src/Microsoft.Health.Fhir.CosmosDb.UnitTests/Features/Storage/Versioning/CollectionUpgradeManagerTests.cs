@@ -72,13 +72,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             collectionInitializer.CreateFhirContainer(Arg.Any<CosmosClient>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(_container);
 
-            var dataPlaneCollectionSetup = new DataPlaneCollectionSetup(
-                _cosmosDataStoreConfiguration,
-                optionsMonitor,
-                collectionInitializer,
-                storeProcedureInstaller,
-                NullLogger<DataPlaneCollectionSetup>.Instance);
-
             var collectionVersionWrappers = Substitute.ForPartsOf<FeedIterator<CollectionVersion>>();
 
             _container.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>(), Arg.Any<string>(), Arg.Any<QueryRequestOptions>())
