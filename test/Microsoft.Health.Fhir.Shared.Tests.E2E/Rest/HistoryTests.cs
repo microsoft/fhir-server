@@ -116,9 +116,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Calculate the min/max from db values.
             List<DomainResource> expectedResources = [firstTestResource, secondTestResource, thirdTestResource, fourthTestResource];
             List<string> expectedResourceIds = expectedResources.Select(r => r.Id).ToList();
-
             DateTimeOffset sinceTime = DateTimeOffset.MinValue, beforeTime = DateTimeOffset.MaxValue;
-            object lockObject = new object();
+            object lockObject = new();
 
             await Task.WhenAll(expectedResources.Select(async testResource =>
             {
