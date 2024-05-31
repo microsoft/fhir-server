@@ -951,6 +951,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await Task.FromResult((int?)null);
         }
 
+        public static (bool IsEnabled, DateTime? LastUpdated) FlagIsEnabled(bool isEnabled, DateTime? lastUpdated, object databaseAccessLocker, string parameterId, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+        {
+            if (lastUpdated.HasValue && (DateTime.UtcNow - lastUpdated.Value).TotalSeconds < 600)
+            {
+                return (isEnabled, lastUpdated);
+            }
+
+            lock (databaseAccessLocker)
+            {
+                if (lastUpdated.HasValue && (DateTime.UtcNow - lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return (isEnabled, lastUpdated);
+                }
+
+                var isEnabledInDb = IsEnabledInDatabase(parameterId);
+                if (isEnabledInDb.HasValue)
+                {
+                    isEnabled = isEnabledInDb.Value;
+                    lastUpdated = DateTime.UtcNow;
+                }
+            }
+
+            return (isEnabled, lastUpdated);
+
+            bool? IsEnabledInDatabase(string id)
+            {
+                try
+                {
+                    using var cmd = new SqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
+                    cmd.Parameters.AddWithValue("@Id", id);
+                    var value = cmd.ExecuteScalarAsync(sqlRetryService, logger, CancellationToken.None).Result;
+                    return value == null || (double)value == 1;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
         private class IgnoreInputLastUpdated
         {
             private ISqlRetryService _sqlRetryService;
@@ -967,42 +1008,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             public bool IsEnabled()
             {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                {
-                    return _isEnabled;
-                }
-
-                lock (_databaseAccessLocker)
-                {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                    {
-                        return _isEnabled;
-                    }
-
-                    var isEnabled = IsEnabledInDatabase();
-                    if (isEnabled.HasValue)
-                    {
-                        _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
-                    }
-                }
-
+                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "MergeResources.IgnoreInputLastUpdated.IsEnabled", _sqlRetryService, _logger);
+                _isEnabled = ret.IsEnabled;
+                _lastUpdated = ret.LastUpdated;
                 return _isEnabled;
-            }
-
-            private bool? IsEnabledInDatabase()
-            {
-                try
-                {
-                    using var cmd = new SqlCommand();
-                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
-                    return value != null && (double)value == 1;
-                }
-                catch (Exception)
-                {
-                    return null;
-                }
             }
         }
 
@@ -1022,42 +1031,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             public bool IsEnabled()
             {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                {
-                    return _isEnabled;
-                }
-
-                lock (_databaseAccessLocker)
-                {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                    {
-                        return _isEnabled;
-                    }
-
-                    var isEnabled = IsEnabledInDatabase();
-                    if (isEnabled.HasValue)
-                    {
-                        _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
-                    }
-                }
-
+                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "MergeResources.IgnoreInputVersion.IsEnabled", _sqlRetryService, _logger);
+                _isEnabled = ret.IsEnabled;
+                _lastUpdated = ret.LastUpdated;
                 return _isEnabled;
-            }
-
-            private bool? IsEnabledInDatabase()
-            {
-                try
-                {
-                    using var cmd = new SqlCommand();
-                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputVersion'"; // call can be made before store is initialized
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
-                    return value != null && (double)value == 1;
-                }
-                catch (Exception)
-                {
-                    return null;
-                }
             }
         }
 
@@ -1077,42 +1054,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             public bool IsEnabled()
             {
-                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                {
-                    return _isEnabled;
-                }
-
-                lock (_databaseAccessLocker)
-                {
-                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
-                    {
-                        return _isEnabled;
-                    }
-
-                    var isEnabled = IsEnabledInDatabase();
-                    if (isEnabled.HasValue)
-                    {
-                        _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
-                    }
-                }
-
+                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "RawResourceDeduping.IsEnabled", _sqlRetryService, _logger);
+                _isEnabled = ret.IsEnabled;
+                _lastUpdated = ret.LastUpdated;
                 return _isEnabled;
-            }
-
-            private bool? IsEnabledInDatabase()
-            {
-                try
-                {
-                    using var cmd = new SqlCommand();
-                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'RawResourceDeduping.IsEnabled'"; // call can be made before store is initialized
-                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
-                    return value == null || (double)value == 1;
-                }
-                catch (Exception)
-                {
-                    return null;
-                }
             }
         }
     }
