@@ -11,7 +11,7 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Set Variables'
     inputs:
       azureSubscription: $(ConnectedServiceName)

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Azure;
 using EnsureThat;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Audit;
@@ -22,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     {
         private const string CancelledErrorMessage = "Import processing job is canceled.";
         internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        internal const string SurrogateIdsErrorMessage = "Unable to generate internal IDs. If the lastUpdated meta element is provided as input, reduce the number of resources with the same up to millisecond lastUpdated below 10,000.";
 
         private readonly IMediator _mediator;
         private readonly IQueueClient _queueClient;
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
-                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
+                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, definition.AllowNegativeVersions, cancellationToken);
 
                 result.SucceededResources = importProgress.SucceededResources;
                 result.FailedResources = importProgress.FailedResources;
@@ -151,6 +154,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
                 var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
+            }
+            catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
+            {
+                _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Most likely reason - too many input resources with the same last updated.");
+                var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex);
             }
             catch (Exception ex)
             {

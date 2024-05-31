@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             catch
             {
                 _initialized = false;
+                throw;
             }
         }
 
@@ -103,7 +104,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             if (!_initialized)
             {
-                throw new InitializationException("Failed to initialize search parameters");
+                _logger.LogWarning("Search parameters are not initialized.");
+
+                // throw new InitializationException("Failed to initialize search parameters");
             }
         }
 
@@ -258,7 +261,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error calculating search parameter hash"), cancellationToken);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
@@ -279,7 +283,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
 
-            await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
+            // Not reporting notification while we investigate why this could happen
+            // await _mediator.Publish(new ImproperBehaviorNotification("Error initializing search parameters"), cancellationToken);
         }
 
         private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)

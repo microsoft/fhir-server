@@ -66,9 +66,9 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                 return;
             }
 
-            if (_callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
+            if (_callType == "SingleId" || _callType == "HttpUpdate" || _callType == "HttpCreate" || _callType == "BundleUpdate")
             {
-                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow)}");
+                Console.WriteLine($"Start at {DateTime.UtcNow.ToString("s")} surrogate Id = {DateTimeOffset.UtcNow.ToSurrogateId()}");
                 ExecuteParallelHttpPuts();
                 return;
             }
@@ -188,6 +188,7 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
             var calls = 0L;
             var resources = 0;
             long sumLatency = 0;
+            var singleId = Guid.NewGuid().ToString();
             BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(sourceContainer), _threads, 1, (thread, lineItem) =>
             {
                 if (Interlocked.Read(ref calls) >= _calls)
@@ -201,7 +202,11 @@ namespace Microsoft.Health.Internal.Fhir.PerfTester
                     return;
                 }
 
-                var resourceIdInput = _callType == "HttpUpdate" || _callType == "BundleUpdate" ? resourceIds[callId].ResourceId : Guid.NewGuid().ToString();
+                var resourceIdInput = _callType == "SingleId"
+                                    ? singleId
+                                    : _callType == "HttpUpdate" || _callType == "BundleUpdate"
+                                          ? resourceIds[callId].ResourceId
+                                          : Guid.NewGuid().ToString();
 
                 var swLatency = Stopwatch.StartNew();
                 var json = lineItem.Item2.First();
