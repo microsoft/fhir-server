@@ -312,13 +312,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     surrId = transactionId + index;
                     resource.LastModified = surrId.ToLastUpdated();
-                    ReplaceVersionIdAndLastUpdatedInMeta(resource);
+                    SyncVersionIdAndLastUpdatedInMeta(resource);
                 }
                 else
                 {
                     var surrIdBase = resource.LastModified.ToSurrogateId();
                     surrId = surrIdBase + minSequenceId + index;
-                    ReplaceVersionIdInMeta(resource);
+                    SyncVersionIdInMeta(resource);
                     singleTransaction = true; // There is no way to rollback until TransactionId is added to Resource table
                 }
 
@@ -464,6 +464,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         foreach (var resource in resources)
                         {
                             resource.KeepVersion = false;
+                            ReplaceVersionId(resource.ResourceWrapper, InitialVersion);
                         }
                     }
 
@@ -817,7 +818,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return formattedDate.Replace(milliseconds, trimmedMilliseconds, StringComparison.Ordinal);
         }
 
-        private void ReplaceVersionIdInMeta(ResourceWrapper resourceWrapper)
+        private void ReplaceVersionId(ResourceWrapper resourceWrapper, string version)
+        {
+            resourceWrapper.Version = version;
+            var currentVersion = GetJsonValue(resourceWrapper.RawResource.Data, "versionId", false);
+            var rawResourceData = resourceWrapper.RawResource.Data.Replace($"\"versionId\":\"{currentVersion}\"", $"\"versionId\":\"{resourceWrapper.Version}\"", StringComparison.Ordinal);
+            resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
+        }
+
+        private void SyncVersionIdInMeta(ResourceWrapper resourceWrapper)
         {
             if (resourceWrapper.Version == InitialVersion) // version is already correct
             {
@@ -829,7 +838,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             resourceWrapper.RawResource = new RawResource(rawResourceData, FhirResourceFormat.Json, true);
         }
 
-        private void ReplaceVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
+        private void SyncVersionIdAndLastUpdatedInMeta(ResourceWrapper resourceWrapper)
         {
             var date = GetJsonValue(resourceWrapper.RawResource.Data, "lastUpdated", false);
             string rawResourceData;
