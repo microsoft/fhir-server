@@ -126,10 +126,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Setup test resources. They have been imported without version id/last updated so we need to add these for the test.
             var testResources = _fixture.TestResources["ImportAndDeleteImplicitVersionUpdated"].Import;
 
-            // We expect only the first resource to be imported. Validating the non-deleted resources are returned.
+            // We expect final state to match latest last updated. Validating the non-deleted resources are returned.
             List<Resource> expectedNonHistorical = testResources
                 .GroupBy(x => x.Id)
-                .Select(x => x.First())
+                .Select(x => x.OrderByDescending(_ => _.Meta.LastUpdated).First())
                 .Where(x => !x.Meta.Extension.Any(e => e.Url == KnownFhirPaths.AzureSoftDeletedExtensionUrl))
                 .ToList();
 
