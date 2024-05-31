@@ -616,8 +616,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var resourceKey = input.ResourceWrapper.ToResourceDateKey(_model.GetResourceTypeId, true);
                         versionSlots.TryGetValue(resourceKey, out var versionSlotKey);
                         input.KeepVersion = true;
-                        int intVersion;
-                        if ((intVersion = int.Parse(versionSlotKey.Key.VersionId)) > 0)
+                        if (int.Parse(versionSlotKey.Key.VersionId) > 0)
                         {
                             input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
                         }
@@ -625,7 +624,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             if (allowNegativeVersions)
                             {
-                                input.ResourceWrapper.Version = intVersion.ToString();
+                                input.ResourceWrapper.Version = versionSlotKey.Key.VersionId;
                             }
                             else
                             {
