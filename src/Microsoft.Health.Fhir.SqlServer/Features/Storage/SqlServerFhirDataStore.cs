@@ -983,9 +983,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (isEnabled.HasValue)
                     {
                         _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
                     }
-
-                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
@@ -1039,9 +1038,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (isEnabled.HasValue)
                     {
                         _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
                     }
-
-                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
@@ -1095,9 +1093,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (isEnabled.HasValue)
                     {
                         _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
                     }
-
-                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
