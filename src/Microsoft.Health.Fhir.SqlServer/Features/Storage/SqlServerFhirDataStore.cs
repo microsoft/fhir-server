@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
         private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
+        private static IgnoreInputVersion _ignoreInputVersion;
         private static RawResourceDeduping _rawResourceDeduping;
         private static object _flagLocker = new object();
 
@@ -98,6 +99,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 lock (_flagLocker)
                 {
                     _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlRetryService, _logger);
+                }
+            }
+
+            if (_ignoreInputVersion == null)
+            {
+                lock (_flagLocker)
+                {
+                    _ignoreInputVersion ??= new IgnoreInputVersion(_sqlRetryService, _logger);
                 }
             }
 
@@ -450,6 +459,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else if (importMode == ImportMode.IncrementalLoad)
                 {
+                    if (_ignoreInputVersion.IsEnabled())
+                    {
+                        foreach (var resource in resources)
+                        {
+                            resource.KeepVersion = false;
+                        }
+                    }
+
                     // Dedup by last updated - take first version for single last updated, prefer large version.
                     // for records without explicit last updated dedup on resource id only.
                     // Note: Surrogate id on ResourceWrapper remains 0 at this point.
@@ -966,8 +983,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (isEnabled.HasValue)
                     {
                         _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
                     }
+
+                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
@@ -979,6 +997,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputLastUpdated'"; // call can be made before store is initialized
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    return value != null && (double)value == 1;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
+        }
+
+        private class IgnoreInputVersion
+        {
+            private ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private object _databaseAccessLocker = new object();
+
+            public IgnoreInputVersion(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+            {
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
+            }
+
+            public bool IsEnabled()
+            {
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                {
+                    return _isEnabled;
+                }
+
+                lock (_databaseAccessLocker)
+                {
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    var isEnabled = IsEnabledInDatabase();
+                    if (isEnabled.HasValue)
+                    {
+                        _isEnabled = isEnabled.Value;
+                    }
+
+                    _lastUpdated = DateTime.UtcNow;
+                }
+
+                return _isEnabled;
+            }
+
+            private bool? IsEnabledInDatabase()
+            {
+                try
+                {
+                    using var cmd = new SqlCommand();
+                    cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = 'MergeResources.IgnoreInputVersion'"; // call can be made before store is initialized
                     var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
                     return value != null && (double)value == 1;
                 }
@@ -1021,8 +1095,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     if (isEnabled.HasValue)
                     {
                         _isEnabled = isEnabled.Value;
-                        _lastUpdated = DateTime.UtcNow;
                     }
+
+                    _lastUpdated = DateTime.UtcNow;
                 }
 
                 return _isEnabled;
