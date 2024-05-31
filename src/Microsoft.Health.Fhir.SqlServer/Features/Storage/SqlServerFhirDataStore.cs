@@ -994,11 +994,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class IgnoreInputLastUpdated
         {
-            private ISqlRetryService _sqlRetryService;
+            private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
-            private object _databaseAccessLocker = new object();
+            private readonly object _databaseAccessLocker = new object();
 
             public IgnoreInputLastUpdated(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
@@ -1017,11 +1017,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class IgnoreInputVersion
         {
-            private ISqlRetryService _sqlRetryService;
+            private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
-            private object _databaseAccessLocker = new object();
+            private readonly object _databaseAccessLocker = new object();
 
             public IgnoreInputVersion(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
@@ -1040,11 +1040,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private class RawResourceDeduping
         {
-            private ISqlRetryService _sqlRetryService;
+            private readonly ISqlRetryService _sqlRetryService;
             private readonly ILogger<SqlServerFhirDataStore> _logger;
             private bool _isEnabled;
             private DateTime? _lastUpdated;
-            private object _databaseAccessLocker = new object();
+            private readonly object _databaseAccessLocker = new object();
 
             public RawResourceDeduping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
