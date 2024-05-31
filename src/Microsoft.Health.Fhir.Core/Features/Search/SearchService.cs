@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -26,19 +27,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="fhirDataStore">The data store</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
+        /// <param name="logger">Logger</param>
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, ILogger logger)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchOptionsFactory = searchOptionsFactory;
             _fhirDataStore = fhirDataStore;
+            _logger = logger;
         }
 
         /// <inheritdoc />
@@ -92,6 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (since != null)
                 {
                     // _at and _since cannot be both specified.
+                    _logger.LogWarning("Invalid Search Operation (_since)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -102,7 +108,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (before != null)
                 {
-                    // _at and _since cannot be both specified.
+                    // _at and _before cannot be both specified.
+                    _logger.LogWarning("Invalid Search Operation (_before)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -119,6 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
                 {
                     // you cannot specify a value for _before in the future
+                    _logger.LogWarning("Invalid Search Operation (_before in the future)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -169,6 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (!string.Equals(sort.TrimStart('-'), KnownQueryParameterNames.LastUpdated, StringComparison.Ordinal))
                 {
+                    _logger.LogWarning("Invalid Search Operation (SearchSortParameterNotSupported)");
                     throw new InvalidSearchOperationException(
                         string.Format(
                             CultureInfo.InvariantCulture,
@@ -198,6 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (resource == null)
                 {
+                    _logger.LogWarning("Resource Not Found (ResourceNotFoundById)");
                     throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, resourceType, resourceId));
                 }
             }

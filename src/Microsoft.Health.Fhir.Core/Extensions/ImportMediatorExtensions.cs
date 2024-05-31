@@ -25,12 +25,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             ImportMode importMode,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool allowNegativeVersions = false)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode);
+            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, importMode, allowNegativeVersions);
 
             CreateImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

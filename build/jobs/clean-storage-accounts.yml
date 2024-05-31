@@ -7,7 +7,7 @@ jobs:
   pool:
     vmImage: $(WindowsVmImage)
   steps:
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Clean Storage Accounts'
     continueOnError: true
     inputs:

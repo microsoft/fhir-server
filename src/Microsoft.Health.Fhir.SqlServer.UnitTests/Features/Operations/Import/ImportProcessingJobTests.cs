@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     return new ImportProcessingProgress();
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
             IAuditLogger auditLogger = Substitute.For<IAuditLogger>();
             IQueueClient queueClient = Substitute.For<IQueueClient>();
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     if (callInfo[2] != null) // always true
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<ImportMode>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];

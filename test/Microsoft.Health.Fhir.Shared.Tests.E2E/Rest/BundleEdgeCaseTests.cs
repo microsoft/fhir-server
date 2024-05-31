@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -94,6 +95,65 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Equal(localResourceIdentier, remoteResourceIdentifier);
                 Assert.Equal("2", bundleResponse2.Resource.Entry[i].Resource.Meta.VersionId);
             }
+        }
+
+        [Fact]
+        public async Task WhenProcessingABundle_IfItContainsHistoryEndpointRequests_ThenReturnTheResourcesAsExpected()
+        {
+            CancellationToken cancellationToken = CancellationToken.None;
+
+            // 1 - Post first patient who is created as the base resources to handle all following operations.
+            Patient patient = new Patient()
+            {
+                Name = new List<HumanName> { new HumanName() { Family = "Rush", Given = new List<string> { $"John" } } },
+                Gender = AdministrativeGender.Male,
+                BirthDate = "1974-12-21",
+                Text = new Narrative($"<div>{DateTime.UtcNow.ToString("o")}</div>"),
+            };
+            var firstPatientResponse = await _client.PostAsync("Patient", patient.ToJson(), cancellationToken);
+            Assert.True(firstPatientResponse.Response.IsSuccessStatusCode, "First patient ingestion did not complete as expected.");
+            string patientId = firstPatientResponse.Resource.ToResourceElement().ToPoco<Patient>().Id;
+
+            Bundle bundle = new Bundle() { Type = BundleType.Batch };
+
+            // 2 - Create a query on top of _history endpoint.
+            EntryComponent entryComponent = new EntryComponent()
+            {
+                Resource = null,
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Patient/{patientId}/_history",
+                },
+            };
+            bundle.Entry.Add(entryComponent);
+
+            // 3 - Create a query on top of _history/version endpoint.
+            entryComponent = new EntryComponent()
+            {
+                Resource = null,
+                Request = new RequestComponent()
+                {
+                    Method = HTTPVerb.GET,
+                    Url = $"Patient/{patientId}/_history/1",
+                },
+            };
+            bundle.Entry.Add(entryComponent);
+
+            FhirResponse<Bundle> bundleResponse = await _client.PostBundleAsync(bundle, new Client.FhirBundleOptions(), cancellationToken);
+            Assert.True(bundleResponse.StatusCode == HttpStatusCode.OK, "Bundle ingestion did not complete as expected.");
+
+            // 4 - Validate the response of _history endpoint.
+            EntryComponent firstEntry = bundleResponse.Resource.Entry.First();
+            Assert.True(firstEntry.Response.Status == "200", $"The HTTP status code for the _history query is '{firstEntry.Response.Status}'.");
+            Assert.True(firstEntry.Resource is Bundle, "The resource returned by the _history query is not a Bundle.");
+            Assert.True(((Bundle)firstEntry.Resource).Entry.First().Resource.Id == patientId, "The resource returned by the _history query is not the original Patient.");
+
+            // 5 - Validate the response of _history/version endpoint.
+            EntryComponent secondEntry = bundleResponse.Resource.Entry.Last();
+            Assert.True(secondEntry.Response.Status == "200", $"The HTTP status code for the _history/version query is '{secondEntry.Response.Status}'.");
+            Assert.True(secondEntry.Resource is Patient, "The resource returned by the _history/version query is not a Patient.");
+            Assert.True(secondEntry.Resource.Id == patientId, "The resource returned by the _history/version query is not the original Patient.");
         }
 
         [Fact]

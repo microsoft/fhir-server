@@ -19,22 +19,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests
         [Fact]
         public void GivenADateTime_WhenRepresentedAsASurrogateId_HasTheExpectedRange()
         {
-            var baseDate = DateTime.MinValue;
-            long baseId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(baseDate);
+            var baseDate = DateTimeOffset.MinValue;
+            long baseId = baseDate.ToSurrogateId();
 
-            Assert.Equal(baseDate, ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(baseId + 79999));
-            Assert.Equal(TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond), ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(baseId + 80000) - baseDate);
+            Assert.Equal(baseDate, (baseId + 79999).ToLastUpdated());
+            Assert.Equal(TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond), (baseId + 80000).ToLastUpdated() - baseDate);
 
-            long maxBaseId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(ResourceSurrogateIdHelper.MaxDateTime);
+            long maxBaseId = ResourceSurrogateIdHelper.MaxDateTime.ToSurrogateId();
 
-            Assert.Equal(ResourceSurrogateIdHelper.MaxDateTime.TruncateToMillisecond(), ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(maxBaseId));
-            Assert.Equal(ResourceSurrogateIdHelper.MaxDateTime.TruncateToMillisecond(), ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(maxBaseId + 79999));
+            Assert.Equal(ResourceSurrogateIdHelper.MaxDateTime.UtcDateTime.TruncateToMillisecond(), maxBaseId.ToLastUpdated());
+            Assert.Equal(ResourceSurrogateIdHelper.MaxDateTime.UtcDateTime.TruncateToMillisecond(), (maxBaseId + 79999).ToLastUpdated());
         }
 
         [Fact]
         public void GivenADateTimeLargerThanTheLargestThatCanBeRepresentedAsASurrogateId_WhenTurnedIntoASurrogateId_Throws()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.MaxValue));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DateTimeOffset.MaxValue.ToSurrogateId());
         }
     }
 }
