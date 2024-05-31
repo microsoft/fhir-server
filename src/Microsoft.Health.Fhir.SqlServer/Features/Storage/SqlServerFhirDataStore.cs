@@ -951,7 +951,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await Task.FromResult((int?)null);
         }
 
-        public static (bool IsEnabled, DateTime? LastUpdated) FlagIsEnabled(bool isEnabled, DateTime? lastUpdated, object databaseAccessLocker, string parameterId, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+        private static (bool IsEnabled, DateTime? LastUpdated) FlagIsEnabled(bool isEnabled, DateTime? lastUpdated, object databaseAccessLocker, string parameterId, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
         {
             if (lastUpdated.HasValue && (DateTime.UtcNow - lastUpdated.Value).TotalSeconds < 600)
             {
