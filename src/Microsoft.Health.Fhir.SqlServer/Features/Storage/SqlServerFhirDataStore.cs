@@ -59,10 +59,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private readonly static ProcessingFlag _ignoreInputLastUpdated;
-        private readonly static ProcessingFlag _ignoreInputVersion;
-        private readonly static ProcessingFlag _rawResourceDeduping;
-        private readonly static object _flagLocker = new object();
+        private static readonly ProcessingFlag _ignoreInputLastUpdated;
+        private static readonly ProcessingFlag _ignoreInputVersion;
+        private static readonly ProcessingFlag _rawResourceDeduping;
+        private static readonly object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
             SqlServerFhirModel model,
