@@ -59,9 +59,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SchemaInformation _schemaInformation;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IImportErrorSerializer _importErrorSerializer;
-        private static IgnoreInputLastUpdated _ignoreInputLastUpdated;
-        private static IgnoreInputVersion _ignoreInputVersion;
-        private static RawResourceDeduping _rawResourceDeduping;
+        private static ProcessingFlag _ignoreInputLastUpdated;
+        private static ProcessingFlag _ignoreInputVersion;
+        private static ProcessingFlag _rawResourceDeduping;
         private static object _flagLocker = new object();
 
         public SqlServerFhirDataStore(
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputLastUpdated ??= new IgnoreInputLastUpdated(_sqlRetryService, _logger);
+                    _ignoreInputLastUpdated ??= new ProcessingFlag("MergeResources.IgnoreInputLastUpdated.IsEnabled", false, _sqlRetryService, _logger);
                 }
             }
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _ignoreInputVersion ??= new IgnoreInputVersion(_sqlRetryService, _logger);
+                    _ignoreInputVersion ??= new ProcessingFlag("MergeResources.IgnoreInputVersion.IsEnabled", false, _sqlRetryService, _logger);
                 }
             }
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 lock (_flagLocker)
                 {
-                    _rawResourceDeduping ??= new RawResourceDeduping(_sqlRetryService, _logger);
+                    _rawResourceDeduping ??= new ProcessingFlag("MergeResources.RawResourceDeduping.IsEnabled", true, _sqlRetryService, _logger);
                 }
             }
         }
@@ -960,113 +960,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return await Task.FromResult((int?)null);
         }
 
-        private static (bool IsEnabled, DateTime? LastUpdated) FlagIsEnabled(bool isEnabled, DateTime? lastUpdated, object databaseAccessLocker, string parameterId, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
+        private class ProcessingFlag
         {
-            if (lastUpdated.HasValue && (DateTime.UtcNow - lastUpdated.Value).TotalSeconds < 600)
+            private readonly ISqlRetryService _sqlRetryService;
+            private readonly ILogger<SqlServerFhirDataStore> _logger;
+            private bool _isEnabled;
+            private DateTime? _lastUpdated;
+            private readonly object _databaseAccessLocker = new object();
+            private readonly string _parameterId;
+            private readonly bool _defaultValue;
+
+            public ProcessingFlag(string parameterId, bool defaultValue, ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
             {
-                return (isEnabled, lastUpdated);
+                _parameterId = parameterId;
+                _defaultValue = defaultValue;
+                _sqlRetryService = sqlRetryService;
+                _logger = logger;
             }
 
-            lock (databaseAccessLocker)
+            public bool IsEnabled()
             {
-                if (lastUpdated.HasValue && (DateTime.UtcNow - lastUpdated.Value).TotalSeconds < 600)
+                if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
                 {
-                    return (isEnabled, lastUpdated);
+                    return _isEnabled;
                 }
 
-                var isEnabledInDb = IsEnabledInDatabase(parameterId);
-                if (isEnabledInDb.HasValue)
+                lock (_databaseAccessLocker)
                 {
-                    isEnabled = isEnabledInDb.Value;
-                    lastUpdated = DateTime.UtcNow;
+                    if (_lastUpdated.HasValue && (DateTime.UtcNow - _lastUpdated.Value).TotalSeconds < 600)
+                    {
+                        return _isEnabled;
+                    }
+
+                    var isEnabled = IsEnabledInDatabase();
+                    if (isEnabled.HasValue)
+                    {
+                        _isEnabled = isEnabled.Value;
+                        _lastUpdated = DateTime.UtcNow;
+                    }
                 }
+
+                return _isEnabled;
             }
 
-            return (isEnabled, lastUpdated);
-
-            bool? IsEnabledInDatabase(string id)
+            private bool? IsEnabledInDatabase()
             {
                 try
                 {
                     using var cmd = new SqlCommand();
                     cmd.CommandText = "IF object_id('dbo.Parameters') IS NOT NULL SELECT Number FROM dbo.Parameters WHERE Id = @Id"; // call can be made before store is initialized
-                    cmd.Parameters.AddWithValue("@Id", id);
-                    var value = cmd.ExecuteScalarAsync(sqlRetryService, logger, CancellationToken.None).Result;
-                    return value == null || (double)value == 1;
+                    cmd.Parameters.AddWithValue("@Id", _parameterId);
+                    var value = cmd.ExecuteScalarAsync(_sqlRetryService, _logger, CancellationToken.None).Result;
+                    return value == null ? _defaultValue : (double)value == 1;
                 }
                 catch (Exception)
                 {
                     return null;
                 }
-            }
-        }
-
-        private class IgnoreInputLastUpdated
-        {
-            private readonly ISqlRetryService _sqlRetryService;
-            private readonly ILogger<SqlServerFhirDataStore> _logger;
-            private bool _isEnabled;
-            private DateTime? _lastUpdated;
-            private readonly object _databaseAccessLocker = new object();
-
-            public IgnoreInputLastUpdated(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
-            {
-                _sqlRetryService = sqlRetryService;
-                _logger = logger;
-            }
-
-            public bool IsEnabled()
-            {
-                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "MergeResources.IgnoreInputLastUpdated.IsEnabled", _sqlRetryService, _logger);
-                _isEnabled = ret.IsEnabled;
-                _lastUpdated = ret.LastUpdated;
-                return _isEnabled;
-            }
-        }
-
-        private class IgnoreInputVersion
-        {
-            private readonly ISqlRetryService _sqlRetryService;
-            private readonly ILogger<SqlServerFhirDataStore> _logger;
-            private bool _isEnabled;
-            private DateTime? _lastUpdated;
-            private readonly object _databaseAccessLocker = new object();
-
-            public IgnoreInputVersion(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
-            {
-                _sqlRetryService = sqlRetryService;
-                _logger = logger;
-            }
-
-            public bool IsEnabled()
-            {
-                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "MergeResources.IgnoreInputVersion.IsEnabled", _sqlRetryService, _logger);
-                _isEnabled = ret.IsEnabled;
-                _lastUpdated = ret.LastUpdated;
-                return _isEnabled;
-            }
-        }
-
-        private class RawResourceDeduping
-        {
-            private readonly ISqlRetryService _sqlRetryService;
-            private readonly ILogger<SqlServerFhirDataStore> _logger;
-            private bool _isEnabled;
-            private DateTime? _lastUpdated;
-            private readonly object _databaseAccessLocker = new object();
-
-            public RawResourceDeduping(ISqlRetryService sqlRetryService, ILogger<SqlServerFhirDataStore> logger)
-            {
-                _sqlRetryService = sqlRetryService;
-                _logger = logger;
-            }
-
-            public bool IsEnabled()
-            {
-                var ret = FlagIsEnabled(_isEnabled, _lastUpdated, _databaseAccessLocker, "RawResourceDeduping.IsEnabled", _sqlRetryService, _logger);
-                _isEnabled = ret.IsEnabled;
-                _lastUpdated = ret.LastUpdated;
-                return _isEnabled;
             }
         }
     }
