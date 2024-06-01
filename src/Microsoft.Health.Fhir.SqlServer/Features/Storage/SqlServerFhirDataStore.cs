@@ -564,7 +564,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 async Task MergeVersioned(List<ImportResource> inputs, bool useReplicasForReads)
                 {
                     // Dedup by version via ToResourceKey - prefer latest dates.
-                    var inputsWithVersionTemp = inputs.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified.DateTime).First());
+                    var inputsWithVersionTemp = inputs.GroupBy(_ => _.ResourceWrapper.ToResourceKey()).Select(_ => _.OrderByDescending(_ => _.ResourceWrapper.LastModified).First());
 
                     var inputsWithVersion = RemoveVersionOutOfSyncWithLastUpdatedConflicts(inputsWithVersionTemp);
 
