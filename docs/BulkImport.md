@@ -15,7 +15,7 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 
 ### Current limitations
 
-* In initial mode, resources with conditional references will be logged as errors. In incremental mode, conditional references will be loaded but not resolved.
+* In initial mode, resources with conditional references will be logged as errors. In incremental mode, resources with conditional references will be loaded but references will not be resolved.
 * If multiple resources share the same resource ID, in initial mode, only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID. In incremental mode, if lastUpdated is not provided, behavior is the same as in the initial. If lastUpdated is provided, then resource versions are deduplicated by lastUpdated, and only duplicates are reported as errors, the rest is loaded.
 
 ## How to use $import
