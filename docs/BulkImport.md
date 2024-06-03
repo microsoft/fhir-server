@@ -3,7 +3,7 @@
 There are two modes of $import supported today-
 
 1. Initial mode is intended to load FHIR resources into an empty FHIR server. Initial mode only supports CREATE operations and, when enabled, blocks API writes to the FHIR server.
-1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated and versionId from resource Meta (if present in resource JSON).
+1. Incremental mode is optimized to load data into FHIR server periodically and doesn't block writes via API. It also allows you to load lastUpdated, or both lastUpdated and versionId, from resource Meta (if present in resource JSON). There are no performance differences between incremental and initial modes.  
 
 The Bulk import feature enables importing FHIR data in the NDJSON format to the FHIR server. By default, this feature is disabled. To enable and use Bulk import, refer to the guidelines in this document.
 
@@ -15,8 +15,9 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 
 ### Current limitations
 
-* Conditional references in resources are not supported for initial mode import.
-* If multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
+* In initial mode, resources with conditional references will be logged as errors. In incremental mode, conditional references will be loaded but not resolved.
+* In initial mode, if multiple resources share the same resource ID, then only one of those resources will be imported at random and an error will be logged corresponding to the remaining resources sharing the ID.
+* In incremental mode, if lastUpdated is not provided, behavior is the same as in the initial. If lastUpdated is provided, then resource versions are deduplicated by lastUpdated, and only duplicates are reported as errors, the rest is loaded.
 
 ## How to use $import
 
