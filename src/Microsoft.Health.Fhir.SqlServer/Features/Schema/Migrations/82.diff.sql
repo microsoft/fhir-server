@@ -1,6 +1,6 @@
-﻿--DROP PROCEDURE dbo.GetResourceVersions
+--DROP PROCEDURE dbo.GetResourceVersions
 GO
-CREATE PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
+ALTER PROCEDURE dbo.GetResourceVersions @ResourceDateKeys dbo.ResourceDateKeyList READONLY
 AS
 -- This stored procedure allows to identifiy if version gap is available and checks dups on lastUpdated
 set nocount on
