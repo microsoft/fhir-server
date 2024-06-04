@@ -13,10 +13,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
             var str = e.ToString().ToLowerInvariant();
             return HasNetworkErrorPattern(str)
                    || HasInternalSqlErrorPattern(str)
+                   || e.HasLoginFailurePattern()
                    || HasDatabaseAvailabilityPattern(str)
                    || HasDatabaseOverloadPattern(str)
                    || HasDeadlockErrorPattern(str)
                    || HasIncorrectAsyncCallPattern(str);
+        }
+
+        internal static bool HasLoginFailurePattern(this Exception e)
+        {
+            var str = e.ToString().ToLowerInvariant();
+            return str.Contains("Login failed", StringComparison.OrdinalIgnoreCase);
         }
 
         internal static bool IsExecutionTimeout(this Exception e)
@@ -83,7 +90,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features
                     || str.Contains("connections to this database are no longer allowed", StringComparison.OrdinalIgnoreCase) // happened on SLO update from HS_Gen5_16 to HS_Gen4_1
                     || str.Contains("database is in emergency mode", StringComparison.OrdinalIgnoreCase)
                     || (str.Contains("transaction log for database", StringComparison.OrdinalIgnoreCase) && str.Contains("full due to 'ACTIVE_BACKUP_OR_RESTORE'", StringComparison.OrdinalIgnoreCase))
-                    || str.Contains("Login failed for user", StringComparison.OrdinalIgnoreCase)
                     || str.Contains("The timeout period elapsed prior to obtaining a connection from the pool", StringComparison.OrdinalIgnoreCase);
 
             ////Unable to access database 'VS_Prod_008_v1' because it lacks a quorum of nodes for high availability. Try the operation again later.

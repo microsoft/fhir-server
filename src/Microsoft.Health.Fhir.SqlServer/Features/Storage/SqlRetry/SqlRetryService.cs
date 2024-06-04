@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return true;
                 }
 
-                if (sqlEx.ToString().Contains("login failed", StringComparison.OrdinalIgnoreCase))
+                if (sqlEx.HasLoginFailurePattern())
                 {
                     return true;
                 }
@@ -211,6 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlException sqlException = null;
 
             int retry = 0;
+            DateTime? loginFaildStart = null;
             while (true)
             {
                 try
@@ -221,6 +222,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
+                    if (ex.HasLoginFailurePattern())
+                    {
+                        loginFaildStart = loginFaildStart.HasValue ? loginFaildStart : DateTime.UtcNow; // start ticking
+                        if ((DateTime.UtcNow - loginFaildStart.Value).TotalSeconds > 600)
+                        {
+                            throw;
+                        }
+                    }
+
                     if (++retry >= _maxRetries || !IsRetriable(ex))
                     {
                         throw;
@@ -264,6 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var start = DateTime.UtcNow;
             Exception lastException = null;
             int retry = 0;
+            DateTime? loginFaildStart = null;
             while (true)
             {
                 try
@@ -283,6 +294,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
+                    if (ex.HasLoginFailurePattern())
+                    {
+                        loginFaildStart = loginFaildStart.HasValue ? loginFaildStart : DateTime.UtcNow; // start ticking
+                        if ((DateTime.UtcNow - loginFaildStart.Value).TotalSeconds > 600)
+                        {
+                            throw;
+                        }
+                    }
+
                     lastException = ex;
                     if (disableRetries || !IsRetriable(ex))
                     {
