@@ -320,7 +320,8 @@ Below are some errors you may encounter:
 1. Deploy the FHIR server, SQL Server database, and the storage account in the same region to avoid data movement across regions.
 1. The optimal NDJSON file size for import is >=50MB (or >=20K resources, no upper limit). Consider combining smaller files together.
 1. For optimal performance total size of files in single import should be large (>=100GB or >=100M resources, no upper limit). 
-1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports. There is no limit on number of files in single import (tested with 50K files). 
+1. Though multiple parallel imports are supported, best performance can be achieved for single import with the same payload as in multiple parallel imports.
+1. There is no limit on number of files in single import (tested with 50K files). Small number of files (up to single file) is preferred. 
 1. If you find that LOG IO percentage or CPU percentage are very high during the import, upgrade your database tier.
 1. Scale out to increase parallelism:
     1. Increase the number of machines in the app service plan.
