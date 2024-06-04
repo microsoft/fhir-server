@@ -15,7 +15,7 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 ### Current limitations
 
 * In initial mode, resources with conditional references will be logged as errors. In incremental mode, resources with conditional references will be loaded but references will not be resolved.
-* If multiple input resource records share the same resource ID, import applies deduplication logic. In initial mode, deduplication works on resource ID, and only one of records with the same resource ID is imported at random and all others are logged as errors. In incremental mode, if lastUpdated is not provided, deduplication is the same as in the initial. If lastUpdated is provided, then resource records are deduplicated by a combination of resource ID and lastUpdated, and only duplicates are reported as errors, the rest is loaded.
+* If multiple input resource records share the same resource ID, they are deduplicated. This logic choses one record for load, while the rest are logged as errors. In initial mode deduplication is performed on resource ID. In incremental mode, if lastUpdated is not provided, deduplication is the same as in the initial mode. If lastUpdated is provided, then resource records are deduplicated on a combination of resource ID and lastUpdated. The choice of record for load is not deterministic, as it is dependent on the processing order of records, and this order is not guaranteed by distributed parallel import design.
 
 ## How to use $import
 
