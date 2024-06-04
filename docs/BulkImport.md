@@ -10,7 +10,6 @@ The Bulk import feature enables importing FHIR data in the NDJSON format to the 
 ## Prerequisites
 
 * NDJSON FHIR data to be imported.
-* Each NDJSON file should contain resources of only one type.
 * You may have multiple NDJSON files per resource type.
 
 ### Current limitations
