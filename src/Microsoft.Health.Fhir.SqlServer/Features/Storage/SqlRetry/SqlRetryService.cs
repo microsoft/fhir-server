@@ -211,7 +211,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlException sqlException = null;
 
             int retry = 0;
-            DateTime? loginFaildStart = null;
             while (true)
             {
                 try
@@ -224,11 +223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (ex.HasLoginFailurePattern())
                     {
-                        loginFaildStart = loginFaildStart.HasValue ? loginFaildStart : DateTime.UtcNow; // start ticking
-                        if ((DateTime.UtcNow - loginFaildStart.Value).TotalSeconds > 600)
-                        {
-                            throw;
-                        }
+                        throw;
                     }
 
                     if (++retry >= _maxRetries || !IsRetriable(ex))
@@ -274,7 +269,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var start = DateTime.UtcNow;
             Exception lastException = null;
             int retry = 0;
-            DateTime? loginFaildStart = null;
             while (true)
             {
                 try
@@ -296,11 +290,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (ex.HasLoginFailurePattern())
                     {
-                        loginFaildStart = loginFaildStart.HasValue ? loginFaildStart : DateTime.UtcNow; // start ticking
-                        if ((DateTime.UtcNow - loginFaildStart.Value).TotalSeconds > 600)
-                        {
-                            throw;
-                        }
+                        throw;
                     }
 
                     lastException = ex;
