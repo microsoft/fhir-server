@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
 
-            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, storedProcedureInstallter, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
+            var upgradeManager = new CollectionUpgradeManager(dataCollectionUpdater, _cosmosDataStoreConfiguration, optionsMonitor, dbLock, NullLogger<CollectionUpgradeManager>.Instance);
             ICosmosClientTestProvider testProvider = new CosmosClientReadWriteTestProvider();
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();

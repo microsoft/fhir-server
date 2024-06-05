@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         };
 
         private readonly CollectionUpgradeManager _manager;
+        private readonly ICollectionDataUpdater _collectionDataUpdater;
         private readonly Container _container;
         private readonly ContainerResponse _containerResponse;
 
@@ -60,12 +61,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             var optionsMonitor = Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>();
             optionsMonitor.Get(Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
-            var collectionDataUpdater = Substitute.For<ICollectionDataUpdater>();
-            collectionDataUpdater.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult(true));
-
-            var storeProcedureInstaller = Substitute.For<IStoredProcedureInstaller>();
-            storeProcedureInstaller.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
+            _collectionDataUpdater = Substitute.For<ICollectionDataUpdater>();
+            _collectionDataUpdater.ExecuteAsync(Arg.Any<Container>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(true));
 
             var collectionInitializer = Substitute.For<ICosmosClientInitializer>();
@@ -81,8 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
             _manager = new CollectionUpgradeManager(
-                collectionDataUpdater,
-                storeProcedureInstaller,
+                _collectionDataUpdater,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 factory,
@@ -103,28 +99,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         }
 
         [Fact]
-        public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionIndexIsUpdated()
+        public async Task GivenACollection_WhenSettingUpCollection_ThenSearchParameterIsRegistered()
         {
             await UpdateCollectionAsync();
 
-            await _container.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionVersionWrapperIsSaved()
-        {
-            await UpdateCollectionAsync();
-
-            await _container.Received(1)
-                .UpsertItemAsync(Arg.Is<CollectionVersion>(x => x.Version == _manager.CollectionSettingsVersion), Arg.Any<PartitionKey?>(), null, Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenACollection_WhenSettingUpCollection_ThenTheCollectionTTLIsSetToNeg1()
-        {
-            await UpdateCollectionAsync();
-
-            Assert.Equal(-1, _containerResponse.Resource.DefaultTimeToLive);
+            await _collectionDataUpdater.Received(1).ExecuteAsync(_container, Arg.Any<CancellationToken>());
         }
 
         private async Task UpdateCollectionAsync()

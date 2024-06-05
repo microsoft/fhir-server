@@ -27,14 +27,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
 
         public CollectionUpgradeManager(
             ICollectionDataUpdater collectionDataUpdater,
-            IStoredProcedureInstaller storedProcedureInstaller,
             CosmosDataStoreConfiguration configuration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosDbDistributedLockFactory lockFactory,
             ILogger<CollectionUpgradeManager> logger)
         {
             EnsureArg.IsNotNull(collectionDataUpdater, nameof(collectionDataUpdater));
-            EnsureArg.IsNotNull(storedProcedureInstaller, nameof(storedProcedureInstaller));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(lockFactory, nameof(lockFactory));
@@ -51,7 +49,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Core.Features.Storage.Versioning
         /// </summary>
         public int CollectionSettingsVersion { get; } = 3;
 
-        // TODO: Add a cancellation token parameter, and replace CancellationToken.None with the cancellation token.
         public async Task SetupContainerAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
