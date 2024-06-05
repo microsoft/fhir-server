@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
@@ -20,7 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
             string registryServer,
             bool isDefaultTemplateReference,
             string templateCollectionReference,
-            string rootTemplate)
+            string rootTemplate,
+            bool jsonDeserializationTreatDatesAsStrings = false)
         {
             EnsureArg.IsNotNullOrEmpty(inputData, nameof(inputData));
             EnsureArg.IsNotNull<DataType>(inputDataType, nameof(inputDataType));
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
             IsDefaultTemplateReference = isDefaultTemplateReference;
             TemplateCollectionReference = templateCollectionReference;
             RootTemplate = rootTemplate;
+            JsonDeserializationTreatDatesAsStrings = jsonDeserializationTreatDatesAsStrings;
         }
 
         /// <summary>
@@ -67,5 +70,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         /// Tells the convert engine which root template is used for this conversion call since we have a bunch of templates for different data types.
         /// </summary>
         public string RootTemplate { get; }
+
+        /// <summary>
+        /// Indicates whether the Convert Engine should treat datetime values as .Net strings during deserialization. If false then datetime values may get converted to
+        /// .Net DateTime objects which may lead to formatting issues, or loss of timezone information.
+        /// </summary>
+        public bool JsonDeserializationTreatDatesAsStrings { get; }
     }
 }

@@ -126,7 +126,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 templateProviderFactory,
                 convertProcessorFactory,
                 convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+                new NullLogger<ConvertDataEngine>(),
+                new NullLogger<JsonProcessor>());
 
             IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             authorizationService.CheckAccess(default, default).ReturnsForAnyArgs(DataActions.ConvertData);
