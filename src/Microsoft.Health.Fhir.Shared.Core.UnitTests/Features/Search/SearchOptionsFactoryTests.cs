@@ -557,7 +557,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 Assert.Throws<ResourceNotSupportedException>(() =>
                 {
-                    SearchOptions options = CreateSearchOptions(
+                    _ = CreateSearchOptions(
                         resourceType: resourceType,
                         queryParameters: queryParameters);
                 });
