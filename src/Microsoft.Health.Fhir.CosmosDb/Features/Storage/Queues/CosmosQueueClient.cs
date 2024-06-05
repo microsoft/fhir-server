@@ -578,7 +578,7 @@ public class CosmosQueueClient : IQueueClient
 
     private static long GetLongId()
     {
-        return Clock.UtcNow.DateTime.DateToId() + RandomNumberGenerator.GetInt32(100, 999);
+        return Clock.UtcNow.ToId() + RandomNumberGenerator.GetInt32(100, 999);
     }
 
     /// <summary>

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             BinaryExpression binaryOutput = Assert.IsType<BinaryExpression>(output);
             Assert.Equal(SqlFieldName.ResourceSurrogateId, binaryOutput.FieldName);
             Assert.Equal(expectedOperator, binaryOutput.BinaryOperator);
-            Assert.Equal(DateTimeOffset.Parse(expectedDateTimeOffset), ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated((long)binaryOutput.Value));
+            Assert.Equal(DateTimeOffset.Parse(expectedDateTimeOffset), ((long)binaryOutput.Value).ToLastUpdated());
         }
     }
 }

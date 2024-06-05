@@ -126,7 +126,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             await Mediator.UpsertResourceAsync(patient.ToResourceElement());
 
             await Task.Delay(100); // avoid time -> surrogate id -> time round trip error
-            var till = DateTime.UtcNow;
+            var till = DateTimeOffset.UtcNow;
 
             var results = await _fixture.SearchService.SearchAsync(type, new List<Tuple<string, string>>(), CancellationToken.None);
             Assert.Single(results.Results);
@@ -150,7 +150,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.Empty(results.Results);
 
             // add magic parameters
-            var maxId = till.DateToId();
+            var maxId = till.ToId();
             var range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
@@ -176,7 +176,7 @@ IF (SELECT count(*) FROM EventLog WHERE Process = 'MergeResources' AND Status = 
             Assert.False(resource.IsHistory); // current
 
             // use surr id interval that covers all changes
-            maxId = DateTime.UtcNow.DateToId();
+            maxId = DateTimeOffset.UtcNow.ToId();
             range = (await _fixture.SearchService.GetSurrogateIdRanges(type, 0, maxId, 100, 1, true, CancellationToken.None)).First();
             queryParameters = new[]
             {
