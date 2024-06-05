@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         {
             await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
