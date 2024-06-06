@@ -17,7 +17,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredP
     {
         private readonly IEnumerable<IStoredProcedureMetadata> _storeProceduresMetadata;
 
-        // TODO: refactor constructor to have dependency on container
         public DataPlaneStoredProcedureInstaller(IEnumerable<IStoredProcedureMetadata> storedProcedures)
         {
             EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
@@ -25,7 +24,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Initialization.Features.Storage.StoredP
             _storeProceduresMetadata = storedProcedures;
         }
 
-        // TODO: refactor method to have dependency on IReadOnlyList<Istoredproceduremetada>
         public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             foreach (IStoredProcedureMetadata storedProc in _storeProceduresMetadata)
