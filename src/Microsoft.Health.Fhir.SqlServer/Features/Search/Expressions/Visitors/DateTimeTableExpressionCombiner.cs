@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // expressions that we will apply this change to.
                 // For now, only DateTime expressions are supported, where
                 // there are exactly 2 expressions over the same search parameter.
-                if ((group.Key.Type != ValueSets.SearchParamType.Date) || (group.Count() != 2))
+                if ((group.Key?.Type != ValueSets.SearchParamType.Date) || (group.Count() != 2))
                 {
                     continue;
                 }
