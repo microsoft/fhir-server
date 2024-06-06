@@ -64,8 +64,6 @@ function Set-FhirServerApiUsers {
         Add-Type -AssemblyName System.Web
         $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
 
-        # $passwordSecureString = ConvertTo-SecureString $password -AsPlainText -Force
-
         Set-Secret -Name passwordSecure -Secret $password
         $passwordSecureString = Get-Secret -Name passwordSecure
 
@@ -80,8 +78,6 @@ function Set-FhirServerApiUsers {
 
             $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
         }
-
-        # $upnSecureString = ConvertTo-SecureString -string $userUpn -AsPlainText -Force
 
         Set-Secret -Name upnSecure -Secret $userUpn
         $upnSecureString = Get-Secret -Name upnSecure

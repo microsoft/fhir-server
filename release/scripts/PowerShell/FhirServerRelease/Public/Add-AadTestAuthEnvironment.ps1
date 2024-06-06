@@ -173,16 +173,12 @@ function Add-AadTestAuthEnvironment {
 
             $aadClientApplication = New-FhirServerClientApplicationRegistration -ApiAppId $application.AppId -DisplayName "$displayName" -PublicClient:$publicClient
 
-            # $secretSecureString = ConvertTo-SecureString $aadClientApplication.AppSecret -AsPlainText -Force
-
             Set-Secret -Name secretSecure -Secret $aadClientApplication.AppSecret
             $secretSecureString = Get-Secret -Name secretSecure
         }
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
-
-            # $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
 
             Set-Secret -Name secretSecure -Secret $aadClientApplication.AppSecret
             $secretSecureString = Get-Secret -Name secretSecure
@@ -200,8 +196,6 @@ function Add-AadTestAuthEnvironment {
             displayName = $displayName
             appId       = $aadClientApplication.AppId
         }
-
-        # $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
 
         Set-Secret -Name appIdSecure -Secret $aadClientApplication.AppId | Out-Null
         $appIdSecureString = Get-Secret -Name appIdSecure
