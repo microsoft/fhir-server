@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using DotLiquid;
@@ -109,13 +110,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("2023-07-28T01:59:23.388-05:00", patient.Deceased.ToString());
         }
 
-        [Theory]
-        [InlineData(true, "2023-07-28T01:59:23.388-05:00")]
-        [InlineData(false, "07/27/2023 23:59:23")]
-        public async Task GivenJsonConvertDataRequest_WithTreatDatesAsStringParam_CorrectResultShouldReturn(bool treatDatesAsStrings, string expectedDate)
+        [Fact]
+        public async Task GivenJsonConvertDataRequest_WithTreatDatesAsStringDisabled_CorrectResultShouldReturn()
         {
+            var expectedDate = "2023-07-28T01:59:23.388-05:00";
             var convertDataEngine = GetDefaultEngine();
-            var request = GetJsonRequestWithDefaultTemplates(treatDatesAsStrings);
+            var request = GetJsonRequestWithDefaultTemplates();
             var response = await convertDataEngine.Process(request, CancellationToken.None);
 
             // We do not use the FhirJsonParser as the date returned when not treating dates as strings does not pass validation.
@@ -124,7 +124,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.NotEmpty(node!["id"].ToJsonString());
             Assert.Equal("Smith", node!["name"][0]["family"].ToString());
             Assert.Equal("2001-01-10", node!["birthDate"].ToString());
-            Assert.Equal(expectedDate, node!["deceasedDateTime"].ToString());
+
+            // Newtonsoft converts the provided date to a DateTime object in the local timezone. So we repeat that behavior here
+            Assert.Equal(DateTime.Parse(expectedDate).ToString("G", CultureInfo.InvariantCulture), node!["deceasedDateTime"].ToString());
         }
 
         [Fact]
