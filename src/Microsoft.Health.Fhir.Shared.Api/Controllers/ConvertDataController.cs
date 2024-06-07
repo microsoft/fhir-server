@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ValidateModelState]
     public class ConvertDataController : Controller
     {
+        private static readonly FhirBoolean _defaultFhirBoolean = new FhirBoolean();
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
         private readonly ConvertDataConfiguration _config;
@@ -162,8 +163,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static bool ReadBoolParameter(Parameters parameters, string paramName)
         {
-            var paramValue = parameters.GetSingleValue<FhirBoolean>(paramName);
-            return paramValue == null ? false : paramValue.Value ?? false;
+            var paramValue = parameters.GetSingleValue<FhirBoolean>(paramName) ?? _defaultFhirBoolean;
+            return paramValue.Value ?? false;
         }
 
         private static T ReadEnumParameter<T>(Parameters parameters, string paramName)
