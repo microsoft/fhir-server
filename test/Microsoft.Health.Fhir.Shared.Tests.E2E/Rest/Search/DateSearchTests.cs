@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData("gt1980-05-10", "lt1980-05-12", 3, 4, 5)] // Any dates with end time greater than 1980-05-10 and start time less than 1980-05-12.
+        [InlineData("gt1980-05-10", "lt1980-05-12", 1, 2, 3, 4, 5)] // Any dates with end time greater than 1980-05-10 and start time less than 1980-05-12.
         public async Task GivenTwoDateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue1, string queryValue2, params int[] expectedIndices)
         {
             try
