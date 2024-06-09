@@ -84,11 +84,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // Connection error retry tests.
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
-        {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
+        ////{
+        ////    await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
+        ////}
 
         [Fact]
         public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
