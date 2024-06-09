@@ -84,29 +84,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // Connection error retry tests.
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
-        {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
-        }
-
         ////[Fact]
-        ////public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
+        ////public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
         ////{
-        ////    await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
+        ////    await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
         ////}
 
         [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
+        public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
         {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
+            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
         }
 
         ////[Fact]
-        ////public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
+        ////public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
         ////{
-        ////    await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+        ////    await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
         ////}
+
+        [Fact]
+        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
+        {
+            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+        }
 
         private async Task ExecuteSql(string commandText)
         {
