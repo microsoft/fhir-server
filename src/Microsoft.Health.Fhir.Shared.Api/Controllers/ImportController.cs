@@ -113,7 +113,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.Input,
                  importRequest.StorageDetail,
                  initialLoad ? ImportMode.InitialLoad : ImportMode.IncrementalLoad, // default to incremental mode
-                 HttpContext.RequestAborted);
+                 HttpContext.RequestAborted,
+                 importRequest.AllowNegativeVersions);
 
             var bulkImportResult = ImportResult.Accepted();
             bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
@@ -196,6 +197,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (input == null || input.Count == 0)
             {
                 throw new RequestNotValidException(string.Format(Resources.ImportRequestValueNotValid, nameof(input)));
+            }
+
+            var duplicateInputUrls = input.GroupBy(item => item.Url).Where(group => group.Count() > 1).Select(group => group.Key);
+
+            if (duplicateInputUrls.Any())
+            {
+                var duplicateUrlString = string.Join(", ", duplicateInputUrls);
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestDuplicateInputFiles, duplicateUrlString));
             }
 
             foreach (var item in input)

@@ -5,8 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -52,50 +53,76 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
 
-            CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
-            var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
-
-            await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
-
-            using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic }, source.Token);
-            Assert.NotNull(fhirResponse);
-            Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
-
-            Bundle resource = fhirResponse.Resource;
-
-            Assert.Equal("201", resource.Entry[0].Response.Status);
-
-            // Resources 1, 2 and 3 have the same resource Id.
-            Assert.Equal("200", resource.Entry[1].Response.Status); // PUT
-
-            if (processingLogic == FhirBundleProcessingLogic.Parallel)
+            int attempt = 0;
+            do
             {
-                // Duplicated records. Only one should successed. As the requests are processed in parallel,
-                // it's not possible to pick the one that will be processed.
-                if (resource.Entry[2].Response.Status == "200")
+                try
                 {
-                    Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
-                    Assert.Equal("400", resource.Entry[3].Response.Status); // PATCH (Duplicate)
+                    using CancellationTokenSource source = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+                    var requestBundle = Samples.GetBatchWithDuplicatedItems().ToPoco<Bundle>();
+
+                    await _client.UpdateAsync(requestBundle.Entry[1].Resource as Patient, cancellationToken: source.Token);
+
+                    using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic }, source.Token);
+                    Assert.NotNull(fhirResponse);
+                    Assert.Equal(HttpStatusCode.OK, fhirResponse.StatusCode);
+
+                    Bundle resource = fhirResponse.Resource;
+
+                    Assert.Equal("201", resource.Entry[0].Response.Status);
+
+                    // Resources 1, 2 and 3 have the same resource Id.
+                    Assert.Equal("200", resource.Entry[1].Response.Status); // PUT
+
+                    if (processingLogic == FhirBundleProcessingLogic.Parallel)
+                    {
+                        // Duplicated records. Only one should succeed. As the requests are processed in parallel,
+                        // it's not possible to pick the one that will be processed.
+                        if (resource.Entry[2].Response.Status == "200")
+                        {
+                            Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
+                            Assert.Equal("400", resource.Entry[3].Response.Status); // PATCH (Duplicate)
+                        }
+                        else
+                        {
+                            Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
+                            Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
+                        }
+                    }
+                    else if (processingLogic == FhirBundleProcessingLogic.Sequential)
+                    {
+                        Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
+                        Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
+                    }
+
+                    Assert.Equal("204", resource.Entry[4].Response.Status);
+                    Assert.Equal("204", resource.Entry[5].Response.Status);
+
+                    BundleTestsUtil.ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
+                    Assert.Equal("200", resource.Entry[7].Response.Status);
+                    BundleTestsUtil.ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+
+                    break;
                 }
-                else
+                catch (OperationCanceledException oce) when (oce.InnerException is OperationCanceledException)
                 {
-                    Assert.Equal("400", resource.Entry[2].Response.Status); // PATCH (Duplicate)
-                    Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
+                    if (attempt >= 3)
+                    {
+                        throw;
+                    }
+
+                    if (oce.InnerException.InnerException is IOException ioe && ioe.InnerException is SocketException)
+                    {
+                        // Transient network errors.
+                        attempt++;
+                        continue;
+                    }
+
+                    throw;
                 }
             }
-            else if (processingLogic == FhirBundleProcessingLogic.Sequential)
-            {
-                Assert.Equal("200", resource.Entry[2].Response.Status); // PATCH
-                Assert.Equal("200", resource.Entry[3].Response.Status); // PATCH
-            }
-
-            Assert.Equal("204", resource.Entry[4].Response.Status);
-            Assert.Equal("204", resource.Entry[5].Response.Status);
-
-            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[6].Response.Status, resource.Entry[6].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
-            Assert.Equal("200", resource.Entry[7].Response.Status);
-            BundleTestsUtil.ValidateOperationOutcome(resource.Entry[8].Response.Status, resource.Entry[8].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            while (true);
         }
 
         [Fact]
@@ -158,9 +185,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Category, Categories.Authorization)]
         [InlineData(FhirBundleProcessingLogic.Parallel)]
         [InlineData(FhirBundleProcessingLogic.Sequential)]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned(FhirBundleProcessingLogic processingLogic)
         {
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.ReadOnlyUser);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             using FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle, new FhirBundleOptions() { BundleProcessingLogic = processingLogic });

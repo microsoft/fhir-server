@@ -11,13 +11,19 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Azure;
 using EnsureThat;
+using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.JobManagement;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -26,25 +32,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     public class ImportProcessingJob : IJob
     {
         private const string CancelledErrorMessage = "Import processing job is canceled.";
+        internal const string DefaultCallerAgent = "Microsoft.Health.Fhir.Server";
+        internal const string SurrogateIdsErrorMessage = "Unable to generate internal IDs. If the lastUpdated meta element is provided as input, reduce the number of resources with the same up to millisecond lastUpdated below 10,000.";
 
+        private readonly IMediator _mediator;
+        private readonly IQueueClient _queueClient;
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IImporter _importer;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger<ImportProcessingJob> _logger;
+        private readonly IAuditLogger _auditLogger;
 
         public ImportProcessingJob(
+            IMediator mediator,
+            IQueueClient queueClient,
             IImportResourceLoader importResourceLoader,
             IImporter importer,
             IImportErrorStoreFactory importErrorStoreFactory,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            IAuditLogger auditLogger)
         {
+            _mediator = EnsureArg.IsNotNull(mediator, nameof(mediator));
+            _queueClient = EnsureArg.IsNotNull(queueClient, nameof(queueClient));
             _importResourceLoader = EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             _importer = EnsureArg.IsNotNull(importer, nameof(importer));
             _importErrorStoreFactory = EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
             _contextAccessor = EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _logger = EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory)).CreateLogger<ImportProcessingJob>();
+            _auditLogger = EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
         }
 
         public async Task<string> ExecuteAsync(JobInfo jobInfo, CancellationToken cancellationToken)
@@ -52,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(jobInfo, nameof(jobInfo));
 
             var definition = jobInfo.DeserializeDefinition<ImportProcessingJobDefinition>();
-            var currentResult = new ImportProcessingJobResult();
+            var result = new ImportProcessingJobResult();
 
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
@@ -71,39 +88,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Initialize error store
+                // Design of error writes is too complex. We do not need separate init and writes. Also, it leads to adding duplicate error records on job restart.
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(definition.ResourceType, jobInfo.GroupId, jobInfo.Id), cancellationToken);
-                currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
-                // Load and parse resource from bulk resource
+                // Design of resource loader is too complex. There is no need to have any channel and separate load task.
+                // This design was driven from assumption that worker/processing job deals with entire large file.
+                // This is not true anymore, as worker deals with just small portion of file accessing it by offset.
+                // We should just open reader and walk through all needed records in a single thread.
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(definition.ResourceLocation, definition.Offset, definition.BytesToRead, definition.ResourceType, definition.ImportMode, cancellationToken);
 
                 // Import to data store
-                try
-                {
-                    var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, cancellationToken);
+                var importProgress = await _importer.Import(importResourceChannel, importErrorStore, definition.ImportMode, definition.AllowNegativeVersions, cancellationToken);
 
-                    currentResult.SucceededResources = importProgress.SucceededResources;
-                    currentResult.FailedResources = importProgress.FailedResources;
-                    currentResult.ErrorLogLocation = importErrorStore.ErrorFileLocation;
-                    currentResult.ProcessedBytes = importProgress.ProcessedBytes;
+                result.SucceededResources = importProgress.SucceededResources;
+                result.FailedResources = importProgress.FailedResources;
+                result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
+                result.ProcessedBytes = importProgress.ProcessedBytes;
 
-                    _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, currentResult.SucceededResources, currentResult.FailedResources);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogJobError(ex, jobInfo, "Failed to import data.");
-                    throw;
-                }
+                _logger.LogJobInformation(jobInfo, "Import Job {JobId} progress: succeed {SucceedCount}, failed: {FailedCount}", jobInfo.Id, result.SucceededResources, result.FailedResources);
 
                 try
                 {
                     await loadTask;
-                }
-                catch (TaskCanceledException tce)
-                {
-                    _logger.LogJobWarning(tce, jobInfo, nameof(TaskCanceledException));
-                    throw;
                 }
                 catch (OperationCanceledException oce)
                 {
@@ -113,45 +120,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.Forbidden || ex.Status == (int)HttpStatusCode.Unauthorized)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Due to unauthorized request, import processing operation failed.");
-                    var error = new ImportProcessingJobErrorResult() { Message = "Due to unauthorized request, import processing operation failed." };
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Due to unauthorized request, import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (RequestFailedException ex) when (ex.Status == (int)HttpStatusCode.NotFound)
                 {
                     _logger.LogJobInformation(ex, jobInfo, "Input file deleted, renamed, or moved during job. Import processing operation failed.");
-                    var error = new ImportProcessingJobErrorResult() { Message = "Input file deleted, renamed, or moved during job. Import processing operation failed." };
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Input file deleted, renamed, or moved during job. Import processing operation failed.", HttpStatusCode = HttpStatusCode.BadRequest };
+                    throw new JobExecutionException(ex.Message, error, ex);
+                }
+                catch (IntegrationDataStoreException ex)
+                {
+                    _logger.LogJobWarning(ex, jobInfo, "Failed to access input files.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, HttpStatusCode = ex.StatusCode };
                     throw new JobExecutionException(ex.Message, error, ex);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogJobError(ex, jobInfo, "RetriableJobException. Generic exception. Failed to load data.");
-                    throw new RetriableJobException("Failed to load data", ex);
+                    _logger.LogJobError(ex, jobInfo, "Generic exception. Failed to load data.");
+                    var error = new ImportJobErrorResult() { ErrorMessage = "Generic exception. Failed to load data." };
+                    throw new JobExecutionException(ex.Message, error, ex);
                 }
 
-                jobInfo.Data = currentResult.SucceededResources + currentResult.FailedResources;
-                return JsonConvert.SerializeObject(currentResult);
-            }
-            catch (TaskCanceledException canceledEx)
-            {
-                _logger.LogJobInformation(canceledEx, jobInfo, CancelledErrorMessage);
-                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
-                throw new JobExecutionException(canceledEx.Message, error, canceledEx);
+                jobInfo.Data = result.SucceededResources + result.FailedResources;
+
+                // jobs are small, send on success only
+                await ImportOrchestratorJob.SendNotification(JobStatus.Completed, jobInfo, result.SucceededResources, result.FailedResources, result.ProcessedBytes, definition.ImportMode, fhirRequestContext, _logger, _auditLogger, _mediator);
+
+                return JsonConvert.SerializeObject(result);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogJobInformation(canceledEx, jobInfo, "Import processing operation is canceled.");
-                var error = new ImportProcessingJobErrorResult() { Message = CancelledErrorMessage };
+                var error = new ImportJobErrorResult() { ErrorMessage = CancelledErrorMessage };
                 throw new JobExecutionException(canceledEx.Message, error, canceledEx);
             }
-            catch (RetriableJobException retriableEx)
+            catch (SqlException ex) when (ex.Number == SqlErrorCodes.Conflict)
             {
-                _logger.LogJobInformation(retriableEx, jobInfo, "Error in import processing job.");
-                throw;
+                _logger.LogJobInformation(ex, jobInfo, "Exceeded retries on conflicts. Most likely reason - too many input resources with the same last updated.");
+                var error = new ImportJobErrorResult() { ErrorMessage = SurrogateIdsErrorMessage, HttpStatusCode = HttpStatusCode.BadRequest, ErrorDetails = ex.ToString() };
+                throw new JobExecutionException(ex.Message, error, ex);
             }
             catch (Exception ex)
             {
-                _logger.LogJobInformation(ex, jobInfo, "Critical error in import processing job.");
-                var error = new ImportProcessingJobErrorResult() { Message = ex.Message, Details = ex.ToString() };
+                _logger.LogJobError(ex, jobInfo, "Critical error in import processing job.");
+                var error = new ImportJobErrorResult() { ErrorMessage = ex.Message, ErrorDetails = ex.ToString() };
                 throw new JobExecutionException(ex.Message, error, ex);
             }
         }

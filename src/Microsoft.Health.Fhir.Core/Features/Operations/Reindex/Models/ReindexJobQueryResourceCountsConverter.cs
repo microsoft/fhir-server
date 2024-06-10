@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 {
     /// <summary>
-    /// JsonConverter to handle <see cref="ReindexJobRecord.ResourceCounts"> from the legacy version with ‹string, int› to the current version with ‹string, SearchResultReindex›.
+    /// JsonConverter to handle <see cref="ReindexJobRecord.ResourceCounts" /> from the legacy version with &lt;string, int&gt; to the current version with &lt;string, SearchResultReindex&gt;.
     /// </summary>
     public class ReindexJobQueryResourceCountsConverter : JsonConverter<ConcurrentDictionary<string, SearchResultReindex>>
     {

@@ -7,12 +7,9 @@
     Code1 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     Code2 varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory bit NOT NULL,
     CodeOverflow1 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
     CodeOverflow2 varchar(max) COLLATE Latin1_General_100_CS_AS NULL,
 )
-
-ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT DF_TokenTokenCompositeSearchParam_IsHistory DEFAULT 0 FOR IsHistory
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam ADD CONSTRAINT CHK_TokenTokenCompositeSearchParam_CodeOverflow1 CHECK (LEN(Code1) = 256 OR CodeOverflow1 IS NULL)
 

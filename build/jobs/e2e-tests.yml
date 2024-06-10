@@ -11,7 +11,7 @@ steps:
     parameters:
       version: ${{parameters.version}}
 
-  - task: AzurePowerShell@4
+  - task: AzurePowerShell@5
     displayName: 'Set Variables'
     inputs:
       azureSubscription: $(ConnectedServiceName)
@@ -125,15 +125,15 @@ steps:
       'app_nativeClient_secret': $(app_nativeClient_secret)
       'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
       'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
-      'user_globalAdminUser_id': $(user_globalAdminUser_id)
-      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
-      'user_globalConverterUser_id': $(user_globalConverterUser_id)
-      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
-      'user_globalExporterUser_id': $(user_globalExporterUser_id)
-      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
-      'user_globalImporterUser_id': $(user_globalImporterUser_id)
-      'user_globalImporterUser_secret': $(user_globalImporterUser_secret)
-      'user_globalReaderUser_id': $(user_globalReaderUser_id)
-      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
-      'user_globalWriterUser_id': $(user_globalWriterUser_id)
-      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      'app_globalAdminUserApp_id': $(app_globalAdminUserApp_id)
+      'app_globalAdminUserApp_secret': $(app_globalAdminUserApp_secret)
+      'app_globalConverterUserApp_id': $(app_globalConverterUserApp_id)
+      'app_globalConverterUserApp_secret': $(app_globalConverterUserApp_secret)
+      'app_globalExporterUserApp_id': $(app_globalExporterUserApp_id)
+      'app_globalExporterUserApp_secret': $(app_globalExporterUserApp_secret)
+      'app_globalImporterUserApp_id': $(app_globalImporterUserApp_id)
+      'app_globalImporterUserApp_secret': $(app_globalImporterUserApp_secret)
+      'app_globalReaderUserApp_id': $(app_globalReaderUserApp_id)
+      'app_globalReaderUserApp_secret': $(app_globalReaderUserApp_secret)
+      'app_globalWriterUserApp_id': $(app_globalWriterUserApp_id)
+      'app_globalWriterUserApp_secret': $(app_globalWriterUserApp_secret)

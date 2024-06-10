@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     break;
                 case DeleteOperation.HardDelete:
                 case DeleteOperation.PurgeHistory:
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, cancellationToken));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
@@ -160,8 +160,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                         break;
                     }
 
-                    deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
-                    deleteTasks = deleteTasks.Where((task) => !task.IsCompletedSuccessfully).ToList();
+                    numDeleted += deleteTasks.Where(x => x.IsCompletedSuccessfully).Sum(x => x.Result);
+                    deleteTasks = deleteTasks.Where(task => !task.IsCompletedSuccessfully).ToList();
 
                     if (deleteTasks.Count >= MaxParallelThreads)
                     {
@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             try
             {
                 // We need to wait until all running tasks are cancelled to get a count of resources deleted.
-                Task.WaitAll(deleteTasks.ToArray(), cancellationToken);
+                await Task.WhenAll(deleteTasks);
             }
             catch (AggregateException age) when (age.InnerExceptions.Any(e => e is not TaskCanceledException))
             {
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 _logger.LogError(ex, "Error deleting");
             }
 
-            deleteTasks.Where((task) => task.IsCompletedSuccessfully).ToList().ForEach((Task<long> result) => numDeleted += result.Result);
+            numDeleted += deleteTasks.Where(x => x.IsCompletedSuccessfully).Sum(x => x.Result);
 
             if (deleteTasks.Any((task) => task.IsFaulted || task.IsCanceled))
             {
@@ -230,8 +230,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                             }
                         }
                     });
-                var aggrigateException = new AggregateException(exceptions);
-                throw new IncompleteOperationException<long>(aggrigateException, numDeleted);
+                var aggregateException = new AggregateException(exceptions);
+                throw new IncompleteOperationException<long>(aggregateException, numDeleted);
             }
 
             return numDeleted;
@@ -280,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 // This throws AggrigateExceptions
                 await Parallel.ForEachAsync(resourcesToDelete, cancellationToken, async (item, innerCt) =>
                 {
-                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, innerCt));
+                    await _retryPolicy.ExecuteAsync(async () => await fhirDataStore.Value.HardDeleteAsync(new ResourceKey(item.Resource.ResourceTypeName, item.Resource.ResourceId), request.DeleteOperation == DeleteOperation.PurgeHistory, request.AllowPartialSuccess, innerCt));
                     parallelBag.Add(item.Resource.ResourceId);
                 });
             }

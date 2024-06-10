@@ -14,7 +14,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <summary>
         /// Gets back a resource from a definition file.
         /// </summary>
-        /// <typeparam name="T">The resource type.</typeparam>
         /// <param name="fileName">The JSON filename, omit the extension</param>
         public static Bundle GetDefinition(string fileName)
         {

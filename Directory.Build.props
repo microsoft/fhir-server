@@ -6,7 +6,8 @@
     <Authors>Microsoft Health Team</Authors>
     <Company>Microsoft Corporation</Company>
     <Copyright>Copyright © Microsoft Corporation. All rights reserved.</Copyright>
-    <DebugType>Portable</DebugType>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DebugType>embedded</DebugType>
     <Deterministic>true</Deterministic>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <HighEntropyVA>true</HighEntropyVA>
@@ -16,7 +17,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Product>Microsoft FHIR Server for Azure</Product>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
+    <RepositoryUrl>https://github.com/microsoft/fhir-server</RepositoryUrl>
     <RunSettingsFilePath>$(MSBuildThisFileDirectory)\CodeCoverage.runsettings</RunSettingsFilePath>
     <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
@@ -57,6 +58,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
+    <PackageReference Include="DotNet.ReproducibleBuilds" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
     <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" IncludeAssets="Runtime;Build;Native;contentFiles;Analyzers" />
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)/stylecop.json" Link="stylecop.json" />
   </ItemGroup>

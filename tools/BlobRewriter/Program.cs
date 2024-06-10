@@ -37,7 +37,9 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static readonly bool WritesEnabled = bool.Parse(ConfigurationManager.AppSettings["WritesEnabled"]);
         private static readonly bool SplitBySize = bool.Parse(ConfigurationManager.AppSettings["SplitBySize"]);
         private static readonly string NameFilter = ConfigurationManager.AppSettings["NameFilter"];
+        private static readonly string ExtensionFilter = ConfigurationManager.AppSettings["ExtensionFilter"];
         private static readonly bool AddMeta = bool.Parse(ConfigurationManager.AppSettings["AddMeta"]);
+        private static readonly bool AddVersion = bool.Parse(ConfigurationManager.AppSettings["AddVersion"]);
         private static readonly string BundleType = ConfigurationManager.AppSettings["BundleType"];
         private static readonly bool MultiResourceTypes = bool.Parse(ConfigurationManager.AppSettings["MultiResourceTypes"]);
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             var gPrefix = $"BlobRewriter.Threads={Threads}.Source={SourceContainerName}{(WritesEnabled ? $".Target={TargetContainerName}" : string.Empty)}";
             Console.WriteLine($"{DateTime.UtcNow:s}: {gPrefix}: Starting...");
             var blobs = WritesEnabled
-                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
+                      ? sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase) && _.Name.EndsWith($".{ExtensionFilter}", StringComparison.OrdinalIgnoreCase)).OrderBy(_ => _.Name).Take(SourceBlobs)
                       : sourceContainer.GetBlobs().Where(_ => _.Name.Contains(NameFilter, StringComparison.OrdinalIgnoreCase)).Take(SourceBlobs);
             if (WritesEnabled)
             {
@@ -73,7 +75,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     {
                         var index = batch.Item1;
                         var batchOfLnes = batch.Item2;
-                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/{(string.IsNullOrEmpty(BundleType) ? "Mixed" : "Bundle")}-{index:000000}.{(string.IsNullOrEmpty(BundleType) ? "ndjson" : "json")}");
+                        WriteBatch(targetContainer, batchOfLnes, $"{directory}/{(string.IsNullOrEmpty(BundleType) ? "Mixed" : "Bundle")}-{index:000000}.{(string.IsNullOrEmpty(BundleType) ? "ndjson" : "json")}", blobInt.Item1);
                         Interlocked.Increment(ref targetBlobs);
                         Interlocked.Add(ref totalLines, batchOfLnes.Count);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
@@ -98,8 +100,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     var blob = blobInt.Item2.First();
 
                     var lines = SplitBySize
-                              ? LinesPerBlob == 0 ? CopyBlob(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex) : SplitBlobBySize(sourceContainer, blob.Name, targetContainer, ref targetBlobs)
-                              : SplitBlobByResourceId(sourceContainer, blob.Name, targetContainer, ref targetBlobs);
+                              ? LinesPerBlob == 0 ? CopyBlob(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex) : SplitBlobBySize(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex)
+                              : SplitBlobByResourceId(sourceContainer, blob.Name, targetContainer, ref targetBlobs, blobIndex);
                     Interlocked.Add(ref totalLines, lines);
                     Interlocked.Increment(ref sourceBlobs);
 
@@ -141,7 +143,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             return direct.OrderBy(_ => RandomNumberGenerator.GetInt32((int)1e9)).ToList();
         }
 
-        private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs)
+        private static long SplitBlobByResourceId(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
         {
             var lines = 0L;
             var partitions = new Dictionary<string, List<string>>();
@@ -160,7 +162,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
             foreach (var partitionKey in partitions.Keys)
             {
-                WriteBatch(targetContainer, partitions[partitionKey], GetTargetBlobName(blobName, partitionKey));
+                WriteBatch(targetContainer, partitions[partitionKey], GetTargetBlobName(blobName, partitionKey), blobIndex);
                 Interlocked.Increment(ref targetBlobs);
             }
 
@@ -179,7 +181,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             return firstLetters;
         }
 
-        private static long SplitBlobBySize(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs)
+        private static long SplitBlobBySize(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
         {
             var lines = 0L;
             var batch = new List<string>();
@@ -192,7 +194,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                     batch.Add(line);
                     if (batch.Count == LinesPerBlob)
                     {
-                        WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
+                        WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex), blobIndex);
                         Interlocked.Increment(ref targetBlobs);
                         batch = new List<string>();
                         batchIndex++;
@@ -202,7 +204,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
 
             if (batch.Count > 0)
             {
-                WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex));
+                WriteBatch(targetContainer, batch, GetTargetBlobName(blobName, batchIndex), blobIndex);
                 Interlocked.Increment(ref targetBlobs);
             }
 
@@ -243,6 +245,8 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
         private static long CopyBlob(BlobContainerClient sourceContainer, string blobName, BlobContainerClient targetContainer, ref long targetBlobs, int blobIndex)
         {
             var lines = 0L;
+            var baseDate = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex);
+            var milliseconds = 0;
             using var stream = targetContainer.GetBlockBlobClient(blobName).OpenWrite(true);
             using var writer = new StreamWriter(stream);
             foreach (var line in GetLinesInBlob(sourceContainer, blobName))
@@ -252,9 +256,14 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 {
                     if (AddMeta)
                     {
-                        var date = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex).AddMilliseconds(lines);
+                        if (lines % 10000 == 0)
+                        {
+                            milliseconds++;
+                        }
+
+                        var date = baseDate.AddMilliseconds(lines);
                         var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
-                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{\"versionId\":\"" + seconds + "\",\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
+                        var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
                         writer.WriteLine(lineWithMeta);
                     }
                     else
@@ -304,7 +313,7 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
             return (resourceType, resourceId);
         }
 
-        private static void WriteBatch(BlobContainerClient container, IList<string> batch, string blobName)
+        private static void WriteBatch(BlobContainerClient container, IList<string> batch, string blobName, int blobIndex)
         {
             retry:
             try
@@ -313,9 +322,31 @@ namespace Microsoft.Health.Internal.Fhir.BlobRewriter
                 using var writer = new StreamWriter(stream);
                 if (string.IsNullOrEmpty(BundleType))
                 {
+                    var lines = 0L;
+                    var baseDate = DateTime.UtcNow.AddMinutes(-SourceBlobs).AddMinutes(blobIndex);
+                    var milliseconds = 0;
                     foreach (var line in batch)
                     {
-                        writer.WriteLine(line);
+                        lines++;
+                        if (WritesEnabled)
+                        {
+                            if (AddMeta)
+                            {
+                                if (lines % 10000 == 0)
+                                {
+                                    milliseconds++;
+                                }
+
+                                var date = baseDate.AddMilliseconds(lines);
+                                var seconds = ((int)(date - DateTime.Parse("1970-01-01")).TotalSeconds).ToString();
+                                var lineWithMeta = line.Replace("{\"resourceType\":", "{\"meta\":{" + (AddVersion ? "\"versionId\":\"" + seconds + "\"," : string.Empty) + "\"lastUpdated\":\"" + date.ToString("yyyy-MM-ddTHH:mm:ss.fff") + "\"},\"resourceType\":", StringComparison.OrdinalIgnoreCase);
+                                writer.WriteLine(lineWithMeta);
+                            }
+                            else
+                            {
+                                writer.WriteLine(line);
+                            }
+                        }
                     }
                 }
                 else

@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 
 namespace Microsoft.Health.Fhir.Client
 {
@@ -101,6 +102,11 @@ namespace Microsoft.Health.Fhir.Client
             message.Append("Reason phrase: ").AppendLine(Response.Response.ReasonPhrase ?? "NO_REASON_PHRASE");
             message.Append("Timestamp: ").AppendLine(DateTime.UtcNow.ToString("o"));
             message.Append("Health Check Result: ").Append(HealthCheckResult.ToString()).Append('(').Append((int)HealthCheckResult).AppendLine(")");
+
+            if (Response.Resource != null)
+            {
+                message.Append("OperationOutcome: ").AppendLine(Response.Resource.ToJson());
+            }
 
             if (appendResponseInfo)
             {
