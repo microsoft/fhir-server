@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ISqlConnectionBuilder _sqlConnectionBuilder;
         private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
         private readonly TestQueueClient _queueClient;
-        private static readonly SemaphoreSlim DbSetupSemaphore = new(1);
+        private static readonly SemaphoreSlim DbSetupSemaphore = new(4);
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -61,8 +61,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _dbSetupRetryPolicy = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(
-                    retryCount: 5,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(10));
+                    retryCount: 20,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(3));
         }
 
         internal bool DropDatabase => true;
@@ -75,33 +75,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 async () =>
                 {
                     // Create the database.
-                    using var connection = _sqlConnectionBuilder.GetSqlConnection(_masterDatabaseName, null);
+                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(_masterDatabaseName, null, cancellationToken);
                     await connection.OpenAsync(cancellationToken);
-                    using var command = connection.CreateCommand();
-                    command.CommandTimeout = 200;
+
+                    await using SqlCommand command = connection.CreateCommand();
+                    command.CommandTimeout = 600;
                     command.CommandText = $"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}') CREATE DATABASE {databaseName}";
 
-                    DbSetupSemaphore.Wait(cancellationToken);
+                    ////await DbSetupSemaphore.WaitAsync(cancellationToken);
                     try
                     {
-                        command.ExecuteNonQuery();
+                        await command.ExecuteNonQueryAsync(cancellationToken);
                     }
                     finally
                     {
-                        DbSetupSemaphore.Release();
+                        ////DbSetupSemaphore.Release();
                     }
+
+                    await connection.CloseAsync();
                 });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
+
             await _dbSetupRetryPolicy.ExecuteAsync(
                 async () =>
                 {
-                    using var connection = _sqlConnectionBuilder.GetSqlConnection(databaseName, null);
-                    connection.Open();
-                    using var sqlCommand = connection.CreateCommand();
+                    await using SqlConnection connection = await _sqlConnectionBuilder.GetSqlConnectionAsync(databaseName, null, cancellationToken);
+                    await connection.OpenAsync(cancellationToken);
+                    await using SqlCommand sqlCommand = connection.CreateCommand();
                     sqlCommand.CommandText = "SELECT 1";
-                    sqlCommand.ExecuteScalar();
-                    await Task.CompletedTask;
+                    await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                    await connection.CloseAsync();
                 });
 
             schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
@@ -210,7 +214,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
 
             try
             {
-                await DbSetupSemaphore.WaitAsync(cancellationToken);
+                ////await DbSetupSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     SqlConnection.ClearAllPools();
@@ -226,7 +230,7 @@ INSERT INTO dbo.Parameters (Id,Number) SELECT @LeasePeriodSecId, 10
                 }
                 finally
                 {
-                    DbSetupSemaphore.Release();
+                    ////DbSetupSemaphore.Release();
                 }
             }
             catch (Exception ex)
