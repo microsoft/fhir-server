@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenJsonConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
         {
             var convertDataEngine = GetDefaultEngine();
-            var request = GetJsonRequestWithDefaultTemplates(true);
+            var request = GetJsonRequestWithDefaultTemplates(treatDatesAsStrings: true);
             var response = await convertDataEngine.Process(request, CancellationToken.None);
 
             var setting = new ParserSettings()
