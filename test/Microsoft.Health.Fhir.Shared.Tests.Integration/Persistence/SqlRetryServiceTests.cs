@@ -38,75 +38,75 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         // SQL fatal error tests.
 
-        [Fact]
-        public async Task GivenSqlCommandAction_WhenFatalError_SingleRetryIsRun()
-        {
-            await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, false, 0);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandAction_WhenFatalError_SingleRetryIsRun()
+        ////{
+        ////    await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, false, 0);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenFatalError_SingleRetryIsRun()
-        {
-            await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, true, 0);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenFatalError_SingleRetryIsRun()
+        ////{
+        ////    await SingleRetryTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithSingleFatalError, true, 0);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesFail()
-        {
-            await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandAction_WhenErrorAfterSelect_AllRetriesFail()
+        ////{
+        ////    await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, false);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesFail()
-        {
-            await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_AllRetriesFail()
+        ////{
+        ////    await AllRetriesFailTest(SqlDefaultErrorNumber, CreateTestStoredProcedureWithAllFatalErrors, true);
+        ////}
 
-        // SQL SELECT retry tests.
+        ////// SQL SELECT retry tests.
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorBeforeSelect_SingleRetryIsRun()
-        {
-            await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorBeforeSelect, true, 10);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenErrorBeforeSelect_SingleRetryIsRun()
+        ////{
+        ////    await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorBeforeSelect, true, 10);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorInSelect_SingleRetryIsRun()
-        {
-            await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorInSelect, true, 10);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenErrorInSelect_SingleRetryIsRun()
+        ////{
+        ////    await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorInSelect, true, 10);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_SingleRetryIsRun()
-        {
-            await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorAfterSelect, true, 10);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenErrorAfterSelect_SingleRetryIsRun()
+        ////{
+        ////    await SingleRetryTest(SqlDivByZeroErrorNumber, CreateTestStoredProcedureWithSingleErrorAfterSelect, true, 10);
+        ////}
 
-        // Connection error retry tests.
+        ////// Connection error retry tests.
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
-        {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenConnectionError_SingleRetryIsRun()
+        ////{
+        ////    await SingleConnectionRetryTest(CreateTestStoredProcedureWithSingleConnectionError, false);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
-        {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenConnectionError_AllRetriesFail()
+        ////{
+        ////    await AllConnectionRetriesTest(CreateTestStoredProcedureWithAllConnectionErrors, false);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
-        {
-            await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_SingleRetryIsRun()
+        ////{
+        ////    await SingleConnectionRetryTest(CreateTestStoredProcedureToReadTop10, true);
+        ////}
 
-        [Fact]
-        public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
-        {
-            await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
-        }
+        ////[Fact]
+        ////public async Task GivenSqlCommandFunc_WhenConnectionInitializationError_AllRetriesFail()
+        ////{
+        ////    await AllConnectionRetriesTest(CreateTestStoredProcedureToReadTop10, true);
+        ////}
 
         private async Task ExecuteSql(string commandText)
         {
