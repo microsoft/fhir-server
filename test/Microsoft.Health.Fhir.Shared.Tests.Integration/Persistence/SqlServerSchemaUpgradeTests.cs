@@ -54,8 +54,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            var diffDatabaseName = $"DIFF_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent_Snapshot");
+            var diffDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent_Diff");
 
             SqlServerFhirStorageTestHelper testHelper1 = null;
             SqlServerFhirStorageTestHelper testHelper2 = null;
@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
             finally
             {
-                await (testHelper1?.DeleteDatabase(snapshotDatabaseName) ?? Task.CompletedTask);
-                await (testHelper2?.DeleteDatabase(diffDatabaseName) ?? Task.CompletedTask);
+                await (testHelper1?.DeleteDatabase(snapshotDatabaseName, trueDrop: true) ?? Task.CompletedTask);
+                await (testHelper2?.DeleteDatabase(diffDatabaseName, trueDrop: true) ?? Task.CompletedTask);
             }
         }
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // The schema upgrade scripts starting from v7 were made idempotent.
                 if (version >= 7 && version >= SchemaVersionConstants.MinForUpgrade) // no sense in checking not supported versions
                 {
-                    var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+                    var snapshotDatabaseName = SqlServerFhirStorageTestsFixture.GetDatabaseName("GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed");
 
                     SqlServerFhirStorageTestHelper testHelper = null;
                     SchemaUpgradeRunner upgradeRunner;
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                     finally
                     {
-                        await testHelper.DeleteDatabase(snapshotDatabaseName);
+                        await testHelper.DeleteDatabase(snapshotDatabaseName, trueDrop: true);
                     }
                 }
             });

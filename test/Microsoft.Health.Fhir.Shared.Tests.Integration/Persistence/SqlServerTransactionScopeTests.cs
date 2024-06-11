@@ -20,15 +20,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [Trait(Traits.Category, Categories.DataSourceValidation)]
     [CollectionDefinition("SqlTransactionScopeTests", DisableParallelization = true)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-    public class SqlServerTransactionScopeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    public class SqlServerTransactionScopeTests
     {
         private readonly string _connectionString;
         private SqlServerFhirStorageTestsFixture _fixture;
 
-        public SqlServerTransactionScopeTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerTransactionScopeTests()
         {
-            _connectionString = fixture.TestConnectionString;
-            _fixture = fixture;
+            _fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlServerTransactionScopeTests)));
+            _fixture.InitializeAsync().Wait();
+            _connectionString = _fixture.TestConnectionString;
         }
 
         [Fact]

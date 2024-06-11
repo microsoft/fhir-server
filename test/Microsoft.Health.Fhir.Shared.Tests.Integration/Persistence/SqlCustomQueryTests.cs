@@ -45,7 +45,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [SkippableFact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenASqlQuery_IfAStoredProcExistsWithMatchingHash_ThenStoredProcUsed()
         {
             using var conn = await _fixture.SqlConnectionBuilder.GetSqlConnectionAsync();

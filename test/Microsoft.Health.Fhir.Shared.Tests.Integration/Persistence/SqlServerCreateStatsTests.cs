@@ -28,14 +28,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlServerCreateStatsTests : IClassFixture<FhirStorageTestsFixture>
+    public class SqlServerCreateStatsTests
     {
-        private readonly FhirStorageTestsFixture _fixture;
+        private readonly SqlServerFhirStorageTestsFixture _fixture;
         private readonly ITestOutputHelper _output;
 
-        public SqlServerCreateStatsTests(FhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
+        public SqlServerCreateStatsTests(ITestOutputHelper testOutputHelper)
         {
-            _fixture = fixture;
+            _fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlCustomQueryTests)));
+            _fixture.InitializeAsync().Wait();
             _output = testOutputHelper;
         }
 

@@ -15,12 +15,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.Search)]
-    public class SqlServerMemberMatchTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    public class SqlServerMemberMatchTests
     {
         private readonly string _connectionString;
 
-        public SqlServerMemberMatchTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerMemberMatchTests()
         {
+            var fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlServerTransactionScopeTests)));
+            fixture.InitializeAsync().Wait();
             _connectionString = fixture.TestConnectionString;
         }
 

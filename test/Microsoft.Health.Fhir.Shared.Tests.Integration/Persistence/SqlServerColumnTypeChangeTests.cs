@@ -10,20 +10,23 @@ using System.Linq;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlClient.Server;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlServerColumnTypeChangeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    public class SqlServerColumnTypeChangeTests
     {
         private readonly SqlServerFhirStorageTestsFixture _fixture;
 
-        public SqlServerColumnTypeChangeTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerColumnTypeChangeTests()
         {
-            _fixture = fixture;
+            _fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlServerColumnTypeChangeTests)));
+            _fixture.InitializeAsync().Wait();
         }
 
         [Fact]

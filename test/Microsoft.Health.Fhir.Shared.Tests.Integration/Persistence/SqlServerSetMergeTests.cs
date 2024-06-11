@@ -27,15 +27,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     [Trait(Traits.OwningTeam, OwningTeam.Fhir)]
     [Trait(Traits.Category, Categories.DataSourceValidation)]
-    public class SqlServerSetMergeTests : IClassFixture<SqlServerFhirStorageTestsFixture>
+    public class SqlServerSetMergeTests
     {
         private readonly SqlServerFhirDataStore _store;
         private readonly XUnitLogger<SqlServerSetMergeTests> _logger;
         private readonly FhirJsonSerializer _jsonSerializer;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
-        public SqlServerSetMergeTests(SqlServerFhirStorageTestsFixture fixture, ITestOutputHelper testOutputHelper)
+        public SqlServerSetMergeTests(ITestOutputHelper testOutputHelper)
         {
+            var fixture = new SqlServerFhirStorageTestsFixture(databaseName: SqlServerFhirStorageTestsFixture.GetDatabaseName(nameof(SqlServerSetMergeTests)));
+            fixture.InitializeAsync().Wait();
+
             _store = (SqlServerFhirDataStore)fixture.GetService<IFhirDataStore>();
             _jsonSerializer = new FhirJsonSerializer(null);
             _logger = XUnitLogger<SqlServerSetMergeTests>.Create(testOutputHelper);
