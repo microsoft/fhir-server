@@ -47,7 +47,7 @@
         {
             "name": "jsonDeserializationTreatDatesAsStrings",
             "use": "in",
-            "min": 1,
+            "min": 0,
             "max": "1",
             "documentation": "Used when InputDateType == `Json`. Determines if date time values in the InputData are treated as simple strings when Json deserialization occurs.",
             "type": "boolean"
